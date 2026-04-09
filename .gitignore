@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# pip install -e . artifacts
+*.dist-info/
+
+# NWChem job files (large binaries / scratch)
+*.movecs
+*.db
+*.t1_copy.*
+*.t2_copy.*
+*.zmat
+nwchemaitest/*.out
+nwchemaitest/*.nw
+nwchemaitest/*.log
+nwchemaitest/runner_profiles.local.json
+
+# Logs and temp
+*.log
+/tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Local machine configs (these contain machine-specific paths)
+nwchemaitest/.mcp.json
+nwchemaitest/opencode.json
+nwchemaitest-2/.mcp.json
+nwchemaitest-2/opencode.json
+
+# Large local-only data (not bundled)
+nwchem-docs/
+nwchem-test/train/
+Molcas\ docs/
+molpro\ docs/
+orbitron/
+
+# Exported skills (local Claude artifacts)
+skill-*.json
+
+# OS
+.DS_Store
+Thumbs.db

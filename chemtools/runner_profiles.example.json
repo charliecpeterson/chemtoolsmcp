@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.0",
+  "defaults": {
+    "program": "nwchem",
+    "input_extension": ".nw",
+    "output_extension": ".out",
+    "error_extension": ".err",
+    "scratch_subdir": "scratch",
+    "env": {
+      "NWCHEM_BASIS_LIBRARY": null,
+      "NWCHEM_TOP": null
+    }
+  },
+  "profiles": {
+    "local": {
+      "description": "Direct local execution on a workstation.",
+      "launcher": {
+        "kind": "direct",
+        "command": "nwchem"
+      },
+      "execution": {
+        "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
+        "working_directory": "{job_dir}",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "mpi_ranks": 1,
+        "omp_threads": 1,
+        "memory": null,
+        "walltime": null
+      },
+      "env": {
+        "OMP_NUM_THREADS": "{omp_threads}"
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
+    "local_mpirun": {
+      "description": "Local MPI launch.",
+      "launcher": {
+        "kind": "direct",
+        "command": "mpirun -np {mpi_ranks} nwchem"
+      },
+      "execution": {
+        "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
+        "working_directory": "{job_dir}",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "mpi_ranks": 8,
+        "omp_threads": 1,
+        "memory": null,
+        "walltime": null
+      },
+      "env": {
+        "OMP_NUM_THREADS": "{omp_threads}"
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
+    "slurm_cpu": {
+      "description": "Batch submission through Slurm.",
+      "launcher": {
+        "kind": "scheduler",
+        "submit_command": "sbatch",
+        "status_command": "squeue -j {job_id}",
+        "cancel_command": "scancel {job_id}"
+      },
+      "scheduler": {
+        "system": "slurm",
+        "script_template": "#!/bin/bash\n#SBATCH --job-name={job_name}\n#SBATCH --output={output_file}\n#SBATCH --error={error_file}\n#SBATCH --nodes={nodes}\n#SBATCH --ntasks={mpi_ranks}\n#SBATCH --cpus-per-task={omp_threads}\n#SBATCH --time={walltime}\n#SBATCH --partition={partition}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\nsrun nwchem {input_file}\n",
+        "submit_script_name": "{job_name}.slurm"
+      },
+      "resources": {
+        "nodes": 1,
+        "mpi_ranks": 16,
+        "omp_threads": 1,
+        "walltime": "24:00:00",
+        "partition": "compute",
+        "memory": null
+      },
+      "modules": {
+        "purge_first": true,
+        "load": [
+          "nwchem"
+        ]
+      },
+      "env": {},
+      "hooks": {
+        "pre_run": [],
+        "post_run": []
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
+    "pbs_cpu": {
+      "description": "Batch submission through PBS/Torque.",
+      "launcher": {
+        "kind": "scheduler",
+        "submit_command": "qsub",
+        "status_command": "qstat {job_id}",
+        "cancel_command": "qdel {job_id}"
+      },
+      "scheduler": {
+        "system": "pbs",
+        "script_template": "#!/bin/bash\n#PBS -N {job_name}\n#PBS -o {output_file}\n#PBS -e {error_file}\n#PBS -l walltime={walltime}\n#PBS -l select={nodes}:ncpus={mpi_ranks}:mpiprocs={mpi_ranks}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\nmpirun -np {mpi_ranks} nwchem {input_file}\n",
+        "submit_script_name": "{job_name}.pbs"
+      },
+      "resources": {
+        "nodes": 1,
+        "mpi_ranks": 16,
+        "omp_threads": 1,
+        "walltime": "24:00:00",
+        "memory": null
+      },
+      "modules": {
+        "purge_first": true,
+        "load": [
+          "nwchem"
+        ]
+      },
+      "env": {},
+      "hooks": {
+        "pre_run": [],
+        "post_run": []
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    }
+  }
+}

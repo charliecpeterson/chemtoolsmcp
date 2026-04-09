@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "case_id": "nwchem_example_case_001",
+  "program": "nwchem",
+  "program_version": null,
+  "workflow_type": "opt_freq",
+  "status": "failed",
+  "summary": "Short description of what happened.",
+  "system": {
+    "formula": null,
+    "charge": null,
+    "multiplicity": null,
+    "expected_state": null,
+    "method": null,
+    "basis": null
+  },
+  "files": {
+    "primary_input": "failed.nw",
+    "primary_output": "failed.out",
+    "related_inputs": [],
+    "related_outputs": [],
+    "artifacts": []
+  },
+  "diagnosis": {
+    "failure_class": "other",
+    "root_cause": "Explain the real reason here.",
+    "secondary_causes": [],
+    "silent_failure": false,
+    "stage": "other",
+    "confidence": "medium",
+    "why_not_just_more_iterations": null
+  },
+  "evidence": [
+    {
+      "kind": "output_line",
+      "detail": "Quote or paraphrase the critical line from the output.",
+      "line_hint": null,
+      "section_hint": null
+    }
+  ],
+  "analysis_checks": {
+    "scf_convergence_assessment": null,
+    "state_assessment": null,
+    "somo_assessment": null,
+    "imaginary_mode_assessment": null,
+    "restart_strategy_assessment": null
+  },
+  "eval_expectations": {
+    "diagnosis_failure_class": null,
+    "diagnosis_stage": null,
+    "recommended_next_action": null,
+    "workflow": null,
+    "can_auto_prepare": null
+  },
+  "bad_fixes_to_avoid": [],
+  "recommended_next_steps": [
+    {
+      "action": "Describe the next input or workflow change.",
+      "reason": "Why this is the right next move.",
+      "priority": 1
+    }
+  ],
+  "applied_fix": null,
+  "outcome_after_fix": null,
+  "user_style_notes": [],
+  "tags": []
+}

@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/chemtools/case_schema.json",
+  "title": "Chemtools Training Case",
+  "description": "Structured case record for chemistry workflow training, diagnosis, and evaluation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "program",
+    "status",
+    "summary",
+    "files",
+    "diagnosis",
+    "recommended_next_steps"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "case_id": {
+      "type": "string",
+      "description": "Stable identifier such as nwchem_hexaaquairon_wrong_state_001."
+    },
+    "program": {
+      "type": "string",
+      "enum": [
+        "nwchem",
+        "molpro",
+        "molcas",
+        "dirac",
+        "other"
+      ]
+    },
+    "program_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workflow_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "single_point",
+        "optimization",
+        "frequency",
+        "opt_freq",
+        "property",
+        "population",
+        "excited_state",
+        "scan",
+        "restart",
+        "other",
+        null
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "failed",
+        "interrupted",
+        "silent_wrong_state",
+        "partial_success"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short human summary of what happened."
+    },
+    "system": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "formula": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "charge": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "multiplicity": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_input",
+        "primary_output"
+      ],
+      "properties": {
+        "primary_input": {
+          "type": "string"
+        },
+        "primary_output": {
+          "type": "string"
+        },
+        "related_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "related_outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "diagnosis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failure_class",
+        "root_cause",
+        "confidence"
+      ],
+      "properties": {
+        "failure_class": {
+          "type": "string",
+          "enum": [
+            "none",
+            "scf_nonconvergence",
+            "wrong_electronic_state",
+            "wrong_spin_state",
+            "wrong_orbital_occupation",
+            "optimization_saddle_point",
+            "imaginary_frequency",
+            "bad_initial_guess",
+            "near_degeneracy",
+            "basis_or_ecp_issue",
+            "geometry_problem",
+            "runtime_resource_issue",
+            "walltime_interrupt",
+            "restart_or_movecs_issue",
+            "input_syntax_issue",
+            "other"
+          ]
+        },
+        "root_cause": {
+          "type": "string"
+        },
+        "secondary_causes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "silent_failure": {
+          "type": "boolean",
+          "default": false
+        },
+        "stage": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "input",
+            "scf",
+            "dft",
+            "optimization",
+            "frequency",
+            "population",
+            "property",
+            "post_processing",
+            "scheduler",
+            "other",
+            null
+          ]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "why_not_just_more_iterations": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "detail"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "output_line",
+              "mo_analysis",
+              "scf_trend",
+              "frequency_pattern",
+              "trajectory_pattern",
+              "population_analysis",
+              "energy_comparison",
+              "scheduler_event",
+              "user_judgment",
+              "other"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "line_hint": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "section_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "analysis_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scf_convergence_assessment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state_assessment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "somo_assessment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "imaginary_mode_assessment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "restart_strategy_assessment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "eval_expectations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "diagnosis_failure_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "diagnosis_stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recommended_next_action": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workflow": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "can_auto_prepare": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "bad_fixes_to_avoid": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "recommended_next_steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        }
+      }
+    },
+    "applied_fix": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "input_changes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "followup_input": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "followup_output": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "outcome_after_fix": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "improved",
+            "resolved",
+            "unchanged",
+            "regressed",
+            "not_tested"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "energy_change_kcal_mol": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "user_style_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  }
+}

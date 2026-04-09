@@ -1,0 +1,140 @@
+schema_version: "1.0"
+
+defaults:
+  program: "nwchem"
+  input_extension: ".nw"
+  output_extension: ".out"
+  error_extension: ".err"
+  scratch_subdir: "scratch"
+  env:
+    NWCHEM_BASIS_LIBRARY: null
+    NWCHEM_TOP: null
+
+profiles:
+  local:
+    description: "Direct local execution on a workstation."
+    launcher:
+      kind: "direct"
+      command: "nwchem"
+    execution:
+      command_template: "{launcher} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+    resources:
+      mpi_ranks: 1
+      omp_threads: 1
+      memory: null
+      walltime: null
+    env:
+      OMP_NUM_THREADS: "{omp_threads}"
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  local_mpirun:
+    description: "Local MPI launch."
+    launcher:
+      kind: "direct"
+      command: "mpirun -np {mpi_ranks} nwchem"
+    execution:
+      command_template: "{launcher} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+    resources:
+      mpi_ranks: 8
+      omp_threads: 1
+      memory: null
+      walltime: null
+    env:
+      OMP_NUM_THREADS: "{omp_threads}"
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  slurm_cpu:
+    description: "Batch submission through Slurm."
+    launcher:
+      kind: "scheduler"
+      submit_command: "sbatch"
+      status_command: "squeue -j {job_id}"
+      cancel_command: "scancel {job_id}"
+    scheduler:
+      system: "slurm"
+      script_template: |
+        #!/bin/bash
+        #SBATCH --job-name={job_name}
+        #SBATCH --output={output_file}
+        #SBATCH --error={error_file}
+        #SBATCH --nodes={nodes}
+        #SBATCH --ntasks={mpi_ranks}
+        #SBATCH --cpus-per-task={omp_threads}
+        #SBATCH --time={walltime}
+        #SBATCH --partition={partition}
+        {module_block}
+        cd {job_dir}
+        export OMP_NUM_THREADS={omp_threads}
+        {pre_run_block}
+        srun nwchem {input_file}
+      submit_script_name: "{job_name}.slurm"
+    resources:
+      nodes: 1
+      mpi_ranks: 16
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "compute"
+      memory: null
+    modules:
+      purge_first: true
+      load:
+        - "nwchem"
+    env: {}
+    hooks:
+      pre_run: []
+      post_run: []
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  pbs_cpu:
+    description: "Batch submission through PBS/Torque."
+    launcher:
+      kind: "scheduler"
+      submit_command: "qsub"
+      status_command: "qstat {job_id}"
+      cancel_command: "qdel {job_id}"
+    scheduler:
+      system: "pbs"
+      script_template: |
+        #!/bin/bash
+        #PBS -N {job_name}
+        #PBS -o {output_file}
+        #PBS -e {error_file}
+        #PBS -l walltime={walltime}
+        #PBS -l select={nodes}:ncpus={mpi_ranks}:mpiprocs={mpi_ranks}
+        {module_block}
+        cd {job_dir}
+        export OMP_NUM_THREADS={omp_threads}
+        {pre_run_block}
+        mpirun -np {mpi_ranks} nwchem {input_file}
+      submit_script_name: "{job_name}.pbs"
+    resources:
+      nodes: 1
+      mpi_ranks: 16
+      omp_threads: 1
+      walltime: "24:00:00"
+      memory: null
+    modules:
+      purge_first: true
+      load:
+        - "nwchem"
+    env: {}
+    hooks:
+      pre_run: []
+      post_run: []
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"

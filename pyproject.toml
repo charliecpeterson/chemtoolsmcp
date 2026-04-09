@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chemtools-mcp"
+version = "0.1.0"
+description = "AI agent toolkit for computational chemistry — MCP servers for NWChem and more"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+]
+
+[project.urls]
+Repository = "https://github.com/charliecpeterson/chemtoolsmcp"
+Issues     = "https://github.com/charliecpeterson/chemtoolsmcp/issues"
+
+[project.scripts]
+chemtools-nwchem      = "chemtools.mcp.nwchem:main"
+chemtools-nwchem-docs = "chemtools.mcp.nwchem_docs:main"
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["chemtools*"]
+
+[tool.setuptools.package-data]
+# Bundle all per-program data (basis libraries, etc.) with the package
+chemtools = ["data/**/*"]
