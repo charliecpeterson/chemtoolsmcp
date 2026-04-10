@@ -769,12 +769,12 @@ def suggest_nwchem_state_recovery_strategy(
 # TCE helpers for summarize_nwchem_case
 # ---------------------------------------------------------------------------
 
-def _try_parse_tce(output_path: str) -> "dict[str, Any] | None":
+def _try_parse_tce(output_path: str, _contents: str | None = None) -> "dict[str, Any] | None":
     """Return parse_tce_output result if the file contains a TCE section, else None."""
     try:
         from .common import read_text
         from .nwchem_tce import parse_tce_output as _parse_tce_output
-        contents = read_text(output_path)
+        contents = _contents if _contents is not None else read_text(output_path)
         result = _parse_tce_output(output_path, contents)
         if result.get("tce_sections"):
             return result
@@ -964,9 +964,13 @@ def summarize_nwchem_case(
 ) -> dict[str, Any]:
     # Lazy import to break circular dependency with api_input
     from .api_input import prepare_nwchem_next_step, lint_nwchem_input, find_restart_assets
+    from .common import read_text
+
+    # Read the output file once — reused by all downstream parsers to avoid redundant I/O
+    output_contents = read_text(output_path)
 
     # Detect TCE early — drives what we skip and what we add below
-    tce = _try_parse_tce(output_path)
+    tce = _try_parse_tce(output_path, _contents=output_contents)
     is_tce = tce is not None
 
     # Try amplitude diagnostics (only present if save_t was set)
@@ -986,6 +990,7 @@ def summarize_nwchem_case(
         expected_metal_elements=expected_metal_elements,
         expected_somo_count=expected_somo_count,
         detail_level="full",
+        _contents=output_contents,
     )
     next_step = prepare_nwchem_next_step(
         output_path=output_path,
@@ -997,6 +1002,12 @@ def summarize_nwchem_case(
         write_files=False,
         _precomputed_summary=summary,
     )
+    # Strip full input_text from prepared_artifacts — reduces response by 2-10 KB.
+    # Callers who need the draft input should call the drafter tools directly with write_file=True.
+    for artifact in next_step.get("prepared_artifacts", {}).values():
+        artifact.pop("input_text", None)
+        artifact.pop("plus_input_text", None)
+        artifact.pop("minus_input_text", None)
     lint = lint_nwchem_input(input_path, library_path=library_path) if input_path else None
     assets = find_restart_assets(input_path or output_path)
     # Spin/state check is only meaningful for SCF/DFT runs where frontier MOs are printed.
@@ -2054,4 +2065,368 @@ def check_nwchem_freq_plausibility(
             "zpe_per_atom_kcal_mol": round(zpe_per_atom, 2) if zpe_per_atom is not None else None,
         },
         "missing_xh_stretches": missing_xh,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Spin state advisor
+# ---------------------------------------------------------------------------
+
+# d-block TMs: element → (Z, noble-gas core electrons)
+_TM_Z_CORE: dict[str, tuple[int, int]] = {
+    "Sc": (21, 18), "Ti": (22, 18), "V": (23, 18), "Cr": (24, 18),
+    "Mn": (25, 18), "Fe": (26, 18), "Co": (27, 18), "Ni": (28, 18),
+    "Cu": (29, 18), "Zn": (30, 18),
+    "Y": (39, 36), "Zr": (40, 36), "Nb": (41, 36), "Mo": (42, 36),
+    "Tc": (43, 36), "Ru": (44, 36), "Rh": (45, 36), "Pd": (46, 36),
+    "Ag": (47, 36), "Cd": (48, 36),
+    "Hf": (72, 68), "Ta": (73, 68), "W": (74, 68), "Re": (75, 68),
+    "Os": (76, 68), "Ir": (77, 68), "Pt": (78, 68), "Au": (79, 68), "Hg": (80, 68),
+}
+
+# Common oxidation states ordered by frequency
+_TM_COMMON_OX: dict[str, list[int]] = {
+    "Sc": [3], "Ti": [4, 3, 2], "V": [3, 4, 5, 2], "Cr": [3, 2, 6],
+    "Mn": [2, 3, 4, 7], "Fe": [2, 3, 4], "Co": [2, 3], "Ni": [2, 3],
+    "Cu": [1, 2], "Zn": [2],
+    "Y": [3], "Zr": [4, 3], "Nb": [5, 3, 4], "Mo": [4, 5, 6, 3],
+    "Tc": [4, 7], "Ru": [2, 3, 4], "Rh": [3, 2], "Pd": [2, 4],
+    "Ag": [1, 2], "Cd": [2],
+    "Hf": [4], "Ta": [5, 3], "W": [4, 6, 3], "Re": [3, 4, 7],
+    "Os": [4, 2, 3], "Ir": [3, 4], "Pt": [2, 4], "Au": [1, 3], "Hg": [2, 1],
+}
+
+# Hund high-spin vs strong-field low-spin unpaired electrons for d0..d10
+_D_HS_UNPAIRED = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]
+_D_LS_UNPAIRED = [0, 1, 2, 1, 0, 1, 0, 1, 2, 1, 0]
+
+# Ligand elements that imply weak vs strong crystal field
+_WEAK_FIELD_ELEMENTS = {"F", "Cl", "Br", "I", "O", "S", "Se", "Te"}
+_STRONG_FIELD_ELEMENTS = {"C", "N", "P"}
+
+
+def _d_count_for_ox(element: str, oxidation_state: int) -> int | None:
+    tm = _TM_Z_CORE.get(element)
+    if tm is None:
+        return None
+    z, core = tm
+    d = z - core - oxidation_state
+    return d if 0 <= d <= 10 else None
+
+
+def suggest_spin_state(
+    elements: list[str],
+    charge: int = 0,
+    metal_oxidation_states: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Suggest likely spin multiplicities for a molecule given elements and charge.
+
+    For transition-metal systems this computes d-electron counts and returns
+    high-spin (Hund) and low-spin (strong-field octahedral) multiplicity
+    candidates with plain-language explanations.
+
+    Args:
+        elements: All element symbols in the molecule (duplicates OK, e.g. ['Fe', 'Cl', 'Cl']).
+        charge: Total molecular charge.
+        metal_oxidation_states: Optional dict mapping metal symbol to formal oxidation state,
+            e.g. {'Fe': 2}.  When omitted, common oxidation states for each metal are enumerated.
+
+    Returns dict with 'recommended_multiplicity', 'metal_analyses', and 'summary'.
+    """
+    norm = [e[0].upper() + e[1:].lower() for e in elements]
+    unique_elements = list(dict.fromkeys(norm))
+    metal_elements = [e for e in unique_elements if e in _TRANSITION_METALS]
+    ligand_elements = [e for e in unique_elements if e not in _TRANSITION_METALS]
+
+    has_strong_field = any(e in _STRONG_FIELD_ELEMENTS for e in ligand_elements)
+    has_weak_field = any(e in _WEAK_FIELD_ELEMENTS for e in ligand_elements)
+
+    metal_analyses: list[dict[str, Any]] = []
+
+    for metal in metal_elements:
+        if metal_oxidation_states and metal in metal_oxidation_states:
+            ox_list = [metal_oxidation_states[metal]]
+            ox_source = "provided"
+        else:
+            ox_list = _TM_COMMON_OX.get(metal, [2, 3])
+            ox_source = "common_states"
+
+        ox_analyses = []
+        for ox in ox_list:
+            d = _d_count_for_ox(metal, ox)
+            if d is None:
+                continue
+            hs_u = _D_HS_UNPAIRED[d]
+            ls_u = _D_LS_UNPAIRED[d]
+            hs_mult = hs_u + 1
+            ls_mult = ls_u + 1
+            spin_states = [{"spin_state": "high-spin", "multiplicity": hs_mult, "unpaired": hs_u, "d_count": d}]
+            if ls_mult != hs_mult:
+                spin_states.append({"spin_state": "low-spin", "multiplicity": ls_mult, "unpaired": ls_u, "d_count": d})
+
+            if len(spin_states) == 1:
+                rec_idx, rec_reason = 0, "only one possible spin state for d%d" % d
+            elif has_strong_field and not has_weak_field:
+                rec_idx, rec_reason = 1, "strong-field ligands (C/N/P donors) favor low-spin"
+            elif has_weak_field and not has_strong_field:
+                rec_idx, rec_reason = 0, "weak-field ligands (halide/chalcogenide) favor high-spin"
+            else:
+                rec_idx, rec_reason = 0, "defaulting to high-spin (Hund's rule); verify ligand field"
+
+            ox_analyses.append({
+                "oxidation_state": ox,
+                "oxidation_state_source": ox_source,
+                "d_count": d,
+                "spin_states": spin_states,
+                "recommended_spin_state": spin_states[rec_idx]["spin_state"],
+                "recommended_multiplicity": spin_states[rec_idx]["multiplicity"],
+                "recommendation_reason": rec_reason,
+            })
+
+        metal_analyses.append({"element": metal, "oxidation_state_analyses": ox_analyses})
+
+    # Non-TM case: infer from total electron count
+    if not metal_elements:
+        total_e = sum(ELEMENT_TO_Z.get(e, 0) for e in norm) - charge
+        rec_mult = 2 if total_e % 2 == 1 else 1
+        return {
+            "elements": unique_elements,
+            "charge": charge,
+            "has_transition_metals": False,
+            "total_electrons": total_e,
+            "recommended_multiplicity": rec_mult,
+            "metal_analyses": [],
+            "summary": (
+                f"No transition metals. Total electrons: {total_e}. "
+                f"Recommended multiplicity: {rec_mult} "
+                f"({'doublet' if rec_mult == 2 else 'singlet'})."
+            ),
+        }
+
+    # Derive overall recommendation from first metal / first (most common) ox state
+    rec_mult: int | None = None
+    rec_spin: str | None = None
+    if metal_analyses and metal_analyses[0]["oxidation_state_analyses"]:
+        first_ox = metal_analyses[0]["oxidation_state_analyses"][0]
+        rec_mult = first_ox["recommended_multiplicity"]
+        rec_spin = first_ox["recommended_spin_state"]
+
+    summary_lines = []
+    for ma in metal_analyses:
+        for oa in ma["oxidation_state_analyses"]:
+            mults = ", ".join(f"{s['spin_state']}=mult{s['multiplicity']}" for s in oa["spin_states"])
+            summary_lines.append(
+                f"{ma['element']}({oa['oxidation_state']:+d}) d{oa['d_count']}: {mults}"
+                f" → recommended {oa['recommended_spin_state']} (mult={oa['recommended_multiplicity']},"
+                f" nopen={oa['recommended_multiplicity'] - 1})"
+            )
+
+    return {
+        "elements": unique_elements,
+        "charge": charge,
+        "has_transition_metals": True,
+        "metal_elements": metal_elements,
+        "ligand_elements": ligand_elements,
+        "ligand_field_hints": {"has_strong_field": has_strong_field, "has_weak_field": has_weak_field},
+        "metal_analyses": metal_analyses,
+        "recommended_multiplicity": rec_mult,
+        "recommended_spin_state": rec_spin,
+        "recommended_nopen": (rec_mult - 1) if rec_mult is not None else None,
+        "summary": "\n".join(summary_lines) if summary_lines else "No analysis available.",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Basis set advisor
+# ---------------------------------------------------------------------------
+
+def suggest_basis_set(
+    elements: list[str],
+    purpose: str = "geometry",
+    library_path: str | None = None,
+) -> dict[str, Any]:
+    """Suggest an appropriate basis set (and ECP when needed) for a molecule.
+
+    Args:
+        elements: Element symbols present in the molecule.
+        purpose: One of "geometry" (fast opt), "single_point" (DFT energy),
+                 "correlated" (MP2/CCSD), or "heavy_elements" (post-Kr metals).
+        library_path: Optional path to basis library (used only for validation note).
+
+    Returns dict with 'basis_assignments', 'ecp_assignments', 'recommended_basis',
+    and 'notes' ready to pass to create_nwchem_input.
+    """
+    norm = list(dict.fromkeys(e[0].upper() + e[1:].lower() for e in elements))
+    heavy = [e for e in norm if ELEMENT_TO_Z.get(e, 0) > 36]
+    has_heavy = bool(heavy)
+    has_tm = any(e in _TRANSITION_METALS for e in norm)
+    has_lanthanides = any(57 <= ELEMENT_TO_Z.get(e, 0) <= 71 for e in norm)
+
+    p = purpose.strip().lower()
+
+    if p in ("geometry", "opt", "optimization"):
+        basis = "def2-svp"
+        ecp = "def2-ecp" if has_heavy else None
+        explanation = (
+            "def2-SVP for geometry optimization — balanced speed and accuracy. "
+            + ("def2-ECP applied to heavy elements (Z>36). " if has_heavy else "")
+        )
+        alternatives = ["def2-tzvp", "6-31gs"]
+    elif p in ("single_point", "sp", "energy", "dft"):
+        basis = "def2-tzvp"
+        ecp = "def2-ecp" if has_heavy else None
+        explanation = (
+            "def2-TZVP for production DFT single-point energies. "
+            + ("def2-ECP for heavy elements (Z>36). " if has_heavy else "")
+        )
+        alternatives = ["def2-svp", "cc-pvtz"]
+    elif p in ("correlated", "ccsd", "mp2", "post-hf", "wft"):
+        if has_heavy or has_tm:
+            basis = "def2-tzvp"
+            ecp = "def2-ecp" if has_heavy else None
+            explanation = (
+                "def2-TZVP for correlated calculations with transition metals. "
+                + ("def2-ECP for heavy elements. " if has_heavy else "")
+                + "For pure main-group systems, cc-pVTZ is preferred."
+            )
+            alternatives = ["cc-pvtz", "def2-svp"]
+        else:
+            basis = "cc-pvtz"
+            ecp = None
+            explanation = (
+                "cc-pVTZ for correlated methods (MP2, CCSD, CCSD(T)) on main-group elements. "
+                "Designed for systematic basis-set convergence."
+            )
+            alternatives = ["cc-pvdz", "aug-cc-pvtz", "def2-tzvp"]
+    elif p in ("heavy", "heavy_elements", "lanthanides", "actinides"):
+        basis = "def2-tzvp"
+        ecp = "def2-ecp"
+        explanation = "def2-TZVP + Stuttgart def2-ECP for relativistic treatment of heavy elements."
+        if has_lanthanides:
+            explanation += " Note: lanthanides may need dedicated f-basis (e.g. ano-rcc or cc-pVTZ-PP)."
+        alternatives = ["def2-svp", "crenbl"]
+    else:
+        basis = "def2-svp"
+        ecp = "def2-ecp" if has_heavy else None
+        explanation = f"Unknown purpose '{purpose}'; defaulting to def2-SVP."
+        alternatives = ["def2-tzvp"]
+
+    basis_assignments = {e: basis for e in norm}
+    ecp_assignments: dict[str, str] | None = None
+    if ecp:
+        ecp_assignments = {e: ecp for e in heavy}
+        if not ecp_assignments:
+            ecp_assignments = None
+
+    return {
+        "elements": norm,
+        "purpose": p,
+        "has_heavy_elements": has_heavy,
+        "has_transition_metals": has_tm,
+        "recommended_basis": basis,
+        "recommended_ecp": ecp,
+        "explanation": explanation.strip(),
+        "alternatives": alternatives,
+        "basis_assignments": basis_assignments,
+        "ecp_assignments": ecp_assignments,
+        "usage_note": (
+            "Pass basis_assignments (and ecp_assignments if not None) directly to "
+            "create_nwchem_input or create_nwchem_dft_workflow_input."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Memory advisor
+# ---------------------------------------------------------------------------
+
+_BASIS_SCALE: dict[str, float] = {
+    "sto-3g": 0.3, "sto": 0.3,
+    "3-21g": 0.5, "3-21": 0.5,
+    "6-31g": 1.0, "6-31gs": 1.0, "6-31gss": 1.2, "6-311g": 1.5,
+    "svp": 1.0, "def2-svp": 1.0, "def2-svpp": 1.2,
+    "tzvp": 2.5, "def2-tzvp": 2.5, "def2-tzvpp": 3.0,
+    "qzvp": 6.0, "def2-qzvp": 6.0,
+    "pvdz": 1.0, "cc-pvdz": 1.0, "aug-cc-pvdz": 1.4,
+    "pvtz": 2.5, "cc-pvtz": 2.5, "aug-cc-pvtz": 3.5,
+    "pvqz": 6.0, "cc-pvqz": 6.0,
+}
+
+
+def _basis_scale(basis: str) -> float:
+    b = basis.strip().lower()
+    if b in _BASIS_SCALE:
+        return _BASIS_SCALE[b]
+    for key, scale in sorted(_BASIS_SCALE.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if key in b:
+            return scale
+    return 1.5
+
+
+def suggest_memory(
+    n_atoms: int,
+    basis: str,
+    method: str,
+    n_heavy_atoms: int | None = None,
+) -> dict[str, Any]:
+    """Suggest NWChem memory settings for a calculation.
+
+    Returns a memory string ready for NWChem's ``memory`` directive.
+
+    Args:
+        n_atoms: Total number of atoms.
+        basis: Basis set name (used to scale memory estimate).
+        method: Computational method: "scf", "dft", "mp2", "ccsd", "ccsd(t)".
+        n_heavy_atoms: Number of non-hydrogen atoms (optional; uses n_atoms if omitted).
+
+    Returns dict with 'nwchem_directive' and 'memory_string'.
+    """
+    eff = n_heavy_atoms if n_heavy_atoms is not None else n_atoms
+    scale = _basis_scale(basis)
+    m = method.strip().lower()
+
+    # Estimated basis functions: ~15 per heavy atom at double-zeta baseline
+    n_bf = max(10, int(eff * 15 * scale))
+
+    # SCF/DFT: dominated by Fock matrix + AO integrals
+    fock_mb = max(64, int(8 * n_bf ** 2 / 1e6))
+
+    if m in ("scf", "dft", "hf", "rhf", "rohf", "uhf"):
+        total_mb = max(500, fock_mb * 4)
+    elif m == "mp2":
+        n_occ = max(1, eff * 2)
+        n_virt = max(1, n_bf - n_occ)
+        t2_mb = max(256, int(8 * (n_occ * n_virt) ** 2 / 1e6 / 4))
+        total_mb = max(1000, fock_mb * 2 + t2_mb * 3)
+    elif m in ("ccsd", "ccsd(t)", "tce"):
+        n_occ = max(1, eff * 2)
+        n_virt = max(1, n_bf - n_occ)
+        t2_mb = max(256, int(8 * (n_occ * n_virt) ** 2 / 1e6 / 4))
+        total_mb = max(2000, fock_mb * 2 + t2_mb * 6)
+    else:
+        total_mb = max(1000, fock_mb * 4)
+
+    # Round to nearest 500 mb, cap at 128 GB
+    total_mb = min(((total_mb + 499) // 500) * 500, 128 * 1024)
+
+    heap_mb = max(128, total_mb // 4)
+    stack_mb = max(128, total_mb // 6)
+    global_mb = max(256, total_mb - heap_mb - stack_mb)
+
+    memory_string = f"total {total_mb} mb stack {stack_mb} mb heap {heap_mb} mb global {global_mb} mb"
+
+    return {
+        "n_atoms": n_atoms,
+        "n_heavy_atoms": eff,
+        "basis": basis,
+        "method": m,
+        "basis_scale_factor": scale,
+        "estimated_basis_functions": n_bf,
+        "recommended_total_mb": total_mb,
+        "memory_string": memory_string,
+        "nwchem_directive": f"memory {memory_string}",
+        "notes": (
+            "Estimates are heuristic. Increase if NWChem aborts with out-of-memory errors. "
+            "For CCSD(T) memory is the dominant bottleneck — more is always better."
+        ),
     }

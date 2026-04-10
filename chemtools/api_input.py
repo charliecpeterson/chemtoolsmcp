@@ -1568,6 +1568,328 @@ def draft_nwchem_frontier_cube_input(
 
 
 
+def draft_initial_geometry(
+    atoms: list[str],
+    output_path: str,
+    comment: str | None = None,
+    central_atom: str | None = None,
+) -> dict[str, Any]:
+    """Generate a plausible initial geometry XYZ file from an atom list.
+
+    Uses covalent radii sums for bond length estimates. Handles diatomics,
+    MXn complexes (n=1..6) with symmetric placement, and linear chains.
+    Never requires the caller to know bond lengths or 3-D coordinates.
+
+    Parameters
+    ----------
+    atoms:
+        Flat list of element symbols, e.g. ``["Fe", "Cl"]`` or
+        ``["Fe", "Cl", "Cl", "Cl", "Cl"]``.  Repeats allowed.
+    output_path:
+        Where to write the XYZ file.
+    comment:
+        Optional comment line (second line of XYZ).  Auto-generated if None.
+    central_atom:
+        Hint for which element is the central/metal atom when building MXn
+        geometry.  Inferred automatically if None (the element that appears
+        fewest times, or the heaviest unique element).
+    """
+    from .nwchem_freq import COVALENT_RADII
+
+    _FALLBACK_R = 1.20  # Å, used when element not in table
+
+    def _r(elem: str) -> float:
+        return COVALENT_RADII.get(elem, _FALLBACK_R)
+
+    def _bond(a: str, b: str) -> float:
+        return _r(a) + _r(b)
+
+    n = len(atoms)
+    if n == 0:
+        raise ValueError("atoms list must not be empty")
+
+    positions: list[tuple[float, float, float]] = []
+
+    if n == 1:
+        positions = [(0.0, 0.0, 0.0)]
+
+    elif n == 2:
+        # Diatomic along z
+        bl = _bond(atoms[0], atoms[1])
+        positions = [(0.0, 0.0, 0.0), (0.0, 0.0, bl)]
+
+    else:
+        # Try to identify central atom for MXn placement
+        from collections import Counter
+        counts = Counter(atoms)
+
+        # Determine central atom: explicit hint, or fewest occurrences, or heaviest element
+        from .common import ELEMENT_TO_Z
+        if central_atom and central_atom in counts:
+            center = central_atom
+        elif len(counts) > 1:
+            min_count = min(counts.values())
+            candidates = [e for e, c in counts.items() if c == min_count]
+            # Among candidates pick heaviest (most likely the metal)
+            center = max(candidates, key=lambda e: ELEMENT_TO_Z.get(e, 0))
+        else:
+            center = atoms[0]
+
+        ligands = [a for a in atoms if a != center]
+        n_lig = len(ligands)
+
+        # Unique ligand bond length (use first ligand type for MXn)
+        r_ml = _bond(center, ligands[0]) if ligands else 2.0
+
+        # Symmetric ligand positions around center at origin
+        two_pi = 2.0 * math.pi
+        if n_lig == 1:
+            lig_coords = [(0.0, 0.0, r_ml)]
+        elif n_lig == 2:
+            lig_coords = [(0.0, 0.0, -r_ml), (0.0, 0.0, r_ml)]
+        elif n_lig == 3:
+            lig_coords = [
+                (r_ml * math.cos(k * two_pi / 3), r_ml * math.sin(k * two_pi / 3), 0.0)
+                for k in range(3)
+            ]
+        elif n_lig == 4:
+            s = r_ml / math.sqrt(3)
+            lig_coords = [(s, s, s), (s, -s, -s), (-s, s, -s), (-s, -s, s)]
+        elif n_lig == 5:
+            # Square pyramidal
+            lig_coords = [
+                (r_ml, 0.0, 0.0), (-r_ml, 0.0, 0.0),
+                (0.0, r_ml, 0.0), (0.0, -r_ml, 0.0),
+                (0.0, 0.0, r_ml),
+            ]
+        elif n_lig == 6:
+            lig_coords = [
+                (r_ml, 0.0, 0.0), (-r_ml, 0.0, 0.0),
+                (0.0, r_ml, 0.0), (0.0, -r_ml, 0.0),
+                (0.0, 0.0, r_ml), (0.0, 0.0, -r_ml),
+            ]
+        else:
+            # Linear chain along z for anything larger
+            lig_coords = [(0.0, 0.0, (k + 1) * r_ml) for k in range(n_lig)]
+
+        # Reassemble: center first, then ligands in original order
+        center_pos = (0.0, 0.0, 0.0)
+        ordered_atoms: list[str] = [center]
+        ordered_pos: list[tuple[float, float, float]] = [center_pos]
+        lig_iter = iter(lig_coords)
+        for a in atoms:
+            if a == center and center not in ordered_atoms[1:]:
+                continue  # already placed center
+            else:
+                ordered_atoms.append(a)
+                ordered_pos.append(next(lig_iter))
+        atoms = ordered_atoms
+        positions = ordered_pos
+
+    # Build XYZ content
+    auto_comment = comment or f"Initial geometry guess — {' '.join(atoms)}"
+    lines = [str(len(atoms)), auto_comment]
+    bond_summary: list[dict[str, Any]] = []
+    for elem, (x, y, z) in zip(atoms, positions):
+        lines.append(f"{elem:4s}  {x:14.8f}  {y:14.8f}  {z:14.8f}")
+
+    # Summarise bond lengths for the return value
+    if len(atoms) == 2:
+        bond_summary.append({
+            "atoms": f"{atoms[0]}-{atoms[1]}",
+            "length_angstrom": round(
+                math.sqrt(sum((a - b) ** 2 for a, b in zip(positions[0], positions[1]))), 4
+            ),
+            "source": "covalent_radii_sum",
+        })
+
+    xyz_text = "\n".join(lines) + "\n"
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(xyz_text, encoding="utf-8")
+
+    return {
+        "output_file": str(out.resolve()),
+        "n_atoms": len(atoms),
+        "atoms": atoms,
+        "positions_angstrom": [list(p) for p in positions],
+        "bond_lengths_used": bond_summary,
+        "comment": auto_comment,
+        "note": (
+            "Geometry is a covalent-radii guess — suitable for initial optimization only. "
+            "Always run geometry optimization before any correlated calculation."
+        ),
+        "next_steps": [
+            f"Call create_nwchem_dft_workflow_input with geometry_file='{out.resolve()}' "
+            "to build the optimization input.",
+            "Run lint_nwchem_input on the generated input before launching.",
+        ],
+    }
+
+
+def plan_nwchem_workflow(
+    goal: str,
+    elements: list[str],
+    charge: int,
+    multiplicity: int,
+    basis: str,
+    method: str = "ccsd",
+    xc_functional: str = "b3lyp",
+    has_geometry_file: bool = False,
+    has_dft_output: bool = False,
+    has_scf_output: bool = False,
+) -> dict[str, Any]:
+    """Return a concrete step-by-step tool call plan for a NWChem workflow.
+
+    Parameters
+    ----------
+    goal:
+        One of: ``"opt_freq"``, ``"opt_freq_ccsd"``, ``"single_point_dft"``,
+        ``"single_point_ccsd"``, ``"opt_freq_mp2"``.
+    elements:
+        Element symbols present in the molecule, e.g. ``["Fe", "Cl"]``.
+    charge, multiplicity:
+        Electronic state parameters.
+    basis:
+        Basis set name, e.g. ``"6-31gs"``.
+    method:
+        Correlated method for TCE steps: ``"ccsd"`` or ``"mp2"`` or ``"ccsd(t)"``.
+    has_geometry_file, has_dft_output, has_scf_output:
+        Set True if those artifacts already exist to skip earlier steps.
+    """
+    goal_norm = goal.lower().replace("-", "_").replace(" ", "_")
+    open_shell = multiplicity > 1
+    scf_ref = "rohf" if open_shell else "rhf"
+    nopen_note = f"nopen={multiplicity - 1}" if open_shell else ""
+    elem_str = str(elements)
+    tce_method = method.lower()
+
+    steps: list[dict[str, Any]] = []
+    step = 0
+
+    def _s(desc: str, tool: str, params: dict[str, Any], notes: list[str] | None = None) -> None:
+        nonlocal step
+        step += 1
+        entry: dict[str, Any] = {"step": step, "description": desc, "tool": tool, "key_parameters": params}
+        if notes:
+            entry["notes"] = notes
+        steps.append(entry)
+
+    needs_tce = goal_norm in {"opt_freq_ccsd", "single_point_ccsd", "opt_freq_mp2", "single_point_mp2"}
+
+    # Step 1: Geometry
+    if not has_geometry_file:
+        _s(
+            "Create initial geometry XYZ file",
+            "draft_initial_geometry",
+            {"atoms": elements, "output_path": "<job_dir>/<name>.xyz"},
+            ["Use covalent-radii guess — do not skip geometry optimization"],
+        )
+
+    # Step 2: DFT opt+freq (always, unless goal is pure single-point)
+    if goal_norm not in {"single_point_dft", "single_point_ccsd", "single_point_mp2"}:
+        if not has_dft_output:
+            _s(
+                "Build DFT optimization + frequency input",
+                "create_nwchem_dft_workflow_input",
+                {
+                    "geometry_file": "<xyz from step 1>",
+                    "basis_assignments": {e: basis for e in elements},
+                    "xc_functional": xc_functional,
+                    "task_operations": ["optimize", "freq"],
+                    "charge": charge,
+                    "multiplicity": multiplicity,
+                    "write_file": True,
+                },
+            )
+            _s("Lint the DFT input", "lint_nwchem_input", {"input_file": "<nw from previous step>"})
+            _s(
+                "Launch and watch the DFT job",
+                "launch_nwchem_run",
+                {"input_file": "<nw file>", "profile": "<your profile>"},
+            )
+            _s("Watch until complete", "watch_nwchem_run",
+               {"output_file": "<out file>", "input_file": "<nw file>", "process_id": "<pid>"})
+            _s("Extract converged geometry", "extract_nwchem_geometry",
+               {"output_file": "<dft.out>", "frame": "best"})
+    else:
+        if not has_geometry_file:
+            pass  # geometry already added above
+
+    # TCE steps
+    if needs_tce:
+        _s(
+            "Build SCF reference input for TCE",
+            "create_nwchem_input",
+            {
+                "geometry_file": "<converged xyz>",
+                "basis_assignments": {e: basis for e in elements},
+                "module": "scf",
+                "scf_type": scf_ref,
+                "nopen": multiplicity - 1,
+                "charge": charge,
+                "multiplicity": multiplicity,
+                "vectors_output": "<name>_scf.movecs",
+                "write_file": True,
+            },
+            [f"Must use {scf_ref} reference for open-shell TCE{(' (' + nopen_note + ')') if nopen_note else ''}"],
+        )
+        _s("Lint the SCF input", "lint_nwchem_input", {"input_file": "<scf.nw>"})
+        _s("Launch and watch the SCF job", "launch_nwchem_run",
+           {"input_file": "<scf.nw>", "profile": "<your profile>"})
+        _s("Watch until complete", "watch_nwchem_run",
+           {"output_file": "<scf.out>", "input_file": "<scf.nw>", "process_id": "<pid>"})
+        _s(
+            "Inspect orbital ordering before freezing",
+            "parse_nwchem_movecs",
+            {"movecs_file": "<scf.movecs>"},
+            ["Check that core orbitals (metal 1s/2s/2p) are lowest-index; swap if not"],
+        )
+        _s(
+            "Suggest freeze count",
+            "suggest_nwchem_tce_freeze",
+            {"elements": elements, "charge": charge, "multiplicity": multiplicity},
+        )
+        _s(
+            "Build TCE input",
+            "draft_nwchem_tce_input",
+            {
+                "scf_output_file": "<scf.out>",
+                "input_file": "<scf.nw>",
+                "method": tce_method,
+                "movecs_file": "<scf.movecs>",
+                "write_file": True,
+            },
+            ["symmetry c1 is added automatically", "geometry block is included automatically"],
+        )
+        _s("Lint the TCE input", "lint_nwchem_input", {"input_file": "<tce.nw>"})
+        _s("Launch and watch the TCE job", "launch_nwchem_run",
+           {"input_file": "<tce.nw>", "profile": "<your profile>"})
+        _s("Watch until complete", "watch_nwchem_run",
+           {"output_file": "<tce.out>", "input_file": "<tce.nw>", "process_id": "<pid>"})
+        _s("Parse TCE results", "parse_nwchem_tce_output", {"output_file": "<tce.out>"})
+
+    warnings: list[str] = []
+    if open_shell:
+        warnings.append(
+            f"Open-shell system (mult={multiplicity}): SCF may converge to wrong electronic state. "
+            "After SCF, use suggest_nwchem_vectors_swaps to verify the correct SOMOs are occupied."
+        )
+    if any(e in {"Fe", "Co", "Ni", "Cu", "Mn", "Cr", "Mo", "W", "Ru", "Rh"} for e in elements):
+        warnings.append(
+            "Transition metal present: verify spin state carefully. "
+            "Use suggest_nwchem_recovery(mode='state') if occupations look wrong after SCF."
+        )
+
+    return {
+        "goal": goal_norm,
+        "total_steps": len(steps),
+        "steps": steps,
+        "warnings": warnings,
+        "note": "Replace <placeholders> with actual file paths as you complete each step.",
+    }
+
+
 def create_nwchem_input(
     geometry_path: str,
     library_path: str,
@@ -2326,6 +2648,44 @@ def lint_nwchem_input(
 
     _lint_fragment_guess(input_path, add_issue)
 
+    # --- TCE-specific checks ---
+    tce_tasks = [t for t in input_summary["tasks"] if (t.get("module") or "").lower() == "tce"]
+    if tce_tasks:
+        from .nwchem_input import extract_nwchem_geometry_block
+        from .common import read_text as _read_text
+        import re as _re
+
+        # Check symmetry c1 is inside the geometry block
+        try:
+            geo = extract_nwchem_geometry_block(input_path)
+            directives = [d.strip().lower() for d in (geo.get("directives") or [])]
+            has_c1 = any("symmetry" in d and "c1" in d for d in directives)
+            if not has_c1:
+                add_issue(
+                    "error",
+                    "tce_missing_symmetry_c1",
+                    "TCE requires Abelian symmetry. Add 'symmetry c1' as a line inside the geometry block. "
+                    "NWChem will abort with 'non-Abelian symmetry not permitted' otherwise.",
+                )
+        except Exception:
+            pass
+
+        # Check for symmetry placed on the geometry header line (wrong syntax)
+        _lint_contents = _read_text(input_path)
+        for _line in _lint_contents.splitlines():
+            if _re.match(r"^\s*geometry\b.*\bsymmetry\b", _line, _re.IGNORECASE):
+                add_issue(
+                    "error",
+                    "symmetry_on_geometry_header",
+                    "'symmetry' must appear as its own line inside the geometry block, not on the "
+                    "'geometry ...' header line. Correct form:\n"
+                    "  geometry units angstrom\n"
+                    "    symmetry c1\n"
+                    "    ...\n"
+                    "  end",
+                )
+                break
+
     severity_order = {"error": 3, "warning": 2, "info": 1}
     highest = max((severity_order[item["level"]] for item in issues), default=0)
     status = "ok"
@@ -2641,8 +3001,35 @@ def draft_nwchem_tce_input(
     # compute T1/D1/T2 diagnostics after the run.
     save_t_directive = "set tce:save_t T T"
 
-    # --- Build scf block ---
-    scf_block = "scf\n  rhf\nend"
+    # --- Build geometry block (always include with symmetry c1 for TCE) ---
+    from .nwchem_input import extract_nwchem_geometry_block, render_nwchem_geometry_block
+    geo_section: str | None = None
+    charge_line: str | None = None
+    try:
+        geo = extract_nwchem_geometry_block(input_file)
+        directives = [d for d in (geo.get("directives") or []) if not d.lower().startswith("symmetry")]
+        directives.insert(0, "symmetry c1")
+        geo_section = render_nwchem_geometry_block(geo["header_line"], geo["atoms"], directives=directives)
+    except Exception:
+        pass
+    charge = input_summary.get("charge")
+    if charge is not None:
+        charge_line = f"charge {charge}"
+
+    # --- Build scf block (reference type from multiplicity) ---
+    mult = input_summary.get("multiplicity") or 1
+    nopen = mult - 1
+    if nopen > 0:
+        scf_ref = "rohf"
+        scf_lines = ["scf", f"  {scf_ref}", f"  nopen {nopen}", "  thresh 1e-8", "  maxiter 200"]
+    else:
+        scf_ref = "rhf"
+        scf_lines = ["scf", f"  {scf_ref}", "  thresh 1e-8", "  maxiter 200"]
+    if resolved_movecs:
+        movecs_basename = Path(resolved_movecs).name
+        tce_movecs_out = f"{resolved_start}.movecs"
+        scf_lines.append(f"  vectors input {movecs_basename} output {tce_movecs_out}")
+    scf_block = "\n".join(scf_lines) + "\nend"
 
     # --- Assemble explanatory comment ---
     freeze_comment_lines = [
@@ -2700,13 +3087,18 @@ def draft_nwchem_tce_input(
 
     # --- Assemble input sections ---
     sections: list[str] = [
-        f"restart {resolved_start}",
+        f"start {resolved_start}",
         "echo",
     ]
     if memory:
         sections.append(f"memory {memory}")
+    if geo_section:
+        sections.append(geo_section)
+    if charge_line:
+        sections.append(charge_line)
     sections.append(comment_block)
     sections.append(scf_block)
+    sections.append("task scf energy")
     sections.append(tce_block)
     sections.append(save_t_directive)
     sections.append("task tce energy")
@@ -2744,4 +3136,202 @@ def draft_nwchem_tce_input(
         "elements": elements,
         "n_orbitals_parsed": len(orbitals),
         "warnings": freeze_suggestion.get("warnings", []) + ordering_analysis.get("warnings", []),
+    }
+
+
+def validate_nwchem_tce_setup(
+    tce_input_path: str,
+    scf_output_path: str | None = None,
+) -> dict[str, Any]:
+    """Cross-check a NWChem TCE input file for common setup errors.
+
+    Catches issues before submitting the job:
+
+    * Missing ``symmetry c1`` in the geometry block
+    * ``freeze atomic`` (forbidden — always use explicit count)
+    * No freeze directive (all electrons correlated — expensive and wrong)
+    * Freeze count far outside the element-derived suggestion
+    * Missing or unreachable vectors file
+    * ROHF reference missing for open-shell system
+    * No TCE method keyword found
+
+    Parameters
+    ----------
+    tce_input_path:
+        Path to the NWChem TCE input file to validate.
+    scf_output_path:
+        Optional path to the SCF output file.  If provided and the file does
+        not yet exist, a warning is emitted.
+
+    Returns
+    -------
+    dict with ``status`` ("ok" | "warnings" | "errors"), ``issues`` list,
+    ``detected`` parsed fields, and ``summary`` text.
+    """
+    import re as _re
+    from pathlib import Path
+    from .nwchem_tce import suggest_tce_freeze_count as _suggest_freeze
+    from .nwchem_input import inspect_nwchem_input
+
+    issues: list[dict[str, Any]] = []
+
+    def _err(code: str, message: str) -> None:
+        issues.append({"level": "error", "code": code, "message": message})
+
+    def _warn(code: str, message: str) -> None:
+        issues.append({"level": "warning", "code": code, "message": message})
+
+    # --- Read file content once ---
+    contents = read_text(tce_input_path)
+    contents_lower = contents.lower()
+
+    # --- Parse high-level input summary ---
+    tce_summary = inspect_nwchem_input(tce_input_path)
+    elements: list[str] = tce_summary.get("elements") or []
+    charge: int = tce_summary.get("charge") or 0
+    multiplicity: int | None = tce_summary.get("multiplicity")
+    open_shell = multiplicity is not None and multiplicity > 1
+
+    # --- Extract raw tce block via regex ---
+    tce_block_match = _re.search(r"\btce\b(.*?)\bend\b", contents, _re.IGNORECASE | _re.DOTALL)
+    tce_block = tce_block_match.group(1) if tce_block_match else ""
+    tce_block_lower = tce_block.lower()
+
+    # --- Extract geometry block via regex ---
+    geo_block_match = _re.search(r"\bgeometry\b(.*?)\bend\b", contents, _re.IGNORECASE | _re.DOTALL)
+    geo_block = geo_block_match.group(1) if geo_block_match else ""
+
+    # --- Extract SCF block via regex ---
+    scf_block_match = _re.search(r"\bscf\b(.*?)\bend\b", contents, _re.IGNORECASE | _re.DOTALL)
+    scf_block = scf_block_match.group(1) if scf_block_match else ""
+    scf_block_lower = scf_block.lower()
+
+    # --- Method check ---
+    method_found: str | None = None
+    for m in ("ccsd(t)", "ccsd", "mp2", "cisd", "mbpt2", "mbpt3"):
+        if m in tce_block_lower:
+            method_found = m
+            break
+    if not tce_block:
+        _err("tce_block_missing", "No 'tce...end' block found in the input file.")
+    elif not method_found:
+        _err("tce_no_method",
+             "No recognized TCE method keyword found in the tce block. Expected: ccsd, mp2, ccsd(t), etc.")
+
+    # --- Symmetry check ---
+    if not _re.search(r"\bsymmetry\s+c1\b", geo_block, _re.IGNORECASE):
+        _err("tce_missing_symmetry_c1",
+             "The geometry block is missing 'symmetry c1'. NWChem TCE requires Abelian (c1) symmetry. "
+             "Add 'symmetry c1' inside the geometry...end block.")
+
+    # --- SCF reference check ---
+    scf_ref = None
+    for ref in ("rohf", "rhf", "uhf"):
+        if _re.search(rf"\b{ref}\b", scf_block_lower):
+            scf_ref = ref
+            break
+    if open_shell and scf_ref and scf_ref != "rohf":
+        _err("tce_wrong_scf_reference",
+             f"Open-shell system (mult={multiplicity}) requires ROHF reference, "
+             f"but '{scf_ref}' was found in the SCF block. "
+             "Use scf_type='rohf' and nopen=multiplicity-1.")
+    elif open_shell and not scf_ref:
+        _warn("tce_scf_reference_undetected",
+              f"Open-shell system (mult={multiplicity}) but no SCF reference keyword (rohf/rhf/uhf) "
+              "was found. Ensure 'rohf' is present in the scf block.")
+    if scf_ref == "uhf" and not open_shell:
+        _warn("tce_uhf_closed_shell",
+              "UHF reference for closed-shell system — RHF is preferred as the TCE reference.")
+
+    # --- Vectors file check ---
+    vectors_match = _re.search(r"\bvectors\s+input\s+(\S+)", tce_block, _re.IGNORECASE)
+    vectors_path_str: str | None = None
+    if vectors_match:
+        vectors_path_str = vectors_match.group(1)
+        candidate = Path(vectors_path_str)
+        if not candidate.is_absolute():
+            candidate = Path(tce_input_path).parent / vectors_path_str
+        if not candidate.exists():
+            _err("tce_vectors_file_missing",
+                 f"Vectors file '{vectors_path_str}' does not exist at '{candidate}'. "
+                 "Run the SCF job first and verify the path.")
+    else:
+        _warn("tce_no_vectors_input",
+              "No 'vectors input ...' directive found in the tce block. NWChem will use default vectors — "
+              "results may be wrong for open-shell or orbital-reordered systems.")
+
+    # --- Freeze count check ---
+    freeze_match = _re.search(r"\bfreeze\s+(\d+)\b", tce_block, _re.IGNORECASE)
+    actual_freeze: int | None = None
+    if freeze_match:
+        actual_freeze = int(freeze_match.group(1))
+        if elements:
+            try:
+                suggestion = _suggest_freeze(elements, charge=charge, multiplicity=multiplicity or 1)
+                suggested = suggestion.get("freeze_count", 0)
+                n_elec = suggestion.get("n_electrons") or 0
+                min_correlated = 2
+                max_freeze = max(0, n_elec // 2 - min_correlated)
+                if max_freeze > 0 and actual_freeze > max_freeze:
+                    _err("tce_freeze_too_large",
+                         f"Freeze count {actual_freeze} leaves fewer than {min_correlated} correlated electrons "
+                         f"({n_elec} total electrons). This is likely wrong.")
+                elif actual_freeze < suggested - 2:
+                    _warn("tce_freeze_too_small",
+                          f"Freeze count {actual_freeze} is less than suggested {suggested}. "
+                          "Under-freezing wastes compute and may affect energetics.")
+                elif actual_freeze > suggested + 2:
+                    _warn("tce_freeze_larger_than_suggested",
+                          f"Freeze count {actual_freeze} exceeds suggested {suggested}. "
+                          "Verify this is intentional and not over-freezing valence electrons.")
+            except Exception:
+                pass
+    elif "freeze atomic" in tce_block_lower:
+        _err("tce_freeze_atomic_forbidden",
+             "'freeze atomic' is forbidden in TCE inputs — always specify an explicit count "
+             "(e.g. 'freeze 10'). Use suggest_nwchem_tce_freeze to compute the correct value.")
+    else:
+        _warn("tce_no_freeze",
+              "No 'freeze N' directive found. All electrons will be correlated — this is very expensive "
+              "and almost always wrong. Use suggest_nwchem_tce_freeze to compute the correct freeze count.")
+
+    # --- SCF output existence check ---
+    if scf_output_path and not Path(scf_output_path).exists():
+        _warn("tce_scf_output_missing",
+              f"SCF output file '{scf_output_path}' does not exist yet. Run the SCF job first.")
+
+    # --- Build summary ---
+    n_errors = sum(1 for i in issues if i["level"] == "error")
+    n_warnings = sum(1 for i in issues if i["level"] == "warning")
+    status = "errors" if n_errors else ("warnings" if n_warnings else "ok")
+
+    summary_lines = [f"TCE setup validation: {status}"]
+    if n_errors:
+        summary_lines.append(f"  {n_errors} error(s) must be fixed before submitting.")
+    if n_warnings:
+        summary_lines.append(f"  {n_warnings} warning(s) worth reviewing.")
+    if status == "ok":
+        summary_lines.append("  No issues found. Input looks correct for TCE.")
+    for iss in issues:
+        summary_lines.append(f"  [{iss['level'].upper()}] {iss['code']}: {iss['message']}")
+
+    return {
+        "tce_input_file": tce_input_path,
+        "scf_output_file": scf_output_path,
+        "status": status,
+        "n_errors": n_errors,
+        "n_warnings": n_warnings,
+        "issues": issues,
+        "detected": {
+            "method": method_found,
+            "elements": elements,
+            "charge": charge,
+            "multiplicity": multiplicity,
+            "scf_reference": scf_ref,
+            "has_freeze_directive": actual_freeze is not None,
+            "freeze_count": actual_freeze,
+            "has_vectors_input": bool(vectors_match),
+            "vectors_file": vectors_path_str,
+        },
+        "summary": "\n".join(summary_lines),
     }

@@ -17,13 +17,17 @@ from . import molcas, molpro, nwchem
 
 
 def _dispatch_parse_mos(
-    path: str, contents: str, top_n: int = 5, include_coefficients: bool = False
+    path: str, contents: str, top_n: int = 5, include_coefficients: bool = False,
+    include_all_orbitals: bool = False,
 ) -> dict[str, Any]:
     """Dispatch parse_mos to the correct program module."""
     program = detect_program(contents)
     if program == "molpro":
         return molpro.parse_mos(path, contents, top_n=top_n, include_coefficients=include_coefficients)
-    return nwchem.parse_mos(path, contents, top_n=top_n, include_coefficients=include_coefficients)
+    return nwchem.parse_mos(
+        path, contents, top_n=top_n, include_coefficients=include_coefficients,
+        include_all_orbitals=include_all_orbitals,
+    )
 
 
 def parse_tasks(path: str) -> dict[str, Any]:
@@ -38,9 +42,15 @@ def parse_tasks(path: str) -> dict[str, Any]:
     return nwchem.parse_tasks(path, contents)
 
 
-def parse_mos(path: str, top_n: int = 5, include_coefficients: bool = False) -> dict[str, Any]:
+def parse_mos(
+    path: str, top_n: int = 5, include_coefficients: bool = False,
+    include_all_orbitals: bool = False,
+) -> dict[str, Any]:
     contents = read_text(path)
-    return _dispatch_parse_mos(path, contents, top_n=top_n, include_coefficients=include_coefficients)
+    return _dispatch_parse_mos(
+        path, contents, top_n=top_n, include_coefficients=include_coefficients,
+        include_all_orbitals=include_all_orbitals,
+    )
 
 
 def parse_population_analysis(path: str) -> dict[str, Any]:

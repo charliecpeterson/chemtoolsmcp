@@ -10,6 +10,7 @@ from .common import normalize_path, read_text
 
 CHARGE_RE = re.compile(r"^\s*charge\s+([+-]?\d+)\s*$", re.IGNORECASE)
 MULT_RE = re.compile(r"^\s*(?:mult|multiplicity)\s+(\d+)\s*$", re.IGNORECASE)
+NOPEN_RE = re.compile(r"^\s*nopen\s+(\d+)\s*$", re.IGNORECASE)
 TASK_RE = re.compile(r"^\s*task\s+([A-Za-z0-9_\-]+)(?:\s+([A-Za-z0-9_\-]+))?", re.IGNORECASE)
 SET_GEOMETRY_RE = re.compile(r"^\s*set\s+geometry\s+([A-Za-z0-9_\-]+)", re.IGNORECASE)
 GEOMETRY_RE = re.compile(r"^\s*geometry\b", re.IGNORECASE)
@@ -151,6 +152,7 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
 
     charges: list[int] = []
     multiplicities: list[int] = []
+    nopens: list[int] = []
     tasks: list[dict[str, str | None]] = []
     geometry_refs: list[str] = []
 
@@ -159,6 +161,8 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
             charges.append(int(match.group(1)))
         if match := MULT_RE.match(line):
             multiplicities.append(int(match.group(1)))
+        if match := NOPEN_RE.match(line):
+            nopens.append(int(match.group(1)))
         if match := TASK_RE.match(line):
             tasks.append({"module": match.group(1), "operation": match.group(2)})
         if match := SET_GEOMETRY_RE.match(line):
@@ -167,14 +171,20 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
     elements = geometry["elements"]
     transition_metals = [element for element in elements if element in TRANSITION_METALS]
 
+    # Infer multiplicity from nopen if not explicitly set (nopen N → mult N+1)
+    inferred_mult = (nopens[-1] + 1) if nopens else None
+    effective_mult = multiplicities[-1] if multiplicities else inferred_mult
+
     return {
         "file": normalize_path(path),
         "elements": elements,
         "transition_metals": transition_metals,
         "charge": charges[-1] if charges else None,
         "charges_seen": charges,
-        "multiplicity": multiplicities[-1] if multiplicities else None,
+        "multiplicity": effective_mult,
+        "multiplicity_source": "explicit" if multiplicities else ("nopen" if nopens else None),
         "multiplicities_seen": multiplicities,
+        "nopens_seen": nopens,
         "tasks": tasks,
         "geometry_names_selected": geometry_refs,
         "geometry_block_count": geometry["geometry_block_count"],

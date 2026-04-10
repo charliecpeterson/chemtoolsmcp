@@ -166,7 +166,21 @@ def _find_basis_file(basis_name: str, library_path: str | Path) -> Path:
     for candidate_key, candidate_path in entries.items():
         if candidate_key.replace('"', "") == normalized:
             return candidate_path
-    raise ValueError(f"basis set '{basis_name}' was not found in {library_path}")
+
+    # Try common aliases: * -> s, ** -> ss (e.g. 6-31g* -> 6-31gs)
+    alias = normalized.replace("**", "ss").replace("*", "s")
+    if alias != normalized:
+        if alias in entries:
+            return entries[alias]
+        for candidate_key, candidate_path in entries.items():
+            if candidate_key.replace('"', "") == alias:
+                return candidate_path
+
+    # Suggest close matches to help the caller
+    import difflib
+    close = difflib.get_close_matches(normalized, [k.replace('"', "") for k in entries], n=3, cutoff=0.6)
+    hint = f" Did you mean: {', '.join(close)}?" if close else ""
+    raise ValueError(f"basis set '{basis_name}' was not found in {library_path}.{hint}")
 
 
 def _parse_basis_blocks(contents: str) -> tuple[dict[str, str], str | None]:

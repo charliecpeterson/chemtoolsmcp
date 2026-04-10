@@ -140,8 +140,9 @@ def diagnose_nwchem_output(
     input_path: str | None = None,
     expected_metal_elements: list[str] | None = None,
     expected_somo_count: int | None = None,
+    _contents: str | None = None,
 ) -> dict[str, Any]:
-    contents = read_text(output_path)
+    contents = _contents if _contents is not None else read_text(output_path)
     tasks = nwchem.parse_tasks(output_path, contents)
     scf = parse_scf(output_path)
     mos = nwchem.parse_mos(output_path, contents, top_n=8)
@@ -250,12 +251,14 @@ def summarize_nwchem_output(
     expected_metal_elements: list[str] | None = None,
     expected_somo_count: int | None = None,
     detail_level: str = "summary",
+    _contents: str | None = None,
 ) -> dict[str, Any]:
     diagnosis = diagnose_nwchem_output(
         output_path=output_path,
         input_path=input_path,
         expected_metal_elements=expected_metal_elements,
         expected_somo_count=expected_somo_count,
+        _contents=_contents,
     )
 
     scf = diagnosis["scf"]
