@@ -41,7 +41,10 @@ from chemtools import (  # noqa: E402
     draft_nwchem_property_check_input,
     draft_nwchem_scf_stabilization_input,
     draft_nwchem_tce_input,
+    draft_nwchem_tce_restart_input,
+    draft_nwchem_atom_input,
     draft_nwchem_vectors_swap_input,
+    compute_reaction_energy,
     find_restart_assets,
     inspect_input,
     inspect_runner_profiles,
@@ -184,6 +187,94 @@ def tool_definitions() -> list[dict[str, Any]]:
                                      "description": "Hint for which element is the central atom (auto-detected if omitted)."},
                 },
                 "required": ["atoms", "output_path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "draft_nwchem_atom_input",
+            "description": (
+                "Generate a NWChem input for a single atom (for atomization energies, ionization "
+                "potentials, electron affinities). Automatically looks up the neutral ground-state "
+                "multiplicity for common elements (H–Xe plus 5d metals). Use before "
+                "compute_reaction_energy to run each atom at the same level of theory as the molecule. "
+                "Always uses symmetry c1 and places the atom at the origin."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "element": {
+                        "type": "string",
+                        "description": "Element symbol, e.g. 'Fe', 'O', 'C'.",
+                    },
+                    "basis": {
+                        "type": "string",
+                        "description": "Basis set name, e.g. '6-31gs', 'def2-tzvp', 'cc-pvtz'.",
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": ["scf", "dft", "mp2"],
+                        "default": "scf",
+                        "description": "NWChem module to use.",
+                    },
+                    "charge": {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Total charge (0 = neutral atom).",
+                    },
+                    "multiplicity": {
+                        "type": "integer",
+                        "description": "Spin multiplicity. Auto-looked-up from ground-state table if omitted.",
+                    },
+                    "xc_functional": {
+                        "type": "string",
+                        "default": "m06",
+                        "description": "XC functional when method=dft.",
+                    },
+                    "memory": {"type": "string", "description": "NWChem memory directive, e.g. '2000 mb'."},
+                    "start_name": {"type": "string", "description": "NWChem start name. Defaults to '{element}_atom'."},
+                    "output_dir": {"type": "string"},
+                    "write_file": {"type": "boolean", "default": False},
+                    "basis_library": {"type": "string"},
+                },
+                "required": ["element", "basis"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "compute_reaction_energy",
+            "description": (
+                "Compute a reaction energy ΔE from a set of NWChem output files. "
+                "Collects the best available energy per species (CCSD(T) > CCSD > MP2 > DFT > SCF) "
+                "and returns ΔE in Hartree, kcal/mol, and eV. "
+                "Use for atomization energies (FeO2⁻ → Fe + 2O), binding energies, "
+                "reaction enthalpies (before ZPE/thermal corrections), or isomerization energies. "
+                "Example: species={'mol': 'mol.out', 'A': 'a.out', 'B': 'b.out'}, "
+                "reactants={'mol': 1}, products={'A': 1, 'B': 1}."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "species": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                        "description": "Dict mapping label → output file path. E.g. {'FeO2-': 'feo2.out', 'Fe': 'fe.out', 'O': 'o.out'}.",
+                    },
+                    "reactants": {
+                        "type": "object",
+                        "additionalProperties": {"type": "number"},
+                        "description": "Stoichiometric coefficients for reactants (positive). E.g. {'FeO2-': 1}.",
+                    },
+                    "products": {
+                        "type": "object",
+                        "additionalProperties": {"type": "number"},
+                        "description": "Stoichiometric coefficients for products (positive). E.g. {'Fe': 1, 'O': 2}.",
+                    },
+                    "method": {
+                        "type": "string",
+                        "description": "If set, only use energies from this method level (e.g. 'CCSD'). Default: auto (highest available).",
+                    },
+                },
+                "required": ["species", "reactants", "products"],
                 "additionalProperties": False,
             },
         },
@@ -1283,6 +1374,49 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "draft_nwchem_tce_restart_input",
+            "description": (
+                "Generate a NWChem TCE restart input for a stalled or timed-out CCSD/MP2 run. "
+                "Finds saved amplitude files (.t1amp.* or .t1_copy.*), copies them to the "
+                "{start_name}.t1/.t2 restart names, and builds a 'restart' input with "
+                "'set tce:read_ta .true.' and 'set tce:save_t T T'. Use when CCSD iterations "
+                "stall before convergence (e.g. residual ~0.001 at iter 100). "
+                "Returns the restart input text and a report of which amplitude files were copied."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "tce_output_file": {
+                        "type": "string",
+                        "description": "Path to the incomplete TCE output (.out) file.",
+                    },
+                    "tce_input_file": {
+                        "type": "string",
+                        "description": "Path to the previous TCE input (.nw). Auto-inferred if omitted.",
+                    },
+                    "max_iterations": {
+                        "type": "integer",
+                        "default": 200,
+                        "description": "Max CCSD iterations for the restart run.",
+                    },
+                    "thresh": {
+                        "type": "number",
+                        "default": 1e-5,
+                        "description": "CCSD residual threshold (default 1e-5, 10× looser than NWChem default).",
+                    },
+                    "copy_amplitudes": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "If true, copy .t1amp/.t1_copy files to the restart names automatically.",
+                    },
+                    "output_dir": {"type": "string"},
+                    "write_file": {"type": "boolean", "default": False},
+                },
+                "required": ["tce_output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "validate_nwchem_tce_setup",
             "description": (
                 "Validate a NWChem TCE input file before submitting. "
@@ -1428,6 +1562,33 @@ def _handle_draft_initial_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
         output_path=arguments["output_path"],
         comment=arguments.get("comment"),
         central_atom=arguments.get("central_atom"),
+    )
+
+
+@_tool("draft_nwchem_atom_input")
+def _handle_draft_nwchem_atom_input(arguments: dict[str, Any]) -> dict[str, Any]:
+    return draft_nwchem_atom_input(
+        element=arguments["element"],
+        basis=arguments["basis"],
+        method=arguments.get("method", "scf"),
+        charge=arguments.get("charge", 0),
+        multiplicity=arguments.get("multiplicity"),
+        xc_functional=arguments.get("xc_functional", "m06"),
+        memory=arguments.get("memory"),
+        start_name=arguments.get("start_name"),
+        output_dir=arguments.get("output_dir"),
+        write_file=arguments.get("write_file", False),
+        basis_library=basis_library_path(arguments.get("basis_library")),
+    )
+
+
+@_tool("compute_reaction_energy")
+def _handle_compute_reaction_energy(arguments: dict[str, Any]) -> dict[str, Any]:
+    return compute_reaction_energy(
+        species=arguments["species"],
+        reactants=arguments["reactants"],
+        products=arguments["products"],
+        method=arguments.get("method"),
     )
 
 
@@ -2305,6 +2466,32 @@ def _handle_draft_nwchem_tce_input(arguments: dict[str, Any]) -> dict[str, Any]:
         f"Call launch_nwchem_run(input_file='{nw_file}', profile='<your_profile>') to start the job.",
         "After completion: call parse_nwchem_tce_output to extract energies and T1/D1 diagnostics.",
     ]
+    result["next_steps"] = next_steps
+    return result
+
+
+@_tool("draft_nwchem_tce_restart_input")
+def _handle_draft_nwchem_tce_restart_input(arguments: dict[str, Any]) -> dict[str, Any]:
+    result = draft_nwchem_tce_restart_input(
+        tce_output_file=arguments["tce_output_file"],
+        tce_input_file=arguments.get("tce_input_file"),
+        max_iterations=arguments.get("max_iterations", 200),
+        thresh=arguments.get("thresh", 1e-5),
+        copy_amplitudes=arguments.get("copy_amplitudes", True),
+        output_dir=arguments.get("output_dir"),
+        write_file=arguments.get("write_file", False),
+    )
+    nw_file = result.get("written_file") or result.get("planned_output_file", "<restart.nw>")
+    next_steps = []
+    if result.get("copy_errors"):
+        next_steps.append(
+            "WARNING: amplitude file copy failed — check copy_errors. "
+            "Manually copy .t1amp.* → {start_name}.t1 and .t2amp.* → {start_name}.t2 before running."
+        )
+    if result.get("can_read_amplitudes"):
+        next_steps.append(f"Amplitude files are in place. Call lint_nwchem_input(input_file='{nw_file}') then launch_nwchem_run to continue.")
+    else:
+        next_steps.append(f"Amplitude files NOT found. Input has 'set tce:read_ta' commented out — NWChem will restart from scratch with higher maxiter.")
     result["next_steps"] = next_steps
     return result
 

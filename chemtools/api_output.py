@@ -235,3 +235,164 @@ def parse_tce_output(path: str) -> dict[str, Any]:
     """Parse NWChem TCE output: energies, frozen orbital counts, convergence."""
     contents = read_text(path)
     return _parse_tce_output(path, contents)
+
+
+_HARTREE_TO_KCAL = 627.5094740631
+_HARTREE_TO_EV = 27.211386245988
+
+
+def compute_reaction_energy(
+    species: dict[str, str],
+    reactants: dict[str, float],
+    products: dict[str, float],
+    method: str | None = None,
+) -> dict[str, Any]:
+    """Compute a reaction energy from a set of NWChem output files.
+
+    Collects the best available energy for each species (preferring the
+    highest-level method: CCSD(T) > CCSD > MP2 > DFT > SCF) and computes:
+
+        ΔE = Σ coeff_i · E_i(products) − Σ coeff_i · E_i(reactants)
+
+    Parameters
+    ----------
+    species:
+        Dict mapping label → output file path.
+        Example: ``{"FeO2-": "feo2.out", "Fe": "fe.out", "O": "o.out"}``
+    reactants:
+        Dict mapping label → stoichiometric coefficient (positive integers).
+        Example: ``{"FeO2-": 1}``
+    products:
+        Dict mapping label → stoichiometric coefficient (positive integers).
+        Example: ``{"Fe": 1, "O": 2}``
+    method:
+        If provided, only use energies from this method level (e.g. ``"CCSD"``).
+        If None (default), uses the highest-level converged energy per species.
+
+    Returns
+    -------
+    dict with:
+      ``delta_e_hartree``, ``delta_e_kcal_mol``, ``delta_e_ev``,
+      ``species_energies``, ``method_used_per_species``, ``formula_str``,
+      ``warnings``.
+    """
+    from .nwchem_tasks import parse_tasks as _parse_tasks_nwchem
+
+    def parse_tasks(path: str) -> dict[str, Any]:
+        contents = read_text(path)
+        return _parse_tasks_nwchem(path, contents)
+
+    _METHOD_PRIORITY = {"CCSD(T)": 5, "CCSD": 4, "MP2": 3, "DFT": 2, "SCF": 1}
+    _norm_method = (method or "").strip().upper()
+
+    species_energies: dict[str, float | None] = {}
+    method_used: dict[str, str | None] = {}
+    warnings: list[str] = []
+
+    all_labels = set(reactants) | set(products)
+    for label in all_labels:
+        if label not in species:
+            warnings.append(f"Species '{label}' not found in species dict.")
+            species_energies[label] = None
+            method_used[label] = None
+            continue
+
+        out_file = species[label]
+        try:
+            tasks_result = parse_tasks(out_file)
+        except Exception as exc:
+            warnings.append(f"Could not parse '{label}' ({out_file}): {exc}")
+            species_energies[label] = None
+            method_used[label] = None
+            continue
+
+        task_list = tasks_result.get("tasks", []) or []
+
+        # Collect (method, energy) pairs from all completed tasks
+        candidates: list[tuple[str, float]] = []
+        for t in task_list:
+            e = t.get("total_energy_hartree")
+            m = (t.get("method") or "SCF").strip().upper()
+            if e is not None:
+                candidates.append((m, e))
+
+        # Also try TCE output directly
+        try:
+            from .nwchem_tce import parse_tce_output as _ptce
+            tce = _ptce(out_file, read_text(out_file))
+            if tce.get("total_energy_hartree") is not None:
+                candidates.append((tce["method"] or "TCE", tce["total_energy_hartree"]))
+        except Exception:
+            pass
+
+        if not candidates:
+            warnings.append(f"No converged energy found for '{label}' in {out_file}.")
+            species_energies[label] = None
+            method_used[label] = None
+            continue
+
+        if _norm_method:
+            # Filter to requested method
+            filtered = [(m, e) for m, e in candidates if m == _norm_method]
+            if not filtered:
+                warnings.append(
+                    f"No '{_norm_method}' energy for '{label}'; "
+                    f"available methods: {sorted({m for m, _ in candidates})}."
+                )
+                filtered = candidates
+            candidates = filtered
+
+        # Pick highest-priority method
+        best_m, best_e = max(candidates, key=lambda me: _METHOD_PRIORITY.get(me[0], 0))
+        species_energies[label] = best_e
+        method_used[label] = best_m
+
+    # --- Compute ΔE ---
+    delta_e: float | None = None
+    missing = [lbl for lbl in all_labels if species_energies.get(lbl) is None]
+    if not missing:
+        delta_e = 0.0
+        for lbl, coeff in products.items():
+            delta_e += coeff * species_energies[lbl]  # type: ignore[operator]
+        for lbl, coeff in reactants.items():
+            delta_e -= coeff * species_energies[lbl]  # type: ignore[operator]
+    else:
+        warnings.append(f"ΔE cannot be computed; missing energies for: {', '.join(missing)}.")
+
+    # --- Format human-readable formula ---
+    def _fmt_side(d: dict[str, float]) -> str:
+        parts = []
+        for lbl, c in d.items():
+            parts.append(f"{int(c)}·{lbl}" if c != 1 else lbl)
+        return " + ".join(parts)
+
+    formula_str = f"{_fmt_side(reactants)} → {_fmt_side(products)}"
+
+    # Build per-species breakdown
+    breakdown: list[dict[str, Any]] = []
+    for lbl in all_labels:
+        coeff_reactant = reactants.get(lbl, 0)
+        coeff_product = products.get(lbl, 0)
+        net_coeff = coeff_product - coeff_reactant
+        e = species_energies.get(lbl)
+        breakdown.append({
+            "label": lbl,
+            "output_file": species.get(lbl),
+            "method": method_used.get(lbl),
+            "energy_hartree": e,
+            "stoich_reactant": coeff_reactant,
+            "stoich_product": coeff_product,
+            "net_coefficient": net_coeff,
+            "contribution_hartree": (net_coeff * e) if e is not None else None,
+        })
+    breakdown.sort(key=lambda x: (x["stoich_reactant"] != 0, x["label"]))
+
+    return {
+        "formula": formula_str,
+        "delta_e_hartree": delta_e,
+        "delta_e_kcal_mol": (delta_e * _HARTREE_TO_KCAL) if delta_e is not None else None,
+        "delta_e_ev": (delta_e * _HARTREE_TO_EV) if delta_e is not None else None,
+        "species_breakdown": breakdown,
+        "method_requested": method or "auto",
+        "warnings": warnings,
+    }

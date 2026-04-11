@@ -2655,18 +2655,32 @@ def lint_nwchem_input(
         from .common import read_text as _read_text
         import re as _re
 
-        # Check symmetry c1 is inside the geometry block
+        # NWChem TCE accepts any of these Abelian point groups
+        _TCE_ABELIAN = {"c1", "ci", "cs", "c2", "c2v", "c2h", "d2", "d2h"}
+
+        # Check that geometry specifies an Abelian symmetry group
         try:
             geo = extract_nwchem_geometry_block(input_path)
             directives = [d.strip().lower() for d in (geo.get("directives") or [])]
-            has_c1 = any("symmetry" in d and "c1" in d for d in directives)
-            if not has_c1:
-                add_issue(
-                    "error",
-                    "tce_missing_symmetry_c1",
-                    "TCE requires Abelian symmetry. Add 'symmetry c1' as a line inside the geometry block. "
-                    "NWChem will abort with 'non-Abelian symmetry not permitted' otherwise.",
-                )
+            sym_group = None
+            for d in directives:
+                parts = d.split()
+                if parts and parts[0] == "symmetry" and len(parts) > 1:
+                    sym_group = parts[1]
+                    break
+            if sym_group not in _TCE_ABELIAN:
+                if sym_group is None:
+                    msg = (
+                        "TCE requires Abelian symmetry. Add 'symmetry c1' (or d2h, c2v, etc.) "
+                        "as a line inside the geometry block. "
+                        "NWChem will abort with 'non-Abelian symmetry not permitted' otherwise."
+                    )
+                else:
+                    msg = (
+                        f"TCE requires Abelian symmetry; '{sym_group}' is non-Abelian. "
+                        f"Use one of: {', '.join(sorted(_TCE_ABELIAN))}."
+                    )
+                add_issue("error", "tce_missing_symmetry_c1", msg)
         except Exception:
             pass
 
@@ -3240,10 +3254,19 @@ def validate_nwchem_tce_setup(
              "No recognized TCE method keyword found in the tce block. Expected: ccsd, mp2, ccsd(t), etc.")
 
     # --- Symmetry check ---
-    if not _re.search(r"\bsymmetry\s+c1\b", geo_block, _re.IGNORECASE):
-        _err("tce_missing_symmetry_c1",
-             "The geometry block is missing 'symmetry c1'. NWChem TCE requires Abelian (c1) symmetry. "
-             "Add 'symmetry c1' inside the geometry...end block.")
+    _TCE_ABELIAN = {"c1", "ci", "cs", "c2", "c2v", "c2h", "d2", "d2h"}
+    _sym_m = _re.search(r"\bsymmetry\s+(\S+)\b", geo_block, _re.IGNORECASE)
+    _sym_group = _sym_m.group(1).lower() if _sym_m else None
+    if _sym_group not in _TCE_ABELIAN:
+        if _sym_group is None:
+            _err("tce_missing_symmetry_c1",
+                 "The geometry block is missing a symmetry directive. "
+                 "NWChem TCE requires Abelian symmetry — add 'symmetry c1' (or d2h, c2v, etc.) "
+                 "inside the geometry...end block.")
+        else:
+            _err("tce_missing_symmetry_c1",
+                 f"Symmetry '{_sym_group}' is non-Abelian and not supported by NWChem TCE. "
+                 f"Use one of: {', '.join(sorted(_TCE_ABELIAN))}.")
 
     # --- SCF reference check ---
     scf_ref = None
@@ -3355,4 +3378,500 @@ def validate_nwchem_tce_setup(
             "vectors_file": vectors_path_str,
         },
         "summary": "\n".join(summary_lines),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Atomic ground-state multiplicities (neutral, lowest term)
+# ---------------------------------------------------------------------------
+
+_ATOM_GROUND_MULT: dict[str, int] = {
+    "H": 2, "He": 1, "Li": 2, "Be": 1, "B": 2, "C": 3, "N": 4,
+    "O": 3, "F": 2, "Ne": 1, "Na": 2, "Mg": 1, "Al": 2, "Si": 3,
+    "P": 4, "S": 3, "Cl": 2, "Ar": 1, "K": 2, "Ca": 1,
+    # 3d transition metals
+    "Sc": 2, "Ti": 3, "V": 4, "Cr": 7, "Mn": 6, "Fe": 5,
+    "Co": 4, "Ni": 3, "Cu": 2, "Zn": 1,
+    # p-block period 4
+    "Ga": 2, "Ge": 3, "As": 4, "Se": 3, "Br": 2, "Kr": 1,
+    "Rb": 2, "Sr": 1,
+    # 4d transition metals
+    "Y": 2, "Zr": 3, "Nb": 6, "Mo": 7, "Tc": 6, "Ru": 5,
+    "Rh": 4, "Pd": 1, "Ag": 2, "Cd": 1,
+    # p-block period 5
+    "In": 2, "Sn": 3, "Sb": 4, "Te": 3, "I": 2, "Xe": 1,
+    "Cs": 2, "Ba": 1,
+    # 5d transition metals (simplified; use ROHF + MCSCF for production)
+    "La": 2, "Hf": 3, "Ta": 4, "W": 5, "Re": 6, "Os": 5,
+    "Ir": 4, "Pt": 3, "Au": 2, "Hg": 1,
+    # p-block period 6
+    "Tl": 2, "Pb": 3, "Bi": 4, "Po": 3, "At": 2, "Rn": 1,
+}
+
+
+def draft_nwchem_atom_input(
+    element: str,
+    basis: str,
+    method: str = "scf",
+    charge: int = 0,
+    multiplicity: int | None = None,
+    xc_functional: str = "m06",
+    basis_assignments: dict[str, str] | None = None,
+    ecp_assignments: dict[str, str] | None = None,
+    memory: str | None = None,
+    start_name: str | None = None,
+    output_dir: str | None = None,
+    write_file: bool = False,
+    basis_library: str | None = None,
+) -> dict[str, Any]:
+    """Generate a NWChem input for a single atom (for atomization energies, IPs, etc.).
+
+    Automatically looks up the neutral ground-state multiplicity for common elements.
+    For ions, provide ``multiplicity`` explicitly or it will be estimated from electron
+    count parity (with a warning).
+
+    Parameters
+    ----------
+    element:
+        Element symbol, e.g. ``"Fe"``, ``"O"``.
+    basis:
+        Basis set name (resolved from the local library), e.g. ``"6-31gs"``.
+    method:
+        NWChem module: ``"scf"``, ``"dft"``, or ``"mp2"``.
+    charge:
+        Total charge.  0 for neutral atom.
+    multiplicity:
+        Spin multiplicity (2S+1).  If None, looked up from the ground-state table;
+        for ions, estimated from electron-count parity.
+    xc_functional:
+        XC functional used when ``method="dft"``.
+    basis_assignments / ecp_assignments:
+        Override basis/ECP per element (passed to render_nwchem_basis_setup).
+    memory:
+        NWChem memory directive string, e.g. ``"total 2000 mb"``.
+    start_name:
+        NWChem start name.  Defaults to ``"{element}_atom"``.
+    output_dir, write_file:
+        Where to write the file if ``write_file=True``.
+    basis_library:
+        Path to the basis library.  Auto-detected if None.
+    """
+    from pathlib import Path as _Path
+
+    sym = element[0].upper() + element[1:].lower()
+
+    # --- Determine multiplicity ---
+    mult_source = "provided"
+    if multiplicity is None:
+        neutral_mult = _ATOM_GROUND_MULT.get(sym)
+        if neutral_mult is None:
+            raise ValueError(
+                f"Unknown element '{sym}' or no ground-state table entry; "
+                "provide multiplicity explicitly."
+            )
+        if charge == 0:
+            multiplicity = neutral_mult
+            mult_source = "ground_state_table"
+        else:
+            from ._api_utils import ELEMENT_TO_Z
+            z = ELEMENT_TO_Z.get(sym, 0)
+            n_electrons = z - charge
+            if n_electrons <= 0:
+                raise ValueError(
+                    f"Element {sym} (Z={z}) with charge {charge:+d} has {n_electrons} electrons."
+                )
+            # Parity rule: even electrons → even nopen, odd → odd nopen
+            ion_nopen = n_electrons % 2
+            multiplicity = ion_nopen + 1
+            mult_source = "estimated_from_parity"
+
+    nopen = multiplicity - 1
+
+    # --- Resolve basis library path ---
+    if basis_library is not None:
+        lib_path = basis_library
+    else:
+        try:
+            from importlib.resources import files as _pkg_files
+            lib_path = str(_pkg_files("chemtools").joinpath("data/nwchem/basis_library"))
+        except Exception:
+            lib_path = None
+
+    # Build basis block
+    try:
+        from .basis import render_nwchem_basis_block as _render_basis
+        basis_info = _render_basis(
+            basis_name=basis,
+            elements=[sym],
+            library_path=lib_path,
+        )
+        basis_block = basis_info["text"]
+        ecp_block = basis_info.get("ecp_text") or None
+    except Exception as exc:
+        raise ValueError(f"Could not render basis '{basis}' for element '{sym}': {exc}") from exc
+
+    # --- Build SCF/DFT block ---
+    resolved_start = start_name or f"{sym.lower()}_atom"
+    method_norm = method.strip().lower()
+
+    if method_norm == "dft":
+        if nopen > 0:
+            scf_block = f"dft\n  odft\n  mult {multiplicity}\n  xc {xc_functional}\n  thresh 1e-8\n  maxiter 200\nend"
+        else:
+            scf_block = f"dft\n  xc {xc_functional}\n  thresh 1e-8\n  maxiter 200\nend"
+        task_line = "task dft energy"
+    elif method_norm in ("scf", "rohf", "rhf", "uhf"):
+        if nopen > 0:
+            scf_block = f"scf\n  rohf\n  nopen {nopen}\n  thresh 1e-8\n  maxiter 200\nend"
+        else:
+            scf_block = "scf\n  rhf\n  thresh 1e-8\n  maxiter 200\nend"
+        task_line = "task scf energy"
+    elif method_norm == "mp2":
+        if nopen > 0:
+            scf_block = f"scf\n  rohf\n  nopen {nopen}\n  thresh 1e-8\n  maxiter 200\nend"
+        else:
+            scf_block = "scf\n  rhf\n  thresh 1e-8\n  maxiter 200\nend"
+        task_line = "task mp2 energy"
+    else:
+        raise ValueError(f"Unsupported method '{method}' for draft_nwchem_atom_input. Use scf, dft, or mp2.")
+
+    # --- Geometry block (single atom at origin, always c1) ---
+    geo_block = f"geometry units angstroms\n  symmetry c1\n  {sym}  0.00000  0.00000  0.00000\nend"
+
+    # --- Assemble sections ---
+    sections: list[str] = [f"start {resolved_start}", "echo"]
+    if memory:
+        sections.append(f"memory {memory}")
+    sections.append(geo_block)
+    if charge != 0:
+        sections.append(f"charge {charge}")
+    sections.append(basis_block)
+    if ecp_block:
+        sections.append(ecp_block)
+    sections.append(scf_block)
+    sections.append(task_line)
+
+    input_text = "\n\n".join(sections).rstrip() + "\n"
+
+    # --- Write file ---
+    out_dir = _Path(output_dir) if output_dir else _Path(".")
+    out_path = out_dir / f"{resolved_start}.nw"
+    written_file: str | None = None
+    if write_file:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(input_text, encoding="utf-8")
+        written_file = str(out_path.resolve())
+
+    warnings: list[str] = []
+    if mult_source == "estimated_from_parity":
+        warnings.append(
+            f"Multiplicity {multiplicity} for {sym}{charge:+d} is estimated from electron-count parity only. "
+            "Verify the correct ground state for this ion before running."
+        )
+
+    return {
+        "input_text": input_text,
+        "written_file": written_file,
+        "planned_output_file": str(out_path),
+        "element": sym,
+        "charge": charge,
+        "multiplicity": multiplicity,
+        "nopen": nopen,
+        "multiplicity_source": mult_source,
+        "method": method_norm,
+        "basis": basis,
+        "start_name": resolved_start,
+        "warnings": warnings,
+    }
+
+
+def draft_nwchem_tce_restart_input(
+    tce_output_file: str,
+    tce_input_file: str | None = None,
+    max_iterations: int = 200,
+    thresh: float = 1e-5,
+    copy_amplitudes: bool = True,
+    output_dir: str | None = None,
+    write_file: bool = False,
+) -> dict[str, Any]:
+    """Generate a NWChem TCE restart input from a stalled or incomplete CCSD/MP2 run.
+
+    This function:
+
+    1. Parses the previous TCE output to determine method, freeze count, and
+       convergence state (last iteration + residual).
+    2. Locates saved amplitude files (``{stem}.t1amp.*`` or ``{stem}.t1_copy.*``).
+    3. Optionally copies them to ``{start_name}.t1`` / ``{start_name}.t2`` so
+       NWChem can read them via ``set tce:read_ta .true.``.
+    4. Builds a ``restart`` input with ``set tce:read_ta .true.``,
+       ``set tce:save_t T T``, the requested ``maxiter``, and ``thresh``.
+
+    Parameters
+    ----------
+    tce_output_file:
+        Path to the incomplete TCE output (``.out``) file.
+    tce_input_file:
+        Path to the previous TCE input (``.nw``) file.  Used to extract
+        geometry, basis, ECP, and SCF blocks.  Auto-inferred from output stem
+        if None.
+    max_iterations:
+        Maximum CCSD iterations for the restart run (default 200).
+    thresh:
+        CCSD residual convergence threshold (default 1e-5, 10× looser than
+        the 1e-6 NWChem default — suitable for slowly-converging systems).
+    copy_amplitudes:
+        If True, copy the found amplitude files to the correct restart names
+        (``{start_name}.t1`` / ``{start_name}.t2``).
+    output_dir, write_file:
+        Where to write the restart input file.
+    """
+    import glob as _glob
+    import shutil as _shutil
+    from pathlib import Path as _Path
+    from .common import read_text as _read_text
+    from .nwchem_tce import parse_tce_output as _parse_tce
+
+    out_path = _Path(tce_output_file).resolve()
+    out_dir = out_path.parent
+    stem = out_path.stem
+
+    # --- Parse previous TCE output ---
+    contents = _read_text(tce_output_file)
+    tce_result = _parse_tce(tce_output_file, contents)
+
+    method = tce_result.get("method") or "CCSD"
+    method_kw = method.lower().replace("(", "").replace(")", "")
+    tce_method_kw = {"mp2": "mp2", "ccsd": "ccsd", "ccsdt": "ccsd(t)"}.get(method_kw, "ccsd")
+
+    # Extract last iteration count and residual from output
+    import re as _re
+    iter_re = _re.compile(
+        r"^\s*\d+\s+[-\d.Ee+]+\s+([\d.Ee+\-]+)\s*$", _re.IGNORECASE
+    )
+    last_iter: int | None = None
+    last_residual: float | None = None
+    iter_count = 0
+    for line in contents.splitlines():
+        m = iter_re.match(line)
+        if m:
+            iter_count += 1
+            try:
+                last_residual = float(m.group(1))
+                last_iter = iter_count
+            except ValueError:
+                pass
+
+    # Extract frozen core count from TCE section
+    freeze_count: int | None = None
+    for sec in tce_result.get("tce_sections", []):
+        if sec.get("frozen_cores") is not None:
+            freeze_count = sec["frozen_cores"]
+
+    # --- Determine start_name from output stem ---
+    # Output file might be named {start_name}.out or {start_name}_restart.out etc.
+    start_name = stem
+    # Try to read from the input file if available
+    inferred_input = tce_input_file
+    if inferred_input is None:
+        for candidate in [
+            out_dir / f"{stem}.nw",
+            out_dir / f"{stem.replace('_restart', '')}.nw",
+            out_dir / f"{stem.replace('_ccsd', '_ccsd_tce_ccsd')}.nw",
+        ]:
+            if candidate.exists():
+                inferred_input = str(candidate)
+                break
+
+    if inferred_input and _Path(inferred_input).exists():
+        try:
+            from .nwchem_input import inspect_nwchem_input as _inspect
+            summary = _inspect(inferred_input)
+            blocks = summary.get("start_blocks", [])
+            if blocks and blocks[0].get("start_name"):
+                start_name = blocks[0]["start_name"]
+            elif summary.get("start_present"):
+                # Read the start line directly
+                for line in _read_text(inferred_input).splitlines():
+                    m2 = _re.match(r"^\s*(?:start|restart)\s+(\S+)", line, _re.IGNORECASE)
+                    if m2:
+                        start_name = m2.group(1)
+                        break
+        except Exception:
+            pass
+
+    # --- Locate amplitude files ---
+    amp_patterns = [
+        (f"{start_name}.t1amp.*", f"{start_name}.t2amp.*"),
+        (f"{stem}.t1amp.*", f"{stem}.t2amp.*"),
+        (f"{start_name}.t1_copy.*", f"{start_name}.t2_copy.*"),
+        (f"{stem}.t1_copy.*", f"{stem}.t2_copy.*"),
+    ]
+    t1_src: str | None = None
+    t2_src: str | None = None
+    for t1_pat, t2_pat in amp_patterns:
+        t1_candidates = sorted(_glob.glob(str(out_dir / t1_pat)))
+        t2_candidates = sorted(_glob.glob(str(out_dir / t2_pat)))
+        if t1_candidates:
+            t1_src = t1_candidates[-1]  # take latest
+        if t2_candidates:
+            t2_src = t2_candidates[-1]
+        if t1_src:
+            break
+
+    # --- Copy amplitude files if requested ---
+    copied_files: list[str] = []
+    t1_dest = str(out_dir / f"{start_name}.t1")
+    t2_dest = str(out_dir / f"{start_name}.t2")
+    copy_errors: list[str] = []
+
+    if copy_amplitudes:
+        if t1_src:
+            try:
+                _shutil.copy2(t1_src, t1_dest)
+                copied_files.append(f"{t1_src} → {t1_dest}")
+            except Exception as exc:
+                copy_errors.append(f"Could not copy T1 file: {exc}")
+        else:
+            copy_errors.append(
+                f"No T1 amplitude file found (tried patterns: "
+                f"{', '.join(p[0] for p in amp_patterns)})."
+            )
+        if t2_src:
+            try:
+                _shutil.copy2(t2_src, t2_dest)
+                copied_files.append(f"{t2_src} → {t2_dest}")
+            except Exception as exc:
+                copy_errors.append(f"Could not copy T2 file: {exc}")
+        else:
+            copy_errors.append(
+                f"No T2 amplitude file found."
+            )
+
+    can_read_amplitudes = bool(
+        _Path(t1_dest).exists() and _Path(t2_dest).exists()
+    )
+
+    # --- Extract geometry, basis, ECP, SCF blocks from previous input ---
+    geo_section: str | None = None
+    basis_section: str | None = None
+    ecp_section: str | None = None
+    scf_section: str | None = None
+    charge_line: str | None = None
+    movecs_line: str | None = None
+
+    if inferred_input and _Path(inferred_input).exists():
+        try:
+            from .nwchem_input import (
+                extract_nwchem_geometry_block,
+                render_nwchem_geometry_block,
+                inspect_all_nwchem_basis_blocks,
+                inspect_nwchem_ecp_block,
+            )
+            geo = extract_nwchem_geometry_block(inferred_input)
+            # Keep existing symmetry (already set correctly)
+            geo_section = render_nwchem_geometry_block(
+                geo["header_line"], geo["atoms"], directives=geo.get("directives", [])
+            )
+        except Exception:
+            pass
+
+        try:
+            basis_blocks = inspect_all_nwchem_basis_blocks(inferred_input)
+            if basis_blocks:
+                raw = basis_blocks[-1]
+                basis_section = raw["header_line"] + "\n" + "\n".join(raw["body_lines"]) + "\nend"
+        except Exception:
+            pass
+
+        try:
+            ecp_info = inspect_nwchem_ecp_block(inferred_input)
+            if ecp_info.get("body_lines"):
+                ecp_section = ecp_info["header_line"] + "\n" + "\n".join(ecp_info["body_lines"]) + "\nend"
+        except Exception:
+            pass
+
+        try:
+            from .nwchem_input import extract_nwchem_module_block
+            # Try to find the last SCF block before the TCE block
+            scf_blk = extract_nwchem_module_block(inferred_input, module="scf", block_index=-1)
+            # Strip existing vectors lines; we'll use the restart movecs
+            scf_lines = [l for l in scf_blk["body_lines"] if "vectors" not in l.lower()]
+            movecs_file = f"{start_name}.movecs"
+            restart_movecs = str(out_dir / movecs_file)
+            if _Path(restart_movecs).exists():
+                scf_lines.append(f"  vectors input {movecs_file} output {movecs_file}")
+                movecs_line = movecs_file
+            scf_section = scf_blk["header_line"] + "\n" + "\n".join(scf_lines) + "\nend"
+        except Exception:
+            pass
+
+        try:
+            from .nwchem_input import inspect_nwchem_input as _inspect
+            summary = _inspect(inferred_input)
+            charge = summary.get("charge")
+            if charge:
+                charge_line = f"charge {charge}"
+        except Exception:
+            pass
+
+    # --- Build TCE block ---
+    tce_lines = [f"  {tce_method_kw}"]
+    if freeze_count is not None:
+        tce_lines.append(f"  freeze {freeze_count}")
+    tce_lines.append(f"  maxiter {max_iterations}")
+    tce_lines.append(f"  thresh {thresh:.2e}")
+    tce_block = "tce\n" + "\n".join(tce_lines) + "\nend"
+
+    read_ta_line = "set tce:read_ta .true." if can_read_amplitudes else "# set tce:read_ta .true.  # (enable once .t1/.t2 files are in place)"
+    save_t_line = "set tce:save_t T T"
+
+    # --- Assemble input ---
+    sections_list: list[str] = [f"restart {start_name}", "echo"]
+    if geo_section:
+        sections_list.append(geo_section)
+    if charge_line:
+        sections_list.append(charge_line)
+    if basis_section:
+        sections_list.append(basis_section)
+    if ecp_section:
+        sections_list.append(ecp_section)
+    if scf_section:
+        sections_list.append(scf_section)
+        sections_list.append("task scf energy")
+    sections_list.append(read_ta_line)
+    sections_list.append(save_t_line)
+    sections_list.append(tce_block)
+    sections_list.append("task tce energy")
+
+    input_text = "\n\n".join(sections_list).rstrip() + "\n"
+
+    # --- Write file ---
+    resolved_outdir = _Path(output_dir) if output_dir else out_dir
+    out_nw = resolved_outdir / f"{start_name}_restart.nw"
+    written_file: str | None = None
+    if write_file:
+        resolved_outdir.mkdir(parents=True, exist_ok=True)
+        out_nw.write_text(input_text, encoding="utf-8")
+        written_file = str(out_nw.resolve())
+
+    return {
+        "input_text": input_text,
+        "written_file": written_file,
+        "planned_output_file": str(out_nw),
+        "restart_start_name": start_name,
+        "method": tce_method_kw,
+        "freeze_count": freeze_count,
+        "max_iterations": max_iterations,
+        "thresh": thresh,
+        "previous_tce_last_iter": last_iter,
+        "previous_tce_last_residual": last_residual,
+        "amplitude_files_found": {
+            "t1": t1_src,
+            "t2": t2_src,
+        },
+        "amplitude_files_copied": copied_files,
+        "can_read_amplitudes": can_read_amplitudes,
+        "copy_errors": copy_errors,
+        "movecs_file": movecs_line,
+        "warnings": copy_errors,
     }
