@@ -3085,6 +3085,23 @@ def draft_nwchem_tce_input(
 
     comment_block = "\n".join(freeze_comment_lines)
 
+    # --- Extract basis/ECP blocks from SCF input file ---
+    basis_section: str | None = None
+    ecp_section: str | None = None
+    try:
+        basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
+        if basis_blocks:
+            raw = basis_blocks[-1]
+            basis_section = raw["header_line"] + "\n" + "\n".join(raw["body_lines"]) + "\nend"
+    except Exception:
+        pass
+    try:
+        ecp_info = inspect_nwchem_ecp_block(input_file)
+        if ecp_info.get("body_lines"):
+            ecp_section = ecp_info["header_line"] + "\n" + "\n".join(ecp_info["body_lines"]) + "\nend"
+    except Exception:
+        pass
+
     # --- Assemble input sections ---
     sections: list[str] = [
         f"start {resolved_start}",
@@ -3096,6 +3113,10 @@ def draft_nwchem_tce_input(
         sections.append(geo_section)
     if charge_line:
         sections.append(charge_line)
+    if basis_section:
+        sections.append(basis_section)
+    if ecp_section:
+        sections.append(ecp_section)
     sections.append(comment_block)
     sections.append(scf_block)
     sections.append("task scf energy")
