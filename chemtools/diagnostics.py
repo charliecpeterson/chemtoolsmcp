@@ -174,7 +174,53 @@ def diagnose_nwchem_output(
     next_action = "inspect_raw_output"
     confidence = "low"
 
-    if scf["status"] == "failed":
+    # --- Early-exit: X2C/DKH + SP-shell basis crash ---
+    # NWChem builds an uncontracted auxiliary basis for the relativistic one-electron
+    # operator. Pople-style SP shells cause a dimension mismatch that kills the job
+    # before SCF even starts. The stderr shows "dimensions not the same" / MPI_Abort,
+    # which looks like a communication error but is actually a basis incompatibility.
+    _x2c_sp_crash = False
+    try:
+        import re as _rd
+        _lower = contents.lower()
+        # X2C/DKH uncontraction phase was running when the job died
+        _in_x2c_uncontract = (
+            "x2c_1e_scalar" in _lower or "calc_x2c_1e_scalar" in _lower
+            or "uncontracted auxiliary basis" in _lower
+        )
+        # Job terminated abnormally
+        _bad_term = "bad termination" in _lower or "killed by signal" in _lower
+        # Input has SP shells
+        _has_sp = bool(_rd.search(r"^\s*[A-Za-z][a-z]?\s+SP\s*$", contents, _rd.MULTILINE))
+        # Input has a relativistic block
+        _has_rel_block = bool(_rd.search(r"^\s*relativistic\b", contents, _rd.IGNORECASE | _rd.MULTILINE))
+        # Also check input file if provided
+        if not _has_sp and input_path:
+            from .common import read_text as _rt_d
+            _ic = _rt_d(input_path)
+            _has_sp = bool(_rd.search(r"^\s*[A-Za-z][a-z]?\s+SP\s*$", _ic, _rd.MULTILINE))
+            _has_rel_block = _has_rel_block or bool(
+                _rd.search(r"^\s*relativistic\b", _ic, _rd.IGNORECASE | _rd.MULTILINE)
+            )
+        if (_in_x2c_uncontract or _has_rel_block) and _bad_term and _has_sp:
+            _x2c_sp_crash = True
+    except Exception:
+        pass
+
+    if _x2c_sp_crash:
+        failure_class = "basis_incompatibility"
+        likely_cause = "sp_shells_incompatible_with_x2c_dkh"
+        next_action = (
+            "replace_pople_basis_with_dunning_or_def2: "
+            "6-31G* / 6-311G** use SP-contracted shells (shared S+P exponents). "
+            "NWChem X2C/DKH must uncontract the basis to build the relativistic one-electron "
+            "operator; SP shells cause a dimension mismatch and abort (erroneously logged as "
+            "'dimensions not the same' / MPI_Abort). "
+            "Use cc-pVDZ/cc-pVTZ or def2-SVP/def2-TZVP — both use separate S and P shells "
+            "and are fully compatible with X2C and DKH."
+        )
+        confidence = "high"
+    elif scf["status"] == "failed":
         failure_class = "scf_nonconvergence"
         confidence = "high"
         if scf["trend"]["iteration_increase_reasonable"]:

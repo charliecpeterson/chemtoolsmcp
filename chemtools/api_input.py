@@ -2648,7 +2648,7 @@ def lint_nwchem_input(
 
     _lint_fragment_guess(input_path, add_issue)
 
-    # --- Relativistic + ECP conflict check ---
+    # --- Relativistic + ECP conflict check, and relativistic + SP-shell incompatibility ---
     try:
         import re as _re2
         from .common import read_text as _rt2
@@ -2664,6 +2664,30 @@ def lint_nwchem_input(
                 "Choose one: (a) all-electron basis + relativistic block, OR "
                 "(b) ECP basis (no relativistic block needed — ECP implicitly encodes scalar relativistic effects).",
             )
+        if _has_rel:
+            # SP-contracted shells (Pople style) are incompatible with X2C/DKH.
+            # NWChem builds an uncontracted auxiliary basis for the relativistic
+            # one-electron operator; SP shells cause a dimension mismatch and
+            # crash with "dimensions not the same" / MPI_Abort.
+            _sp_elements = sorted({
+                m.group(1)
+                for m in _re2.finditer(
+                    r"^\s*([A-Za-z][a-z]?)\s+SP\s*$", _rc, _re2.MULTILINE
+                )
+            })
+            if _sp_elements:
+                add_issue(
+                    "error",
+                    "relativistic_sp_shell_incompatibility",
+                    f"SP-contracted basis shells detected for element(s) {_sp_elements} "
+                    "while a relativistic block (X2C or DKH) is present. "
+                    "NWChem X2C/DKH builds an uncontracted auxiliary basis internally; "
+                    "Pople-style SP shells (6-31G*, 6-311G**, etc.) cause a 'dimensions not the same' "
+                    "crash during this step. "
+                    "Fix: replace the Pople basis with a Dunning basis (cc-pVDZ, cc-pVTZ, etc.) "
+                    "or a def2 basis (def2-SVP, def2-TZVP) — both use separate S and P contractions "
+                    "and are fully compatible with X2C/DKH.",
+                )
     except Exception:
         pass
 

@@ -2567,6 +2567,15 @@ def suggest_relativistic_correction(
                 "Using both for the same element is incorrect."
             )
 
+    # Detect Pople-style basis sets — they use SP shells, incompatible with X2C/DKH
+    _POPLE_PATTERNS = ("sto-", "3-21g", "6-21g", "4-31g", "6-31g", "6-311g", "6-31+g", "6-311+g")
+    pople_elements: list[str] = []
+    for el, bname in (basis_assignments or {}).items():
+        bname_lower = bname.lower().replace(" ", "")
+        if any(bname_lower.startswith(p) or p in bname_lower for p in _POPLE_PATTERNS):
+            pople_elements.append(el)
+    has_pople = bool(pople_elements)
+
     # Recommendation logic
     if not (has_critical or has_important or has_significant):
         recommended = "none"
@@ -2593,12 +2602,20 @@ def suggest_relativistic_correction(
             "Relativistic effects are chemically critical — X2C is the recommended method. "
             "Pair with cc-pVTZ-DK, cc-pVDZ-DK, or x2c-TZVPall basis sets."
         )
-        if not has_dk_basis:
+        if has_pople:
+            warnings.append(
+                f"INCOMPATIBILITY: Pople-style basis detected for {pople_elements}. "
+                "6-31G* / 6-311G** and similar Pople bases use SP-contracted shells, which are "
+                "incompatible with X2C/DKH. NWChem will crash with 'dimensions not the same' "
+                "during the relativistic uncontraction step. "
+                "Replace with cc-pVDZ-DK, cc-pVTZ-DK, or def2-SVP / def2-TZVP."
+            )
+        elif not has_dk_basis:
             warnings.append(
                 "BASIS WARNING: No DK-quality basis detected. "
                 "X2C/DKH calculations require bases designed for relativistic calculations "
                 "(cc-pVDZ-DK, cc-pVTZ-DK, x2c-SVPall, etc.). "
-                "Standard Pople/def2 bases have suboptimal core contraction for X2C."
+                "Standard def2 bases are acceptable; avoid Pople bases (SP-shell incompatibility)."
             )
     elif has_important:
         recommended = "x2c"
@@ -2608,7 +2625,14 @@ def suggest_relativistic_correction(
             "Scalar relativistic effects are important for accurate energetics. "
             "X2C with DK basis sets recommended."
         )
-        if not has_dk_basis:
+        if has_pople:
+            warnings.append(
+                f"INCOMPATIBILITY: Pople-style basis detected for {pople_elements}. "
+                "6-31G* / 6-311G** and similar Pople bases use SP-contracted shells, which are "
+                "incompatible with X2C/DKH. NWChem will crash with 'dimensions not the same'. "
+                "Replace with cc-pVDZ-DK, cc-pVTZ-DK, or def2-SVP / def2-TZVP."
+            )
+        elif not has_dk_basis:
             warnings.append(
                 "BASIS WARNING: Consider switching to cc-pVDZ-DK or cc-pVTZ-DK basis sets."
             )
@@ -2630,6 +2654,13 @@ def suggest_relativistic_correction(
                 f"Element(s) with Z ≥ {_REL_SIGNIFICANT_Z} present — scalar relativistic effects "
                 "are non-negligible but often acceptable without correction at this level. "
                 "Add X2C with a DK-type basis if targeting high accuracy."
+            )
+        if has_pople and recommended in ("x2c", "x2c_optional"):
+            warnings.append(
+                f"INCOMPATIBILITY: Pople-style basis detected for {pople_elements}. "
+                "6-31G* / 6-311G** and similar Pople bases use SP-contracted shells, which are "
+                "incompatible with X2C/DKH. NWChem will crash with 'dimensions not the same'. "
+                "Replace with cc-pVDZ, cc-pVTZ, def2-SVP, or def2-TZVP."
             )
 
     # Performance note for X2C + SAD
@@ -2653,6 +2684,8 @@ def suggest_relativistic_correction(
         "has_dk_basis": has_dk_basis,
         "has_ecp": has_ecp,
         "ecp_incompatible_elements": incompatible_elements,
+        "has_pople_basis": has_pople,
+        "pople_basis_elements": pople_elements,
         "available_methods": {k: {
             "nwchem_block": v["nwchem_block"],
             "description": v["description"],
