@@ -155,7 +155,7 @@ def tool_definitions() -> list[dict[str, Any]]:
                                  "description": "Element symbols in the molecule, e.g. ['Fe', 'Cl']."},
                     "charge": {"type": "integer"},
                     "multiplicity": {"type": "integer"},
-                    "basis": {"type": "string", "description": "Basis set name, e.g. '6-31gs'."},
+                    "basis": {"type": "string", "description": "Basis set name, e.g. '6-31gs'. If omitted, suggest_basis_set is included as step 1 of the plan."},
                     "method": {"type": "string", "default": "ccsd",
                                "description": "TCE method: 'ccsd', 'mp2', or 'ccsd(t)'."},
                     "xc_functional": {"type": "string", "default": "b3lyp",
@@ -164,7 +164,7 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "has_dft_output": {"type": "boolean", "default": False},
                     "has_scf_output": {"type": "boolean", "default": False},
                 },
-                "required": ["goal", "elements", "charge", "multiplicity", "basis"],
+                "required": ["goal", "elements", "charge", "multiplicity"],
                 "additionalProperties": False,
             },
         },
@@ -335,8 +335,10 @@ def tool_definitions() -> list[dict[str, Any]]:
             "name": "suggest_memory",
             "description": (
                 "Suggest NWChem memory settings for a calculation. "
-                "Returns a 'nwchem_directive' string ready to use as the 'memory' parameter "
-                "in create_nwchem_input."
+                "Returns a 'memory_string' ready to use as the 'memory' parameter "
+                "in create_nwchem_input or create_nwchem_dft_workflow_input. "
+                "Pass the same basis that will be used in the calculation — use the "
+                "'basis' field returned by suggest_basis_set, not a guess."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1657,7 +1659,7 @@ def _handle_plan_nwchem_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
         elements=arguments["elements"],
         charge=arguments["charge"],
         multiplicity=arguments["multiplicity"],
-        basis=arguments["basis"],
+        basis=arguments.get("basis"),
         method=arguments.get("method", "ccsd"),
         xc_functional=arguments.get("xc_functional", "b3lyp"),
         has_geometry_file=arguments.get("has_geometry_file", False),

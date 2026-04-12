@@ -2349,9 +2349,21 @@ _BASIS_SCALE: dict[str, float] = {
     "svp": 1.0, "def2-svp": 1.0, "def2-svpp": 1.2,
     "tzvp": 2.5, "def2-tzvp": 2.5, "def2-tzvpp": 3.0,
     "qzvp": 6.0, "def2-qzvp": 6.0,
+    # Dunning correlation-consistent families
     "pvdz": 1.0, "cc-pvdz": 1.0, "aug-cc-pvdz": 1.4,
     "pvtz": 2.5, "cc-pvtz": 2.5, "aug-cc-pvtz": 3.5,
-    "pvqz": 6.0, "cc-pvqz": 6.0,
+    "pvqz": 6.0, "cc-pvqz": 6.0, "aug-cc-pvqz": 8.0,
+    "pv5z": 12.0, "cc-pv5z": 12.0,
+    # Douglas-Kroll Dunning (same size as base set)
+    "pvdz-dk": 1.0, "cc-pvdz-dk": 1.0,
+    "pvtz-dk": 2.5, "cc-pvtz-dk": 2.5,
+    "pvqz-dk": 6.0, "cc-pvqz-dk": 6.0,
+    # Segmented DK (Stuttgart)
+    "dhf-svp": 1.0, "dhf-tzvp": 2.5, "dhf-tzvpp": 3.0,
+    # ANO families
+    "ano-rcc": 3.0, "ano-r": 2.5,
+    # Pople diffuse
+    "6-31+g": 1.2, "6-31++g": 1.4, "6-311+g": 1.8,
 }
 
 
@@ -2396,12 +2408,14 @@ def suggest_memory(
     if m in ("scf", "dft", "hf", "rhf", "rohf", "uhf"):
         total_mb = max(500, fock_mb * 4)
     elif m == "mp2":
-        n_occ = max(1, eff * 2)
+        # n_occ ~ n_bf/3 is a reliable heuristic for typical neutral molecules
+        # (roughly: 1/3 of basis functions are occupied at double-zeta)
+        n_occ = max(1, n_bf // 3)
         n_virt = max(1, n_bf - n_occ)
         t2_mb = max(256, int(8 * (n_occ * n_virt) ** 2 / 1e6 / 4))
         total_mb = max(1000, fock_mb * 2 + t2_mb * 3)
     elif m in ("ccsd", "ccsd(t)", "tce"):
-        n_occ = max(1, eff * 2)
+        n_occ = max(1, n_bf // 3)
         n_virt = max(1, n_bf - n_occ)
         t2_mb = max(256, int(8 * (n_occ * n_virt) ** 2 / 1e6 / 4))
         total_mb = max(2000, fock_mb * 2 + t2_mb * 6)

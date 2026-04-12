@@ -1143,15 +1143,6 @@ def _summarize_spin_density(population_payload: dict[str, Any] | None, metal_set
         "metal_population_sum": metal_population_sum,
         "largest_sites": largest_sites,
     }
-    return {
-        "spin": spin,
-        "vector_number": orbital["vector_number"],
-        "energy_hartree": orbital["energy_hartree"],
-        "metal_like": metal_like,
-        "metal_score": metal_score,
-        "metal_d_score": metal_d_score,
-        "top_labels": [contributor["label"] for contributor in top_contributors[:3]],
-    }
 
 
 def _count_sign_changes(values: list[float]) -> int:

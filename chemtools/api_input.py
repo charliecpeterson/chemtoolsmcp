@@ -1746,7 +1746,7 @@ def plan_nwchem_workflow(
     elements: list[str],
     charge: int,
     multiplicity: int,
-    basis: str,
+    basis: str | None = None,
     method: str = "ccsd",
     xc_functional: str = "b3lyp",
     has_geometry_file: bool = False,
@@ -1777,6 +1777,7 @@ def plan_nwchem_workflow(
     nopen_note = f"nopen={multiplicity - 1}" if open_shell else ""
     elem_str = str(elements)
     tce_method = method.lower()
+    basis_placeholder = basis or "<basis from suggest_basis_set>"
 
     steps: list[dict[str, Any]] = []
     step = 0
@@ -1790,6 +1791,16 @@ def plan_nwchem_workflow(
         steps.append(entry)
 
     needs_tce = goal_norm in {"opt_freq_ccsd", "single_point_ccsd", "opt_freq_mp2", "single_point_mp2"}
+
+    # Step 0: If no basis given, suggest one first
+    if not basis:
+        purpose = "correlation" if needs_tce else "geometry"
+        _s(
+            "Choose basis set",
+            "suggest_basis_set",
+            {"elements": elements, "purpose": purpose},
+            ["Use the returned 'basis' field in all subsequent steps"],
+        )
 
     # Step 1: Geometry
     if not has_geometry_file:
@@ -1808,7 +1819,7 @@ def plan_nwchem_workflow(
                 "create_nwchem_dft_workflow_input",
                 {
                     "geometry_file": "<xyz from step 1>",
-                    "basis_assignments": {e: basis for e in elements},
+                    "basis_assignments": {e: basis_placeholder for e in elements},
                     "xc_functional": xc_functional,
                     "task_operations": ["optimize", "freq"],
                     "charge": charge,
@@ -1818,12 +1829,11 @@ def plan_nwchem_workflow(
             )
             _s("Lint the DFT input", "lint_nwchem_input", {"input_file": "<nw from previous step>"})
             _s(
-                "Launch and watch the DFT job",
+                "Launch and watch the DFT job (auto_watch=true blocks until done)",
                 "launch_nwchem_run",
-                {"input_file": "<nw file>", "profile": "<your profile>"},
+                {"input_file": "<nw file>", "profile": "<your profile>", "auto_watch": True},
+                ["launch_nwchem_run automatically polls until terminal — no separate watch call needed"],
             )
-            _s("Watch until complete", "watch_nwchem_run",
-               {"output_file": "<out file>", "input_file": "<nw file>", "process_id": "<pid>"})
             _s("Extract converged geometry", "extract_nwchem_geometry",
                {"output_file": "<dft.out>", "frame": "best"})
     else:
@@ -1837,7 +1847,7 @@ def plan_nwchem_workflow(
             "create_nwchem_input",
             {
                 "geometry_file": "<converged xyz>",
-                "basis_assignments": {e: basis for e in elements},
+                "basis_assignments": {e: basis_placeholder for e in elements},
                 "module": "scf",
                 "scf_type": scf_ref,
                 "nopen": multiplicity - 1,
@@ -1849,10 +1859,9 @@ def plan_nwchem_workflow(
             [f"Must use {scf_ref} reference for open-shell TCE{(' (' + nopen_note + ')') if nopen_note else ''}"],
         )
         _s("Lint the SCF input", "lint_nwchem_input", {"input_file": "<scf.nw>"})
-        _s("Launch and watch the SCF job", "launch_nwchem_run",
-           {"input_file": "<scf.nw>", "profile": "<your profile>"})
-        _s("Watch until complete", "watch_nwchem_run",
-           {"output_file": "<scf.out>", "input_file": "<scf.nw>", "process_id": "<pid>"})
+        _s("Launch and watch the SCF job (auto_watch=true blocks until done)", "launch_nwchem_run",
+           {"input_file": "<scf.nw>", "profile": "<your profile>", "auto_watch": True},
+           ["launch_nwchem_run automatically polls until terminal — no separate watch call needed"])
         _s(
             "Inspect orbital ordering before freezing",
             "parse_nwchem_movecs",
@@ -1877,10 +1886,9 @@ def plan_nwchem_workflow(
             ["symmetry c1 is added automatically", "geometry block is included automatically"],
         )
         _s("Lint the TCE input", "lint_nwchem_input", {"input_file": "<tce.nw>"})
-        _s("Launch and watch the TCE job", "launch_nwchem_run",
-           {"input_file": "<tce.nw>", "profile": "<your profile>"})
-        _s("Watch until complete", "watch_nwchem_run",
-           {"output_file": "<tce.out>", "input_file": "<tce.nw>", "process_id": "<pid>"})
+        _s("Launch and watch the TCE job (auto_watch=true blocks until done)", "launch_nwchem_run",
+           {"input_file": "<tce.nw>", "profile": "<your profile>", "auto_watch": True},
+           ["launch_nwchem_run automatically polls until terminal — no separate watch call needed"])
         _s("Parse TCE results", "parse_nwchem_tce_output", {"output_file": "<tce.out>"})
 
     warnings: list[str] = []
@@ -2756,6 +2764,27 @@ def lint_nwchem_input(
                     "  end",
                 )
                 break
+
+    # --- Memory directive consistency check ---
+    try:
+        _rc2 = open(input_path, encoding="utf-8", errors="replace").read()
+        _mem_m = _re2.search(
+            r"^\s*memory\s+total\s+(\d+)\s*mb\b.*stack\s+(\d+)\s*mb\b.*heap\s+(\d+)\s*mb\b.*global\s+(\d+)\s*mb\b",
+            _rc2, _re2.IGNORECASE | _re2.MULTILINE,
+        )
+        if _mem_m:
+            _total, _stack, _heap, _glob = (int(_mem_m.group(i)) for i in range(1, 5))
+            if _stack + _heap + _glob > _total:
+                add_issue(
+                    "error",
+                    "memory_subcomponents_exceed_total",
+                    f"Memory sub-components (stack {_stack} + heap {_heap} + global {_glob} = "
+                    f"{_stack + _heap + _glob} MB) exceed the declared total of {_total} MB. "
+                    "NWChem will abort on startup with 'Memory_Defaults: Inconsistent memory specification'. "
+                    f"Set total to at least {_stack + _heap + _glob} MB.",
+                )
+    except OSError:
+        pass
 
     severity_order = {"error": 3, "warning": 2, "info": 1}
     highest = max((severity_order[item["level"]] for item in issues), default=0)
