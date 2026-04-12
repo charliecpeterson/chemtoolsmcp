@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "chemtools-nwchem": {
+      "command": "chemtools-nwchem",
+      "env": {
+        "CHEMTOOLS_RUNNER_PROFILES": "/home1/01775/charlesp/.config/chemtools/runner_profiles.yaml"
+      }
+    }
+  }
+}
