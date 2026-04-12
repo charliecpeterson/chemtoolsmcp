@@ -306,7 +306,10 @@ def compute_reaction_energy(
             method_used[label] = None
             continue
 
-        task_list = tasks_result.get("tasks", []) or []
+        # Tasks are nested under program_summary.raw.tasks in the parse_tasks output
+        task_list = (
+            tasks_result.get("program_summary", {}).get("raw", {}).get("tasks", []) or []
+        )
 
         # Collect (method, energy) pairs from all completed tasks
         candidates: list[tuple[str, float]] = []

@@ -342,6 +342,100 @@ def watch_nwchem_run(
     }
 
 
+def watch_multiple_nwchem_runs(
+    jobs: list[dict[str, Any]],
+    profile: str | None = None,
+    profiles_path: str | None = None,
+    poll_interval_seconds: float = 30.0,
+    timeout_seconds: float | None = None,
+) -> dict[str, Any]:
+    """Poll multiple NWChem jobs until all reach a terminal state.
+
+    Parameters
+    ----------
+    jobs:
+        List of job descriptors, each with any of:
+        ``{"input_file": ..., "output_file": ..., "job_id": ..., "label": ...}``.
+        ``input_file`` is used to auto-detect the ``.jobid`` file.
+    profile:
+        Runner profile name (used by all jobs; overridden per job if ``"profile"`` key present).
+    poll_interval_seconds:
+        Seconds between polling cycles. Default 30 s.
+    timeout_seconds:
+        Stop after this many seconds even if not all jobs are terminal. Default: no timeout.
+    """
+    import time as _time
+
+    started = _time.monotonic()
+    poll_count = 0
+
+    # Normalize job descriptors
+    job_states: list[dict[str, Any]] = []
+    for j in jobs:
+        job_states.append({
+            "label": j.get("label") or Path(j.get("input_file", "job")).stem,
+            "input_file": j.get("input_file"),
+            "output_file": j.get("output_file"),
+            "job_id": j.get("job_id"),
+            "profile": j.get("profile") or profile,
+            "status": "unknown",
+            "terminal": False,
+        })
+
+    _TERMINAL = {"completed_success", "completed_failed", "completed_incomplete",
+                 "error_only", "cancelled"}
+
+    while True:
+        poll_count += 1
+        for js in job_states:
+            if js["terminal"]:
+                continue
+            try:
+                status = check_nwchem_run_status(
+                    output_path=js["output_file"],
+                    input_path=js["input_file"],
+                    profile=js["profile"],
+                    job_id=js["job_id"],
+                    profiles_path=profiles_path,
+                )
+                js["status"] = status.get("overall_status", "unknown")
+                js["terminal"] = js["status"] in _TERMINAL
+                # Auto-persist detected job_id for future polls
+                if not js["job_id"]:
+                    js["job_id"] = (status.get("scheduler") or {}).get("job_id")
+            except Exception as exc:
+                js["status"] = f"error: {exc}"
+
+        all_done = all(js["terminal"] for js in job_states)
+        elapsed = _time.monotonic() - started
+
+        if all_done:
+            stop_reason = "all_terminal"
+            break
+        if timeout_seconds is not None and elapsed >= timeout_seconds:
+            stop_reason = "timeout_reached"
+            break
+
+        _time.sleep(poll_interval_seconds)
+
+    return {
+        "stop_reason": stop_reason,
+        "poll_count": poll_count,
+        "elapsed_seconds": round(_time.monotonic() - started, 1),
+        "all_terminal": all(js["terminal"] for js in job_states),
+        "jobs": [
+            {
+                "label": js["label"],
+                "status": js["status"],
+                "terminal": js["terminal"],
+                "input_file": js["input_file"],
+                "output_file": js["output_file"],
+            }
+            for js in job_states
+        ],
+    }
+
+
 def _build_nwchem_progress_headline(
     overall_status: str,
     progress: dict[str, Any],
@@ -1303,3 +1397,79 @@ def review_nwchem_mcscf_followup_outcome(
             "file_plan": candidate_next_step["file_plan"],
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Session log helpers
+# ---------------------------------------------------------------------------
+
+def init_session_log(
+    log_path: str,
+    session_title: str = "NWChem Session",
+    working_dir: str | None = None,
+) -> dict[str, Any]:
+    """Create (or overwrite) a session log Markdown file."""
+    import datetime
+    from pathlib import Path as _P
+
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    header = (
+        f"# {session_title}\n\n"
+        f"**Started:** {ts}  \n"
+        f"**Working directory:** {working_dir or 'unknown'}  \n\n"
+        "---\n\n"
+    )
+    _P(log_path).write_text(header, encoding="utf-8")
+    return {"log_path": log_path, "created": True, "timestamp": ts}
+
+
+def append_session_log(
+    log_path: str,
+    entry_type: str,
+    content: str,
+) -> dict[str, Any]:
+    """Append an entry to the session log.
+
+    entry_type: one of "step", "result", "error", "note", "summary"
+    """
+    import datetime
+    from pathlib import Path as _P
+
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    _TYPE_EMOJI = {
+        "step": "▶",
+        "result": "✓",
+        "error": "✗",
+        "note": "◆",
+        "summary": "★",
+    }
+    marker = _TYPE_EMOJI.get(entry_type, "•")
+    entry = f"## {marker} [{ts}] {entry_type.title()}\n\n{content.strip()}\n\n---\n\n"
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(entry)
+    return {"log_path": log_path, "appended": True, "timestamp": ts}
+
+
+# ---------------------------------------------------------------------------
+# Input versioning helper
+# ---------------------------------------------------------------------------
+
+def next_versioned_path(path: str) -> str:
+    """Return path with _v2, _v3, ... appended (before extension) if the file exists.
+
+    e.g. "fe.nw" → "fe_v2.nw" if fe.nw exists, "fe_v3.nw" if fe_v2.nw also exists.
+    """
+    from pathlib import Path as _P
+    p = _P(path)
+    if not p.exists():
+        return path
+    stem = p.stem
+    # Strip any existing _vN suffix to normalize
+    import re as _re
+    base_stem = _re.sub(r"_v\d+$", "", stem)
+    n = 2
+    while True:
+        candidate = p.parent / f"{base_stem}_v{n}{p.suffix}"
+        if not candidate.exists():
+            return str(candidate)
+        n += 1

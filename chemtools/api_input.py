@@ -2236,7 +2236,13 @@ def create_nwchem_dft_workflow_input(
         sections.append(f"charge {charge}")
     rendered_extra_blocks = [block.strip("\n") for block in (extra_blocks or []) if str(block).strip()]
     if "optimize" in normalized_tasks:
-        _ensure_driver_block(rendered_extra_blocks)
+        # Default to Cartesian (xyz) optimizer for TM complexes with ≥4 ligands:
+        # autoz (Z-matrix) can produce degenerate coordinates for symmetric metal cages.
+        _geom_elements = {a.get("element", "") for a in geometry.get("atoms", [])}
+        _has_tm = bool(_geom_elements & _TRANSITION_METALS)
+        _n_heavy = sum(1 for e in _geom_elements if e not in {"H", "D"})
+        _use_xyz = _has_tm and _n_heavy >= 4
+        _ensure_driver_block(rendered_extra_blocks, use_xyz=_use_xyz)
     sections.extend(rendered_extra_blocks)
     sections.append(module_block)
     sections.extend(task_lines)
@@ -2259,13 +2265,17 @@ def create_nwchem_dft_workflow_input(
         "task_operations": normalized_tasks,
         "charge": charge,
         "multiplicity": multiplicity,
-        "basis_setup": basis_setup,
+        "basis_setup": (
+            # When write_file=True the basis is already on disk — omit full text to save tokens
+            {k: v for k, v in basis_setup.items() if k not in {"basis_block", "ecp_block"}}
+            if write_file else basis_setup
+        ),
         "dft_settings": [line.strip() for line in rendered_dft_settings],
         "vectors_input": vectors_input,
         "vectors_output": resolved_vectors_output,
-        "input_text": input_text,
-        "file_plan": file_plan,
+        "input_text": None if write_file else input_text,  # omit full text when file written
         "written_file": written_file,
+        "file_plan": file_plan,
         "inline_blocks": inline_blocks,
     }
 
@@ -2764,6 +2774,30 @@ def lint_nwchem_input(
                     "  end",
                 )
                 break
+
+    # --- autoz + symmetric TM complex warning ---
+    _tm_elements_in_input = {e for e in (input_summary.get("elements") or []) if e in _TRANSITION_METALS}
+    if _tm_elements_in_input:
+        _has_optimize_task = any(
+            (t.get("operation") or "").lower() == "optimize" for t in (input_summary.get("tasks") or [])
+        )
+        if _has_optimize_task:
+            _rc_full = open(input_path, encoding="utf-8", errors="replace").read()
+            _has_driver = bool(_re2.search(r"^\s*driver\b", _rc_full, _re2.IGNORECASE | _re2.MULTILINE))
+            _has_xyz = bool(_re2.search(r"^\s*xyz\b", _rc_full, _re2.IGNORECASE | _re2.MULTILINE))
+            if not _has_driver or not _has_xyz:
+                _n_heavy_in_input = sum(
+                    1 for e in (input_summary.get("elements") or []) if e not in {"H", "D"}
+                )
+                if _n_heavy_in_input >= 4:
+                    add_issue(
+                        "warning",
+                        "autoz_symmetric_tm_complex",
+                        "Optimization of a TM complex without explicit 'driver; xyz; end' may produce "
+                        "degenerate Z-matrix coordinates for symmetric geometries (e.g. octahedral, "
+                        "tetrahedral), causing the optimizer to walk uphill. "
+                        "Add 'driver\\n  xyz\\n  maxiter 300\\nend' before the DFT/SCF block.",
+                    )
 
     # --- Memory directive consistency check ---
     try:

@@ -83,6 +83,10 @@ from chemtools import (  # noqa: E402
     render_job_script,
     terminate_nwchem_run,
     watch_nwchem_run,
+    watch_multiple_nwchem_runs,
+    init_session_log,
+    append_session_log,
+    next_versioned_path,
 )
 
 
@@ -1633,6 +1637,114 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # ------------------------------------------------------------------
+        # Parallel job monitoring
+        # ------------------------------------------------------------------
+        {
+            "name": "watch_multiple_runs",
+            "description": (
+                "Monitor multiple NWChem jobs simultaneously until all reach a terminal state "
+                "(completed, failed, or cancelled). Use this after submitting several jobs in "
+                "parallel with auto_watch=false — call this once and it will block until all "
+                "jobs finish, then return a consolidated status table. "
+                "Each job entry requires output_file and optionally profile and job_id "
+                "(job_id auto-detected from <output_file>.jobid if omitted)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "jobs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "output_file": {"type": "string", "description": "Path to the .out file for this job."},
+                                "job_id": {"type": "string", "description": "Scheduler job ID (auto-detected from .jobid file if omitted)."},
+                                "profile": {"type": "string", "description": "Runner profile name (required for HPC scheduler jobs)."},
+                                "label": {"type": "string", "description": "Human-readable label for this job in the summary table."},
+                            },
+                            "required": ["output_file"],
+                            "additionalProperties": False,
+                        },
+                        "description": "List of jobs to watch.",
+                    },
+                    "profile": {"type": "string", "description": "Default runner profile for all jobs (overridden per-job if set)."},
+                    "profiles_path": {"type": "string"},
+                    "poll_interval_seconds": {"type": "number", "default": 30, "description": "How often to poll scheduler status."},
+                    "timeout_seconds": {"type": "number", "description": "Give up after this many seconds (null = no timeout)."},
+                },
+                "required": ["jobs"],
+                "additionalProperties": False,
+            },
+        },
+        # ------------------------------------------------------------------
+        # Session log — running Markdown doc for context preservation
+        # ------------------------------------------------------------------
+        {
+            "name": "init_session_log",
+            "description": (
+                "Create a new session log Markdown file. Call this at the START of every "
+                "multi-step NWChem workflow to establish a running record. The log captures "
+                "what was done, what was found, and what the next steps are — preserving "
+                "context across long sessions and providing a summary the user can review. "
+                "Returns the log path; save it and pass to append_session_log throughout the session."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "log_path": {"type": "string", "description": "Where to write the Markdown log (e.g. /path/to/session.md)."},
+                    "session_title": {"type": "string", "description": "Short title describing this session's goal."},
+                    "working_dir": {"type": "string", "description": "Working directory for this session (for context)."},
+                },
+                "required": ["log_path", "session_title"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "append_session_log",
+            "description": (
+                "Append a timestamped entry to the session log. Call this frequently throughout "
+                "a workflow: after each major action (job launch, parse, fix), after finding "
+                "errors or making decisions, and at the end to write a final summary. "
+                "Entry types: 'step' (action taken), 'result' (what was found), "
+                "'error' (problems encountered), 'note' (decisions/reasoning), 'summary' (final recap)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "log_path": {"type": "string", "description": "Path to the log file (from init_session_log)."},
+                    "entry_type": {
+                        "type": "string",
+                        "enum": ["step", "result", "error", "note", "summary"],
+                        "description": "Category of this log entry.",
+                    },
+                    "content": {"type": "string", "description": "Markdown content for this entry."},
+                },
+                "required": ["log_path", "entry_type", "content"],
+                "additionalProperties": False,
+            },
+        },
+        # ------------------------------------------------------------------
+        # Input file versioning
+        # ------------------------------------------------------------------
+        {
+            "name": "next_versioned_path",
+            "description": (
+                "Return the next available versioned path for a NWChem input file, "
+                "avoiding overwrites. Given 'fe.nw', returns 'fe_v2.nw' if that file "
+                "does not exist, or 'fe_v3.nw' if _v2 already exists, etc. "
+                "ALWAYS call this before creating or modifying an input file — never "
+                "overwrite existing .nw files so the user can track the progression."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Existing or planned input file path."},
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -2690,6 +2802,44 @@ def _handle_suggest_nwchem_tce_freeze(arguments: dict[str, Any]) -> dict[str, An
         elements=arguments["elements"],
         ecp_core_electrons=arguments.get("ecp_core_electrons"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Handlers — parallel job monitoring, session log, input versioning
+# ---------------------------------------------------------------------------
+
+@_tool("watch_multiple_runs")
+def _handle_watch_multiple_runs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return watch_multiple_nwchem_runs(
+        jobs=arguments["jobs"],
+        profile=arguments.get("profile"),
+        profiles_path=arguments.get("profiles_path"),
+        poll_interval_seconds=arguments.get("poll_interval_seconds", 30.0),
+        timeout_seconds=arguments.get("timeout_seconds"),
+    )
+
+
+@_tool("init_session_log")
+def _handle_init_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
+    return init_session_log(
+        log_path=arguments["log_path"],
+        session_title=arguments["session_title"],
+        working_dir=arguments.get("working_dir"),
+    )
+
+
+@_tool("append_session_log")
+def _handle_append_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
+    return append_session_log(
+        log_path=arguments["log_path"],
+        entry_type=arguments["entry_type"],
+        content=arguments["content"],
+    )
+
+
+@_tool("next_versioned_path")
+def _handle_next_versioned_path(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {"path": next_versioned_path(arguments["path"])}
 
 
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:

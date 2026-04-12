@@ -673,8 +673,6 @@ def _apply_default_dft_settings(
         ("iterations ", "  iterations 300"),
         ("mulliken", "  mulliken"),
         ("direct", "  direct"),
-        ("noio", "  noio"),
-        ("grid nodisk", "  grid nodisk"),
     ]
     for keyword, default_line in default_lines:
         if not any(line == keyword or line.startswith(f"{keyword} ") for line in stripped_lower):
@@ -690,11 +688,15 @@ def _apply_default_dft_settings(
     return settings
 
 
-def _ensure_driver_block(blocks: list[str]) -> None:
+def _ensure_driver_block(
+    blocks: list[str],
+    use_xyz: bool = False,
+) -> None:
     for block in blocks:
         if block.lstrip().lower().startswith("driver"):
             return
-    blocks.append("driver\n  maxiter 300\nend")
+    coord_line = "\n  xyz" if use_xyz else ""
+    blocks.append(f"driver{coord_line}\n  maxiter 300\nend")
 
 
 _TRANSITION_METALS = {

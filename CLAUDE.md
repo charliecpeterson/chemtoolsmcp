@@ -20,7 +20,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   diagnostics.py     High-level diagnosis functions
   data/nwchem/       Bundled NWChem data (basis library — 608 files)
   mcp/
-    nwchem.py        NWChem MCP server — 49 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 64 tools, thin wrappers over chemtools/
     nwchem_docs.py   NWChem documentation lookup server
     # Future: molpro.py, orca.py
 
@@ -33,7 +33,7 @@ tests/               Test suite
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap}
-- Current tool count: 60
+- Current tool count: 64
 
 ## How to Add a New Tool
 
@@ -61,6 +61,9 @@ Common patterns:
 - **MCP handlers are thin** — all logic lives in `chemtools/`, handlers just translate arguments
 - **Explicit basis blocks** — generate explicit per-element basis text from the library, not `library` shorthand
 - **Lint after drafting** — every input tool should be followed by lint in the workflow
+- **Never overwrite input files** — always call `next_versioned_path` before writing a modified `.nw` file; the first version stays as-is and revisions become `_v2.nw`, `_v3.nw`, etc.
+- **Always start a session log** — call `init_session_log` at the beginning of any multi-step workflow; append entries with `append_session_log` after each action, decision, or error; write a `summary` entry at the end
+- **Parallel job monitoring** — submit jobs with `auto_watch=false`, then call `watch_multiple_runs` (not `watch_nwchem_run` in a loop) to block until all finish simultaneously
 
 ## Runner Profiles
 
@@ -163,15 +166,31 @@ stampede3_skx:
    the same as local runs
 5. `terminate_nwchem_run` accepts `job_id + profile` for HPC cancel (calls `scancel`/`qdel`)
 
-### Agent workflow for HPC
+### Agent workflow for HPC (single job)
 
 ```
-inspect_runner_profiles          → verify stampede3_skx is available
-render_job_script(profile=...)   → preview the .job script before submitting
-lint_nwchem_input                → check input is correct
-launch_nwchem_run                → sbatch; writes ferrocene.jobid
-watch_nwchem_run(output_file=...)→ polls squeue + tails output; auto-reads .jobid
-analyze_nwchem_case              → diagnosis after completion
+init_session_log(log_path=..., session_title=...)  → start running doc
+inspect_runner_profiles                             → verify profile is available
+render_job_script(profile=...)                      → preview the .job script
+lint_nwchem_input                                   → check input is correct
+launch_nwchem_run(auto_watch=true)                  → sbatch + block until done
+append_session_log(entry_type="result", ...)        → record outcome
+analyze_nwchem_case                                 → diagnosis
+append_session_log(entry_type="summary", ...)       → final summary
+```
+
+### Agent workflow for HPC (parallel jobs)
+
+```
+init_session_log(...)                               → start running doc
+# For each job:
+next_versioned_path(path="mol.nw")                  → get safe output path
+lint_nwchem_input                                   → validate
+launch_nwchem_run(auto_watch=false)                 → submit all jobs first
+# After all submitted:
+watch_multiple_runs(jobs=[...])                     → block until all done
+# Analyze each result
+append_session_log(entry_type="summary", ...)       → final summary
 ```
 
 ## Development Environment

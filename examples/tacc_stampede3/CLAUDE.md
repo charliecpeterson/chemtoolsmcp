@@ -24,20 +24,46 @@ you are on a login node.
 
 Default walltime is 24 h. Override with `resource_overrides={"walltime": "48:00:00"}`.
 
-## Standard workflow
+## Standard workflow (single job)
 
 ```
+init_session_log(log_path="session.md",
+                 session_title="...",
+                 working_dir="...")              → start running log (do this first)
 inspect_runner_profiles                          → confirm profiles are loaded
 render_job_script(profile="stampede3_skx")       → preview .job script before submitting
 lint_nwchem_input(input_file=...)                → catch errors before wasting queue time
 launch_nwchem_run(input_file=...,
-                  profile="stampede3_skx")       → sbatch; writes {name}.jobid automatically
-watch_nwchem_run(output_file=...,
-                 input_file=...)                 → polls squeue + tails output; job ID
-                                                   auto-detected from {name}.jobid
+                  profile="stampede3_skx",
+                  auto_watch=true)               → sbatch + block until job finishes
+append_session_log(entry_type="result", ...)     → record what happened
 analyze_nwchem_case(output_file=...,
                     input_file=...)              → diagnosis after completion
+append_session_log(entry_type="summary", ...)    → final summary
 ```
+
+## Standard workflow (parallel jobs)
+
+When running multiple jobs simultaneously (binding energies, spin states, conformers):
+
+```
+init_session_log(...)                            → start running log
+# For each job input to create/modify:
+next_versioned_path(path="mol.nw")               → get safe non-overwriting path
+lint_nwchem_input(input_file=...)                → validate
+launch_nwchem_run(..., auto_watch=false)          → submit without blocking
+# After all jobs submitted:
+watch_multiple_runs(jobs=[
+    {"output_file": "a.out", "profile": "stampede3_skx"},
+    {"output_file": "b.out", "profile": "stampede3_skx"},
+])                                               → block until ALL finish
+# Then analyze each result
+append_session_log(entry_type="summary", ...)    → final summary
+```
+
+**Input versioning rule**: NEVER overwrite an existing `.nw` file. Always call
+`next_versioned_path` first — `mol.nw` stays unchanged; fixes become `mol_v2.nw`,
+`mol_v3.nw`, etc. This preserves the full progression for review.
 
 ## TACC-specific notes
 
