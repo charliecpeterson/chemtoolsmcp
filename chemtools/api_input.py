@@ -2648,6 +2648,25 @@ def lint_nwchem_input(
 
     _lint_fragment_guess(input_path, add_issue)
 
+    # --- Relativistic + ECP conflict check ---
+    try:
+        import re as _re2
+        from .common import read_text as _rt2
+        _rc = _rt2(input_path)
+        _has_rel = bool(_re2.search(r"^\s*relativistic\b", _rc, _re2.IGNORECASE | _re2.MULTILINE))
+        _has_ecp = bool(_re2.search(r"^\s*ecp\b", _rc, _re2.IGNORECASE | _re2.MULTILINE))
+        if _has_rel and _has_ecp:
+            add_issue(
+                "error",
+                "relativistic_ecp_conflict",
+                "Both a 'relativistic' block and an 'ecp' block are present. "
+                "X2C and DKH are all-electron methods — they are incompatible with ECPs. "
+                "Choose one: (a) all-electron basis + relativistic block, OR "
+                "(b) ECP basis (no relativistic block needed — ECP implicitly encodes scalar relativistic effects).",
+            )
+    except Exception:
+        pass
+
     # --- TCE-specific checks ---
     tce_tasks = [t for t in input_summary["tasks"] if (t.get("module") or "").lower() == "tce"]
     if tce_tasks:

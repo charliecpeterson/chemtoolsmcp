@@ -254,9 +254,14 @@ def inspect_nwchem_run_status(
         scheduler_status = _scheduler_status(profile=profile, job_id=job_id, profiles_path=profiles_path)
 
     input_summary = None
+    input_raw_text: str | None = None
     if input_path:
         try:
+            input_raw_text = read_text(input_path)
             input_summary = inspect_nwchem_input(input_path)
+            if input_summary is not None:
+                input_summary = dict(input_summary)
+                input_summary["raw_text"] = input_raw_text
         except Exception:  # pragma: no cover
             input_summary = None
 
@@ -656,6 +661,103 @@ def _compact_program_summary(
     return payload
 
 
+def _detect_slow_phase(contents: str, input_summary: dict[str, Any] | None) -> dict[str, Any]:
+    """Identify known output-silent phases so the watcher can report 'expected slow' vs 'hung'.
+
+    Returns a dict with ``phase`` (str|None) and ``message`` (str).
+    """
+    tail = contents[-8000:] if len(contents) > 8000 else contents
+    lower = tail.lower()
+
+    # Check if input uses a relativistic Hamiltonian (X2C, DKH)
+    has_relativistic = False
+    if input_summary:
+        raw_input = input_summary.get("raw_text") or ""
+        has_relativistic = bool(
+            "relativistic" in raw_input.lower()
+            or "x2c" in raw_input.lower()
+            or "dkh" in raw_input.lower()
+            or "douglas" in raw_input.lower()
+        )
+    # Also check from output content itself
+    if not has_relativistic:
+        has_relativistic = any(
+            kw in contents.lower()
+            for kw in ("x2c hamiltonian", "dkh hamiltonian", "relativistic effects",
+                       "scalar relativistic", "x2c-mf", "x2c transform")
+        )
+
+    # SAD / initial guess
+    if "superposition of atomic density" in lower:
+        scf_started = "general information" in lower and (
+            "scf calculation" in lower or "dft calculation" in lower
+        )
+        if not scf_started:
+            if has_relativistic:
+                return {
+                    "phase": "sad_x2c_guess",
+                    "message": (
+                        "SAD (Superposition of Atomic Density) guess with X2C relativistic Hamiltonian. "
+                        "X2C requires solving a relativistic atomic SCF for each unique element — "
+                        "for transition metals (e.g. Fe, Ru, W) this can take 30–120+ minutes with "
+                        "no output. This is expected; do NOT intervene."
+                    ),
+                }
+            return {
+                "phase": "sad_guess",
+                "message": (
+                    "SAD (Superposition of Atomic Density) guess in progress. "
+                    "Output is silent while NWChem builds initial densities — this is normal."
+                ),
+            }
+
+    # DFT grid generation
+    if any(kw in lower for kw in ("xc grid generation", "dft grid", "numerical integration")):
+        grid_done = "grid construction" in lower and "done" in lower
+        if not grid_done:
+            return {
+                "phase": "dft_grid_generation",
+                "message": (
+                    "DFT numerical integration grid generation in progress. "
+                    "For large molecules or fine grids this can be slow with no output."
+                ),
+            }
+
+    # Frequency / Hessian numerical differentiation
+    if any(kw in lower for kw in ("nuclear hessian", "freq task", "p.frequency", "normal mode")):
+        freq_done = "frequency analysis" in lower and ("done" in lower or "completed" in lower)
+        if not freq_done:
+            return {
+                "phase": "frequency_numerical_hessian",
+                "message": (
+                    "Frequency/Hessian numerical differentiation in progress. "
+                    "Each displacement requires a full energy+gradient calculation; "
+                    "output may be sparse between displacements."
+                ),
+            }
+
+    # TCE AO→MO integral transformation
+    if any(kw in lower for kw in ("tce", "ao-to-mo", "transformation of integrals", "integral transformation")):
+        tce_iter = "iterative solution" in lower or "ccsd iteration" in lower
+        if not tce_iter:
+            return {
+                "phase": "tce_ao_mo_transform",
+                "message": (
+                    "TCE AO→MO integral transformation in progress. "
+                    "For large basis sets this takes significant time and memory with no output."
+                ),
+            }
+
+    # Geometry optimization between steps (writing/reading Hessian)
+    if any(kw in lower for kw in ("driver: starting", "geometry optimization", "optimize:")):
+        return {
+            "phase": "geometry_optimization_step",
+            "message": "Geometry optimization step in progress.",
+        }
+
+    return {"phase": None, "message": ""}
+
+
 def _build_nwchem_progress_summary(
     contents: str,
     parsed_output: dict[str, Any],
@@ -695,8 +797,17 @@ def _build_nwchem_progress_summary(
         requested = _summarize_requested_task_progress(input_summary, raw_tasks)
         summary.update(requested)
 
+    # --- Detect known output-silent phases before first task completes ---
+    slow_phase = _detect_slow_phase(contents, input_summary)
+    summary["slow_phase"] = slow_phase.get("phase")
+    summary["slow_phase_message"] = slow_phase.get("message")
+
     if last_task is None:
-        summary["status_line"] = "No NWChem task structure detected yet."
+        if slow_phase.get("phase"):
+            summary["current_phase"] = "initialization_slow_phase"
+            summary["status_line"] = slow_phase["message"]
+        else:
+            summary["status_line"] = "No NWChem task structure detected yet."
         return summary
 
     kind = last_task.get("kind")

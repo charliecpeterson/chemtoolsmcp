@@ -2430,3 +2430,233 @@ def suggest_memory(
             "For CCSD(T) memory is the dominant bottleneck — more is always better."
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Relativistic correction advisor
+# ---------------------------------------------------------------------------
+
+# Elements where relativistic effects are chemically significant
+# 3d TMs (Z>=21): notable core-level effects; DK-basis use makes X2C appropriate
+# 4d/heavy main-group (Z>=37): scalar relativistic important for energetics
+# 5d metals, lanthanides, actinides (Z>=57): mandatory
+_REL_SIGNIFICANT_Z = 21   # 3d transition metals — recommend when DK basis detected
+_REL_IMPORTANT_Z = 37     # 4d metals and heavier — strongly recommend
+_REL_CRITICAL_Z = 57      # 5d metals, lanthanides, actinides — mandatory
+
+# DK-quality basis sets (designed for relativistic calculations)
+_DK_BASIS_PATTERNS = {
+    "cc-pvdz-dk", "cc-pvtz-dk", "cc-pvqz-dk", "cc-pv5z-dk",
+    "aug-cc-pvdz-dk", "aug-cc-pvtz-dk", "aug-cc-pvqz-dk",
+    "cc-pwcvdz-dk", "cc-pwcvtz-dk", "cc-pwcvqz-dk",
+    "x2c-svpall", "x2c-tzvpall", "x2c-qzvpall",
+    "dyall-v2z", "dyall-v3z", "dyall-v4z",
+    "sarc-dkh2",
+}
+
+# Relativistic methods available in NWChem
+_REL_METHODS = {
+    "x2c": {
+        "nwchem_block": "relativistic\n  x2c\nend",
+        "description": "Exact Two-Component (X2C) — recommended for production quality. "
+                       "Decouples large and small components exactly at the 1-electron level. "
+                       "Use with DK-family basis sets (cc-pVDZ-DK, cc-pVTZ-DK, etc.).",
+        "cost": "moderate",
+        "suitable_for": ["single_point", "optimization", "frequency", "mp2", "ccsd"],
+    },
+    "dkh2": {
+        "nwchem_block": "relativistic\n  douglas-kroll 2\nend",
+        "description": "Douglas-Kroll-Hess 2nd order (DKH2) — widely tested, good accuracy "
+                       "for 4d/5d metals. Use with DK-family basis sets.",
+        "cost": "moderate",
+        "suitable_for": ["single_point", "optimization", "frequency"],
+    },
+    "dkh3": {
+        "nwchem_block": "relativistic\n  douglas-kroll 3\nend",
+        "description": "Douglas-Kroll-Hess 3rd order (DKH3) — higher-order correction over DKH2. "
+                       "Minimal improvement over DKH2 in most cases.",
+        "cost": "moderate",
+        "suitable_for": ["single_point"],
+    },
+    "zora": {
+        "nwchem_block": "relativistic\n  zora\nend",
+        "description": "ZORA (Zeroth Order Regular Approximation) — lower cost but less rigorous. "
+                       "Not recommended for high-accuracy work.",
+        "cost": "low",
+        "suitable_for": ["single_point", "optimization"],
+    },
+}
+
+
+def suggest_relativistic_correction(
+    elements: list[str],
+    basis_assignments: dict[str, str] | None = None,
+    ecp_assignments: dict[str, str] | None = None,
+    purpose: str = "dft",
+) -> dict[str, Any]:
+    """Advise on relativistic corrections for a molecular calculation.
+
+    Returns a recommendation (or "none needed") with the NWChem block to add,
+    and compatibility warnings when ECPs are present.
+
+    Parameters
+    ----------
+    elements:
+        All element symbols in the system.
+    basis_assignments:
+        Dict mapping element → basis name.  Used to detect DK-type bases.
+    ecp_assignments:
+        Dict mapping element → ECP name.  If present, warns about X2C/DKH incompatibility.
+    purpose:
+        One of "dft", "scf", "ccsd", "property".  Affects recommendation.
+
+    Returns dict with ``recommended_method``, ``nwchem_block``, ``reason``,
+    ``warnings``, and ``per_element_z_scores``.
+    """
+    norm = [e[0].upper() + e[1:].lower() for e in elements]
+    unique = list(dict.fromkeys(norm))
+
+    has_ecp = bool(ecp_assignments)
+    ecp_elements = list((ecp_assignments or {}).keys())
+
+    # Z-based analysis
+    per_element: list[dict[str, Any]] = []
+    max_z = 0
+    for el in unique:
+        z = ELEMENT_TO_Z.get(el, 0)
+        max_z = max(max_z, z)
+        if z >= _REL_CRITICAL_Z:
+            level = "critical"
+        elif z >= _REL_IMPORTANT_Z:
+            level = "important"
+        elif z >= _REL_SIGNIFICANT_Z:
+            level = "significant"
+        elif z >= 18:
+            level = "minor"
+        else:
+            level = "negligible"
+        per_element.append({"element": el, "Z": z, "relativistic_importance": level})
+
+    has_critical = any(p["relativistic_importance"] == "critical" for p in per_element)
+    has_important = any(p["relativistic_importance"] == "important" for p in per_element)
+    has_significant = any(p["relativistic_importance"] == "significant" for p in per_element)
+
+    # Detect DK basis sets
+    basis_lower = {k.lower(): v.lower() for k, v in (basis_assignments or {}).items()}
+    has_dk_basis = any(
+        any(b.startswith(dk) or b in _DK_BASIS_PATTERNS for dk in _DK_BASIS_PATTERNS)
+        for b in basis_lower.values()
+    ) if basis_lower else False
+
+    warnings: list[str] = []
+    incompatible_elements: list[str] = []
+
+    if has_ecp:
+        # X2C/DKH treat core relativistic effects via all-electron; ECP replaces the core.
+        # Using both is either redundant (same element) or inconsistent.
+        incompatible_elements = [
+            el for el in ecp_elements
+            if el in unique
+        ]
+        if incompatible_elements:
+            warnings.append(
+                f"INCOMPATIBILITY: Elements {incompatible_elements} use ECPs — "
+                "X2C and DKH are all-electron methods that replace ECPs. "
+                "You must choose ONE: (a) all-electron + relativistic block, OR "
+                "(b) ECP (removes core electrons; no relativistic block needed). "
+                "Using both for the same element is incorrect."
+            )
+
+    # Recommendation logic
+    if not (has_critical or has_important or has_significant):
+        recommended = "none"
+        nwchem_block = None
+        reason = (
+            f"All elements have Z < {_REL_SIGNIFICANT_Z} — relativistic effects are negligible. "
+            "No relativistic block needed."
+        )
+    elif has_ecp and incompatible_elements:
+        # ECPs already implicitly encode relativistic effects for heavy atoms
+        recommended = "ecp_implicit"
+        nwchem_block = None
+        reason = (
+            "ECP is in use for heavy elements — the ECP implicitly accounts for scalar "
+            "relativistic effects on the core. Do not add a relativistic block for ECP-covered elements. "
+            "If you want explicit all-electron relativistic treatment, remove the ECP and use "
+            "an all-electron basis with X2C or DKH2."
+        )
+    elif has_critical:
+        recommended = "x2c"
+        nwchem_block = _REL_METHODS["x2c"]["nwchem_block"]
+        reason = (
+            f"Heavy element(s) with Z ≥ {_REL_CRITICAL_Z} present (5d metals or heavy p-block). "
+            "Relativistic effects are chemically critical — X2C is the recommended method. "
+            "Pair with cc-pVTZ-DK, cc-pVDZ-DK, or x2c-TZVPall basis sets."
+        )
+        if not has_dk_basis:
+            warnings.append(
+                "BASIS WARNING: No DK-quality basis detected. "
+                "X2C/DKH calculations require bases designed for relativistic calculations "
+                "(cc-pVDZ-DK, cc-pVTZ-DK, x2c-SVPall, etc.). "
+                "Standard Pople/def2 bases have suboptimal core contraction for X2C."
+            )
+    elif has_important:
+        recommended = "x2c"
+        nwchem_block = _REL_METHODS["x2c"]["nwchem_block"]
+        reason = (
+            f"Element(s) with Z ≥ {_REL_IMPORTANT_Z} (4d metals / heavy main-group) present. "
+            "Scalar relativistic effects are important for accurate energetics. "
+            "X2C with DK basis sets recommended."
+        )
+        if not has_dk_basis:
+            warnings.append(
+                "BASIS WARNING: Consider switching to cc-pVDZ-DK or cc-pVTZ-DK basis sets."
+            )
+    else:
+        # Z >= _REL_SIGNIFICANT_Z (3d TMs): recommend X2C when DK basis present, optional otherwise
+        if has_dk_basis:
+            recommended = "x2c"
+            nwchem_block = _REL_METHODS["x2c"]["nwchem_block"]
+            reason = (
+                f"DK-type basis set detected with element(s) in the 3d/4d transition metal range. "
+                "DK-family bases are designed for use with relativistic Hamiltonians (X2C or DKH2). "
+                "X2C is strongly recommended — using a DK basis without a relativistic block "
+                "gives inconsistent results."
+            )
+        else:
+            recommended = "x2c_optional"
+            nwchem_block = _REL_METHODS["x2c"]["nwchem_block"]
+            reason = (
+                f"Element(s) with Z ≥ {_REL_SIGNIFICANT_Z} present — scalar relativistic effects "
+                "are non-negligible but often acceptable without correction at this level. "
+                "Add X2C with a DK-type basis if targeting high accuracy."
+            )
+
+    # Performance note for X2C + SAD
+    sad_note: str | None = None
+    if recommended in ("x2c", "x2c_optional") and nwchem_block:
+        heavy_tms = [p["element"] for p in per_element if p["Z"] >= _REL_SIGNIFICANT_Z]
+        if heavy_tms:
+            sad_note = (
+                f"PERFORMANCE NOTE: X2C requires solving relativistic atomic SCFs for {heavy_tms} "
+                "during the SAD initial guess. This runs with no output for potentially 30–120+ minutes. "
+                "This is expected behavior — do not terminate the job during this phase."
+            )
+            warnings.append(sad_note)
+
+    return {
+        "recommended_method": recommended,
+        "nwchem_block": nwchem_block,
+        "reason": reason,
+        "per_element": per_element,
+        "max_z": max_z,
+        "has_dk_basis": has_dk_basis,
+        "has_ecp": has_ecp,
+        "ecp_incompatible_elements": incompatible_elements,
+        "available_methods": {k: {
+            "nwchem_block": v["nwchem_block"],
+            "description": v["description"],
+            "cost": v["cost"],
+        } for k, v in _REL_METHODS.items()},
+        "warnings": warnings,
+    }

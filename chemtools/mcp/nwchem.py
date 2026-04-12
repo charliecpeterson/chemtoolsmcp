@@ -21,6 +21,7 @@ from chemtools import (  # noqa: E402
     plan_nwchem_workflow,
     suggest_basis_set,
     suggest_memory,
+    suggest_relativistic_correction,
     suggest_spin_state,
     validate_nwchem_tce_setup,
     analyze_imaginary_modes,
@@ -352,6 +353,46 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         # ------------------------------------------------------------------
+        {
+            "name": "suggest_relativistic_correction",
+            "description": (
+                "Advise on relativistic corrections for a calculation given the elements present. "
+                "Returns the recommended method (X2C, DKH2, or none), the NWChem 'relativistic...end' "
+                "block to add, and warnings about incompatibilities. "
+                "KEY RULES: (1) X2C/DKH are ALL-ELECTRON methods — do NOT use with ECPs on the same element. "
+                "(2) Use DK-family basis sets (cc-pVDZ-DK, cc-pVTZ-DK, x2c-SVPall) with X2C/DKH. "
+                "(3) X2C SAD guess for heavy transition metals can take 30–120+ min with no output — this is normal. "
+                "Call before drafting any input that contains 4d/5d transition metals or Z > 36 elements."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "elements": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "All element symbols in the molecule.",
+                    },
+                    "basis_assignments": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                        "description": "Dict of element → basis name. Used to detect DK-quality bases.",
+                    },
+                    "ecp_assignments": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                        "description": "Dict of element → ECP name. If present, warns about X2C/DKH incompatibility.",
+                    },
+                    "purpose": {
+                        "type": "string",
+                        "enum": ["dft", "scf", "ccsd", "property"],
+                        "default": "dft",
+                        "description": "Type of calculation.",
+                    },
+                },
+                "required": ["elements"],
+                "additionalProperties": False,
+            },
+        },
         # Frontier orbital / vectors-swap workflow
         # ------------------------------------------------------------------
         {
@@ -742,7 +783,13 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "watch_nwchem_run",
-            "description": "Poll NWChem status until the run reaches a terminal state or a timeout/max-poll limit.",
+            "description": (
+                "Poll NWChem status until the run reaches a terminal state or a timeout/max-poll limit. "
+                "Detects known output-silent phases and reports them as 'expected slow' rather than 'hung': "
+                "SAD guess (always silent), X2C/DKH SAD atomic solves (30–120+ min for heavy TMs), "
+                "DFT grid generation, frequency Hessian displacements, TCE AO→MO transformation. "
+                "When slow_phase is set in final_status, do NOT interpret output silence as a crash."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1589,6 +1636,16 @@ def _handle_compute_reaction_energy(arguments: dict[str, Any]) -> dict[str, Any]
         reactants=arguments["reactants"],
         products=arguments["products"],
         method=arguments.get("method"),
+    )
+
+
+@_tool("suggest_relativistic_correction")
+def _handle_suggest_relativistic_correction(arguments: dict[str, Any]) -> dict[str, Any]:
+    return suggest_relativistic_correction(
+        elements=arguments["elements"],
+        basis_assignments=arguments.get("basis_assignments"),
+        ecp_assignments=arguments.get("ecp_assignments"),
+        purpose=arguments.get("purpose", "dft"),
     )
 
 
