@@ -1642,11 +1642,25 @@ def draft_initial_geometry(
         r_ml = _bond(center, ligands[0]) if ligands else 2.0
 
         # Symmetric ligand positions around center at origin
+        # Elements with lone pairs that produce bent AX2 geometries
+        _BENT_ANGLE: dict[str, float] = {
+            "O": 104.5, "S": 92.0, "Se": 91.0, "Te": 90.0,
+            "N": 107.0, "P": 93.5, "As": 91.8, "Sb": 91.6,
+            "C": 109.5, "Si": 109.5, "Ge": 91.0,
+        }
         two_pi = 2.0 * math.pi
         if n_lig == 1:
             lig_coords = [(0.0, 0.0, r_ml)]
         elif n_lig == 2:
-            lig_coords = [(0.0, 0.0, -r_ml), (0.0, 0.0, r_ml)]
+            if center in _BENT_ANGLE:
+                angle_deg = _BENT_ANGLE[center]
+                half = math.radians(angle_deg / 2)
+                lig_coords = [
+                    ( r_ml * math.sin(half),  r_ml * math.cos(half), 0.0),
+                    (-r_ml * math.sin(half),  r_ml * math.cos(half), 0.0),
+                ]
+            else:
+                lig_coords = [(0.0, 0.0, -r_ml), (0.0, 0.0, r_ml)]
         elif n_lig == 3:
             lig_coords = [
                 (r_ml * math.cos(k * two_pi / 3), r_ml * math.sin(k * two_pi / 3), 0.0)

@@ -748,7 +748,15 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "launch_nwchem_run",
-            "description": "Launch a NWChem input through a named runner profile. Use dry_run=true for a preview without executing.",
+            "description": (
+                "Launch a NWChem input through a named runner profile. For scheduler (HPC) profiles "
+                "the job is submitted via sbatch/qsub and the scheduler job ID is written to "
+                "{job_name}.jobid. With auto_watch=true (default) the tool immediately transitions "
+                "into polling mode and blocks until the job reaches a terminal state — the agent does "
+                "not need to call watch_nwchem_run separately. Set auto_watch=false to return "
+                "immediately after submission (use when you want to submit multiple jobs in parallel). "
+                "Use dry_run=true for a preview without executing."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -760,6 +768,15 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "env_overrides": {"type": "object"},
                     "write_script": {"type": "boolean", "default": True},
                     "dry_run": {"type": "boolean", "default": False},
+                    "auto_watch": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": (
+                            "When true (default), automatically polls until the job completes. "
+                            "For scheduler jobs this blocks until squeue reports a terminal state. "
+                            "Set false to return immediately after submission."
+                        ),
+                    },
                 },
                 "required": ["input_file", "profile"],
                 "additionalProperties": False,
@@ -814,10 +831,16 @@ def tool_definitions() -> list[dict[str, Any]]:
             "name": "watch_nwchem_run",
             "description": (
                 "Poll NWChem status until the run reaches a terminal state or a timeout/max-poll limit. "
+                "For HPC scheduler jobs omit timeout_seconds (or set to null) so the tool blocks until "
+                "the job reaches a terminal scheduler state — the job's own walltime governs the limit. "
+                "For local jobs the default 3600 s timeout applies. "
                 "Detects known output-silent phases and reports them as 'expected slow' rather than 'hung': "
                 "SAD guess (always silent), X2C/DKH SAD atomic solves (30–120+ min for heavy TMs), "
                 "DFT grid generation, frequency Hessian displacements, TCE AO→MO transformation. "
-                "When slow_phase is set in final_status, do NOT interpret output silence as a crash."
+                "When slow_phase is set in final_status, do NOT interpret output silence as a crash. "
+                "NOTE: launch_nwchem_run already calls this automatically for scheduler jobs unless "
+                "auto_watch=false was set — only call this directly for local processes or for jobs "
+                "launched with auto_watch=false."
             ),
             "inputSchema": {
                 "type": "object",
@@ -832,7 +855,11 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "poll_interval_seconds": {"type": "number", "default": 10.0},
                     "adaptive_polling": {"type": "boolean", "default": True},
                     "max_poll_interval_seconds": {"type": "number", "default": 60.0},
-                    "timeout_seconds": {"type": "number", "default": 3600.0},
+                    "timeout_seconds": {
+                        "type": ["number", "null"],
+                        "default": 3600.0,
+                        "description": "Seconds before timing out. Set null for HPC jobs to wait indefinitely.",
+                    },
                     "max_polls": {"type": "integer"},
                     "history_limit": {"type": "integer", "default": 8},
                 },
@@ -1956,7 +1983,9 @@ def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("launch_nwchem_run")
 def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return launch_nwchem_run(
+    dry_run = arguments.get("dry_run", False)
+    auto_watch = arguments.get("auto_watch", True)
+    result = launch_nwchem_run(
         input_path=arguments["input_file"],
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path"),
@@ -1964,8 +1993,32 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
         resource_overrides=arguments.get("resource_overrides"),
         env_overrides=arguments.get("env_overrides"),
         write_script=arguments.get("write_script", True),
-        dry_run=arguments.get("dry_run", False),
+        dry_run=dry_run,
     )
+    # For scheduler jobs: automatically watch until terminal unless opted out
+    if (
+        not dry_run
+        and auto_watch
+        and result.get("launcher_kind") == "scheduler"
+        and result.get("job_id")
+    ):
+        out_file = result.get("output_file")
+        in_file = arguments["input_file"]
+        profiles_path = arguments.get("profiles_path")
+        profile = arguments["profile"]
+        watch_result = watch_nwchem_run(
+            output_path=out_file,
+            input_path=in_file,
+            profile=profile,
+            job_id=result["job_id"],
+            profiles_path=profiles_path,
+            poll_interval_seconds=30.0,
+            adaptive_polling=True,
+            max_poll_interval_seconds=120.0,
+            timeout_seconds=None,   # no timeout — let the scheduler walltime govern
+        )
+        result["watch"] = watch_result
+    return result
 
 
 @_tool("get_nwchem_run_status")

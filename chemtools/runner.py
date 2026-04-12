@@ -258,6 +258,10 @@ def load_runner_profiles(path: str | None = None) -> dict[str, Any]:
         try:
             import yaml  # type: ignore
         except ImportError as exc:  # pragma: no cover
+            # Auto-try a .json sidecar before failing
+            json_sidecar = source.with_suffix(".json")
+            if json_sidecar.is_file():
+                return load_runner_profiles(str(json_sidecar))
             raise ValueError(
                 f"YAML runner profiles require PyYAML, or use JSON instead: {source}"
             ) from exc

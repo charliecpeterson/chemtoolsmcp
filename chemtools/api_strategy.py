@@ -2414,6 +2414,8 @@ def suggest_memory(
     heap_mb = max(128, total_mb // 4)
     stack_mb = max(128, total_mb // 6)
     global_mb = max(256, total_mb - heap_mb - stack_mb)
+    # Ensure total >= sum of sub-components (max() floors can push sum over total)
+    total_mb = max(total_mb, heap_mb + stack_mb + global_mb)
 
     memory_string = f"total {total_mb} mb stack {stack_mb} mb heap {heap_mb} mb global {global_mb} mb"
 
