@@ -1,0 +1,36 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "openwebui": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Open WebUI",
+      "options": {
+        "baseURL": "https://openwebui.charlespeterson.dev/api",
+        "apiKey": "{env:OPENWEBUI_API_KEY}"
+      },
+      "models": {
+        "openai-nwchem": {
+          "name": "openai-nwchem"
+        }
+      }
+    }
+  },
+  "model": "openwebui/openai-nwchem",
+  "small_model": "openwebui/openai-nwchem",
+  "mcp": {
+    "chemtools": {
+      "type": "local",
+      "command": [
+        "python3",
+        "/Users/charlie/test/mytest/chem-agent-package/mcp/chemtools_mcp_server.py"
+      ],
+      "enabled": true,
+      "timeout": 60000,
+      "environment": {
+        "CHEMTOOLS_BASIS_LIBRARY": "/Users/charlie/test/mytest/nwchem-test/nwchem_basis_library",
+        "CHEMTOOLS_MCP_LOG": "/tmp/chemtools-mcp.log",
+        "CHEMTOOLS_RUNNER_PROFILES": "/Users/charlie/test/mytest/nwchemaitest/runner_profiles.local.json"
+      }
+    }
+  }
+}

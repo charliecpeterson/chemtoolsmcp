@@ -1,0 +1,22 @@
+start n2_orbital 
+geometry 
+  n  0 0   0.53879155  
+  n  0 0  -0.53879155  
+end  
+basis;  n library cc-pvdz;end 
+scf 
+vectors  output n2_orbital.movecs  
+end  
+dplot  
+  TITLE HOMO  
+  vectors n2_orbital.movecs  
+   LimitXYZ  
+ -3.0 3.0 10    
+ -3.0 3.0 10   
+ -3.0  3.0  10  
+  spin total  
+  orbitals view; 1; 7  
+  output homo.grd  
+end  
+task scf       
+task dplot

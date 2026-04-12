@@ -1,0 +1,79 @@
+start fe_atom_ccsd
+
+echo
+
+geometry units angstroms
+  symmetry c1
+  Fe  0.00000000  0.00000000  0.00000000
+end
+
+charge 0
+
+basis "ao basis" spherical
+Fe    S
+  61132.6200000              1.766111E-03     
+   9179.3420000              1.353038E-02     
+   2090.8570000              6.673128E-02     
+    589.2479000              2.314823E-01     
+    188.7543000              4.797058E-01     
+     64.4462900              3.501976E-01     
+Fe    SP
+   1259.9800000              2.438014E-03           4.028019E-03     
+    299.8761000              3.224048E-02           3.144647E-02     
+     96.8491700              1.265724E-01           1.368317E-01     
+     36.3102000             -3.139902E-02           3.487236E-01     
+     14.7299600             -6.207593E-01           4.617931E-01     
+      6.0660750             -4.502914E-01           2.043058E-01     
+Fe    SP
+     50.4348500             -3.873256E-03          -7.017128E-03     
+     16.8392900              7.196598E-02          -2.877660E-02     
+      7.1920860              2.556591E-01           6.181383E-02     
+      3.0534200             -2.882837E-01           3.954946E-01     
+      1.2736430             -7.342822E-01           4.989059E-01     
+      0.5040910             -2.049353E-01           1.791251E-01     
+Fe    SP
+      1.9503160              0.05694869            -0.4593796        
+      0.7367210              0.2882915              0.2852139        
+      0.1141770             -1.1381590              0.9076485        
+Fe    SP
+      0.0411480              1.000000E+00           1.00000000       
+Fe    D
+     23.1499400              8.876935E-02     
+      6.1223680              3.896319E-01     
+      1.8466010              7.014816E-01     
+Fe    D
+      0.5043610              1.0000000        
+Fe    F
+      0.8000000              1.0000000        
+end
+
+# TCE CCSD — freeze analysis
+# Effective freeze count: 9 orbitals
+# Per-element core orbital counts:
+#   Fe (1 atoms): 9 all-e core/atom → 9=9 orbitals
+# Proposed frozen MOs (from SCF output):
+#   MO  10: E=   -0.5248 h  1 Fe (40%), d-like (40%)
+#   MO  11: E=   -0.2531 h  1 Fe (37%), s-like (37%)
+#   MO  12: E=   -0.1665 h  1 Fe (100%), d-like (100%)
+#   MO  13: E=   -0.1567 h  1 Fe (41%), d-like (41%)
+#   MO  14: E=   -0.1499 h  1 Fe (41%), d-like (41%)
+#   MO  15: E=   -0.1148 h  1 Fe (41%), d-like (41%)
+
+scf
+  rohf
+  nopen 4
+  thresh 1e-8
+  maxiter 200
+  vectors input fe_atom_scf.movecs output fe_atom_ccsd.movecs
+end
+
+task scf energy
+
+tce
+  ccsd
+  freeze 9
+end
+
+set tce:save_t T T
+
+task tce energy

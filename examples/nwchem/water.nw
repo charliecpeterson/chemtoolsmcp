@@ -1,0 +1,27 @@
+start water
+title "water opt+freq (B3LYP/6-31g*)"
+echo
+
+geometry units angstrom
+  O  0.000000  0.000000  0.000000
+  H  0.756848  0.586014  0.000000
+  H  -0.756848  0.586014  0.000000
+end
+
+charge 0
+
+basis
+  * library 6-31g*
+end
+
+dft
+  xc b3lyp
+  grid xfine
+end
+
+driver
+  maxiter 200
+end
+
+task dft optimize
+task dft freq

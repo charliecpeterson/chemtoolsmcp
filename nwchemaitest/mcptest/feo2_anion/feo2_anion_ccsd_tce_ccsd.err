@@ -1,0 +1,2 @@
+0:scf energy failed:Received an Error in Communication
+Abort(-1) on node 0 (rank 0 in comm 496): application called MPI_Abort(comm=0x84000002, -1) - process 0

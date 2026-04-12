@@ -1,0 +1,9 @@
+DIRAC
+N2
+cc-pVTZ basis
+C   1              A
+        7.    2
+N1         0.0        0.0       0.00000
+N2         0.0        0.0       1.09768
+LARGE BASIS dyall.3zp
+FINISH

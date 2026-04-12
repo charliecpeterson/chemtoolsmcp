@@ -1,0 +1,1370 @@
+ argument  1 = cucl.nw
+                                         
+                                         
+ 
+ 
+             Northwest Computational Chemistry Package (NWChem) 7.2.2
+             --------------------------------------------------------
+ 
+ 
+                    Environmental Molecular Sciences Laboratory
+                       Pacific Northwest National Laboratory
+                                Richland, WA 99352
+ 
+                              Copyright (c) 1994-2022
+                       Pacific Northwest National Laboratory
+                            Battelle Memorial Institute
+ 
+             NWChem is an open-source computational chemistry package
+                        distributed under the terms of the
+                      Educational Community License (ECL) 2.0
+             A copy of the license is included with this distribution
+                              in the LICENSE.TXT file
+ 
+                                  ACKNOWLEDGMENT
+                                  --------------
+
+            This software and its documentation were developed at the
+            EMSL at Pacific Northwest National Laboratory, a multiprogram
+            national laboratory, operated for the U.S. Department of Energy
+            by Battelle under Contract Number DE-AC05-76RL01830. Support
+            for this work was provided by the Department of Energy Office
+            of Biological and Environmental Research, Office of Basic
+            Energy Sciences, and the Office of Advanced Scientific Computing.
+
+
+           Job information
+           ---------------
+
+    hostname        = charliebox
+    program         = /apps/nwchem/bin/nwchem
+    date            = Mon Apr  6 19:04:50 2026
+
+    compiled        = Tue_Apr_23_01:04:59_2024
+    source          = /apps/nwchem-7.2.2-release
+    nwchem branch   = 7.2.2
+    nwchem revision = N/A
+    ga revision     = 5.8.0
+    use scalapack   = T
+    input           = cucl.nw
+    prefix          = cucl_tce_demo.
+    data base       = ./cucl_tce_demo.db
+    status          = startup
+    nproc           =       11
+    time left       =     -1s
+
+
+
+           Memory information
+           ------------------
+
+    heap     =   65535998 doubles =    500.0 Mbytes
+    stack    =   65535995 doubles =    500.0 Mbytes
+    global   =  131072000 doubles =   1000.0 Mbytes (distinct from heap & stack)
+    total    =  262143993 doubles =   2000.0 Mbytes
+    verify   = yes
+    hardfail = no 
+
+
+           Directory information
+           ---------------------
+ 
+  0 permanent = .
+  0 scratch   = .
+ 
+ 
+ 
+ 
+                                NWChem Input Module
+                                -------------------
+ 
+ 
+
+ Scaling coordinates for geometry "geometry" by  1.889725989
+ (inverse scale =  0.529177249)
+
+
+          ------
+          auto-z
+          ------
+  no constraints, skipping   0.000000000000000E+000
+  no constraints, skipping   0.000000000000000E+000
+ 
+ 
+                             Geometry "geometry" -> ""
+                             -------------------------
+ 
+ Output coordinates in angstroms (scale by  1.889725989 to convert to a.u.)
+ 
+  No.       Tag          Charge          X              Y              Z
+ ---- ---------------- ---------- -------------- -------------- --------------
+    1 Cu                  29.0000     0.00000000     0.00000000    -0.77608696
+    2 Cl                  17.0000     0.00000000     0.00000000     1.32391304
+ 
+      Atomic Mass 
+      ----------- 
+ 
+      Cu                62.929800
+      Cl                34.968850
+ 
+
+ Effective nuclear repulsion energy (a.u.)     124.2306589318
+
+            Nuclear Dipole moment (a.u.) 
+            ----------------------------
+        X                 Y               Z
+ ---------------- ---------------- ----------------
+     0.0000000000     0.0000000000     0.0000000000
+ 
+
+
+                                Z-matrix (autoz)
+                                -------- 
+
+ Units are Angstrom for bonds and degrees for angles
+ 
+      Type          Name      I     J     K     L     M      Value
+      ----------- --------  ----- ----- ----- ----- ----- ----------
+    1 Stretch                  1     2                       2.10000
+ 
+ 
+            XYZ format geometry
+            -------------------
+     2
+ geometry
+ Cu                    0.00000000     0.00000000    -0.77608696
+ Cl                    0.00000000     0.00000000     1.32391304
+ 
+ ==============================================================================
+                                internuclear distances
+ ------------------------------------------------------------------------------
+       center one      |      center two      | atomic units |  angstroms
+ ------------------------------------------------------------------------------
+    2 Cl               |   1 Cu               |     3.96842  |     2.10000
+ ------------------------------------------------------------------------------
+                         number of included internuclear distances:          1
+ ==============================================================================
+
+
+
+  library name resolved from: environment
+  library file name is: </apps/nwchem/data/libraries/>
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    17:  127900.0000000              0.0007497             -0.0002120              0.0000641              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    18:   19170.0000000              0.0029170             -0.0008223              0.0002493              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    19:    4363.0000000              0.0114534             -0.0032917              0.0009932              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    20:    1236.0000000              0.0417491             -0.0119686              0.0036490              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    21:     403.6000000              0.1287741             -0.0398788              0.0120657              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    22:     145.7000000              0.3006785             -0.1007232              0.0313839              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    23:      56.8100000              0.4195476             -0.2019238              0.0630662              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    24:      23.2300000              0.2342971             -0.1251436              0.0444061              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    25:       6.6440000              0.0188435              0.5156793             -0.2234945              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    26:       2.5750000             -0.0032902              0.6036405             -0.4034348              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    27:       0.5371000              0.0009137              0.0409998              0.6454547              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    30:     417.6000000              0.0056562             -0.0015435              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    31:      98.3300000              0.0406072             -0.0109957              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    32:      31.0400000              0.1657433             -0.0473146              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    33:      11.1900000              0.3875622             -0.1110564              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    34:       4.2490000              0.4561525             -0.1527934              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    35:       1.6240000              0.1510753              0.0902488              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cl"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    36:       0.5322000              0.0018524              0.5790746              0.0000000
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    42:       5.430321E+06           1.580000E-04          -8.900000E-05           2.000000E-05          -4.000000E-06          -8.000000E-06           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    43:       8.131665E+05           4.520000E-04          -2.550000E-04           5.700000E-05          -1.200000E-05          -2.200000E-05           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    44:       1.850544E+05           1.229000E-03          -6.940000E-04           1.560000E-04          -3.200000E-05          -5.900000E-05           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    45:       5.241466E+04           3.120000E-03          -1.766000E-03           3.990000E-04          -8.200000E-05          -1.520000E-04           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    46:       1.709868E+04           7.912000E-03          -4.498000E-03           1.019000E-03          -2.080000E-04          -3.780000E-04           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    47:       6.171994E+03           2.014200E-02          -1.154500E-02           2.636000E-03          -5.390000E-04          -1.018000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    48:       2.406481E+03           5.046200E-02          -2.941800E-02           6.792000E-03          -1.388000E-03          -2.473000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    49:       9.972584E+02           1.166160E-01          -7.051700E-02           1.677200E-02          -3.430000E-03          -6.614000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    50:       4.339289E+02           2.255430E-01          -1.477880E-01           3.702400E-02          -7.579000E-03          -1.315200E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    51:       1.962869E+02           3.101520E-01          -2.423800E-01           6.783200E-02          -1.393400E-02          -2.808300E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    52:       9.104280E+01           2.261390E-01          -2.390600E-01           7.676800E-02          -1.582500E-02          -2.366100E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    53:       4.138425E+01           7.699200E-02           4.769300E-02          -2.858800E-02           5.891000E-03          -3.658000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    54:       1.993278E+01           1.087550E-01           5.194670E-01          -3.262330E-01           7.064800E-02           1.674510E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    55:       9.581891E+00           1.029690E-01           4.781070E-01          -4.451460E-01           1.003460E-01           1.378490E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    56:       4.234516E+00           1.629900E-02           8.055800E-02           1.815320E-01          -4.946100E-02           1.695000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    57:       1.985814E+00          -5.390000E-04          -5.628000E-03           7.219160E-01          -2.136180E-01          -7.988610E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    58:       8.670830E-01          -2.000000E-06          -7.200000E-05           3.686320E-01          -2.122030E-01           2.036390E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    59:       1.813390E-01          -3.800000E-05          -4.330000E-04           1.639500E-02           2.812990E-01           1.549691E+00           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 0  standard basis set name: "user specified"
+ input line that generated warning:
+    60:       8.365700E-02           2.600000E-05           3.080000E-04          -5.526000E-03           5.560680E-01          -4.950240E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    63:       2.276057E+04           1.410000E-04          -5.100000E-05           1.900000E-05           1.000000E-05           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    64:       5.387679E+03           6.050000E-04          -2.200000E-04           8.300000E-05           4.300000E-05           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    65:       1.749945E+03           2.684000E-03          -9.770000E-04           3.680000E-04           1.900000E-04           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    66:       6.696653E+02           1.037000E-02          -3.803000E-03           1.447000E-03           7.430000E-04           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    67:       2.841948E+02           3.477600E-02          -1.291600E-02           4.866000E-03           2.515000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    68:       1.296077E+02           9.672600E-02          -3.695200E-02           1.412100E-02           7.246000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    69:       6.225415E+01           2.108770E-01          -8.370900E-02           3.164000E-02           1.637500E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    70:       3.092964E+01           3.341900E-01          -1.400770E-01           5.456700E-02           2.778100E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    71:       1.575827E+01           3.295570E-01          -1.384230E-01           5.304500E-02           2.712000E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    72:       8.094211E+00           1.519250E-01           4.348600E-02          -1.994600E-02          -1.122600E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    73:       4.046921E+00           2.050700E-02           3.460780E-01          -1.835090E-01          -8.147400E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    74:       1.967869E+00          -1.966000E-03           4.512300E-01          -2.173260E-01          -1.106180E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    75:       9.252950E-01          -1.631000E-03           2.726370E-01          -2.821700E-02          -6.866900E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    76:       3.510930E-01          -2.570000E-04           4.246400E-02           5.289300E-01           1.921350E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 1  standard basis set name: "user specified"
+ input line that generated warning:
+    77:       1.267990E-01           2.500000E-05          -2.769000E-03           5.575620E-01           5.631450E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    80:       1.776850E+02           2.709000E-03          -3.377000E-03           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    81:       5.254040E+01           2.068500E-02          -2.581900E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    82:       1.947690E+01           8.362600E-02          -1.072400E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    83:       8.001460E+00           2.129230E-01          -2.805410E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    84:       3.398920E+00           3.355660E-01          -3.487320E-01           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    85:       1.405380E+00           3.581080E-01           2.160900E-02           0.000000E+00
+  
+
+ **** WARNING Zero Coefficient **** on atom "              Cu"
+ angular momentum value: 2  standard basis set name: "user specified"
+ input line that generated warning:
+    86:       5.453300E-01           2.664410E-01           4.916130E-01           0.000000E+00
+  
+                      Basis "ao basis" -> "" (spherical)
+                      -----
+  Cl (Chlorine)
+  -------------
+            Exponent  Coefficients 
+       -------------- ---------------------------------------------------------
+  1 S  1.27900000E+05  0.000750
+  1 S  1.91700000E+04  0.002917
+  1 S  4.36300000E+03  0.011453
+  1 S  1.23600000E+03  0.041749
+  1 S  4.03600000E+02  0.128774
+  1 S  1.45700000E+02  0.300678
+  1 S  5.68100000E+01  0.419548
+  1 S  2.32300000E+01  0.234297
+  1 S  6.64400000E+00  0.018843
+  1 S  2.57500000E+00 -0.003290
+  1 S  5.37100000E-01  0.000914
+  1 S  1.93800000E-01 -0.000390
+ 
+  2 S  1.27900000E+05 -0.000212
+  2 S  1.91700000E+04 -0.000822
+  2 S  4.36300000E+03 -0.003292
+  2 S  1.23600000E+03 -0.011969
+  2 S  4.03600000E+02 -0.039879
+  2 S  1.45700000E+02 -0.100723
+  2 S  5.68100000E+01 -0.201924
+  2 S  2.32300000E+01 -0.125144
+  2 S  6.64400000E+00  0.515679
+  2 S  2.57500000E+00  0.603641
+  2 S  5.37100000E-01  0.041000
+  2 S  1.93800000E-01 -0.008977
+ 
+  3 S  1.27900000E+05  0.000064
+  3 S  1.91700000E+04  0.000249
+  3 S  4.36300000E+03  0.000993
+  3 S  1.23600000E+03  0.003649
+  3 S  4.03600000E+02  0.012066
+  3 S  1.45700000E+02  0.031384
+  3 S  5.68100000E+01  0.063066
+  3 S  2.32300000E+01  0.044406
+  3 S  6.64400000E+00 -0.223494
+  3 S  2.57500000E+00 -0.403435
+  3 S  5.37100000E-01  0.645455
+  3 S  1.93800000E-01  0.555150
+ 
+  4 S  1.93800000E-01  1.000000
+ 
+  5 P  4.17600000E+02  0.005656
+  5 P  9.83300000E+01  0.040607
+  5 P  3.10400000E+01  0.165743
+  5 P  1.11900000E+01  0.387562
+  5 P  4.24900000E+00  0.456152
+  5 P  1.62400000E+00  0.151075
+  5 P  5.32200000E-01  0.001852
+  5 P  1.62000000E-01  0.001872
+ 
+  6 P  4.17600000E+02 -0.001543
+  6 P  9.83300000E+01 -0.010996
+  6 P  3.10400000E+01 -0.047315
+  6 P  1.11900000E+01 -0.111056
+  6 P  4.24900000E+00 -0.152793
+  6 P  1.62400000E+00  0.090249
+  6 P  5.32200000E-01  0.579075
+  6 P  1.62000000E-01  0.483143
+ 
+  7 P  1.62000000E-01  1.000000
+ 
+  8 D  6.00000000E-01  1.000000
+ 
+  Cu (Copper)
+  -----------
+            Exponent  Coefficients 
+       -------------- ---------------------------------------------------------
+  1 S  5.43032100E+06  0.000158
+  1 S  8.13166500E+05  0.000452
+  1 S  1.85054400E+05  0.001229
+  1 S  5.24146600E+04  0.003120
+  1 S  1.70986800E+04  0.007912
+  1 S  6.17199400E+03  0.020142
+  1 S  2.40648100E+03  0.050462
+  1 S  9.97258400E+02  0.116616
+  1 S  4.33928900E+02  0.225543
+  1 S  1.96286900E+02  0.310152
+  1 S  9.10428000E+01  0.226139
+  1 S  4.13842500E+01  0.076992
+  1 S  1.99327800E+01  0.108755
+  1 S  9.58189100E+00  0.102969
+  1 S  4.23451600E+00  0.016299
+  1 S  1.98581400E+00 -0.000539
+  1 S  8.67083000E-01 -0.000002
+  1 S  1.81339000E-01 -0.000038
+  1 S  8.36570000E-02  0.000026
+  1 S  3.62670000E-02 -0.000009
+ 
+  2 S  5.43032100E+06 -0.000089
+  2 S  8.13166500E+05 -0.000255
+  2 S  1.85054400E+05 -0.000694
+  2 S  5.24146600E+04 -0.001766
+  2 S  1.70986800E+04 -0.004498
+  2 S  6.17199400E+03 -0.011545
+  2 S  2.40648100E+03 -0.029418
+  2 S  9.97258400E+02 -0.070517
+  2 S  4.33928900E+02 -0.147788
+  2 S  1.96286900E+02 -0.242380
+  2 S  9.10428000E+01 -0.239060
+  2 S  4.13842500E+01  0.047693
+  2 S  1.99327800E+01  0.519467
+  2 S  9.58189100E+00  0.478107
+  2 S  4.23451600E+00  0.080558
+  2 S  1.98581400E+00 -0.005628
+  2 S  8.67083000E-01 -0.000072
+  2 S  1.81339000E-01 -0.000433
+  2 S  8.36570000E-02  0.000308
+  2 S  3.62670000E-02 -0.000099
+ 
+  3 S  5.43032100E+06  0.000020
+  3 S  8.13166500E+05  0.000057
+  3 S  1.85054400E+05  0.000156
+  3 S  5.24146600E+04  0.000399
+  3 S  1.70986800E+04  0.001019
+  3 S  6.17199400E+03  0.002636
+  3 S  2.40648100E+03  0.006792
+  3 S  9.97258400E+02  0.016772
+  3 S  4.33928900E+02  0.037024
+  3 S  1.96286900E+02  0.067832
+  3 S  9.10428000E+01  0.076768
+  3 S  4.13842500E+01 -0.028588
+  3 S  1.99327800E+01 -0.326233
+  3 S  9.58189100E+00 -0.445146
+  3 S  4.23451600E+00  0.181532
+  3 S  1.98581400E+00  0.721916
+  3 S  8.67083000E-01  0.368632
+  3 S  1.81339000E-01  0.016395
+  3 S  8.36570000E-02 -0.005526
+  3 S  3.62670000E-02  0.002700
+ 
+  4 S  5.43032100E+06 -0.000004
+  4 S  8.13166500E+05 -0.000012
+  4 S  1.85054400E+05 -0.000032
+  4 S  5.24146600E+04 -0.000082
+  4 S  1.70986800E+04 -0.000208
+  4 S  6.17199400E+03 -0.000539
+  4 S  2.40648100E+03 -0.001388
+  4 S  9.97258400E+02 -0.003430
+  4 S  4.33928900E+02 -0.007579
+  4 S  1.96286900E+02 -0.013934
+  4 S  9.10428000E+01 -0.015825
+  4 S  4.13842500E+01  0.005891
+  4 S  1.99327800E+01  0.070648
+  4 S  9.58189100E+00  0.100346
+  4 S  4.23451600E+00 -0.049461
+  4 S  1.98581400E+00 -0.213618
+  4 S  8.67083000E-01 -0.212203
+  4 S  1.81339000E-01  0.281299
+  4 S  8.36570000E-02  0.556068
+  4 S  3.62670000E-02  0.306701
+ 
+  5 S  5.43032100E+06 -0.000008
+  5 S  8.13166500E+05 -0.000022
+  5 S  1.85054400E+05 -0.000059
+  5 S  5.24146600E+04 -0.000152
+  5 S  1.70986800E+04 -0.000378
+  5 S  6.17199400E+03 -0.001018
+  5 S  2.40648100E+03 -0.002473
+  5 S  9.97258400E+02 -0.006614
+  5 S  4.33928900E+02 -0.013152
+  5 S  1.96286900E+02 -0.028083
+  5 S  9.10428000E+01 -0.023661
+  5 S  4.13842500E+01 -0.003658
+  5 S  1.99327800E+01  0.167451
+  5 S  9.58189100E+00  0.137849
+  5 S  4.23451600E+00  0.001695
+  5 S  1.98581400E+00 -0.798861
+  5 S  8.67083000E-01  0.203639
+  5 S  1.81339000E-01  1.549691
+  5 S  8.36570000E-02 -0.495024
+  5 S  3.62670000E-02 -0.896120
+ 
+  6 S  3.62670000E-02  1.000000
+ 
+  7 P  2.27605700E+04  0.000141
+  7 P  5.38767900E+03  0.000605
+  7 P  1.74994500E+03  0.002684
+  7 P  6.69665300E+02  0.010370
+  7 P  2.84194800E+02  0.034776
+  7 P  1.29607700E+02  0.096726
+  7 P  6.22541500E+01  0.210877
+  7 P  3.09296400E+01  0.334190
+  7 P  1.57582700E+01  0.329557
+  7 P  8.09421100E+00  0.151925
+  7 P  4.04692100E+00  0.020507
+  7 P  1.96786900E+00 -0.001966
+  7 P  9.25295000E-01 -0.001631
+  7 P  3.51093000E-01 -0.000257
+  7 P  1.26799000E-01  0.000025
+  7 P  4.41620000E-02 -0.000009
+ 
+  8 P  2.27605700E+04 -0.000051
+  8 P  5.38767900E+03 -0.000220
+  8 P  1.74994500E+03 -0.000977
+  8 P  6.69665300E+02 -0.003803
+  8 P  2.84194800E+02 -0.012916
+  8 P  1.29607700E+02 -0.036952
+  8 P  6.22541500E+01 -0.083709
+  8 P  3.09296400E+01 -0.140077
+  8 P  1.57582700E+01 -0.138423
+  8 P  8.09421100E+00  0.043486
+  8 P  4.04692100E+00  0.346078
+  8 P  1.96786900E+00  0.451230
+  8 P  9.25295000E-01  0.272637
+  8 P  3.51093000E-01  0.042464
+  8 P  1.26799000E-01 -0.002769
+  8 P  4.41620000E-02  0.001137
+ 
+  9 P  2.27605700E+04  0.000019
+  9 P  5.38767900E+03  0.000083
+  9 P  1.74994500E+03  0.000368
+  9 P  6.69665300E+02  0.001447
+  9 P  2.84194800E+02  0.004866
+  9 P  1.29607700E+02  0.014121
+  9 P  6.22541500E+01  0.031640
+  9 P  3.09296400E+01  0.054567
+  9 P  1.57582700E+01  0.053045
+  9 P  8.09421100E+00 -0.019946
+  9 P  4.04692100E+00 -0.183509
+  9 P  1.96786900E+00 -0.217326
+  9 P  9.25295000E-01 -0.028217
+  9 P  3.51093000E-01  0.528930
+  9 P  1.26799000E-01  0.557562
+  9 P  4.41620000E-02  0.036626
+ 
+ 10 P  2.27605700E+04  0.000010
+ 10 P  5.38767900E+03  0.000043
+ 10 P  1.74994500E+03  0.000190
+ 10 P  6.69665300E+02  0.000743
+ 10 P  2.84194800E+02  0.002515
+ 10 P  1.29607700E+02  0.007246
+ 10 P  6.22541500E+01  0.016375
+ 10 P  3.09296400E+01  0.027781
+ 10 P  1.57582700E+01  0.027120
+ 10 P  8.09421100E+00 -0.011226
+ 10 P  4.04692100E+00 -0.081474
+ 10 P  1.96786900E+00 -0.110618
+ 10 P  9.25295000E-01 -0.068669
+ 10 P  3.51093000E-01  0.192135
+ 10 P  1.26799000E-01  0.563145
+ 10 P  4.41620000E-02  0.404454
+ 
+ 11 P  4.41620000E-02  1.000000
+ 
+ 12 D  1.77685000E+02  0.002709
+ 12 D  5.25404000E+01  0.020685
+ 12 D  1.94769000E+01  0.083626
+ 12 D  8.00146000E+00  0.212923
+ 12 D  3.39892000E+00  0.335566
+ 12 D  1.40538000E+00  0.358108
+ 12 D  5.45330000E-01  0.266441
+ 12 D  1.88110000E-01  0.105969
+ 
+ 13 D  1.77685000E+02 -0.003377
+ 13 D  5.25404000E+01 -0.025819
+ 13 D  1.94769000E+01 -0.107240
+ 13 D  8.00146000E+00 -0.280541
+ 13 D  3.39892000E+00 -0.348732
+ 13 D  1.40538000E+00  0.021609
+ 13 D  5.45330000E-01  0.491613
+ 13 D  1.88110000E-01  0.440803
+ 
+ 14 D  1.88110000E-01  1.000000
+ 
+ 15 F  5.02860000E+00  0.424280
+ 15 F  1.25940000E+00  0.763025
+ 
+
+
+ Summary of "ao basis" -> "" (spherical)
+ ------------------------------------------------------------------------------
+       Tag                 Description            Shells   Functions and Types
+ ---------------- ------------------------------  ------  ---------------------
+ Cl                      user specified              8       18   4s3p1d
+ Cu                      user specified             15       43   6s5p3d1f
+
+
+                                 NWChem SCF Module
+                                 -----------------
+ 
+ 
+
+  ao basis        = "ao basis"
+  functions       =    61
+  atoms           =     2
+  closed shells   =    23
+  open shells     =     0
+  charge          =   0.00
+  wavefunction    = RHF 
+  input vectors   = atomic
+  output vectors  = ./cucl.movecs
+  use symmetry    = F
+  symmetry adapt  = F
+
+
+ Summary of "ao basis" -> "ao basis" (spherical)
+ ------------------------------------------------------------------------------
+       Tag                 Description            Shells   Functions and Types
+ ---------------- ------------------------------  ------  ---------------------
+ Cl                      user specified              8       18   4s3p1d
+ Cu                      user specified             15       43   6s5p3d1f
+
+
+
+ Forming initial guess at       0.6s
+
+ 
+      Superposition of Atomic Density Guess
+      -------------------------------------
+ 
+ Sum of atomic energies:       -2090.44070338
+ 
+      Non-variational initial energy
+      ------------------------------
+
+ Total energy =   -2090.190660
+ 1-e energy   =   -3161.063815
+ 2-e energy   =     946.642496
+ HOMO         =      -0.446198
+ LUMO         =      -0.171255
+ 
+
+ Starting SCF solution at      19.6s
+
+
+
+ ----------------------------------------------
+         Quadratically convergent ROHF
+
+ Convergence threshold     :          1.000E-04
+ Maximum no. of iterations :           30
+ Final Fock-matrix accuracy:          1.000E-07
+ ----------------------------------------------
+
+
+ #quartets = 3.820D+04 #integrals = 3.788D+05 #direct =  0.0% #cached =100.0%
+
+
+ Integral file          = ./cucl_tce_demo.aoints.00
+ Record size in doubles =  65536        No. of integs per rec  =  43688
+ Max. records in memory =      8        Max. records in file   = 267179
+ No. of bits per label  =      8        No. of bits per value  =     64
+
+
+File balance: exchanges=     0  moved=     0  time=   0.0
+
+
+              iter       energy          gnorm     gmax       time
+             ----- ------------------- --------- --------- --------
+                 1    -2090.4425635260  1.95D+00  6.12D-01     22.3
+                 2    -2090.5259115615  4.19D-01  1.02D-01     22.3
+                 3    -2090.5394229678  3.34D-01  1.09D-01     22.3
+                 4    -2090.5424629050  9.99D-02  3.05D-02     22.3
+                 5    -2090.5432889160  5.42D-03  1.79D-03     22.3
+                 6    -2090.5432941227  3.11D-05  8.59D-06     22.4
+
+
+       Final RHF  results 
+       ------------------ 
+
+         Total SCF energy =  -2090.543294122720
+      One-electron energy =  -3168.660661888979
+      Two-electron energy =    953.886708834425
+ Nuclear repulsion energy =    124.230658931834
+
+        Time for solution =      3.1s
+
+
+             Final eigenvalues
+             -----------------
+
+              1      
+    1 -324.8939
+    2 -104.4827
+    3  -40.3520
+    4  -35.5089
+    5  -35.5089
+    6  -35.5063
+    7  -10.4438
+    8   -7.9210
+    9   -7.9194
+   10   -7.9194
+   11   -4.9916
+   12   -3.3679
+   13   -3.3644
+   14   -3.3644
+   15   -0.9902
+   16   -0.5512
+   17   -0.5512
+   18   -0.5499
+   19   -0.5426
+   20   -0.5426
+   21   -0.4043
+   22   -0.3835
+   23   -0.3835
+   24   -0.0108
+   25    0.0763
+   26    0.0763
+   27    0.1362
+   28    0.1831
+   29    0.3055
+   30    0.3055
+   31    0.4240
+   32    0.5647
+   33    0.5647
+ 
+                       ROHF Final Molecular Orbital Analysis
+                       -------------------------------------
+ 
+ Vector   14  Occ=2.000000D+00  E=-3.364396D+00
+              MO Center=  8.4D-16,  2.4D-16, -7.8D-01, r^2= 1.9D-01
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    11      0.934616  1 Cu py                10      0.350275  1 Cu px         
+ 
+ Vector   15  Occ=2.000000D+00  E=-9.901851D-01
+              MO Center=  8.1D-16, -7.1D-16,  1.2D+00, r^2= 8.6D-01
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    46      0.900042  2 Cl s          
+ 
+ Vector   16  Occ=2.000000D+00  E=-5.511828D-01
+              MO Center=  1.1D-17,  4.0D-16, -7.0D-01, r^2= 5.5D-01
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    23      0.772929  1 Cu d -1              25     -0.580282  1 Cu d  1       
+ 
+ Vector   17  Occ=2.000000D+00  E=-5.511828D-01
+              MO Center= -5.1D-16,  2.2D-16, -7.0D-01, r^2= 5.5D-01
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    25      0.772929  1 Cu d  1              23      0.580282  1 Cu d -1       
+ 
+ Vector   18  Occ=2.000000D+00  E=-5.499068D-01
+              MO Center= -6.1D-15,  1.7D-15, -4.3D-01, r^2= 1.1D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    24      0.909001  1 Cu d  0              53     -0.345639  2 Cl pz         
+ 
+ Vector   19  Occ=2.000000D+00  E=-5.425711D-01
+              MO Center=  4.1D-15,  1.2D-14, -7.8D-01, r^2= 3.7D-01
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    22      0.994184  1 Cu d -2       
+ 
+ Vector   20  Occ=2.000000D+00  E=-5.425711D-01
+              MO Center= -8.9D-15, -3.8D-15, -7.8D-01, r^2= 3.7D-01
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    26      0.994184  1 Cu d  2       
+ 
+ Vector   21  Occ=2.000000D+00  E=-4.042816D-01
+              MO Center=  1.3D-15, -7.1D-16,  8.5D-01, r^2= 1.9D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    53      0.801717  2 Cl pz                 4     -0.399783  1 Cu s          
+    24      0.369559  1 Cu d  0               6      0.171082  1 Cu s          
+    18     -0.162262  1 Cu pz         
+ 
+ Vector   22  Occ=2.000000D+00  E=-3.834765D-01
+              MO Center=  3.2D-16, -1.0D-15,  1.2D+00, r^2= 1.5D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    51      0.897607  2 Cl px                25      0.236072  1 Cu d  1       
+ 
+ Vector   23  Occ=2.000000D+00  E=-3.834765D-01
+              MO Center= -1.3D-15,  1.9D-15,  1.2D+00, r^2= 1.5D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    52      0.897607  2 Cl py                23     -0.236072  1 Cu d -1       
+ 
+ Vector   24  Occ=0.000000D+00  E=-1.080128D-02
+              MO Center=  2.5D-14, -2.4D-14, -1.9D+00, r^2= 4.8D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+     6      0.739528  1 Cu s                 21     -0.390663  1 Cu pz         
+    53      0.181135  2 Cl pz                 4      0.161363  1 Cu s          
+ 
+ Vector   25  Occ=0.000000D+00  E= 7.632658D-02
+              MO Center= -1.1D-14,  2.6D-14, -9.0D-01, r^2= 8.2D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    20      1.019304  1 Cu py                19     -0.495141  1 Cu px         
+    17     -0.167647  1 Cu py                55     -0.157301  2 Cl py         
+    52     -0.153695  2 Cl py         
+ 
+ Vector   26  Occ=0.000000D+00  E= 7.632658D-02
+              MO Center=  2.0D-15, -1.8D-15, -9.0D-01, r^2= 8.2D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    19      1.019304  1 Cu px                20      0.495141  1 Cu py         
+    16     -0.167647  1 Cu px                54     -0.157301  2 Cl px         
+    51     -0.153695  2 Cl px         
+ 
+ Vector   27  Occ=0.000000D+00  E= 1.361985D-01
+              MO Center= -1.7D-14,  5.3D-15,  1.3D-01, r^2= 9.0D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    21      1.569652  1 Cu pz                 6      0.863663  1 Cu s          
+    18     -0.792338  1 Cu pz                47     -0.639564  2 Cl s          
+    15      0.284741  1 Cu pz                 4     -0.246178  1 Cu s          
+ 
+ Vector   28  Occ=0.000000D+00  E= 1.831126D-01
+              MO Center=  3.4D-14, -4.1D-14, -1.6D+00, r^2= 6.6D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+     4      2.924082  1 Cu s                  6     -2.879872  1 Cu s          
+    18     -1.270091  1 Cu pz                21      0.866222  1 Cu pz         
+     3      0.548626  1 Cu s                 15      0.423182  1 Cu pz         
+     5     -0.290572  1 Cu s                 53      0.169267  2 Cl pz         
+ 
+ Vector   29  Occ=0.000000D+00  E= 3.054583D-01
+              MO Center= -1.5D-14, -7.1D-15, -7.3D-01, r^2= 5.5D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    16      3.720982  1 Cu px                19     -2.462865  1 Cu px         
+    13     -1.209567  1 Cu px                17      0.167355  1 Cu py         
+ 
+ Vector   30  Occ=0.000000D+00  E= 3.054583D-01
+              MO Center=  3.7D-15,  2.0D-14, -7.3D-01, r^2= 5.5D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    17      3.720982  1 Cu py                20     -2.462865  1 Cu py         
+    14     -1.209567  1 Cu py                16     -0.167355  1 Cu px         
+ 
+ Vector   31  Occ=0.000000D+00  E= 4.239942D-01
+              MO Center=  1.5D-15,  8.3D-17, -4.5D-01, r^2= 4.4D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    18      3.911826  1 Cu pz                21     -2.353526  1 Cu pz         
+     4      1.396824  1 Cu s                 15     -1.212258  1 Cu pz         
+     6     -0.949340  1 Cu s                 56      0.570149  2 Cl pz         
+    34     -0.319078  1 Cu d  0               3      0.288752  1 Cu s          
+    53      0.279467  2 Cl pz                24      0.254628  1 Cu d  0       
+ 
+ Vector   32  Occ=0.000000D+00  E= 5.646686D-01
+              MO Center= -6.1D-15,  7.8D-15, -7.4D-01, r^2= 2.7D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    32      1.143335  1 Cu d -2              22     -0.448579  1 Cu d -2       
+ 
+ Vector   33  Occ=0.000000D+00  E= 5.646686D-01
+              MO Center= -4.4D-15,  5.6D-15, -7.4D-01, r^2= 2.7D+00
+   Bfn.  Coefficient  Atom+Function         Bfn.  Coefficient  Atom+Function  
+  ----- ------------  ---------------      ----- ------------  ---------------
+    36      1.143335  1 Cu d  2              26     -0.448579  1 Cu d  2       
+ 
+
+ center of mass
+ --------------
+ x =   0.00000000 y =   0.00000000 z =  -0.04909264
+
+ moments of inertia (a.u.)
+ ------------------
+         353.995107405406           0.000000000000           0.000000000000
+           0.000000000000         353.995107405406           0.000000000000
+           0.000000000000           0.000000000000           0.000000000000
+ 
+  Mulliken analysis of the total density
+  --------------------------------------
+
+    Atom       Charge   Shell Charges
+ -----------   ------   -------------------------------------------------------
+    1 Cu  29    28.49   2.00  2.00  1.94  0.38 -0.01 -0.06  6.00  5.99 -0.00  0.22  0.03  9.89  0.01  0.10  0.00
+    2 Cl  17    17.51   2.00  2.02  1.81  0.11  6.00  5.35  0.20  0.01
+ 
+       Multipole analysis of the density wrt the origin
+       ------------------------------------------------
+ 
+     L   x y z        total         open         nuclear
+     -   - - -        -----         ----         -------
+     0   0 0 0     -0.000000      0.000000     46.000000
+ 
+     1   1 0 0      0.000000      0.000000      0.000000
+     1   0 1 0     -0.000000      0.000000      0.000000
+     1   0 0 1     -2.568317      0.000000      0.000000
+ 
+     2   2 0 0    -18.349679      0.000000      0.000000
+     2   1 1 0      0.000000      0.000000      0.000000
+     2   1 0 1     -0.000000      0.000000      0.000000
+     2   0 2 0    -18.349679      0.000000      0.000000
+     2   0 1 1      0.000000      0.000000      0.000000
+     2   0 0 2    -18.092955      0.000000    168.781697
+ 
+
+ Parallel integral file used      15 records with       0 large values
+
+                   NWChem Extensible Many-Electron Theory Module
+                   ---------------------------------------------
+ 
+              ======================================================
+                   This portion of the program was automatically
+                  generated by a Tensor Contraction Engine (TCE).
+                  The development of this portion of the program
+                 and TCE was supported by US Department of Energy,
+                Office of Science, Office of Basic Energy Science.
+                      TCE is a product of Battelle and PNNL.
+              Please cite: S.Hirata, J.Phys.Chem.A 107, 9887 (2003).
+              ======================================================
+ 
+            General Information
+            -------------------
+      Number of processors :    11
+         Wavefunction type : Restricted Hartree-Fock
+          No. of electrons :    46
+           Alpha electrons :    23
+            Beta electrons :    23
+           No. of orbitals :   122
+            Alpha orbitals :    61
+             Beta orbitals :    61
+        Alpha frozen cores :     5
+         Beta frozen cores :     5
+     Alpha frozen virtuals :     0
+      Beta frozen virtuals :     0
+         Spin multiplicity : singlet 
+    Number of AO functions :    61
+       Number of AO shells :    23
+        Use of symmetry is : off
+      Symmetry adaption is : off
+         Schwarz screening : 0.10D-09
+ 
+          Correlation Information
+          -----------------------
+          Calculation type : Coupled-cluster singles & doubles                           
+   Perturbative correction : none                                                        
+            Max iterations :      100
+        Residual threshold : 0.10D-06
+     T(0) DIIS level shift : 0.00D+00
+     L(0) DIIS level shift : 0.00D+00
+     T(1) DIIS level shift : 0.00D+00
+     L(1) DIIS level shift : 0.00D+00
+     T(R) DIIS level shift : 0.00D+00
+     T(I) DIIS level shift : 0.00D+00
+   CC-T/L Amplitude update :  5-th order DIIS
+                I/O scheme : Global Array Library
+        L-threshold :  0.10D-06
+        EOM-threshold :  0.10D-06
+ no EOMCCSD initial starts read in
+ TCE RESTART OPTIONS
+ READ_INT:   F
+ WRITE_INT:  F
+ READ_TA:    F
+ WRITE_TA:   F
+ READ_XA:    F
+ WRITE_XA:   F
+ READ_IN3:   F
+ WRITE_IN3:  F
+ SLICE:      F
+ D4D5:       F
+ quantumc:   F
+ qrotation:  F
+ pwtce:      F
+ qducc:      F
+ nacto:                          0
+ nrotv:                          0
+ nrot:                           0
+ 
+            Memory Information
+            ------------------
+          Available GA space size is    1441788279 doubles
+          Available MA space size is     131061172 doubles
+ 
+ Maximum block size        32 doubles
+
+ tile_dim =     19
+
+ Block   Spin    Irrep     Size     Offset   Alpha
+ -------------------------------------------------
+   1    alpha     a     18 doubles       0       1
+   2    beta      a     18 doubles      18       1
+   3    alpha     a     19 doubles      36       3
+   4    alpha     a     19 doubles      55       4
+   5    beta      a     19 doubles      74       3
+   6    beta      a     19 doubles      93       4
+
+ Global array virtual files algorithm will be used
+
+ Parallel file system coherency ......... OK
+
+ #quartets = 3.822D+04 #integrals = 3.817D+05 #direct =  0.0% #cached =100.0%
+
+
+ Integral file          = ./cucl_tce_demo.aoints.00
+ Record size in doubles =  65536        No. of integs per rec  =  43688
+ Max. records in memory =      8        Max. records in file   = 267175
+ No. of bits per label  =      8        No. of bits per value  =     64
+
+
+File balance: exchanges=     0  moved=     0  time=   0.0
+
+ 
+ Fock matrix recomputed
+ 1-e file size   =             3136
+ 1-e file name   = ./cucl_tce_demo.f1
+ Cpu & wall time / sec            2.8            2.8
+ 
+ tce_ao2e: fast2e=1
+ half-transformed integrals in memory
+ 
+ 2-e (intermediate) file size =        27230278
+ 2-e (intermediate) file name = ./cucl_tce_demo.v2i
+ Cpu & wall time / sec           31.4           31.5
+ 
+ tce_mo2e: fast2e=1
+ 2-e integrals stored in memory
+ 
+ 2-e file size   =         14206777
+ 2-e file name   = ./cucl_tce_demo.v2
+ Cpu & wall time / sec            0.1            0.1
+ T1-number-of-tasks                     2
+ 
+ t1 file size   =              684
+ t1 file name   = ./cucl_tce_demo.t1
+ t1 file handle =       -999
+ T2-number-of-boxes                     7
+ 
+ t2 file size   =           818748
+ t2 file name   = ./cucl_tce_demo.t2
+ t2 file handle =       -996
+CCSD iterations
+ ---------------------------------------------------------
+ Iter          Residuum       Correlation     Cpu    Wall 
+ ---------------------------------------------------------
+NEW TASK SCHEDULING
+CCSD_T1_NTS --- OK
+CCSD_T2_NTS --- OK
+    1   0.4971585868929  -0.8153876417086     0.1     0.1
+    2   0.1628269480617  -0.6837615472114     0.1     0.1
+    3   0.0869572395826  -0.7402145606011     0.1     0.1
+    4   0.0615186810679  -0.7137355762252     0.1     0.1
+    5   0.0458710336202  -0.7314945709931     0.1     0.1
+ MICROCYCLE DIIS UPDATE:                     5                     5
+    6   0.0063951412823  -0.7247197845083     0.1     0.1
+    7   0.0078777424599  -0.7245375986649     0.1     0.1
+    8   0.0046364545821  -0.7248438017244     0.1     0.1
+    9   0.0058319773057  -0.7246668221979     0.1     0.1
+   10   0.0035076488792  -0.7249588849918     0.1     0.1
+ MICROCYCLE DIIS UPDATE:                    10                     5
+   11   0.0009219060263  -0.7252035977624     0.1     0.1
+   12   0.0006148871349  -0.7251482941608     0.1     0.1
+   13   0.0003446550911  -0.7251348253511     0.1     0.1
+   14   0.0003098485162  -0.7251210836285     0.1     0.1
+   15   0.0001767788867  -0.7251205551589     0.1     0.1
+ MICROCYCLE DIIS UPDATE:                    15                     5
+   16   0.0000834428722  -0.7251099683994     0.1     0.1
+   17   0.0000933604345  -0.7251128383606     0.1     0.1
+   18   0.0000557925275  -0.7251123990737     0.1     0.1
+   19   0.0000662042175  -0.7251144754096     0.1     0.1
+   20   0.0000411813800  -0.7251143827497     0.1     0.1
+ MICROCYCLE DIIS UPDATE:                    20                     5
+   21   0.0000125991534  -0.7251194169206     0.1     0.1
+   22   0.0000087736481  -0.7251178394979     0.1     0.1
+   23   0.0000052971187  -0.7251183617583     0.1     0.1
+   24   0.0000057467244  -0.7251178161418     0.1     0.1
+   25   0.0000032461600  -0.7251181648923     0.1     0.1
+ MICROCYCLE DIIS UPDATE:                    25                     5
+   26   0.0000014191005  -0.7251179214324     0.1     0.1
+   27   0.0000019701115  -0.7251179841985     0.1     0.1
+   28   0.0000009612889  -0.7251179876304     0.1     0.1
+   29   0.0000014051980  -0.7251180045510     0.1     0.1
+   30   0.0000007331166  -0.7251180268731     0.1     0.1
+ MICROCYCLE DIIS UPDATE:                    30                     5
+   31   0.0000002358108  -0.7251181022156     0.1     0.1
+   32   0.0000001529276  -0.7251180842862     0.1     0.1
+   33   0.0000000901959  -0.7251180878773     0.1     0.1
+ -----------------------------------------------------------------
+ Iterations converged
+ CCSD correlation energy / hartree =        -0.725118087877278
+ CCSD total energy / hartree       =     -2091.268412210597489
+
+ Singles contributions
+
+ Doubles contributions
+
+ Parallel integral file used      15 records with       0 large values
+
+
+ Task  times  cpu:       60.8s     wall:       61.6s
+ 
+ 
+                                NWChem Input Module
+                                -------------------
+ 
+ 
+ Summary of allocated global arrays
+-----------------------------------
+  No active global arrays
+
+
+MA_summarize_allocated_blocks: starting scan ...
+MA_summarize_allocated_blocks: scan completed: 0 heap blocks, 0 stack blocks
+MA usage statistics:
+
+	allocation statistics:
+					      heap	     stack
+					      ----	     -----
+	current number of blocks	         0	         0
+	maximum number of blocks	        23	        36
+	current total bytes		         0	         0
+	maximum total bytes		   4277256	 124660856
+	maximum total K-bytes		      4278	    124661
+	maximum total M-bytes		         5	       125
+ 
+ 
+                                     CITATION
+                                     --------
+                Please cite the following reference when publishing
+                           results obtained with NWChem:
+ 
+          E. Apra, E. J. Bylaska, W. A. de Jong, N. Govind, K. Kowalski,
+       T. P. Straatsma, M. Valiev, H. J. J. van Dam, Y. Alexeev, J. Anchell,
+       V. Anisimov, F. W. Aquino, R. Atta-Fynn, J. Autschbach, N. P. Bauman,
+     J. C. Becca, D. E. Bernholdt, K. Bhaskaran-Nair, S. Bogatko, P. Borowski,
+         J. Boschen, J. Brabec, A. Bruner, E. Cauet, Y. Chen, G. N. Chuev,
+      C. J. Cramer, J. Daily, M. J. O. Deegan, T. H. Dunning Jr., M. Dupuis,
+   K. G. Dyall, G. I. Fann, S. A. Fischer, A. Fonari, H. Fruchtl, L. Gagliardi,
+      J. Garza, N. Gawande, S. Ghosh, K. Glaesemann, A. W. Gotz, J. Hammond,
+       V. Helms, E. D. Hermes, K. Hirao, S. Hirata, M. Jacquelin, L. Jensen,
+   B. G. Johnson, H. Jonsson, R. A. Kendall, M. Klemm, R. Kobayashi, V. Konkov,
+      S. Krishnamoorthy, M. Krishnan, Z. Lin, R. D. Lins, R. J. Littlefield,
+      A. J. Logsdail, K. Lopata, W. Ma, A. V. Marenich, J. Martin del Campo,
+   D. Mejia-Rodriguez, J. E. Moore, J. M. Mullin, T. Nakajima, D. R. Nascimento,
+    J. A. Nichols, P. J. Nichols, J. Nieplocha, A. Otero-de-la-Roza, B. Palmer,
+    A. Panyala, T. Pirojsirikul, B. Peng, R. Peverati, J. Pittner, L. Pollack,
+   R. M. Richard, P. Sadayappan, G. C. Schatz, W. A. Shelton, D. W. Silverstein,
+   D. M. A. Smith, T. A. Soares, D. Song, M. Swart, H. L. Taylor, G. S. Thomas,
+            V. Tipparaju, D. G. Truhlar, K. Tsemekhman, T. Van Voorhis,
+      A. Vazquez-Mayagoitia, P. Verma, O. Villa, A. Vishnu, K. D. Vogiatzis,
+        D. Wang, J. H. Weare, M. J. Williamson, T. L. Windus, K. Wolinski,
+        A. T. Wong, Q. Wu, C. Yang, Q. Yu, M. Zacharias, Z. Zhang, Y. Zhao,
+                                and R. J. Harrison
+                        "NWChem: Past, present, and future
+                         J. Chem. Phys. 152, 184102 (2020)
+                               doi:10.1063/5.0004997
+ 
+                                      AUTHORS
+                                      -------
+  E. Apra, E. J. Bylaska, N. Govind, K. Kowalski, M. Valiev, D. Mejia-Rodriguez,
+       A. Kunitsa, N. P. Bauman, A. Panyala, W. A. de Jong, T. P. Straatsma,
+   H. J. J. van Dam, D. Wang, T. L. Windus, J. Hammond, J. Autschbach, A. Woods,
+    K. Bhaskaran-Nair, J. Brabec, K. Lopata, S. A. Fischer, S. Krishnamoorthy,
+     M. Jacquelin, W. Ma, M. Klemm, O. Villa, Y. Chen, V. Anisimov, F. Aquino,
+     S. Hirata, M. T. Hackler, E. Hermes, L. Jensen, J. E. Moore, J. C. Becca,
+      V. Konjkov, T. Risthaus, M. Malagoli, A. Marenich, A. Otero-de-la-Roza,
+        J. Mullin, P. Nichols, R. Peverati, J. Pittner, Y. Zhao, P.-D. Fan,
+        A. Fonari, M. J. Williamson, R. J. Harrison, J. R. Rehr, M. Dupuis,
+     D. Silverstein, D. M. A. Smith, J. Nieplocha, V. Tipparaju, M. Krishnan,
+     B. E. Van Kuiken, A. Vazquez-Mayagoitia, M. Swart, Q. Wu, T. Van Voorhis,
+     A. A. Auer, M. Nooijen, L. D. Crosby, E. Brown, G. Cisneros, G. I. Fann,
+   H. Fruchtl, J. Garza, K. Hirao, R. A. Kendall, J. A. Nichols, K. Tsemekhman,
+    K. Wolinski, J. Anchell, D. E. Bernholdt, P. Borowski, T. Clark, D. Clerc,
+   H. Dachsel, M. J. O. Deegan, K. Dyall, D. Elwood, E. Glendening, M. Gutowski,
+   A. C. Hess, J. Jaffe, B. G. Johnson, J. Ju, R. Kobayashi, R. Kutteh, Z. Lin,
+   R. Littlefield, X. Long, B. Meng, T. Nakajima, S. Niu, L. Pollack, M. Rosing,
+   K. Glaesemann, G. Sandrone, M. Stave, H. Taylor, G. Thomas, J. H. van Lenthe,
+                               A. T. Wong, Z. Zhang.
+
+ Total times  cpu:       60.8s     wall:       61.7s

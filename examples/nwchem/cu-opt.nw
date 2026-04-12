@@ -1,0 +1,57 @@
+# cu_h2o4_opt.nw
+start cu_h2o4_opt
+title "Cu(H2O)4(2+) geometry optimization with deliberately distorted start"
+
+memory total 2000 mb
+
+# Total charge +2 (Cu2+ + 4 neutral waters); doublet (d9) ground state
+charge 2                             # sets total molecular charge.  [oai_citation:1‡GitHub](https://github.com/nwchemgit/nwchem/wiki/Charge?utm_source=chatgpt.com)
+
+geometry units angstroms print noautosym
+  symmetry c1
+
+  Cu      0.0000     0.0000     0.0000
+
+  # Intentionally long Cu–O and slight out-of-plane tilts on waters
+
+  O       2.4000     0.0000     0.1000
+  H       2.4000     0.7700     0.7200
+  H       2.4000    -0.7700     0.7200
+
+  O      -2.4000     0.0000    -0.1000
+  H      -2.4000     0.7700    -0.7200
+  H      -2.4000    -0.7700    -0.7200
+
+  O       0.0000     2.4000    -0.1000
+  H       0.7700     2.4000     0.7200
+  H      -0.7700     2.4000     0.7200
+
+  O       0.0000    -2.4000     0.1000
+  H       0.7700    -2.4000    -0.7200
+  H      -0.7700    -2.4000    -0.7200
+end
+
+# Basis set (works well for 3d metals & light atoms)
+basis
+  * library def2-svp
+end
+
+# DFT settings
+dft
+  xc b3lyp
+  mult 2                 # doublet for Cu(II)
+  grid xfine
+  convergence energy 1e-6
+end
+
+# Geometry optimizer controls:
+# - 'xyz cu_h2o4' writes step-by-step XYZ files: cu_h2o4-000.xyz, -001.xyz, ...
+# - Slightly conservative trust radius to avoid wild steps from the stretched start
+driver
+  clear
+  xyz cu_h2o4            # write the optimization trajectory in XYZ files.  [oai_citation:2‡GitHub Wiki See](https://github-wiki-see.page/m/nwchemgit/nwchem/wiki/Geometry-Optimization?utm_source=chatgpt.com)
+  trust 0.25             # control step size (default ~0.3 for minimizations).  [oai_citation:3‡sources.debian.org](https://sources.debian.org/data/main/n/nwchem/7.0.2-1/web/doc/user.4.6/node22.html?utm_source=chatgpt.com)
+  maxiter 100
+end
+
+task dft optimize

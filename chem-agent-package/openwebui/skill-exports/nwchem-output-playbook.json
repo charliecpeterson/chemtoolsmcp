@@ -1,0 +1,21 @@
+[
+  {
+    "id": "nwchem-output-playbook",
+    "user_id": "",
+    "name": "nwchem-output-playbook",
+    "description": "",
+    "meta": {
+      "tags": [
+        "chemistry",
+        "openwebui"
+      ]
+    },
+    "is_active": true,
+    "access_grants": [],
+    "updated_at": 1775352292,
+    "created_at": 1775352292,
+    "user": null,
+    "write_access": true,
+    "content": "# nwchem-output-playbook\n\n## Purpose\nThis skill adds NWChem-specific output-analysis behavior on top of `chemapps-core`, `chem-style`, and `nwchem-skill`.\n\n## Required workflow\nFor any NWChem output analysis:\n1. identify the final completed stage\n2. identify the active failing stage\n3. summarize the termination status\n4. inspect convergence behavior if SCF/DFT is involved\n5. inspect state quality if orbitals/occupations are available\n6. recommend the smallest next change\n\n## Stage classification\nClassify the active issue as one of:\n- input/parser problem\n- SCF/DFT convergence problem\n- wrong-state convergence\n- optimization problem\n- frequency interpretation problem\n- restart/database problem\n- runtime/resource problem\n\nIf more than one is plausible, rank them.\n\n## SCF/DFT rules\n- Do not treat `maxiter` as sufficient evidence that the fix is `maxiter`.\n- Read the recent energy and density trend first.\n- If the energy is stabilizing and the density error is slowly falling, a modest iteration increase may be reasonable.\n- If the energy oscillates, stalls, or the orbital/state picture is wrong, recommend a strategy change instead of only more iterations.\n- If the run converged to a chemically wrong state, label it as wrong-state convergence.\n\n## Orbital and state rules\n- If MO data is available, inspect occupancies and frontier orbitals before recommending state-sensitive fixes.\n- For open-shell transition-metal cases, be explicit about whether the observed occupations match the intended qualitative picture.\n- If the state looks wrong, recommend state-oriented fixes before numerical fine-tuning.\n\n## Optimization rules\n- Separate electronic-structure failure during an optimization from optimizer failure.\n- If the optimization stopped only because the job was interrupted, prefer restart from the last useful structure.\n- If an optimization ends in a stationary point with an unexpected imaginary mode, say whether the mode looks chemically meaningful or likely numerical.\n\n## Frequency rules\n- Do not call every imaginary frequency a failure.\n- Distinguish:\n  - intended transition-state-like mode\n  - torsional/floppy small mode\n  - clearly wrong minimum\n- Explain what rerun or displaced-geometry test would confirm the interpretation.\n\n## Restart rules\n- Prefer restarting from the latest valid structure or vectors when the file evidence supports it.\n- Do not recommend restart reuse blindly if the basis, state, or scientific target changed.\n\n## Output format\nUse headings when helpful:\n- **Stage**\n- **Evidence**\n- **State Check**\n- **Likely Cause**\n- **Best Next Change**\n- **After Rerun, Check**\n"
+  }
+]

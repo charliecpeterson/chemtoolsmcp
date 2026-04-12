@@ -1,0 +1,42 @@
+start n2
+geometry
+ n 0 0  0.53879155
+ n 0 0 -0.53879155
+ symmetry c2v
+end
+basis; n library cc-pvdz;end
+scf  
+vectors  output n2.movecs  
+end  
+dplot  
+  TITLE HOMO  
+  vectors n2.movecs  
+   LimitXYZ  
+ -3.0 3.0 10    
+ -3.0 3.0 10   
+ -3.0  3.0  10  
+  spin total 
+  gaussian  
+  output n2-scf-chargedensity.cube  
+end  
+task scf       
+task dplot
+
+tce
+ ccsd
+ densmat n2.densmat
+end
+task tce energy
+dplot
+ TITLE HOMO
+ LimitXYZ
+ -3.0 3.0 10
+ -3.0 3.0 10
+ -3.0 3.0 10
+ spin total
+ gaussian
+ densmat n2.densmat
+ output n2-ccsddensity.cube
+end
+task dplot
+

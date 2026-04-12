@@ -13,7 +13,7 @@
   },
   "profiles": {
     "local": {
-      "description": "Direct local execution on a workstation.",
+      "description": "Direct local execution on a workstation (single process).",
       "launcher": {
         "kind": "direct",
         "command": "nwchem"
@@ -39,7 +39,7 @@
       }
     },
     "local_mpirun": {
-      "description": "Local MPI launch.",
+      "description": "Local MPI launch via mpirun. Set mpi_ranks to the number of cores.",
       "launcher": {
         "kind": "direct",
         "command": "mpirun -np {mpi_ranks} nwchem"
@@ -65,17 +65,24 @@
       }
     },
     "slurm_cpu": {
-      "description": "Batch submission through Slurm.",
+      "description": "Generic SLURM cluster with srun. Customize nwchem_executable and partition.",
       "launcher": {
         "kind": "scheduler",
         "submit_command": "sbatch",
-        "status_command": "squeue -j {job_id}",
+        "scheduler_type": "slurm",
+        "job_id_regex": "Submitted batch job (\\d+)",
+        "status_command": "squeue -j {job_id} -h -o %T",
         "cancel_command": "scancel {job_id}"
       },
       "scheduler": {
         "system": "slurm",
-        "script_template": "#!/bin/bash\n#SBATCH --job-name={job_name}\n#SBATCH --output={output_file}\n#SBATCH --error={error_file}\n#SBATCH --nodes={nodes}\n#SBATCH --ntasks={mpi_ranks}\n#SBATCH --cpus-per-task={omp_threads}\n#SBATCH --time={walltime}\n#SBATCH --partition={partition}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\nsrun nwchem {input_file}\n",
-        "submit_script_name": "{job_name}.slurm"
+        "script_template": "#!/bin/bash\n#SBATCH --job-name={job_name}\n#SBATCH --output={output_file}\n#SBATCH --error={error_file}\n#SBATCH --nodes={nodes}\n#SBATCH --ntasks={mpi_ranks}\n#SBATCH --cpus-per-task={omp_threads}\n#SBATCH --time={walltime}\n#SBATCH --partition={partition}\n{account_line}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "submit_script_name": "{job_name}.job"
+      },
+      "execution": {
+        "nwchem_executable": "nwchem",
+        "mpi_launch": "srun",
+        "shell": "/bin/bash"
       },
       "resources": {
         "nodes": 1,
@@ -83,7 +90,7 @@
         "omp_threads": 1,
         "walltime": "24:00:00",
         "partition": "compute",
-        "memory": null
+        "account": null
       },
       "modules": {
         "purge_first": true,
@@ -102,25 +109,116 @@
         "restart_prefix": "{job_name}"
       }
     },
+    "stampede3_skx": {
+      "description": "TACC Stampede3 SKX nodes (48 cores/node, Intel Skylake). Uses ibrun (TACC's MPI launcher \u2014 does not take -n, uses SLURM task allocation). Copy to your local runner_profiles.local.yaml and set nwchem_executable.\n",
+      "launcher": {
+        "kind": "scheduler",
+        "submit_command": "sbatch",
+        "scheduler_type": "slurm",
+        "job_id_regex": "Submitted batch job (\\d+)",
+        "status_command": "squeue -j {job_id} -h -o %T",
+        "cancel_command": "scancel {job_id}"
+      },
+      "scheduler": {
+        "system": "slurm",
+        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "submit_script_name": "{job_name}.job"
+      },
+      "execution": {
+        "nwchem_executable": "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
+        "mpi_launch": "ibrun",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "nodes": 1,
+        "mpi_ranks": 48,
+        "omp_threads": 1,
+        "walltime": "24:00:00",
+        "partition": "skx",
+        "account": null
+      },
+      "modules": {
+        "purge_first": false,
+        "load": []
+      },
+      "env": {},
+      "hooks": {
+        "pre_run": []
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
+    "stampede3_spr": {
+      "description": "TACC Stampede3 SPR nodes (112 cores/node, Intel Sapphire Rapids). Uses ibrun. Adjust mpi_ranks to the cores you want (max 112 per node).\n",
+      "launcher": {
+        "kind": "scheduler",
+        "submit_command": "sbatch",
+        "scheduler_type": "slurm",
+        "job_id_regex": "Submitted batch job (\\d+)",
+        "status_command": "squeue -j {job_id} -h -o %T",
+        "cancel_command": "scancel {job_id}"
+      },
+      "scheduler": {
+        "system": "slurm",
+        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "submit_script_name": "{job_name}.job"
+      },
+      "execution": {
+        "nwchem_executable": "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
+        "mpi_launch": "ibrun",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "nodes": 1,
+        "mpi_ranks": 112,
+        "omp_threads": 1,
+        "walltime": "24:00:00",
+        "partition": "spr",
+        "account": null
+      },
+      "modules": {
+        "purge_first": false,
+        "load": []
+      },
+      "env": {},
+      "hooks": {
+        "pre_run": []
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
     "pbs_cpu": {
-      "description": "Batch submission through PBS/Torque.",
+      "description": "Generic PBS/Torque cluster. Customize nwchem_executable and resources.",
       "launcher": {
         "kind": "scheduler",
         "submit_command": "qsub",
-        "status_command": "qstat {job_id}",
+        "scheduler_type": "pbs",
+        "job_id_regex": "^(\\d+)",
+        "status_command": "qstat -f {job_id}",
         "cancel_command": "qdel {job_id}"
       },
       "scheduler": {
         "system": "pbs",
-        "script_template": "#!/bin/bash\n#PBS -N {job_name}\n#PBS -o {output_file}\n#PBS -e {error_file}\n#PBS -l walltime={walltime}\n#PBS -l select={nodes}:ncpus={mpi_ranks}:mpiprocs={mpi_ranks}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\nmpirun -np {mpi_ranks} nwchem {input_file}\n",
-        "submit_script_name": "{job_name}.pbs"
+        "script_template": "#!/bin/bash\n#PBS -N {job_name}\n#PBS -o {output_file}\n#PBS -e {error_file}\n#PBS -l walltime={walltime}\n#PBS -l select={nodes}:ncpus={mpi_ranks}:mpiprocs={mpi_ranks}\n{account_line}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "submit_script_name": "{job_name}.job"
+      },
+      "execution": {
+        "nwchem_executable": "nwchem",
+        "mpi_launch": "mpirun -np {mpi_ranks}",
+        "shell": "/bin/bash"
       },
       "resources": {
         "nodes": 1,
         "mpi_ranks": 16,
         "omp_threads": 1,
         "walltime": "24:00:00",
-        "memory": null
+        "account": null
       },
       "modules": {
         "purge_first": true,

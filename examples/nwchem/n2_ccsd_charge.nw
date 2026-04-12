@@ -1,0 +1,24 @@
+start n2_ccsd_charge
+geometry
+ n 0 0  0.53879155
+ n 0 0 -0.53879155
+ symmetry c2v
+end
+basis; n library cc-pvdz;end
+tce
+ ccsd
+ densmat n2_ccsd_charge.densmat
+end
+task tce energy
+dplot
+ TITLE HOMO
+ LimitXYZ
+ -3.0 3.0 10
+ -3.0 3.0 10
+ -3.0 3.0 10
+ spin total
+ gaussian
+ densmat n2_ccsd_charge.densmat
+ output ccsddensity.cube
+end
+task dplot

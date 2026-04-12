@@ -1,0 +1,60 @@
+start water_orbitals
+memory 2000 mb
+
+geometry units angstroms
+ O   0.000000   0.000000   0.116868
+ H   0.000000   0.763239  -0.467470
+ H   0.000000  -0.763239  -0.467470
+end
+
+basis
+ * library 6-31G*
+end
+
+dft
+ xc b3lyp
+ grid fine
+end
+
+task dft energy
+
+# Generate CUBE files for selected orbitals
+dplot
+  vectors water_orbitals.movecs
+
+  limitxyz
+    -3.0 3.0 30
+    -3.0 3.0 30
+    -3.0 3.0 30
+  spin total
+  gaussian
+  orbitals view; 1; 1; output h2o_mo_001.cube
+end
+
+task dplot
+
+dplot
+  vectors water_orbitals.movecs
+
+  limitxyz
+    -3.0 3.0 30
+    -3.0 3.0 30
+    -3.0 3.0 30
+  spin total
+  gaussian
+  orbitals view; 1; 5; output h2o_mo_005.cube
+end
+task dplot
+dplot
+  vectors water_orbitals.movecs
+
+  limitxyz
+    -3.0 3.0 30
+    -3.0 3.0 30
+    -3.0 3.0 30
+  spin total
+  gaussian
+  orbitals view; 1; 7; output h2o_mo_007.cube
+end
+
+task dplot

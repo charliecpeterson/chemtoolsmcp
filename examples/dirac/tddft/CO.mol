@@ -1,0 +1,11 @@
+INTGRL
+Carbon monoxide
+Dunning aug-cc-pVDZ
+C   2              A
+        6.    1
+C        0.0000000000000     0.0000000000000     0.0000000000000
+LARGE BASIS aug-cc-pVDZ
+        8.    1
+O        0.0000000000000     0.0000000000000     1.128323
+LARGE BASIS aug-cc-pVDZ
+FINISH

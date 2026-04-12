@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "chemtools-nwchem": {
+      "command": "chemtools-nwchem",
+      "env": {
+        "CHEMTOOLS_RUNNER_PROFILES": "/Users/charlie/test/mcptest/runner_profiles.json",
+        "CHEMTOOLS_MCP_LOG": "/tmp/chemtools-nwchem.log"
+      }
+    }
+  }
+}

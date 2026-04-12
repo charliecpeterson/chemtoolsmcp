@@ -80,6 +80,7 @@ from chemtools import (  # noqa: E402
     summarize_nwchem_case,
     swap_nwchem_movecs,
     tail_nwchem_output,
+    render_job_script,
     terminate_nwchem_run,
     watch_nwchem_run,
 )
@@ -765,8 +766,36 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "render_job_script",
+            "description": (
+                "Preview the HPC job submission script (SLURM .job, PBS .job, etc.) that would be created "
+                "for a given input file and scheduler profile. Does not write or submit. "
+                "Use before launch_nwchem_run to verify the script, resource settings, and output file paths."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string"},
+                    "profile": {"type": "string"},
+                    "profiles_path": {"type": "string"},
+                    "job_name": {"type": "string"},
+                    "resource_overrides": {
+                        "type": "object",
+                        "description": "Override specific resource fields, e.g. {\"walltime\": \"48:00:00\", \"mpi_ranks\": 96}",
+                    },
+                },
+                "required": ["input_file", "profile"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "get_nwchem_run_status",
-            "description": "Check the status of a NWChem run. Returns process/scheduler state, parsed output outcome, and a compact progress summary for running jobs.",
+            "description": (
+                "Check the status of a NWChem run. For HPC jobs the scheduler job ID is auto-detected "
+                "from {job_name}.jobid alongside the input/output file. Returns scheduler state "
+                "(queued/running/completed/failed/cancelled), parsed output outcome, and a compact "
+                "progress summary for running jobs."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -826,14 +855,21 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "terminate_nwchem_run",
-            "description": "Send SIGTERM or SIGKILL to a local NWChem process after intervention review has determined the run should stop.",
+            "description": (
+                "Stop a running NWChem job. "
+                "For local runs: provide process_id and optionally signal_name (term or kill). "
+                "For HPC scheduler jobs: provide job_id and profile (calls scancel/qdel/bkill). "
+                "Only call after intervention review has determined the run should stop."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "integer"},
-                    "signal_name": {"type": "string", "default": "term"},
+                    "process_id": {"type": "integer", "description": "Local process ID (direct/local runs)."},
+                    "signal_name": {"type": "string", "default": "term", "description": "term or kill (local only)."},
+                    "job_id": {"type": "string", "description": "Scheduler job ID (HPC runs)."},
+                    "profile": {"type": "string", "description": "Runner profile name (required with job_id)."},
+                    "profiles_path": {"type": "string"},
                 },
-                "required": ["process_id"],
                 "additionalProperties": False,
             },
         },
@@ -1907,6 +1943,17 @@ def _handle_find_nwchem_restart_assets(arguments: dict[str, Any]) -> dict[str, A
 # Handlers — runner / job management
 # ---------------------------------------------------------------------------
 
+@_tool("render_job_script")
+def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
+    return render_job_script(
+        input_path=arguments["input_file"],
+        profile=arguments["profile"],
+        profiles_path=arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES"),
+        job_name=arguments.get("job_name"),
+        resource_overrides=arguments.get("resource_overrides"),
+    )
+
+
 @_tool("launch_nwchem_run")
 def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     return launch_nwchem_run(
@@ -1961,9 +2008,13 @@ def _handle_tail_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("terminate_nwchem_run")
 def _handle_terminate_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
     return terminate_nwchem_run(
-        process_id=arguments["process_id"],
+        process_id=arguments.get("process_id"),
         signal_name=arguments.get("signal_name", "term"),
+        job_id=arguments.get("job_id"),
+        profile=arguments.get("profile"),
+        profiles_path=profiles_path,
     )
 
 

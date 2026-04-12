@@ -1,0 +1,29 @@
+start methane
+title "methane opt+freq (B3LYP/6-31g*)"
+echo
+
+geometry units angstrom
+  C  0.000000  0.000000  0.000000
+  H  0.629312  0.629312  0.629312
+  H  0.629312  -0.629312  -0.629312
+  H  -0.629312  0.629312  -0.629312
+  H  -0.629312  -0.629312  0.629312
+end
+
+charge 0
+
+basis
+  * library 6-31g*
+end
+
+dft
+  xc b3lyp
+  grid xfine
+end
+
+driver
+  maxiter 200
+end
+
+task dft optimize
+task dft freq

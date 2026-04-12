@@ -1,4 +1,5 @@
 from .api import (
+    render_job_script,
     analyze_frontier_orbitals,
     suggest_basis_set,
     suggest_memory,
@@ -84,6 +85,7 @@ from .api import (
 from .eval import evaluate_case, evaluate_cases
 
 __all__ = [
+    "render_job_script",
     "analyze_imaginary_modes",
     "analyze_frontier_orbitals",
     "analyze_tce_orbital_ordering",

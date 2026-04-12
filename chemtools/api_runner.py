@@ -11,6 +11,7 @@ from .diagnostics import (
     parse_scf,
 )
 from .runner import (
+    cancel_scheduler_job,
     load_runner_profiles,
     render_nwchem_run,
     run_nwchem,
@@ -39,6 +40,16 @@ def inspect_runner_profiles(profiles_path: str | None = None) -> dict[str, Any]:
             name: {
                 "description": profile.get("description"),
                 "launcher_kind": (profile.get("launcher") or {}).get("kind", "direct"),
+                "scheduler_type": (
+                    (profile.get("scheduler") or {}).get("system")
+                    or (profile.get("launcher") or {}).get("scheduler_type")
+                ),
+                "nwchem_executable": (profile.get("execution") or {}).get("nwchem_executable"),
+                "mpi_launch": (profile.get("execution") or {}).get("mpi_launch"),
+                "resources": {
+                    k: v for k, v in (profile.get("resources") or {}).items()
+                    if k in {"nodes", "mpi_ranks", "omp_threads", "walltime", "partition", "account"}
+                },
             }
             for name, profile in profiles.items()
         },
@@ -182,7 +193,26 @@ def review_nwchem_progress(
     }
 
 
-def terminate_nwchem_run(process_id: int, signal_name: str = "term") -> dict[str, Any]:
+def terminate_nwchem_run(
+    process_id: int | None = None,
+    signal_name: str = "term",
+    job_id: str | None = None,
+    profile: str | None = None,
+    profiles_path: str | None = None,
+) -> dict[str, Any]:
+    """Stop a running NWChem job.
+
+    For local runs: provide ``process_id`` and optionally ``signal_name``.
+    For HPC scheduler jobs: provide ``job_id`` and ``profile`` (calls cancel_command).
+    """
+    if job_id is not None:
+        if not profile:
+            raise ValueError("profile is required when cancelling a scheduler job by job_id")
+        return cancel_scheduler_job(profile=profile, job_id=job_id, profiles_path=profiles_path)
+
+    if process_id is None:
+        raise ValueError("Either process_id (local) or job_id + profile (HPC) must be provided")
+
     normalized = signal_name.strip().lower()
     if normalized in {"term", "sigterm", "terminate"}:
         sig = signal.SIGTERM
@@ -209,6 +239,47 @@ def terminate_nwchem_run(process_id: int, signal_name: str = "term") -> dict[str
         "signal": used,
         "sent": sent,
         "error": error,
+    }
+
+
+def render_job_script(
+    input_path: str,
+    profile: str,
+    profiles_path: str | None = None,
+    job_name: str | None = None,
+    resource_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Render the HPC job submission script without executing or submitting.
+
+    Returns the script text and metadata for review before calling launch_nwchem_run.
+    Only meaningful for scheduler-type profiles; raises ValueError for direct profiles.
+    """
+    result = launch_nwchem_run(
+        input_path=input_path,
+        profile=profile,
+        profiles_path=profiles_path,
+        job_name=job_name,
+        resource_overrides=resource_overrides,
+        dry_run=True,
+    )
+    if result.get("launcher_kind") != "scheduler":
+        raise ValueError(
+            f"Profile '{profile}' is a direct/local launcher — no job script to render. "
+            "Use launch_nwchem_run(dry_run=True) to preview the local command instead."
+        )
+    return {
+        "profile": result["profile"],
+        "launcher_kind": result["launcher_kind"],
+        "scheduler_type": result.get("scheduler_type"),
+        "job_name": result["job_name"],
+        "output_file": result["output_file"],
+        "error_file": result["error_file"],
+        "script_text": result.get("submit_script_text"),
+        "script_path": result.get("submit_script_path"),
+        "script_name": result.get("submit_script_name"),
+        "resources": result["resources"],
+        "working_directory": result["working_directory"],
+        "submit_command": result.get("submit_command"),
     }
 
 

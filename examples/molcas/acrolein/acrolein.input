@@ -1,0 +1,40 @@
+>>> Export MOLCAS_MAXITER=500
+>>> Export MOLCAS_MEM=5000
+&GATEWAY
+  Title= Acrolein Cs symmetry - transoid
+  Coord
+    8
+
+    O      0.0000000     -1.4511781     -1.3744831
+    C      0.0000000     -0.8224882     -0.1546649
+    C      0.0000000      0.7589531     -0.0387200
+    C      0.0000000      1.3465057      1.2841925
+    H      0.0000000     -1.4247539      0.8878671
+    H      0.0000000      1.3958142     -1.0393956
+    H      0.0000000      0.6274048      2.2298215
+    H      0.0000000      2.5287634      1.4123985
+    Group=X
+    Basis=ANO-RCC-VDZP
+    RICD
+
+>>>>>>>>>>>>> Do while <<<<<<<<<<<<
+
+&SEWARD
+
+>>>>>>>> IF ( ITER = 1 ) <<<<<<<<<<<
+&SCF; Title= Acrolein Cs symmetry
+*The symmetry species are a'  a''
+Occupied= 13 2
+>>>>>>> ENDIF <<<<<<<<<<<<<<<<<<<<<
+
+&RASSCF; Title=Acrolein ground state
+   nActEl= 4 0 0
+   Inactive= 13 0
+*  The symmetry species are a'  a''
+   Ras2= 0 4
+
+&CASPT2
+
+&SLAPAF
+>>>>>>>>>>>>> ENDDO  <<<<<<<<<<<<<<
+

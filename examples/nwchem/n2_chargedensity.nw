@@ -1,0 +1,22 @@
+start n2_charge 
+geometry  
+  n  0 0   0.53879155 
+  n  0 0  -0.53879155  
+end  
+basis;  n library cc-pvdz;end 
+scf  
+vectors  output n2_charge.movecs  
+end  
+dplot  
+  TITLE HOMO  
+  vectors n2_charge.movecs  
+   LimitXYZ  
+ -3.0 3.0 10    
+ -3.0 3.0 10   
+ -3.0  3.0  10  
+  spin total 
+  gaussian  
+  output chargedensity.cube  
+end  
+task scf       
+task dplot

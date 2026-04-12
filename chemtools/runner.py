@@ -83,6 +83,21 @@ def run_nwchem(
         rendered["return_code"] = completed.returncode
         rendered["stdout"] = completed.stdout
         rendered["stderr"] = completed.stderr
+        # Parse job ID from scheduler submit output and persist to .jobid file
+        job_id: str | None = None
+        if completed.returncode == 0:
+            job_id_regex = rendered.get("job_id_regex", r"Submitted batch job (\d+)")
+            m = re.search(job_id_regex, completed.stdout)
+            if m:
+                job_id = m.group(1)
+        rendered["job_id"] = job_id
+        if job_id:
+            jobid_path = Path(rendered["working_directory"]) / f"{rendered['job_name']}.jobid"
+            try:
+                jobid_path.write_text(job_id, encoding="utf-8")
+                rendered["jobid_file"] = str(jobid_path)
+            except Exception as exc:
+                rendered["jobid_file_error"] = str(exc)
         return rendered
 
     raise ValueError(f"unsupported launcher kind: {rendered['launcher_kind']}")
@@ -190,25 +205,42 @@ def render_nwchem_run(
         scheduler = profile_payload.get("scheduler", {})
         modules = profile_payload.get("modules", {})
         hooks = profile_payload.get("hooks", {})
+        execution = profile_payload.get("execution", {})
         module_block = _render_module_block(modules)
         pre_run_block = _render_hook_block(hooks.get("pre_run", []), context)
-        scheduler_context = dict(context)
-        scheduler_context.update(
-            {
-                "module_block": module_block,
-                "pre_run_block": pre_run_block,
-            }
+        scheduler_type = (scheduler.get("system") or launcher.get("scheduler_type", "slurm")).lower()
+        # Extra context fields for scheduler templates
+        nwchem_executable = (
+            execution.get("nwchem_executable")
+            or profile_payload.get("resources", {}).get("nwchem_executable")
+            or "nwchem"
         )
+        mpi_launch = execution.get("mpi_launch") or profile_payload.get("resources", {}).get("mpi_launch") or ""
+        account = context.get("account")
+        account_line = f"#SBATCH -A {account}" if scheduler_type == "slurm" and account else (
+            f"#PBS -A {account}" if scheduler_type == "pbs" and account else ""
+        )
+        scheduler_context = dict(context)
+        scheduler_context.update({
+            "module_block": module_block,
+            "pre_run_block": pre_run_block,
+            "nwchem_executable": nwchem_executable,
+            "mpi_launch": mpi_launch,
+            "account_line": account_line,
+        })
         script_text = _format_template(scheduler.get("script_template", ""), scheduler_context)
         submit_script_name = _format_template(
             scheduler.get("submit_script_name", "{job_name}.submit"),
             scheduler_context,
         )
         submit_script_path = str(Path(job_dir) / submit_script_name)
+        job_id_regex = launcher.get("job_id_regex") or scheduler.get("job_id_regex", r"Submitted batch job (\d+)")
         rendered["submit_script_name"] = submit_script_name
         rendered["submit_script_path"] = submit_script_path
         rendered["submit_script_text"] = script_text
         rendered["submit_command"] = _render_submit_command(submit_command, submit_script_path)
+        rendered["job_id_regex"] = job_id_regex
+        rendered["scheduler_type"] = scheduler_type
         return rendered
 
     raise ValueError(f"unsupported launcher kind: {launcher_kind}")
@@ -249,6 +281,14 @@ def inspect_nwchem_run_status(
     output_info = _file_info(output_path)
     error_info = _file_info(error_path)
     process_status = _process_status(process_id)
+    # Auto-detect job_id from .jobid file if not provided
+    if job_id is None:
+        _jf = _auto_jobid_path(output_path, input_path)
+        if _jf is not None:
+            try:
+                job_id = _jf.read_text(encoding="utf-8").strip() or None
+            except Exception:
+                pass
     scheduler_status = None
     if profile and job_id:
         scheduler_status = _scheduler_status(profile=profile, job_id=job_id, profiles_path=profiles_path)
@@ -288,9 +328,10 @@ def inspect_nwchem_run_status(
             parsed_output = {"error": str(exc), "incomplete": True}
 
     overall_status = "unknown"
-    if scheduler_status and scheduler_status.get("status") == "running":
-        overall_status = "running"
-    elif process_status == "running":
+    sched_status = (scheduler_status or {}).get("status")
+    if sched_status == "queued":
+        overall_status = "queued"
+    elif sched_status == "running" or process_status == "running":
         overall_status = "running"
     elif parsed_output and parsed_output.get("program_summary", {}).get("outcome") == "success":
         overall_status = "completed_success"
@@ -298,6 +339,10 @@ def inspect_nwchem_run_status(
         overall_status = "completed_failed"
     elif parsed_output and parsed_output.get("program_summary", {}).get("outcome") == "incomplete":
         overall_status = "completed_incomplete"
+    elif sched_status == "failed":
+        overall_status = "completed_failed"
+    elif sched_status == "cancelled":
+        overall_status = "cancelled"
     elif error_info["exists"] and error_info["size_bytes"] > 0:
         overall_status = "error_only"
     elif output_info["exists"]:
@@ -511,6 +556,18 @@ def _render_submit_command(submit_command: str, submit_script_path: str) -> list
     return parts + [submit_script_path]
 
 
+def _auto_jobid_path(output_path: str | None, input_path: str | None) -> Path | None:
+    """Derive the .jobid file location from the output or input path."""
+    for p in (output_path, input_path):
+        if not p:
+            continue
+        base = re.sub(r"\.(out|nw|log|nwout|err)$", "", str(Path(p).resolve()), flags=re.IGNORECASE)
+        candidate = Path(base + ".jobid")
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _file_info(path: str | None) -> dict[str, Any]:
     if not path:
         return {
@@ -571,32 +628,144 @@ def _process_status(process_id: int | None) -> str:
     return "running"
 
 
+# Scheduler state → normalized status mappings
+_SLURM_STATE_MAP: dict[str, str] = {
+    "PENDING": "queued", "CONFIGURING": "queued", "SUSPENDED": "queued",
+    "RUNNING": "running", "COMPLETING": "running",
+    "COMPLETED": "completed",
+    "FAILED": "failed", "NODE_FAIL": "failed", "TIMEOUT": "failed",
+    "OUT_OF_MEMORY": "failed", "PREEMPTED": "failed", "REVOKED": "failed",
+    "DEADLINE": "failed", "BOOT_FAIL": "failed", "SPECIAL_EXIT": "failed",
+    "CANCELLED": "cancelled",
+}
+
+_PBS_STATE_MAP: dict[str, str] = {
+    "Q": "queued", "H": "queued", "W": "queued", "T": "queued", "S": "queued",
+    "R": "running", "E": "running",
+    "C": "completed", "F": "failed",
+}
+
+_LSF_STATE_MAP: dict[str, str] = {
+    "PEND": "queued", "PSUSP": "queued", "USUSP": "queued", "SSUSP": "queued",
+    "RUN": "running",
+    "DONE": "completed",
+    "EXIT": "failed", "ZOMBI": "failed",
+    "UNKWN": "unknown",
+}
+
+
 def _scheduler_status(profile: str, job_id: str, profiles_path: str | None) -> dict[str, Any]:
     profiles = load_runner_profiles(profiles_path)
     profile_payload = _resolve_profile(profiles, profile)
     launcher = profile_payload.get("launcher", {})
+    scheduler = profile_payload.get("scheduler", {})
     status_template = launcher.get("status_command")
+    scheduler_type = (scheduler.get("system") or launcher.get("scheduler_type", "slurm")).lower()
+
     if not status_template:
         return {
             "job_id": job_id,
             "status": "unsupported",
+            "scheduler_type": scheduler_type,
             "command": None,
             "return_code": None,
+            "raw_state": None,
             "stdout": None,
             "stderr": None,
         }
+
     command = shlex.split(_format_template(status_template, {"job_id": job_id}))
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
+    except Exception as exc:
+        return {
+            "job_id": job_id,
+            "status": "error",
+            "scheduler_type": scheduler_type,
+            "command": command,
+            "return_code": None,
+            "raw_state": None,
+            "error": str(exc),
+            "stdout": None,
+            "stderr": None,
+        }
+
     stdout = completed.stdout.strip()
-    status = "running" if completed.returncode == 0 and stdout else "not_found"
+    raw_state: str | None = None
+    normalized: str
+
+    if scheduler_type == "slurm":
+        # Works with "squeue -j {job_id} -h -o %T" (just the state word)
+        # or full squeue table — take last token of first non-header line
+        for line in stdout.splitlines():
+            line = line.strip()
+            if line and not line.upper().startswith("JOBID") and not line.startswith("-"):
+                raw_state = line.split()[-1].upper()
+                break
+        if raw_state:
+            normalized = _SLURM_STATE_MAP.get(raw_state, "unknown")
+        else:
+            # Empty squeue output = job aged out of queue (completed long ago)
+            normalized = "not_found"
+    elif scheduler_type == "pbs":
+        m = re.search(r"job_state\s*=\s*(\w+)", stdout, re.IGNORECASE)
+        if m:
+            raw_state = m.group(1).upper()
+            normalized = _PBS_STATE_MAP.get(raw_state, "unknown")
+        elif not stdout and completed.returncode != 0:
+            normalized = "not_found"
+        else:
+            normalized = "unknown"
+    elif scheduler_type == "lsf":
+        lines = [l for l in stdout.splitlines() if l.strip()]
+        if len(lines) >= 2:
+            header = lines[0].split()
+            data = lines[1].split()
+            if "STAT" in header and len(data) > header.index("STAT"):
+                raw_state = data[header.index("STAT")].upper()
+                normalized = _LSF_STATE_MAP.get(raw_state, "unknown")
+            else:
+                normalized = "unknown"
+        elif not stdout and completed.returncode != 0:
+            normalized = "not_found"
+        else:
+            normalized = "unknown"
+    else:
+        normalized = "running" if (completed.returncode == 0 and stdout) else "not_found"
+
     return {
         "job_id": job_id,
-        "status": status,
+        "status": normalized,
+        "scheduler_type": scheduler_type,
+        "raw_state": raw_state,
         "command": command,
         "return_code": completed.returncode,
         "stdout": completed.stdout,
         "stderr": completed.stderr,
     }
+
+
+def cancel_scheduler_job(profile: str, job_id: str, profiles_path: str | None = None) -> dict[str, Any]:
+    """Send a cancel/delete command to the scheduler for the given job ID."""
+    profiles = load_runner_profiles(profiles_path)
+    profile_payload = _resolve_profile(profiles, profile)
+    launcher = profile_payload.get("launcher", {})
+    cancel_template = launcher.get("cancel_command")
+    if not cancel_template:
+        return {"job_id": job_id, "cancelled": False, "error": "no cancel_command configured in profile"}
+    command = shlex.split(_format_template(cancel_template, {"job_id": job_id}))
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
+        return {
+            "job_id": job_id,
+            "cancelled": completed.returncode == 0,
+            "command": command,
+            "return_code": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+        }
+    except Exception as exc:
+        return {"job_id": job_id, "cancelled": False, "command": command, "error": str(exc)}
 
 
 def _is_terminal_status(status: dict[str, Any]) -> bool:
@@ -605,16 +774,26 @@ def _is_terminal_status(status: dict[str, Any]) -> bool:
         "completed_success",
         "completed_failed",
         "completed_incomplete",
+        "cancelled",
         "error_only",
     }:
         return True
 
     scheduler = status.get("scheduler") or {}
+    sched_status = scheduler.get("status")
     process = status.get("process") or {}
     output_file = status.get("output_file") or {}
+
+    # HPC: scheduler reports a hard terminal state — job is done regardless of output
+    if sched_status in {"failed", "cancelled"}:
+        return True
+    # HPC: scheduler says completed and output file exists — let output-based detection take over
+    if sched_status == "completed" and output_file.get("exists"):
+        return True
+
     if (
         overall_status == "output_present_unknown"
-        and scheduler.get("status") not in {"running"}
+        and sched_status not in {"running", "queued"}
         and process.get("status") not in {"running"}
         and output_file.get("exists")
     ):

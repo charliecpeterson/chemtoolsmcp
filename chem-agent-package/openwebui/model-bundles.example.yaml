@@ -1,0 +1,65 @@
+bundles:
+  openai-nwchem-core:
+    base_model: gpt-5.4
+    knowledge:
+      - nwchem-docs
+      - nwchem-cases
+    skills:
+      - chemapps-core
+      - chem-style
+      - nwchem-skill
+      - nwchem-output-playbook
+      - nwchem-basis-policy
+    tools: []
+    use_case: External agent such as OpenCode provides local tools.
+
+  openai-nwchem-parse:
+    base_model: gpt-5.4
+    knowledge:
+      - nwchem-docs
+      - nwchem-cases
+    skills:
+      - chemapps-core
+      - chem-style
+      - nwchem-skill
+      - nwchem-output-playbook
+      - nwchem-basis-policy
+    tools:
+      - parse_nwchem_output
+      - parse_nwchem_scf
+      - diagnose_nwchem_output
+      - summarize_nwchem_output
+      - resolve_nwchem_basis
+      - render_nwchem_basis
+    use_case: Open WebUI chat handles chemistry parsing and input drafting, but not local job control.
+
+  openai-nwchem-agent:
+    base_model: gpt-5.4
+    knowledge:
+      - nwchem-docs
+      - nwchem-cases
+    skills:
+      - chemapps-core
+      - chem-style
+      - nwchem-skill
+      - nwchem-output-playbook
+      - nwchem-basis-policy
+    tools:
+      - parse_nwchem_output
+      - parse_nwchem_scf
+      - diagnose_nwchem_output
+      - summarize_nwchem_output
+      - resolve_nwchem_basis
+      - render_nwchem_basis
+      - run_nwchem
+      - job_status
+      - tail_output
+    use_case: Only for environments where tool calls already have safe access to the working directory and scheduler.
+
+  qwen35-nwchem-core:
+    extends: openai-nwchem-core
+    base_model: qwen3.5
+
+notes:
+  - Keep the skill and KB bundle identical across base models; vary the base model and inference settings, not the chemistry brain.
+  - Do not attach duplicate local filesystem or job-control tools in both Open WebUI and OpenCode for the same workflow.

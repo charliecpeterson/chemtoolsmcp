@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "defaults": {
+    "program": "nwchem",
+    "input_extension": ".nw",
+    "output_extension": ".out",
+    "error_extension": ".err",
+    "scratch_subdir": "scratch",
+    "env": {
+      "NWCHEM_BASIS_LIBRARY": null,
+      "NWCHEM_TOP": null
+    }
+  },
+  "profiles": {
+    "workstation_serial": {
+      "description": "Single-process local launch. Replace the launcher command with the exact command used on this machine.",
+      "launcher": {
+        "kind": "direct",
+        "command": "docker run --rm --platform linux/amd64 --entrypoint sh -v '{job_dir}:/work' -v '/Users/charlie/test/mytest/nwchem-test/nwchem_basis_library:/basislib:ro' -w /work -e NWCHEM_BASIS_LIBRARY=/basislib nwchem:7.2.3 -lc 'mpirun -np 1 nwchem \"$1\"' _"
+      },
+      "execution": {
+        "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
+        "working_directory": "{job_dir}",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "mpi_ranks": 1,
+        "omp_threads": 1,
+        "memory": null,
+        "walltime": null
+      },
+      "env": {
+        "OMP_NUM_THREADS": "{omp_threads}"
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
+    "workstation_mpi": {
+      "description": "Local MPI launch. Replace the launcher command and rank count to match this workstation.",
+      "launcher": {
+        "kind": "direct",
+        "command": "docker run --rm --platform linux/amd64 --entrypoint sh -v '{job_dir}:/work' -v '/Users/charlie/test/mytest/nwchem-test/nwchem_basis_library:/basislib:ro' -w /work -e NWCHEM_BASIS_LIBRARY=/basislib nwchem:7.2.3 -lc 'mpirun -np {mpi_ranks} nwchem \"$1\"' _"
+      },
+      "execution": {
+        "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
+        "working_directory": "{job_dir}",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "mpi_ranks": 8,
+        "omp_threads": 1,
+        "memory": null,
+        "walltime": null
+      },
+      "env": {
+        "OMP_NUM_THREADS": "{omp_threads}"
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    },
+    "workstation_wrapper": {
+      "description": "Local wrapper-script launch. Point the launcher command at a site-specific shell script if setup requires modules, conda, or environment sourcing.",
+      "launcher": {
+        "kind": "direct",
+        "command": "/absolute/path/to/run_nwchem_local.sh"
+      },
+      "execution": {
+        "command_template": "{launcher} {input_file} {output_file} {error_file}",
+        "working_directory": "{job_dir}",
+        "shell": "/bin/bash"
+      },
+      "resources": {
+        "mpi_ranks": 1,
+        "omp_threads": 1,
+        "memory": null,
+        "walltime": null
+      },
+      "env": {
+        "OMP_NUM_THREADS": "{omp_threads}"
+      },
+      "file_rules": {
+        "output_file": "{job_name}.out",
+        "error_file": "{job_name}.err",
+        "restart_prefix": "{job_name}"
+      }
+    }
+  }
+}
