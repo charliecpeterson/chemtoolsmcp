@@ -1081,12 +1081,13 @@ def tool_definitions() -> list[dict[str, Any]]:
         # ------------------------------------------------------------------
         {
             "name": "analyze_nwchem_case",
-            "description": "One-shot NWChem case analysis: diagnosis, input lint, restart assets, spin-state review, and next-step planning. Use detail='compact' for the agent-facing triage payload, 'full' for the human-readable summary.",
+            "description": "One-shot NWChem case analysis: diagnosis, input lint, restart assets, spin-state review, and next-step planning. Automatically reads the .err file (same basename) for crash classification. Use detail='compact' for the agent-facing triage payload, 'full' for the human-readable summary.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
                     "input_file": {"type": "string"},
+                    "err_file": {"type": "string", "description": "Path to the .err file. Auto-detected from output_file if omitted."},
                     "library_path": {"type": "string"},
                     "expected_metals": {"type": "array", "items": {"type": "string"}},
                     "expected_somos": {"type": "integer"},
@@ -2288,6 +2289,7 @@ def _handle_analyze_nwchem_case(arguments: dict[str, Any]) -> dict[str, Any]:
     result = summarize_nwchem_case(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
+        err_file=arguments.get("err_file"),
         library_path=basis_library_path(arguments.get("library_path")),
         expected_metal_elements=arguments.get("expected_metals"),
         expected_somo_count=arguments.get("expected_somos"),

@@ -960,6 +960,7 @@ def summarize_nwchem_case(
     library_path: str | None = None,
     output_dir: str | None = None,
     base_name: str | None = None,
+    err_file: str | None = None,
     compact: bool = False,
 ) -> dict[str, Any]:
     # Lazy import to break circular dependency with api_input
@@ -990,6 +991,7 @@ def summarize_nwchem_case(
         expected_metal_elements=expected_metal_elements,
         expected_somo_count=expected_somo_count,
         detail_level="full",
+        err_file=err_file,
         _contents=output_contents,
     )
     next_step = prepare_nwchem_next_step(

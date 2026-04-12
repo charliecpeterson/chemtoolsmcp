@@ -135,11 +135,144 @@ def parse_scf(path: str) -> dict[str, Any]:
     }
 
 
+def _analyze_err_file(err_path: str) -> dict[str, Any]:
+    """Parse a NWChem .err file and classify the crash type.
+
+    Returns a dict with:
+    - available: bool
+    - err_type: str | None  (classification of the root cause)
+    - err_message: str | None  (human-readable explanation)
+    - signal: int | None  (dominant kill signal, if any)
+    - killed_signals: list[int]
+    - mpi_abort_count: int
+    - raw_error_lines: list[str]  (first N non-noise lines from the file)
+    """
+    # Noise patterns that appear in err files but aren't NWChem errors
+    _NOISE = [
+        "gocryptfs", "singularity", "apptainer",
+        "INFO:", "WARNING: setrlimit", "slurm_script",
+    ]
+    result: dict[str, Any] = {
+        "err_file": err_path,
+        "available": False,
+        "err_type": None,
+        "err_message": None,
+        "signal": None,
+        "killed_signals": [],
+        "mpi_abort_count": 0,
+        "raw_error_lines": [],
+    }
+    try:
+        content = read_text(err_path)
+    except Exception:
+        return result
+
+    result["available"] = True
+    lower = content.lower()
+    lines = content.splitlines()
+
+    # Non-noise lines
+    error_lines = [
+        l.strip() for l in lines
+        if l.strip() and not any(n.lower() in l for n in _NOISE)
+    ]
+    result["raw_error_lines"] = error_lines[:40]
+
+    # Kill signals from BAD TERMINATION blocks in the output (also appear here sometimes)
+    signals = [int(m) for m in re.findall(r"KILLED BY SIGNAL:\s*(\d+)", content)]
+    result["killed_signals"] = sorted(set(signals))
+    result["signal"] = signals[0] if signals else None
+    result["mpi_abort_count"] = len(re.findall(r"application called MPI_Abort", content, re.IGNORECASE))
+
+    # Classification — priority order
+    if re.search(r"MA_alloc_failed|ma_alloc_noc_|ga_create.*[Ee]rror|Error.*ga_create", content):
+        result["err_type"] = "memory_allocation_failed"
+        result["err_message"] = (
+            "NWChem MA/Global Arrays memory allocation failed. "
+            "Increase the memory directive in the input (e.g. 'memory total 8 gb'), "
+            "or request more RAM from the scheduler. "
+            "Also check that memory * nproc doesn't exceed the node's physical RAM."
+        )
+    elif "out of memory" in lower or "cannot allocate memory" in lower:
+        result["err_type"] = "out_of_memory"
+        result["err_message"] = (
+            "System out-of-memory error. Request more RAM, reduce basis size, or reduce parallelism."
+        )
+    elif 9 in signals and "dimensions not the same" not in lower:
+        # SIGKILL with no dimension-mismatch explanation → OOM killer
+        result["err_type"] = "oom_killed"
+        result["err_message"] = (
+            "Process killed by SIGKILL (signal 9). "
+            "This is usually the OS OOM killer or a scheduler memory limit. "
+            "Request more memory or reduce basis/parallelism."
+        )
+    elif 15 in signals:
+        result["err_type"] = "walltime_killed"
+        result["err_message"] = (
+            "Process killed by SIGTERM (signal 15). "
+            "This is typically a scheduler walltime limit. "
+            "Request more walltime, or split the job (e.g. opt then freq separately)."
+        )
+    elif "dimensions not the same" in lower:
+        result["err_type"] = "dimension_mismatch"
+        result["err_message"] = (
+            "'dimensions not the same' — internal NWChem array size error propagated through MPI. "
+            "This is NOT a network/communication failure. "
+            "Common causes: (1) SP-contracted Pople basis (6-31G*, 6-311G**) + X2C/DKH relativistic — "
+            "incompatible; use cc-pVDZ/cc-pVTZ or def2-SVP/def2-TZVP instead. "
+            "(2) Global Arrays memory mismatch when using unusual parallelism settings."
+        )
+    elif "segmentation fault" in lower or 11 in signals or "sigsegv" in lower:
+        result["err_type"] = "segfault"
+        result["err_message"] = (
+            "Segmentation fault (SIGSEGV / signal 11). "
+            "Possible causes: NWChem bug triggered by unusual input, corrupted restart files, "
+            "or stack/memory overflow from a very large calculation."
+        )
+    elif 6 in signals or "sigabrt" in lower:
+        result["err_type"] = "aborted"
+        result["err_message"] = (
+            "Process aborted (SIGABRT / signal 6). "
+            "NWChem called abort() after detecting an internal error. "
+            "Check the .out file for the NWChem-level error message printed just before the crash."
+        )
+    elif result["mpi_abort_count"] > 0:
+        # MPI_Abort called but no clear root cause visible in err file alone
+        first_hint = next(
+            (l for l in error_lines
+             if "received an error" not in l.lower()
+             and "mpi_abort" not in l.lower()
+             and "abort(" not in l.lower()),
+            None,
+        )
+        result["err_type"] = "mpi_abort_unknown_cause"
+        result["err_message"] = (
+            "NWChem called MPI_Abort — all ranks terminated. "
+            "This is a symptom; the root cause is in the .out file or the first rank's message. "
+            + (f"First non-MPI error line: '{first_hint}'. " if first_hint else "")
+            + "Check the .out file for a NWChem-level error printed before the crash."
+        )
+
+    return result
+
+
+def _auto_err_path(output_path: str) -> str | None:
+    """Derive the expected .err file path from a .out path."""
+    import os
+    base = re.sub(r"\.(out|log|nwout)$", "", output_path, flags=re.IGNORECASE)
+    for ext in (".err", ".error", ".stderr"):
+        candidate = base + ext
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
 def diagnose_nwchem_output(
     output_path: str,
     input_path: str | None = None,
     expected_metal_elements: list[str] | None = None,
     expected_somo_count: int | None = None,
+    err_file: str | None = None,
     _contents: str | None = None,
 ) -> dict[str, Any]:
     contents = _contents if _contents is not None else read_text(output_path)
@@ -149,6 +282,10 @@ def diagnose_nwchem_output(
     population = nwchem.parse_population_analysis(output_path, contents)
     freq = nwchem.parse_freq(output_path, contents) if _looks_like_frequency_run(tasks) else None
     trajectory = nwchem.parse_trajectory(output_path, contents) if _looks_like_optimization_run(tasks) else None
+
+    # Analyze the .err file (auto-detect if not provided)
+    _err_path = err_file or _auto_err_path(output_path)
+    err_analysis = _analyze_err_file(_err_path) if _err_path else {"available": False}
 
     input_summary = inspect_nwchem_input(input_path) if input_path else None
     metals = expected_metal_elements or (input_summary["transition_metals"] if input_summary else [])
@@ -272,6 +409,23 @@ def diagnose_nwchem_output(
         next_action = "verify_state_quality_before_accepting_result"
         confidence = "medium"
 
+    # --- Err-file override: if output analysis is still "unknown", let err_analysis clarify ---
+    _ERR_TYPE_TO_CLASS = {
+        "memory_allocation_failed": ("out_of_memory", "nwchem_memory_allocation_failed"),
+        "out_of_memory": ("out_of_memory", "system_out_of_memory"),
+        "oom_killed": ("oom_killed", "scheduler_or_os_killed_process_sigkill"),
+        "walltime_killed": ("walltime_exceeded", "scheduler_killed_process_sigterm"),
+        "dimension_mismatch": ("internal_error", "dimension_mismatch_check_basis_and_parallelism"),
+        "segfault": ("crash_segfault", "segmentation_fault_check_input_and_restart_files"),
+        "aborted": ("crash_aborted", "internal_abort_check_output_for_nwchem_error"),
+        "mpi_abort_unknown_cause": ("crash_mpi_abort", "mpi_abort_root_cause_unknown_check_output"),
+    }
+    err_type = err_analysis.get("err_type")
+    if failure_class == "unknown" and err_type and err_type in _ERR_TYPE_TO_CLASS:
+        failure_class, likely_cause = _ERR_TYPE_TO_CLASS[err_type]
+        next_action = err_analysis.get("err_message") or next_action
+        confidence = "medium"
+
     return {
         "metadata": make_metadata(output_path, contents, "nwchem"),
         "input_summary": input_summary,
@@ -288,6 +442,7 @@ def diagnose_nwchem_output(
         "population_analysis": population,
         "frequency": freq,
         "trajectory": trajectory,
+        "err_analysis": err_analysis,
     }
 
 
@@ -297,6 +452,7 @@ def summarize_nwchem_output(
     expected_metal_elements: list[str] | None = None,
     expected_somo_count: int | None = None,
     detail_level: str = "summary",
+    err_file: str | None = None,
     _contents: str | None = None,
 ) -> dict[str, Any]:
     diagnosis = diagnose_nwchem_output(
@@ -304,6 +460,7 @@ def summarize_nwchem_output(
         input_path=input_path,
         expected_metal_elements=expected_metal_elements,
         expected_somo_count=expected_somo_count,
+        err_file=err_file,
         _contents=_contents,
     )
 
@@ -486,6 +643,7 @@ def summarize_nwchem_output(
             "recommended_next_action": diagnosis["recommended_next_action"],
             "confidence": diagnosis["confidence"],
         },
+        "err_analysis": diagnosis.get("err_analysis"),
     }
 
 
