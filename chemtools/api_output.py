@@ -68,6 +68,11 @@ def parse_freq(path: str, include_displacements: bool = False) -> dict[str, Any]
     return nwchem.parse_freq(path, contents, include_displacements=include_displacements)
 
 
+def parse_freq_progress(path: str) -> dict[str, Any]:
+    contents = read_text(path)
+    return nwchem.parse_freq_progress(path, contents)
+
+
 def parse_trajectory(path: str, include_positions: bool = False) -> dict[str, Any]:
     contents = read_text(path)
     return nwchem.parse_trajectory(path, contents, include_positions=include_positions)

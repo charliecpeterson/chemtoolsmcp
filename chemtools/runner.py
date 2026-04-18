@@ -20,6 +20,159 @@ from .nwchem_input import inspect_nwchem_input
 DEFAULT_RUNNER_PROFILES = Path(__file__).resolve().parent / "runner_profiles.example.json"
 RUNNER_PROFILES_ENV = "CHEMTOOLS_RUNNER_PROFILES"
 
+# Session-level cache for partition specs (avoids repeated sinfo calls)
+_PARTITION_SPECS_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def query_partition_specs(
+    partition: str,
+    scheduler_type: str,
+    cache: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Query the scheduler for real node specs on a partition.
+
+    Returns node_memory_mb, cpus_per_node, cpu_arch, and raw features.
+    Falls back to None values if the query fails.
+    """
+    effective_cache = cache if cache is not None else _PARTITION_SPECS_CACHE
+    if partition in effective_cache:
+        return effective_cache[partition]
+
+    result: dict[str, Any] = {
+        "node_memory_mb": None,
+        "cpus_per_node": None,
+        "cpu_arch": "generic",
+        "features": [],
+    }
+
+    if scheduler_type == "slurm":
+        import shutil
+        if not shutil.which("sinfo"):
+            return result
+        try:
+            proc = subprocess.run(
+                ["sinfo", "-p", partition, "-o", "%m %c %f", "--noheader"],
+                capture_output=True, text=True, timeout=10,
+            )
+            lines = [l.strip() for l in proc.stdout.splitlines() if l.strip()]
+            if not lines:
+                return result
+            rows = [l.split(None, 2) for l in lines]
+            # Use minimum memory (conservative for heterogeneous partitions)
+            min_mem = min(int(r[0]) for r in rows if r[0].isdigit())
+            min_cpu = min(int(r[1]) for r in rows if len(r) > 1 and r[1].isdigit())
+            all_features = set()
+            for r in rows:
+                if len(r) > 2:
+                    all_features.update(r[2].split(","))
+            arch = (
+                "spr" if "spr" in all_features else
+                "skx" if "skx" in all_features else
+                "knl" if "knl" in all_features else
+                "generic"
+            )
+            result = {
+                "node_memory_mb": min_mem,
+                "cpus_per_node": min_cpu,
+                "cpu_arch": arch,
+                "features": sorted(all_features),
+            }
+        except Exception:
+            pass
+
+    elif scheduler_type == "pbs":
+        import shutil
+        if not shutil.which("pbsnodes"):
+            return result
+        try:
+            proc = subprocess.run(
+                ["pbsnodes", "-a"],
+                capture_output=True, text=True, timeout=15,
+            )
+            # Parse total memory and ncpus from first node block
+            mem_match = re.search(r"resources_available\.mem\s*=\s*(\d+)kb", proc.stdout, re.IGNORECASE)
+            cpu_match = re.search(r"resources_available\.ncpus\s*=\s*(\d+)", proc.stdout, re.IGNORECASE)
+            if mem_match:
+                result["node_memory_mb"] = int(mem_match.group(1)) // 1024
+            if cpu_match:
+                result["cpus_per_node"] = int(cpu_match.group(1))
+        except Exception:
+            pass
+
+    effective_cache[partition] = result
+    return result
+
+
+def get_local_resource_budget() -> dict[str, Any]:
+    """Return available CPU cores and memory on the local machine."""
+    try:
+        import psutil
+        phys_cores = psutil.cpu_count(logical=False) or 1
+        load_1min = psutil.getloadavg()[0]
+        cores_in_use = min(int(load_1min + 0.5), phys_cores - 1)
+        available_cores = max(1, phys_cores - cores_in_use)
+
+        mem = psutil.virtual_memory()
+        available_mem_mb = int(mem.available / 1_000_000 * 0.85)
+        total_mem_mb = int(mem.total / 1_000_000)
+
+        return {
+            "physical_cores": phys_cores,
+            "available_cores": available_cores,
+            "current_load_1min": load_1min,
+            "total_mem_mb": total_mem_mb,
+            "available_mem_mb": available_mem_mb,
+            "cpu_arch": _detect_local_cpu_arch(),
+        }
+    except ImportError:
+        cores = os.cpu_count() or 1
+        return {
+            "physical_cores": cores,
+            "available_cores": max(1, cores - 1),
+            "current_load_1min": None,
+            "total_mem_mb": None,
+            "available_mem_mb": None,
+            "cpu_arch": "generic",
+        }
+
+
+def _detect_local_cpu_arch() -> str:
+    """Detect AVX-512 / AVX2 / generic from /proc/cpuinfo or platform."""
+    try:
+        with open("/proc/cpuinfo") as f:
+            flags = f.read()
+        if "avx512f" in flags:
+            return "avx512"
+        if "avx2" in flags:
+            return "avx2"
+    except OSError:
+        pass
+    import platform
+    machine = platform.machine().lower()
+    return "arm" if "arm" in machine or "aarch" in machine else "generic"
+
+
+def archive_previous_outputs(job_dir: str, job_name: str) -> list[str]:
+    """If {job_name}.out/.err/.job already exist, rename them with a timestamp suffix.
+
+    Returns list of archived file paths.
+    """
+    archived: list[str] = []
+    ts = datetime.now().strftime("%Y-%m-%dT%H-%M")
+    for ext in (".out", ".err", ".job"):
+        p = Path(job_dir) / f"{job_name}{ext}"
+        if p.exists() and p.stat().st_size > 0:
+            dest = p.with_name(f"{job_name}{ext}.{ts}")
+            # Avoid overwriting an existing archive
+            if dest.exists():
+                counter = 2
+                while dest.exists():
+                    dest = p.with_name(f"{job_name}{ext}.{ts}.{counter}")
+                    counter += 1
+            p.rename(dest)
+            archived.append(str(dest))
+    return archived
+
 
 def run_nwchem(
     input_path: str,
@@ -31,6 +184,7 @@ def run_nwchem(
     env_overrides: dict[str, str] | None = None,
     execute: bool = False,
     write_script: bool = True,
+    archive_outputs: bool = True,
 ) -> dict[str, Any]:
     profiles = load_runner_profiles(profiles_path)
     rendered = render_nwchem_run(
@@ -43,6 +197,15 @@ def run_nwchem(
     )
     # Pop environment now: it is only needed for subprocess calls, not the response payload.
     env = rendered.pop("environment")
+
+    # Archive previous output files before overwriting
+    if execute and archive_outputs:
+        archived = archive_previous_outputs(
+            rendered["working_directory"],
+            rendered["job_name"],
+        )
+        if archived:
+            rendered["archived_previous_outputs"] = archived
 
     if not execute:
         rendered["executed"] = False
@@ -286,6 +449,7 @@ def inspect_nwchem_run_status(
     error_info = _file_info(error_path)
     process_status = _process_status(process_id)
     # Auto-detect job_id from .jobid file if not provided
+    jobid_stale_warning = None
     if job_id is None:
         _jf = _auto_jobid_path(output_path, input_path)
         if _jf is not None:
@@ -293,6 +457,24 @@ def inspect_nwchem_run_status(
                 job_id = _jf.read_text(encoding="utf-8").strip() or None
             except Exception:
                 pass
+    # Cross-check .jobid against .err file for stale job ID detection
+    if job_id:
+        _err_path = error_path
+        if not _err_path:
+            for p in (output_path, input_path):
+                if p:
+                    base = re.sub(r"\.(out|nw|log|nwout)$", "", str(Path(p).resolve()), flags=re.IGNORECASE)
+                    candidate = Path(base + ".err")
+                    if candidate.exists():
+                        _err_path = str(candidate)
+                        break
+        err_job_id = _extract_job_id_from_err(_err_path)
+        if err_job_id and err_job_id != job_id:
+            jobid_stale_warning = (
+                f"Stale .jobid detected: file says {job_id} but .err references job {err_job_id}. "
+                f"Using {err_job_id} from .err (more recent)."
+            )
+            job_id = err_job_id
     scheduler_status = None
     if profile and job_id:
         scheduler_status = _scheduler_status(profile=profile, job_id=job_id, profiles_path=profiles_path)
@@ -354,7 +536,7 @@ def inspect_nwchem_run_status(
     else:
         overall_status = "not_started"
 
-    return {
+    result = {
         "output_file": output_info,
         "input_file": {"path": str(Path(input_path).resolve()) if input_path else None, "exists": bool(input_summary)},
         "error_file": error_info,
@@ -369,6 +551,9 @@ def inspect_nwchem_run_status(
         "parsed_tasks": parsed_output if not compact_summary else None,
         "overall_status": overall_status,
     }
+    if jobid_stale_warning:
+        result["jobid_stale_warning"] = jobid_stale_warning
+    return result
 
 
 def watch_nwchem_run(
@@ -569,6 +754,29 @@ def _auto_jobid_path(output_path: str | None, input_path: str | None) -> Path | 
         candidate = Path(base + ".jobid")
         if candidate.exists():
             return candidate
+    return None
+
+
+def _extract_job_id_from_err(error_path: str | None) -> str | None:
+    """Extract the most recent SLURM job ID from a .err file.
+
+    SLURM writes lines like:
+        slurmstepd: error: *** JOB 3031012 ON c511-043 CANCELLED ...
+    or general SLURM messages referencing the job ID.
+    """
+    if not error_path:
+        return None
+    try:
+        p = Path(error_path)
+        if not p.exists() or p.stat().st_size == 0:
+            return None
+        # Read last 4KB to find most recent job ID
+        text = p.read_text(encoding="utf-8", errors="replace")[-4096:]
+        matches = re.findall(r"JOB\s+(\d+)\s+ON", text)
+        if matches:
+            return matches[-1]  # most recent
+    except Exception:
+        pass
     return None
 
 

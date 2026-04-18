@@ -378,6 +378,7 @@ def analyze_imaginary_modes(
     contents: str,
     significant_threshold_cm1: float = 20.0,
     top_atoms: int = 4,
+    detail: str = "compact",
 ) -> dict[str, Any]:
     frequency = parse_freq(path, contents, include_displacements=True)
     geometry = _extract_last_geometry_atoms(contents)
@@ -401,16 +402,125 @@ def analyze_imaginary_modes(
         )
         for mode in significant
     ]
+    if detail == "compact":
+        for analysis in analyses:
+            analysis.pop("displacements_cartesian", None)
     return {
         "metadata": make_metadata(path, contents, "nwchem"),
         "preferred_kind": frequency["preferred_kind"],
         "significant_threshold_cm1": significant_threshold_cm1,
         "significant_imaginary_mode_count": len(analyses),
+        "detail": detail,
         "geometry": geometry,
         "bond_count": len(bonds),
         "stability_assessment": stability_assessment,
         "modes": analyses,
         "selected_mode": analyses[0] if analyses else None,
+    }
+
+
+def parse_freq_progress(path: str, contents: str) -> dict[str, Any]:
+    """Report finite-difference Hessian progress for a freq job.
+
+    Returns displacement counts (done vs total), pace, ETA, fdrst age,
+    and estimated additional runs needed at a given walltime limit.
+    """
+    # Get total atom count from geometry block
+    geometry = _extract_last_geometry_atoms(contents)
+    n_atoms = geometry["atom_count"] or None
+    # Total displacements: ±displacement × 3 coordinates × N atoms
+    n_total = 2 * 3 * n_atoms if n_atoms else None
+
+    # Find where the current run started (gen_hess restart)
+    restart_matches = list(re.finditer(
+        r"\*\*\*\* gen_hess restart \*\*\*\*.*?"
+        r"iatom_start\s*=\s*(\d+).*?"
+        r"ixyz_start\s*=\s*(\d+)",
+        contents, re.DOTALL
+    ))
+    if restart_matches:
+        last_restart = restart_matches[-1]
+        iatom_start = int(last_restart.group(1))
+        ixyz_start = int(last_restart.group(2))
+        # Each atom has 6 displacements (3 coords × 2 ±), ixyz is 1-indexed
+        n_done_before_this_run = (iatom_start - 1) * 6 + (ixyz_start - 1) * 2
+    else:
+        n_done_before_this_run = 0
+
+    # Count gradient evaluations in this run
+    gradient_pattern = re.compile(
+        r"(?:DFT ENERGY GRADIENTS|NWChem SCF Module Gradient|NWChem DFT Module Gradient)"
+    )
+    n_gradients_this_run = len(gradient_pattern.findall(contents))
+
+    # Also try counting displacement lines with wall times
+    wall_times: list[float] = []
+    for m in re.finditer(r"wall:\s+([\d.]+)\s*s", contents):
+        wall_times.append(float(m.group(1)))
+
+    # Use gradient count as primary, wall_times as secondary
+    n_done_this_run = n_gradients_this_run or len(wall_times)
+    n_done_total = n_done_before_this_run + n_done_this_run
+
+    # Pace from wall-time stamps in the output
+    sec_per_gradient = None
+    eta_hours = None
+    runs_needed = None
+
+    # Parse task-level wall times (NWChem prints wall time for each task)
+    task_times: list[float] = []
+    for m in re.finditer(
+        r"(?:Total times|Task\s+times).*?wall:\s+([\d.]+)\s*s",
+        contents,
+    ):
+        task_times.append(float(m.group(1)))
+
+    if len(task_times) >= 2:
+        # Compute inter-gradient wall time from consecutive task completions
+        diffs = [task_times[i+1] - task_times[i]
+                 for i in range(len(task_times) - 1)
+                 if task_times[i+1] > task_times[i]]
+        if diffs:
+            # Use recent 20 for more stable estimate
+            recent = diffs[-min(20, len(diffs)):]
+            sec_per_gradient = sum(recent) / len(recent)
+
+    if sec_per_gradient and n_total:
+        remaining = max(0, n_total - n_done_total)
+        eta_seconds = remaining * sec_per_gradient
+        eta_hours = round(eta_seconds / 3600, 1)
+        # Estimate additional 48h runs needed
+        runs_needed = math.ceil(eta_seconds / (48 * 3600)) if eta_seconds > 0 else 0
+
+    # Check fdrst file age
+    fdrst_path = re.sub(r"\.(out|nw|log|nwout)$", ".fdrst", path, flags=re.IGNORECASE)
+    fdrst_info: dict[str, Any] = {"path": fdrst_path, "exists": False}
+    try:
+        from pathlib import Path as _P
+        fp = _P(fdrst_path)
+        if fp.exists():
+            from datetime import datetime, timezone as _tz
+            stat = fp.stat()
+            fdrst_info = {
+                "path": fdrst_path,
+                "exists": True,
+                "size_kb": round(stat.st_size / 1024, 1),
+                "modified_utc": datetime.fromtimestamp(stat.st_mtime, tz=_tz.utc).isoformat(),
+            }
+    except Exception:
+        pass
+
+    return {
+        "n_atoms": n_atoms,
+        "n_total_displacements": n_total,
+        "n_done_cumulative": n_done_total,
+        "n_done_this_run": n_done_this_run,
+        "n_done_before_restart": n_done_before_this_run,
+        "pct_complete": round(100 * n_done_total / n_total, 1) if n_total and n_total > 0 else None,
+        "sec_per_gradient_recent": round(sec_per_gradient, 1) if sec_per_gradient else None,
+        "estimated_remaining_hours": eta_hours,
+        "runs_needed_at_48h_walltime": runs_needed,
+        "fdrst": fdrst_info,
     }
 
 

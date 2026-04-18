@@ -51,6 +51,35 @@ orbitron/
 # Exported skills (local Claude artifacts)
 skill-*.json
 
+# Session transcripts / continuation logs
+2026-*.txt
+
+# TACC working directory (job files, outputs, session logs — keep CLAUDE.md + improvements doc)
+tacc/*.out
+tacc/*.err
+tacc/*.job
+tacc/*.jobid
+tacc/*.nw
+tacc/*.movecs
+tacc/*.movecs.hess
+tacc/*.db
+tacc/*.fdrst
+tacc/*.drv.hess
+tacc/*.zmat
+tacc/*.b
+tacc/*.b^-1
+tacc/*.c
+tacc/*.p
+tacc/*.cosmo.xyz
+tacc/.mcp.json
+tacc/2026-*.txt
+
+# Test fixtures (mock files, not needed in repo)
+test_phase1/*.out
+test_phase1/*.db
+test_phase1/*.fdrst
+test_phase1/*.jobid
+
 # OS
 .DS_Store
 Thumbs.db

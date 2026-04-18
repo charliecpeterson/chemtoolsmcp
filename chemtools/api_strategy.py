@@ -2377,6 +2377,89 @@ def _basis_scale(basis: str) -> float:
     return 1.5
 
 
+# Empirical target: basis functions per MPI rank for good parallel efficiency.
+# Below this, communication overhead dominates.
+_BF_PER_RANK_TARGET: dict[str, int] = {
+    "spr":     60,   # AVX-512, high memory bandwidth (Stampede3 SPR)
+    "skx":     80,   # AVX-512, standard Skylake (Stampede3 SKX)
+    "avx512":  70,
+    "avx2":    90,
+    "knl":    120,   # KNL: high core count but weak single-core
+    "generic": 80,
+}
+
+
+def suggest_resources(
+    input_file: str,
+    hw_specs: dict[str, Any],
+) -> dict[str, Any]:
+    """Recommend mpi_ranks and memory_per_rank_mb for a NWChem job.
+
+    Args:
+        input_file: Path to the NWChem .nw input file.
+        hw_specs: From query_partition_specs() or get_local_resource_budget().
+            Expected keys: cpus_per_node (or available_cores), node_memory_mb
+            (or available_mem_mb), cpu_arch.
+    """
+    from .nwchem_input import inspect_nwchem_input
+
+    summary = inspect_nwchem_input(input_file)
+    elements = summary.get("elements", [])
+    n_atoms = len(elements) if elements else 1
+    tasks = summary.get("tasks") or [{}]
+    method = (tasks[0].get("module") or "dft").lower()
+
+    # Estimate basis functions using the existing _basis_scale heuristic
+    basis_name = ""
+    if summary.get("basis_blocks"):
+        basis_name = summary["basis_blocks"][0].get("default_library", "") or ""
+    scale = _basis_scale(basis_name) if basis_name else 1.5
+    # ~15 basis functions per atom at double-zeta baseline
+    n_heavy = sum(1 for e in elements if e != "H") if elements else n_atoms
+    M = max(10, int(n_heavy * 15 * scale))
+
+    # CPU-arch-aware parallelism target
+    arch = hw_specs.get("cpu_arch", "generic")
+    bf_per_rank = _BF_PER_RANK_TARGET.get(arch, 80)
+
+    # Ranks from scaling model
+    max_cores = hw_specs.get("cpus_per_node") or hw_specs.get("available_cores") or 1
+    ranks_by_scaling = max(1, M // bf_per_rank)
+
+    # Ranks from memory budget
+    node_mem = hw_specs.get("node_memory_mb") or hw_specs.get("available_mem_mb")
+    if node_mem:
+        min_mem_per_rank = 400  # MB: floor for NWChem to start
+        ranks_by_memory = max(1, int(node_mem * 0.80 / min_mem_per_rank))
+    else:
+        ranks_by_memory = max_cores
+
+    optimal_ranks = min(ranks_by_scaling, ranks_by_memory, max_cores)
+    optimal_ranks = max(1, optimal_ranks)
+
+    rationale = f"BF/rank model: {M} BF / {bf_per_rank} target = {ranks_by_scaling} ranks"
+
+    # Memory per rank
+    if node_mem:
+        mem_per_rank = int(node_mem * 0.80 / optimal_ranks)
+    else:
+        mem_suggestion = suggest_memory(
+            n_atoms=n_atoms, basis=basis_name or "6-31g*", method=method,
+        )
+        mem_per_rank = mem_suggestion["recommended_total_mb"]
+
+    return {
+        "mpi_ranks": optimal_ranks,
+        "memory_per_rank_mb": mem_per_rank,
+        "estimated_basis_functions": M,
+        "bf_per_rank_actual": round(M / optimal_ranks, 1),
+        "cpu_arch": arch,
+        "max_cores_available": max_cores,
+        "node_memory_mb": node_mem,
+        "rationale": rationale,
+    }
+
+
 def suggest_memory(
     n_atoms: int,
     basis: str,
@@ -2711,3 +2794,439 @@ def suggest_relativistic_correction(
         } for k, v in _REL_METHODS.items()},
         "warnings": warnings,
     }
+
+
+# ---------------------------------------------------------------------------
+# Frequency restart helper
+# ---------------------------------------------------------------------------
+
+def prepare_freq_restart(
+    input_file: str,
+    output_file: str,
+    profile: str | None = None,
+) -> dict[str, Any]:
+    """Validate that a freq restart is ready and return a submit-ready report.
+
+    Checks: restart keyword present, .fdrst exists, reports progress.
+    Does NOT submit — caller decides whether to call launch_nwchem_run.
+    """
+    import re
+    from pathlib import Path
+    from .common import read_text
+    from .nwchem_freq import parse_freq_progress
+
+    nw_text = Path(input_file).read_text(encoding="utf-8")
+    issues: list[str] = []
+
+    # Check restart keyword
+    has_restart = bool(re.search(r"^\s*restart\b", nw_text, re.MULTILINE | re.IGNORECASE))
+    if not has_restart:
+        issues.append("Input is missing 'restart' keyword — NWChem will start from scratch")
+
+    # Determine restart prefix name
+    restart_match = re.search(r"^\s*restart\s+(\S+)", nw_text, re.MULTILINE | re.IGNORECASE)
+    if restart_match:
+        restart_prefix = restart_match.group(1)
+    else:
+        start_match = re.search(r"^\s*start\s+(\S+)", nw_text, re.MULTILINE | re.IGNORECASE)
+        restart_prefix = start_match.group(1) if start_match else Path(input_file).stem
+
+    # Check .fdrst and .db exist
+    job_dir = Path(input_file).parent
+    fdrst_path = job_dir / f"{restart_prefix}.fdrst"
+    db_path = job_dir / f"{restart_prefix}.db"
+
+    has_fdrst = fdrst_path.exists()
+    has_db = db_path.exists()
+    if not has_fdrst:
+        issues.append(f"Checkpoint file {fdrst_path.name} not found — freq will start from atom 1")
+    if not has_db:
+        issues.append(f"Database file {restart_prefix}.db not found — restart may fail")
+
+    fdrst_info: dict[str, Any] = {"path": str(fdrst_path), "exists": has_fdrst}
+    if has_fdrst:
+        from datetime import datetime, timezone as _tz
+        stat = fdrst_path.stat()
+        fdrst_info.update({
+            "size_kb": round(stat.st_size / 1024, 1),
+            "modified_utc": datetime.fromtimestamp(stat.st_mtime, tz=_tz.utc).isoformat(),
+        })
+
+    # Parse progress from previous output
+    progress: dict[str, Any] = {}
+    out_path = Path(output_file)
+    if out_path.exists():
+        try:
+            out_text = read_text(str(out_path))
+            progress = parse_freq_progress(str(out_path), out_text)
+        except Exception:
+            pass
+
+    return {
+        "ready_to_restart": len(issues) == 0,
+        "issues": issues,
+        "input_file": str(Path(input_file).resolve()),
+        "restart_prefix": restart_prefix,
+        "has_restart_keyword": has_restart,
+        "fdrst": fdrst_info,
+        "db_exists": has_db,
+        "progress": progress,
+        "suggested_profile": profile,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Preflight check
+# ---------------------------------------------------------------------------
+
+def preflight_check(
+    input_file: str,
+    profile: str,
+    profiles_path: str | None = None,
+) -> dict[str, Any]:
+    """Run all pre-submission checks and return a pass/fail report.
+
+    Combines: lint, movecs file existence, memory vs node RAM ceiling.
+    """
+    import re
+    from pathlib import Path
+    from .api_input import lint_nwchem_input
+    from .runner import load_runner_profiles, _resolve_profile
+
+    checks: list[dict[str, Any]] = []
+
+    # 1. Lint
+    lint = lint_nwchem_input(input_file)
+    lint_errors = [i for i in lint.get("issues", []) if i.get("level") == "error"]
+    checks.append({
+        "check": "lint",
+        "passed": len(lint_errors) == 0,
+        "issues": lint.get("issues", []),
+    })
+
+    # 2. movecs input files exist
+    nw_text = Path(input_file).read_text(encoding="utf-8")
+    job_dir = Path(input_file).parent
+    for m in re.finditer(r"vectors\s+input\s+(\S+)", nw_text, re.IGNORECASE):
+        movecs_name = m.group(1)
+        movecs_path = job_dir / movecs_name
+        exists = movecs_path.exists()
+        checks.append({
+            "check": f"movecs_exists:{movecs_name}",
+            "passed": exists,
+            "issues": [] if exists else [
+                {"level": "error", "message": f"vectors input file not found: {movecs_path}"}
+            ],
+        })
+
+    # 3. Memory vs. node RAM
+    try:
+        profiles = load_runner_profiles(profiles_path)
+        profile_payload = _resolve_profile(profiles, profile)
+        resources = profile_payload.get("resources", {})
+        partition = resources.get("partition")
+        launcher = profile_payload.get("launcher", {})
+        scheduler_type = (
+            profile_payload.get("scheduler", {}).get("system")
+            or launcher.get("scheduler_type", "slurm")
+        ).lower()
+
+        # Query real partition specs if on a scheduler
+        node_mem_mb = None
+        cpus_per_node = None
+        if launcher.get("kind") == "scheduler" and partition:
+            from .runner import query_partition_specs
+            hw = query_partition_specs(partition, scheduler_type)
+            node_mem_mb = hw.get("node_memory_mb")
+            cpus_per_node = hw.get("cpus_per_node")
+
+        # Parse memory directive from input
+        mem_match = re.search(r"memory\s+(?:total\s+)?(\d+)\s*(mb|mw|gb)", nw_text, re.IGNORECASE)
+        if mem_match and node_mem_mb:
+            mem_val = int(mem_match.group(1))
+            mem_unit = mem_match.group(2).lower()
+            if mem_unit == "gb":
+                mem_val *= 1024
+            elif mem_unit == "mw":
+                mem_val *= 8  # 1 MW = 8 MB
+
+            mpi_ranks = resources.get("mpi_ranks", cpus_per_node or 1)
+            total_requested_mb = mem_val * mpi_ranks
+            ceiling_mb = int(node_mem_mb * 0.90)
+            ok = total_requested_mb <= ceiling_mb
+            checks.append({
+                "check": "memory_ceiling",
+                "passed": ok,
+                "details": {
+                    "memory_per_rank_mb": mem_val,
+                    "mpi_ranks": mpi_ranks,
+                    "total_requested_mb": total_requested_mb,
+                    "node_memory_mb": node_mem_mb,
+                    "ceiling_90pct_mb": ceiling_mb,
+                },
+                "issues": [] if ok else [
+                    {"level": "error",
+                     "message": (
+                         f"Memory request {total_requested_mb} MB ({mem_val} MB × {mpi_ranks} ranks) "
+                         f"exceeds 90% of node RAM ({node_mem_mb} MB). "
+                         f"Reduce memory directive or mpi_ranks."
+                     )}
+                ],
+            })
+    except Exception as exc:
+        checks.append({
+            "check": "memory_ceiling",
+            "passed": True,
+            "issues": [{"level": "info", "message": f"Could not check memory ceiling: {exc}"}],
+        })
+
+    all_passed = all(c["passed"] for c in checks)
+    return {
+        "ready_to_submit": all_passed,
+        "checks": checks,
+        "summary": (
+            f"{'PASS' if all_passed else 'FAIL'}: "
+            f"{sum(c['passed'] for c in checks)}/{len(checks)} checks passed"
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Workflow state machine
+# ---------------------------------------------------------------------------
+
+WORKFLOW_STATES = [
+    "pending",                # not yet submitted
+    "queued",                 # submitted, waiting in scheduler queue
+    "running_scf",            # SCF/DFT in progress
+    "running_opt",            # geometry optimization in progress
+    "running_freq",           # freq displacements in progress
+    "freq_timelimited",       # freq hit walltime, fdrst exists, can restart
+    "freq_complete",          # all displacements done
+    "opt_converged",          # geometry optimized, ready for next step
+    "opt_failed_convergence", # optimization not converging
+    "scf_failed",             # SCF not converging
+    "imaginary_modes",        # freq done but imaginary modes present
+    "oom",                    # out of memory
+    "completed",              # all tasks done, results valid
+    "cancelled",              # job was cancelled
+    "failed",                 # generic failure
+    "needs_user_input",       # tool cannot decide; escalate to human
+]
+
+
+def get_nwchem_workflow_state(
+    input_file: str,
+    output_file: str,
+    profile: str = "",
+    error_file: str | None = None,
+) -> dict[str, Any]:
+    """Determine workflow state and return the exact next tool call to advance.
+
+    Encodes domain logic so the LLM does not need to reason about NWChem
+    internals — it just calls this tool, executes ``next_action``, and repeats.
+    """
+    from .nwchem_freq import parse_freq_progress as _parse_freq_progress, analyze_imaginary_modes as _analyze_imag
+
+    inp = Path(input_file)
+    out = Path(output_file)
+
+    # Derive error file if not given
+    if error_file is None:
+        candidate = out.with_suffix(".err")
+        if candidate.exists():
+            error_file = str(candidate)
+
+    # --- 0. Files exist? ---
+    if not inp.exists():
+        return _wf_result("needs_user_input", 0, "Input file not found.", None, 0.5)
+    if not out.exists() or out.stat().st_size == 0:
+        # Check if job is queued
+        jobid_file = out.with_suffix(".jobid")
+        if not jobid_file.exists():
+            jobid_file = inp.with_suffix(".jobid")
+        if jobid_file.exists():
+            return _wf_result(
+                "queued", 0,
+                "Job submitted (jobid file exists) but no output yet.",
+                {"tool": "get_nwchem_run_status",
+                 "params": {"output_file": output_file, "input_file": input_file, "profile": profile}},
+                0.85,
+            )
+        return _wf_result(
+            "pending", 0,
+            "Output file not found or empty — job has not started.",
+            {"tool": "launch_nwchem_run",
+             "params": {"input_file": input_file, "profile": profile}},
+            0.90,
+        )
+
+    contents = out.read_text(encoding="utf-8", errors="replace")
+    input_text = inp.read_text(encoding="utf-8", errors="replace")
+    err_text = ""
+    if error_file and Path(error_file).exists():
+        err_text = Path(error_file).read_text(encoding="utf-8", errors="replace")
+
+    # --- 1. OOM? ---
+    if re.search(r"MA_ERR|insufficient\s+memory|failed to allocate", contents, re.IGNORECASE) or \
+       re.search(r"MA_ERR|MemoryError|Killed", err_text, re.IGNORECASE):
+        return _wf_result(
+            "oom", 0,
+            "Out of memory — reduce memory directive or mpi_ranks.",
+            {"tool": "create_nwchem_input_variant",
+             "params": {"source_input": input_file,
+                        "changes": {"memory": "800 mb"},
+                        "reason": "OOM failure — reducing memory"}},
+            0.85,
+        )
+
+    # --- 2. Timelimit? ---
+    if "DUE TO TIME LIMIT" in err_text or ("CANCELLED" in err_text and "TIME" in err_text):
+        # Check if this is a freq job with fdrst
+        is_freq = bool(re.search(r"task\s+\w+\s+freq", input_text, re.IGNORECASE))
+        fdrst = inp.with_suffix(".fdrst")
+        if not fdrst.exists():
+            stem_match = re.search(r"^\s*(?:start|restart)\s+(\S+)", input_text, re.MULTILINE | re.IGNORECASE)
+            if stem_match:
+                fdrst = inp.parent / (stem_match.group(1) + ".fdrst")
+
+        if is_freq and fdrst.exists():
+            # Parse progress
+            try:
+                progress = _parse_freq_progress(output_file, contents)
+                pct = progress.get("pct_complete", 0) or 0
+            except Exception:
+                pct = 0
+            return _wf_result(
+                "freq_timelimited", pct,
+                f"Freq hit walltime at {pct:.0f}% complete. fdrst checkpoint valid — resubmit to continue.",
+                {"tool": "launch_nwchem_run",
+                 "params": {"input_file": input_file, "profile": profile,
+                            "resource_overrides": {"walltime": "48:00:00"}}},
+                0.95,
+            )
+        return _wf_result(
+            "cancelled", 0,
+            "Job cancelled due to time limit.",
+            {"tool": "launch_nwchem_run",
+             "params": {"input_file": input_file, "profile": profile,
+                        "resource_overrides": {"walltime": "48:00:00"}}},
+            0.70,
+        )
+
+    # --- 3. SCF failed? ---
+    if re.search(r"(convergence|scf)\s+(has\s+)?not\s+been?\s+(achieved|reached|converged)", contents, re.IGNORECASE):
+        return _wf_result(
+            "scf_failed", 0,
+            "SCF did not converge.",
+            {"tool": "suggest_nwchem_recovery",
+             "params": {"output_file": output_file, "input_file": input_file, "mode": "scf"}},
+            0.90,
+        )
+
+    # --- 4. Check if still running (no "Total times" line = incomplete) ---
+    has_total_times = bool(re.search(r"Total\s+times\s+cpu:", contents, re.IGNORECASE))
+    if not has_total_times:
+        # Determine what's running from task lines
+        if re.search(r"task\s+\w+\s+freq", input_text, re.IGNORECASE):
+            try:
+                progress = _parse_freq_progress(output_file, contents)
+                pct = progress.get("pct_complete", 0) or 0
+            except Exception:
+                pct = 0
+            return _wf_result(
+                "running_freq", pct,
+                f"Frequency calculation in progress ({pct:.0f}% done).",
+                {"tool": "watch_nwchem_run",
+                 "params": {"output_file": output_file, "input_file": input_file, "profile": profile}},
+                0.90,
+            )
+        elif re.search(r"task\s+\w+\s+optim", input_text, re.IGNORECASE):
+            return _wf_result(
+                "running_opt", 0,
+                "Geometry optimization in progress.",
+                {"tool": "watch_nwchem_run",
+                 "params": {"output_file": output_file, "input_file": input_file, "profile": profile}},
+                0.90,
+            )
+        else:
+            return _wf_result(
+                "running_scf", 0,
+                "SCF/DFT calculation in progress.",
+                {"tool": "watch_nwchem_run",
+                 "params": {"output_file": output_file, "input_file": input_file, "profile": profile}},
+                0.85,
+            )
+
+    # --- 5. Completed — determine what finished ---
+
+    # 5a. Freq job: check for imaginary modes
+    if re.search(r"P\.Frequency|Normal\s+Mode\s+Eigenvalue", contents, re.IGNORECASE):
+        try:
+            imag = _analyze_imag(output_file, contents)
+            sig_count = imag.get("significant_imaginary_mode_count", 0)
+        except Exception:
+            sig_count = 0
+
+        if sig_count > 0:
+            return _wf_result(
+                "imaginary_modes", 100,
+                f"Freq complete but {sig_count} significant imaginary mode(s) found.",
+                {"tool": "draft_nwchem_imaginary_mode_inputs",
+                 "params": {"output_file": output_file, "input_file": input_file}},
+                0.85,
+            )
+        return _wf_result(
+            "freq_complete", 100,
+            "Frequency calculation completed — no significant imaginary modes.",
+            {"tool": "parse_nwchem_output",
+             "params": {"output_file": output_file, "sections": ["freq", "tasks"]}},
+            0.95,
+        )
+
+    # 5b. Optimization: check convergence
+    if re.search(r"Optimization\s+converged", contents, re.IGNORECASE):
+        return _wf_result(
+            "opt_converged", 100,
+            "Geometry optimization converged.",
+            {"tool": "extract_nwchem_geometry",
+             "params": {"output_file": output_file, "frame": "best"}},
+            0.90,
+        )
+    if re.search(r"task\s+\w+\s+optim", input_text, re.IGNORECASE) and \
+       not re.search(r"Optimization\s+converged", contents, re.IGNORECASE):
+        return _wf_result(
+            "opt_failed_convergence", 0,
+            "Optimization did not converge.",
+            {"tool": "suggest_nwchem_recovery",
+             "params": {"output_file": output_file, "input_file": input_file, "mode": "auto"}},
+            0.80,
+        )
+
+    # 5c. General success
+    return _wf_result(
+        "completed", 100,
+        "Calculation completed.",
+        {"tool": "analyze_nwchem_case",
+         "params": {"output_file": output_file, "input_file": input_file}},
+        0.85,
+    )
+
+
+def _wf_result(
+    state: str,
+    progress_pct: float,
+    summary: str,
+    next_action: dict[str, Any] | None,
+    confidence: float,
+) -> dict[str, Any]:
+    """Build a workflow state result dict."""
+    result: dict[str, Any] = {
+        "state": state,
+        "progress_pct": round(progress_pct, 1),
+        "human_summary": summary,
+        "confidence": confidence,
+    }
+    if next_action is not None:
+        result["next_action"] = next_action
+    return result

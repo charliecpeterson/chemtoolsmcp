@@ -321,6 +321,7 @@ def analyze_imaginary_modes(
     path: str,
     significant_threshold_cm1: float = 20.0,
     top_atoms: int = 4,
+    detail: str = "compact",
 ) -> dict[str, Any]:
     contents = read_text(path)
     program = detect_program(contents)
@@ -330,6 +331,7 @@ def analyze_imaginary_modes(
             contents,
             significant_threshold_cm1=significant_threshold_cm1,
             top_atoms=top_atoms,
+            detail=detail,
         )
     raise ValueError(f"imaginary mode analysis is not implemented for {program or 'unknown'}")
 
@@ -3994,4 +3996,149 @@ def draft_nwchem_tce_restart_input(
         "copy_errors": copy_errors,
         "movecs_file": movecs_line,
         "warnings": copy_errors,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Input variant with diff tracking
+# ---------------------------------------------------------------------------
+
+def create_nwchem_input_variant(
+    source_input: str,
+    changes: dict[str, str],
+    reason: str = "",
+    output_path: str | None = None,
+    write_file: bool = True,
+) -> dict[str, Any]:
+    """Create a versioned copy of an NWChem input with specified keyword changes.
+
+    ``changes`` maps directive keys to new values.  Supported keys:
+
+    * ``"memory"`` – e.g. ``"800 mb"``  (replaces the ``memory`` line)
+    * ``"charge"`` – e.g. ``"2"``
+    * ``"mult"`` – e.g. ``"6"``
+    * ``"dft.iterations"`` – e.g. ``"200"``
+    * ``"dft.xc"`` – e.g. ``"pbe0"``
+    * ``"dft.convergence energy"`` – e.g. ``"1e-7"``
+    * ``"scf.maxiter"`` – e.g. ``"200"``
+    * ``"task"`` – e.g. ``"dft optimize"``  (replaces the last task line)
+    * any other ``"block.keyword"`` pair – best-effort replacement inside
+      ``block ... end``
+
+    If *output_path* is ``None``, ``next_versioned_path`` is called on the
+    source to generate ``_v2.nw``, ``_v3.nw``, etc.  The original file is
+    never overwritten.
+    """
+    from .api_runner import next_versioned_path as _next_versioned_path
+
+    src = Path(source_input)
+    if not src.exists():
+        raise FileNotFoundError(f"Source input not found: {source_input}")
+
+    text = src.read_text(encoding="utf-8")
+    original_text = text
+    diff_summary: list[dict[str, str | None]] = []
+
+    for key, new_value in changes.items():
+        old_value: str | None = None
+
+        if key == "memory":
+            m = re.search(r"^(\s*memory\s+)(.+)$", text, re.MULTILINE | re.IGNORECASE)
+            if m:
+                old_value = m.group(2).strip()
+                text = text[: m.start()] + m.group(1) + new_value + text[m.end() :]
+            else:
+                old_value = None
+                text = f"memory {new_value}\n" + text
+
+        elif key == "charge":
+            m = re.search(r"^(\s*charge\s+)(\S+)", text, re.MULTILINE | re.IGNORECASE)
+            if m:
+                old_value = m.group(2)
+                text = text[: m.start()] + m.group(1) + new_value + text[m.end() :]
+            else:
+                old_value = None
+                # insert before first geometry block
+                gm = re.search(r"^\s*geometry\b", text, re.MULTILINE | re.IGNORECASE)
+                pos = gm.start() if gm else 0
+                text = text[:pos] + f"charge {new_value}\n" + text[pos:]
+
+        elif key == "mult":
+            # NWChem: inside geometry block or as standalone keyword
+            m = re.search(
+                r"^(\s*(?:geometry\b[^\n]*\n(?:.*\n)*?\s*))?(mult(?:iplicity)?\s+)(\d+)",
+                text, re.MULTILINE | re.IGNORECASE,
+            )
+            if not m:
+                # Try as standalone
+                m2 = re.search(r"^(\s*mult(?:iplicity)?\s+)(\d+)", text, re.MULTILINE | re.IGNORECASE)
+                if m2:
+                    old_value = m2.group(2)
+                    text = text[: m2.start()] + m2.group(1) + new_value + text[m2.end() :]
+                else:
+                    old_value = None
+                    gm = re.search(r"^\s*geometry\b", text, re.MULTILINE | re.IGNORECASE)
+                    pos = gm.start() if gm else 0
+                    text = text[:pos] + f"mult {new_value}\n" + text[pos:]
+            else:
+                old_value = m.group(3)
+                text = text[: m.start(2)] + f"mult {new_value}" + text[m.end(3) :]
+
+        elif key == "task":
+            # Replace the last task line
+            task_matches = list(re.finditer(r"^\s*task\s+.*$", text, re.MULTILINE | re.IGNORECASE))
+            if task_matches:
+                last = task_matches[-1]
+                old_value = last.group(0).strip()
+                text = text[: last.start()] + f"task {new_value}" + text[last.end() :]
+            else:
+                old_value = None
+                text = text.rstrip() + f"\ntask {new_value}\n"
+
+        elif "." in key:
+            # block.keyword pattern, e.g. "dft.iterations" or "dft.xc"
+            block_name, kw = key.split(".", 1)
+            block_pat = re.compile(
+                rf"^(\s*{re.escape(block_name)}\b[^\n]*\n)(.*?)(^\s*end\b)",
+                re.MULTILINE | re.DOTALL | re.IGNORECASE,
+            )
+            bm = block_pat.search(text)
+            if bm:
+                block_body = bm.group(2)
+                kw_pat = re.compile(
+                    rf"^(\s*{re.escape(kw)}\s+)(.+)$",
+                    re.MULTILINE | re.IGNORECASE,
+                )
+                km = kw_pat.search(block_body)
+                if km:
+                    old_value = km.group(2).strip()
+                    new_body = block_body[: km.start()] + km.group(1) + new_value + block_body[km.end() :]
+                else:
+                    old_value = None
+                    new_body = block_body + f"  {kw} {new_value}\n"
+                text = text[: bm.start(2)] + new_body + text[bm.start(3) :]
+
+        diff_summary.append({
+            "key": key,
+            "old": old_value,
+            "new": new_value,
+        })
+
+    # Determine output path
+    if output_path is None:
+        output_path = _next_versioned_path(source_input)
+
+    written_file: str | None = None
+    if write_file:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_text(text, encoding="utf-8")
+        written_file = output_path
+
+    return {
+        "output_file": output_path,
+        "written_file": written_file,
+        "source_input": source_input,
+        "diff_summary": diff_summary,
+        "reason": reason,
+        "input_text": text,
     }

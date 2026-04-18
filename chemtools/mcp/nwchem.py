@@ -21,6 +21,7 @@ from chemtools import (  # noqa: E402
     plan_nwchem_workflow,
     suggest_basis_set,
     suggest_memory,
+    suggest_resources,
     suggest_relativistic_correction,
     suggest_spin_state,
     validate_nwchem_tce_setup,
@@ -30,6 +31,7 @@ from chemtools import (  # noqa: E402
     check_nwchem_run_status,
     compare_nwchem_runs,
     create_nwchem_input,
+    create_nwchem_input_variant,
     create_nwchem_dft_workflow_input,
     displace_geometry_along_mode,
     extract_nwchem_geometry,
@@ -52,6 +54,7 @@ from chemtools import (  # noqa: E402
     lint_nwchem_input,
     launch_nwchem_run,
     parse_cube,
+    parse_freq_progress,
     parse_mcscf_output,
     parse_mos,
     parse_nwchem_movecs,
@@ -60,6 +63,11 @@ from chemtools import (  # noqa: E402
     parse_scf,
     parse_tce_amplitudes,
     parse_tce_output,
+    preflight_check,
+    get_nwchem_workflow_state,
+    plan_calculation,
+    list_protocols,
+    prepare_freq_restart,
     prepare_nwchem_next_step,
     render_basis_block,
     render_basis_block_from_geometry,
@@ -356,6 +364,31 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "n_heavy_atoms": {"type": "integer", "description": "Number of non-hydrogen atoms (optional)."},
                 },
                 "required": ["n_atoms", "basis", "method"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "suggest_resources",
+            "description": (
+                "Recommend MPI rank count and memory per rank for a NWChem job based on the input file "
+                "and hardware specs. Uses a basis-functions-per-rank scaling model tuned per CPU architecture. "
+                "Provide hw_specs from query results or let it use defaults."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "profile": {
+                        "type": "string",
+                        "description": "Runner profile name. If provided, hw_specs are queried automatically from the partition.",
+                    },
+                    "profiles_path": {"type": "string"},
+                    "hw_specs": {
+                        "type": "object",
+                        "description": "Hardware specs override. Keys: cpus_per_node, node_memory_mb, cpu_arch.",
+                    },
+                },
+                "required": ["input_file"],
                 "additionalProperties": False,
             },
         },
@@ -723,6 +756,24 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "library_path": {"type": "string"},
                 },
                 "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "preflight_check",
+            "description": (
+                "Run all pre-submission checks on a NWChem input and return a pass/fail report. "
+                "Combines: lint (syntax/consistency), movecs input file existence, and memory vs node RAM ceiling. "
+                "Call before launch_nwchem_run to catch errors before wasting queue time."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "profile": {"type": "string", "description": "Runner profile name (for memory ceiling check)."},
+                    "profiles_path": {"type": "string"},
+                },
+                "required": ["input_file", "profile"],
                 "additionalProperties": False,
             },
         },
@@ -1314,18 +1365,64 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "parse_nwchem_freq_progress",
+            "description": (
+                "Report progress of a finite-difference frequency (Hessian) job. "
+                "Returns: displacements done vs total, percentage complete, pace (sec/gradient), "
+                "estimated remaining time, number of additional 48h runs needed, and fdrst checkpoint info. "
+                "Essential for multi-restart freq jobs on HPC with walltime limits."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string", "description": "Path to the NWChem freq output file."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "prepare_nwchem_freq_restart",
+            "description": (
+                "Validate that a frequency restart is ready and return a submit-ready report. "
+                "Checks: 'restart' keyword in input, .fdrst checkpoint exists, .db exists, "
+                "and reports freq progress from the previous output. "
+                "Does NOT submit — use launch_nwchem_run after confirming ready_to_restart=true."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "output_file": {"type": "string", "description": "Path to the previous NWChem output file."},
+                    "profile": {"type": "string", "description": "Runner profile name for resubmission."},
+                },
+                "required": ["input_file", "output_file"],
+                "additionalProperties": False,
+            },
+        },
         # ------------------------------------------------------------------
         # Imaginary modes
         # ------------------------------------------------------------------
         {
             "name": "analyze_nwchem_imaginary_modes",
-            "description": "Analyze significant imaginary modes in a NWChem frequency output and identify the dominant moving atoms.",
+            "description": (
+                "Analyze significant imaginary modes in a NWChem frequency output and identify the dominant moving atoms. "
+                "Default detail='compact' strips displacement vectors (~3 KB output). Use detail='full' to include "
+                "full Cartesian displacements (needed for displace_nwchem_geometry_along_mode)."
+            ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
                     "significant_threshold_cm1": {"type": "number", "default": 20.0},
                     "top_atoms": {"type": "integer", "default": 4},
+                    "detail": {
+                        "type": "string",
+                        "enum": ["compact", "full"],
+                        "default": "compact",
+                        "description": "compact: omit displacement vectors (default, much smaller). full: include all Cartesian displacements.",
+                    },
                 },
                 "required": ["output_file"],
                 "additionalProperties": False,
@@ -1745,6 +1842,110 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "create_nwchem_input_variant",
+            "description": (
+                "Create a versioned copy of an NWChem input file with specified changes, "
+                "recording a structured diff of what changed and why. The original file is "
+                "never overwritten — output goes to _v2.nw, _v3.nw, etc. "
+                "Use this when resubmitting a failed job with modifications (e.g. reducing "
+                "memory after OOM, changing iterations, switching functional). "
+                "Supported change keys: 'memory', 'charge', 'mult', 'task', and "
+                "'block.keyword' patterns like 'dft.iterations', 'dft.xc', 'scf.maxiter'."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source_input": {"type": "string", "description": "Path to the original .nw input file."},
+                    "changes": {
+                        "type": "object",
+                        "description": (
+                            "Key-value pairs of changes to apply. Keys are directive names "
+                            "like 'memory', 'charge', 'mult', 'task', or 'block.keyword' "
+                            "patterns like 'dft.iterations', 'dft.xc'."
+                        ),
+                        "additionalProperties": {"type": "string"},
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why these changes are being made (e.g. 'OOM at 2000 mb on SPR nodes').",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Explicit output path. If omitted, auto-versioned from source.",
+                    },
+                },
+                "required": ["source_input", "changes"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_nwchem_workflow_state",
+            "description": (
+                "Determine the current workflow state of an NWChem calculation and return "
+                "the exact next tool call to advance it. Returns an explicit state enum "
+                "(pending, running_scf, running_freq, freq_timelimited, scf_failed, "
+                "imaginary_modes, opt_converged, completed, oom, etc.) plus a pre-filled "
+                "next_action with all parameters ready. A model can drive the full NWChem "
+                "workflow by looping: call this tool → execute next_action → repeat. "
+                "Domain logic is encoded in the tool, not expected from the model."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "output_file": {"type": "string", "description": "Path to the NWChem .out output file."},
+                    "profile": {"type": "string", "description": "Runner profile name (e.g. 'stampede3_skx')."},
+                    "error_file": {"type": "string", "description": "Path to .err file. Auto-derived from output_file if omitted."},
+                },
+                "required": ["input_file", "output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "plan_nwchem_calculation",
+            "description": (
+                "Generate a step-by-step calculation plan from a pre-baked protocol. "
+                "Available protocols: single_point_dft, geometry_opt_dft, thermochem_dft, "
+                "opt_then_tce, basis_set_convergence, spin_state_scan. "
+                "Returns step IDs, dependencies, and the exact tool calls for each step. "
+                "The model follows the plan — no NWChem expertise needed."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "protocol": {
+                        "type": "string",
+                        "description": "Protocol name.",
+                        "enum": ["single_point_dft", "geometry_opt_dft", "thermochem_dft",
+                                 "opt_then_tce", "basis_set_convergence", "spin_state_scan"],
+                    },
+                    "profile": {"type": "string", "description": "Runner profile name."},
+                    "output_dir": {"type": "string", "description": "Directory for output files. Defaults to input file directory."},
+                    "overrides": {
+                        "type": "object",
+                        "description": "Optional overrides (e.g. multiplicities for spin_state_scan).",
+                        "additionalProperties": True,
+                    },
+                },
+                "required": ["input_file", "protocol"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "list_nwchem_protocols",
+            "description": (
+                "List all available pre-baked calculation protocols with descriptions. "
+                "Protocols encode multi-step NWChem workflows (opt→freq, opt→TCE, etc.) "
+                "so the model can plan calculations without NWChem expertise."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -1852,6 +2053,32 @@ def _handle_suggest_memory(arguments: dict[str, Any]) -> dict[str, Any]:
         method=arguments["method"],
         n_heavy_atoms=arguments.get("n_heavy_atoms"),
     )
+
+
+@_tool("suggest_resources")
+def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
+    hw = arguments.get("hw_specs")
+    if not hw and arguments.get("profile"):
+        from chemtools.runner import load_runner_profiles, _resolve_profile, query_partition_specs, get_local_resource_budget
+        profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
+        profiles = load_runner_profiles(profiles_path)
+        profile_payload = _resolve_profile(profiles, arguments["profile"])
+        launcher = profile_payload.get("launcher", {})
+        if launcher.get("kind") == "scheduler":
+            partition = profile_payload.get("resources", {}).get("partition")
+            scheduler_type = (
+                profile_payload.get("scheduler", {}).get("system")
+                or launcher.get("scheduler_type", "slurm")
+            ).lower()
+            hw = query_partition_specs(partition, scheduler_type) if partition else {}
+            # Supplement with profile-level resources
+            hw.setdefault("cpus_per_node", profile_payload.get("resources", {}).get("mpi_ranks"))
+        else:
+            hw = get_local_resource_budget()
+    if not hw:
+        from chemtools.runner import get_local_resource_budget
+        hw = get_local_resource_budget()
+    return suggest_resources(input_file=arguments["input_file"], hw_specs=hw)
 
 
 @_tool("analyze_nwchem_frontier_orbitals")
@@ -2067,6 +2294,15 @@ def _handle_inspect_nwchem_runner_profiles(arguments: dict[str, Any]) -> dict[st
     return inspect_runner_profiles(arguments.get("profiles_path"))
 
 
+@_tool("preflight_check")
+def _handle_preflight_check(arguments: dict[str, Any]) -> dict[str, Any]:
+    return preflight_check(
+        input_file=arguments["input_file"],
+        profile=arguments["profile"],
+        profiles_path=arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES"),
+    )
+
+
 @_tool("lint_nwchem_input")
 def _handle_lint_nwchem_input(arguments: dict[str, Any]) -> dict[str, Any]:
     return lint_nwchem_input(
@@ -2161,6 +2397,12 @@ def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
             status["progress"] = progress
         except Exception as exc:
             status["progress_error"] = str(exc)
+    status["next_actions"] = _build_next_actions(
+        "run_status", status,
+        output_file=arguments.get("output_file", ""),
+        input_file=arguments.get("input_file", ""),
+        profile=arguments.get("profile", ""),
+    )
     return status
 
 
@@ -2232,6 +2474,12 @@ def _handle_watch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
 
     if next_steps:
         result["next_steps"] = next_steps
+    result["next_actions"] = _build_next_actions(
+        "watch_run", result,
+        output_file=arguments.get("output_file", ""),
+        input_file=arguments.get("input_file", ""),
+        profile=arguments.get("profile", ""),
+    )
     return result
 
 
@@ -2432,6 +2680,215 @@ def _handle_create_nwchem_dft_workflow_input(arguments: dict[str, Any]) -> dict[
 # Handlers — case analysis and recovery
 # ---------------------------------------------------------------------------
 
+def _build_next_actions(
+    context: str,
+    result: dict[str, Any],
+    output_file: str = "",
+    input_file: str = "",
+    profile: str = "",
+) -> list[dict[str, Any]]:
+    """Build a structured next_actions list from analysis results.
+
+    Each action is a dict with: priority, tool, params, reason, confidence.
+    The model can execute actions[0] without understanding NWChem internals.
+    """
+    actions: list[dict[str, Any]] = []
+
+    if context == "analyze_case":
+        diagnosis = result.get("diagnosis") or {}
+        task_outcome = diagnosis.get("task_outcome", "")
+        failure_class = diagnosis.get("failure_class", "")
+        next_step = result.get("next_step") or {}
+        selected_workflow = next_step.get("selected_workflow", "")
+
+        if task_outcome == "success":
+            wf = selected_workflow.lower()
+            if "tce" in wf or "ccsd" in wf or "mp2" in wf:
+                actions.append({
+                    "priority": 1,
+                    "tool": "parse_nwchem_tce_output",
+                    "params": {"output_file": output_file},
+                    "reason": "Correlated calculation completed — extract energies and T1/D1 diagnostics.",
+                    "confidence": 0.95,
+                })
+            elif "freq" in wf:
+                actions.append({
+                    "priority": 1,
+                    "tool": "check_nwchem_freq_plausibility",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "Frequency calculation completed — verify plausibility before using results.",
+                    "confidence": 0.95,
+                })
+            elif "opt" in wf or "geometry" in wf:
+                actions.append({
+                    "priority": 1,
+                    "tool": "extract_nwchem_geometry",
+                    "params": {"output_file": output_file, "frame": "best"},
+                    "reason": "Optimization converged — extract geometry for next step.",
+                    "confidence": 0.90,
+                })
+            else:
+                actions.append({
+                    "priority": 1,
+                    "tool": "parse_nwchem_output",
+                    "params": {"output_file": output_file, "sections": ["tasks"]},
+                    "reason": "Calculation completed — review results.",
+                    "confidence": 0.80,
+                })
+        elif task_outcome in ("failed", "error", "scf_failed"):
+            if failure_class == "scf_convergence":
+                actions.append({
+                    "priority": 1,
+                    "tool": "suggest_nwchem_recovery",
+                    "params": {"output_file": output_file, "input_file": input_file, "mode": "scf"},
+                    "reason": "SCF convergence failure — get targeted recovery strategies.",
+                    "confidence": 0.90,
+                })
+            elif failure_class in ("bad_state", "wrong_state", "state_mismatch"):
+                actions.append({
+                    "priority": 1,
+                    "tool": "suggest_nwchem_recovery",
+                    "params": {"output_file": output_file, "input_file": input_file, "mode": "state"},
+                    "reason": "Spin/state error — recover with state correction strategies.",
+                    "confidence": 0.85,
+                })
+            elif failure_class in ("memory", "oom", "ma_init"):
+                actions.append({
+                    "priority": 1,
+                    "tool": "create_nwchem_input_variant",
+                    "params": {
+                        "source_input": input_file,
+                        "changes": {"memory": "800 mb"},
+                        "reason": f"OOM failure ({failure_class}) — reduce memory",
+                    },
+                    "reason": "Out of memory — reduce memory directive and resubmit.",
+                    "confidence": 0.80,
+                })
+            else:
+                actions.append({
+                    "priority": 1,
+                    "tool": "suggest_nwchem_recovery",
+                    "params": {"output_file": output_file, "input_file": input_file, "mode": "auto"},
+                    "reason": f"Calculation failed ({failure_class or 'unknown'}) — get recovery recommendations.",
+                    "confidence": 0.75,
+                })
+        elif task_outcome == "timelimit":
+            actions.append({
+                "priority": 1,
+                "tool": "prepare_nwchem_freq_restart",
+                "params": {"input_file": input_file, "output_file": output_file, "profile": profile},
+                "reason": "Hit walltime limit — check if freq restart is ready.",
+                "confidence": 0.85,
+            })
+
+    elif context == "watch_run":
+        overall = result.get("overall_status", "")
+        tasks = result.get("progress_summary", {}).get("tasks", []) if result.get("progress_summary") else []
+        has_tce = any((t.get("module") or "").lower() == "tce" for t in tasks)
+        has_freq = any((t.get("module") or "").lower() in {"freq", "frequency"} for t in tasks)
+        has_opt = any((t.get("operation") or "").lower() == "optimize" for t in tasks)
+
+        if overall == "completed":
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job completed — run full analysis to determine next steps.",
+                "confidence": 0.95,
+            })
+        elif overall in ("failed", "error"):
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job failed — diagnose the failure.",
+                "confidence": 0.90,
+            })
+        elif overall == "running":
+            actions.append({
+                "priority": 1,
+                "tool": "watch_nwchem_run",
+                "params": {"output_file": output_file, "input_file": input_file, "profile": profile},
+                "reason": "Job is still running — continue monitoring.",
+                "confidence": 0.95,
+            })
+
+    elif context == "freq_plausibility":
+        assessment = result.get("overall_assessment", "")
+        imag_count = result.get("imaginary_mode_count", 0)
+        if assessment == "suspicious" and imag_count and imag_count > 0:
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_imaginary_modes",
+                "params": {"output_file": output_file},
+                "reason": f"Found {imag_count} imaginary mode(s) — analyze which atoms are involved.",
+                "confidence": 0.90,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "draft_nwchem_imaginary_mode_inputs",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Generate displaced geometries for re-optimization.",
+                "confidence": 0.80,
+            })
+        elif assessment in ("ok", "plausible"):
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_output",
+                "params": {"output_file": output_file, "sections": ["freq", "tasks"]},
+                "reason": "Frequencies look reasonable — extract thermochemistry data.",
+                "confidence": 0.90,
+            })
+
+    elif context == "run_status":
+        status = result.get("status", "")
+        if status in ("completed", "done"):
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job completed — run full analysis.",
+                "confidence": 0.95,
+            })
+        elif status in ("failed", "error"):
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job failed — diagnose the failure.",
+                "confidence": 0.90,
+            })
+        elif status in ("cancelled", "timelimit"):
+            actions.append({
+                "priority": 1,
+                "tool": "prepare_nwchem_freq_restart",
+                "params": {"input_file": input_file, "output_file": output_file, "profile": profile},
+                "reason": "Job cancelled/timelimit — check if restart is possible.",
+                "confidence": 0.80,
+            })
+
+    elif context == "imaginary_modes":
+        sig_count = result.get("significant_imaginary_mode_count", 0)
+        if sig_count > 0:
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_imaginary_mode_inputs",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": f"{sig_count} significant imaginary mode(s) — generate displaced inputs for re-optimization.",
+                "confidence": 0.85,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_output",
+                "params": {"output_file": output_file, "sections": ["freq", "tasks"]},
+                "reason": "No significant imaginary modes — extract thermochemistry data.",
+                "confidence": 0.90,
+            })
+
+    return actions
+
+
 def _derive_recommended_next_tool(result: dict[str, Any]) -> dict[str, Any]:
     """Derive a structured next-tool recommendation from summarize_nwchem_case output."""
     diagnosis = result.get("diagnosis") or {}
@@ -2516,6 +2973,12 @@ def _handle_analyze_nwchem_case(arguments: dict[str, Any]) -> dict[str, Any]:
         compact=compact,
     )
     result["recommended_next_tool"] = _derive_recommended_next_tool(result)
+    result["next_actions"] = _build_next_actions(
+        "analyze_case", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+        profile=arguments.get("profile", ""),
+    )
     return result
 
 
@@ -2626,10 +3089,30 @@ def _handle_check_nwchem_geometry_plausibility(arguments: dict[str, Any]) -> dic
 
 @_tool("check_nwchem_freq_plausibility")
 def _handle_check_nwchem_freq_plausibility(arguments: dict[str, Any]) -> dict[str, Any]:
-    return check_nwchem_freq_plausibility(
+    result = check_nwchem_freq_plausibility(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         expect_minimum=arguments.get("expect_minimum", True),
+    )
+    result["next_actions"] = _build_next_actions(
+        "freq_plausibility", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
+
+
+@_tool("parse_nwchem_freq_progress")
+def _handle_parse_nwchem_freq_progress(arguments: dict[str, Any]) -> dict[str, Any]:
+    return parse_freq_progress(arguments["output_file"])
+
+
+@_tool("prepare_nwchem_freq_restart")
+def _handle_prepare_nwchem_freq_restart(arguments: dict[str, Any]) -> dict[str, Any]:
+    return prepare_freq_restart(
+        input_file=arguments["input_file"],
+        output_file=arguments["output_file"],
+        profile=arguments.get("profile"),
     )
 
 
@@ -2639,11 +3122,18 @@ def _handle_check_nwchem_freq_plausibility(arguments: dict[str, Any]) -> dict[st
 
 @_tool("analyze_nwchem_imaginary_modes")
 def _handle_analyze_nwchem_imaginary_modes(arguments: dict[str, Any]) -> dict[str, Any]:
-    return analyze_imaginary_modes(
+    result = analyze_imaginary_modes(
         arguments["output_file"],
         significant_threshold_cm1=arguments.get("significant_threshold_cm1", 20.0),
         top_atoms=arguments.get("top_atoms", 4),
+        detail=arguments.get("detail", "compact"),
     )
+    result["next_actions"] = _build_next_actions(
+        "imaginary_modes", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("displace_nwchem_geometry_along_mode")
@@ -2840,6 +3330,44 @@ def _handle_append_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("next_versioned_path")
 def _handle_next_versioned_path(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"path": next_versioned_path(arguments["path"])}
+
+
+@_tool("get_nwchem_workflow_state")
+def _handle_get_nwchem_workflow_state(arguments: dict[str, Any]) -> dict[str, Any]:
+    return get_nwchem_workflow_state(
+        input_file=arguments["input_file"],
+        output_file=arguments["output_file"],
+        profile=arguments.get("profile", ""),
+        error_file=arguments.get("error_file"),
+    )
+
+
+@_tool("plan_nwchem_calculation")
+def _handle_plan_nwchem_calculation(arguments: dict[str, Any]) -> dict[str, Any]:
+    return plan_calculation(
+        input_file=arguments["input_file"],
+        protocol=arguments["protocol"],
+        profile=arguments.get("profile", ""),
+        output_dir=arguments.get("output_dir"),
+        overrides=arguments.get("overrides"),
+    )
+
+
+@_tool("list_nwchem_protocols")
+def _handle_list_nwchem_protocols(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {"protocols": list_protocols()}
+
+
+@_tool("create_nwchem_input_variant")
+def _handle_create_nwchem_input_variant(arguments: dict[str, Any]) -> dict[str, Any]:
+    result = create_nwchem_input_variant(
+        source_input=arguments["source_input"],
+        changes=arguments["changes"],
+        reason=arguments.get("reason", ""),
+        output_path=arguments.get("output_path"),
+    )
+    result.pop("input_text", None)
+    return result
 
 
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
