@@ -23,11 +23,11 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
   eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 93 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 96 tools, thin wrappers over chemtools/
     nwchem_docs.py   NWChem documentation lookup server
     # Future: molpro.py, orca.py
 
-test_phase1/         Test suite (Phases 2–5, 213 tests)
+test_phase1/         Test suite (Phases 2–6, 244 tests)
 ```
 
 ## MCP Tool Architecture
@@ -36,13 +36,13 @@ test_phase1/         Test suite (Phases 2–5, 213 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate}
-- Current tool count: 93
+- Current tool count: 96
 
 ### Tool categories (93 tools)
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| Input drafting | 16 | `create_nwchem_input`, `draft_nwchem_tce_input`, `draft_nwchem_mcscf_input` |
+| Input drafting | 17 | `create_nwchem_input`, `create_nwchem_dft_input_from_request`, `draft_nwchem_tce_input` |
 | Output parsing | 14 | `parse_nwchem_output`, `parse_nwchem_tce_output`, `parse_nwchem_thermochem` |
 | Analysis & diagnosis | 10 | `analyze_nwchem_case`, `check_nwchem_spin_charge_state`, `summarize_nwchem_output` |
 | Strategy & suggestions | 10 | `suggest_basis_set`, `suggest_nwchem_recovery`, `suggest_spin_state` |
@@ -53,6 +53,7 @@ test_phase1/         Test suite (Phases 2–5, 213 tests)
 | Geometry | 5 | `extract_nwchem_geometry`, `inspect_nwchem_geometry`, `displace_nwchem_geometry_along_mode` |
 | Session & versioning | 4 | `init_session_log`, `append_session_log`, `next_versioned_path` |
 | TCE (correlated methods) | 6 | `parse_nwchem_movecs`, `swap_nwchem_movecs`, `validate_nwchem_tce_setup` |
+| Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
 ## How to Add a New Tool
 

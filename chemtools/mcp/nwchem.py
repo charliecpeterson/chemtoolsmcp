@@ -108,6 +108,7 @@ from chemtools import (  # noqa: E402
     create_workflow,
     advance_workflow,
     generate_input_batch,
+    create_nwchem_dft_input_from_request,
     basis_library_summary,
     check_spin_charge_state,
     inspect_nwchem_geometry,
@@ -116,6 +117,7 @@ from chemtools import (  # noqa: E402
     review_nwchem_input_request,
     summarize_output,
 )
+from chemtools.eval import evaluate_case, evaluate_cases
 
 
 SERVER_NAME = "chemtools-nwchem"
@@ -2069,6 +2071,89 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # --- Phase 6: Eval + smart input creation ---
+        {
+            "name": "evaluate_nwchem_case",
+            "description": (
+                "Evaluate an NWChem test case against expected outcomes. "
+                "Reads a case.json file that defines input/output paths and expectations "
+                "(failure_class, recommended_next_action, workflow). Returns pass/fail checks. "
+                "Use for automated validation of tool quality and regression testing."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "case_path": {"type": "string", "description": "Path to a case.json or *.case.json file."},
+                },
+                "required": ["case_path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "evaluate_nwchem_cases",
+            "description": (
+                "Batch-evaluate all NWChem test cases in a directory. "
+                "Recursively finds case.json files and evaluates each one. "
+                "Returns aggregate pass/fail counts and per-case results."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to a directory containing case.json files."},
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "create_nwchem_dft_input_from_request",
+            "description": (
+                "Create an NWChem DFT input from a high-level request, with automatic validation. "
+                "Runs review_nwchem_input_request first to check readiness (basis availability, "
+                "charge/multiplicity consistency, etc.). If ready, creates the full input with "
+                "explicit basis blocks and geometry. Returns ready_to_create=false with guidance "
+                "if requirements are missing. Simpler than create_nwchem_input — fewer required params."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "formula": {"type": "string", "description": "Molecular formula (e.g. 'C6H6'). Used to detect elements."},
+                    "geometry_file": {"type": "string", "description": "Path to geometry file (.xyz)."},
+                    "basis_assignments": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                        "description": "Element → basis name mapping.",
+                    },
+                    "ecp_assignments": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    },
+                    "default_basis": {"type": "string", "description": "Default basis for all elements."},
+                    "default_ecp": {"type": "string"},
+                    "xc_functional": {"type": "string", "description": "DFT functional (e.g. 'b3lyp', 'm06')."},
+                    "task_operations": {
+                        "type": "array", "items": {"type": "string"},
+                        "description": "Operations: ['optimize'], ['optimize', 'freq'], ['energy'].",
+                    },
+                    "charge": {"type": "integer"},
+                    "multiplicity": {"type": "integer"},
+                    "dft_settings": {
+                        "type": "array", "items": {"type": "string"},
+                        "description": "Extra DFT block lines (e.g. ['grid fine', 'convergence energy 1e-8']).",
+                    },
+                    "extra_blocks": {
+                        "type": "array", "items": {"type": "string"},
+                        "description": "Extra NWChem blocks to append.",
+                    },
+                    "memory": {"type": "string", "description": "Memory directive (e.g. 'total 2000 mb')."},
+                    "title": {"type": "string"},
+                    "start_name": {"type": "string"},
+                    "output_dir": {"type": "string"},
+                    "write_file": {"type": "boolean", "default": False},
+                },
+                "additionalProperties": False,
+            },
+        },
         # --- Phase 5: Gap-fill tools ---
         {
             "name": "basis_library_summary",
@@ -3949,6 +4034,49 @@ def _handle_create_nwchem_input_variant(arguments: dict[str, Any]) -> dict[str, 
         output_path=arguments.get("output_path"),
     )
     result.pop("input_text", None)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Handlers — eval + smart input creation (Phase 6)
+# ---------------------------------------------------------------------------
+
+@_tool("evaluate_nwchem_case")
+def _handle_evaluate_case(arguments: dict[str, Any]) -> dict[str, Any]:
+    return evaluate_case(arguments["case_path"])
+
+
+@_tool("evaluate_nwchem_cases")
+def _handle_evaluate_cases(arguments: dict[str, Any]) -> dict[str, Any]:
+    return evaluate_cases(arguments["path"])
+
+
+@_tool("create_nwchem_dft_input_from_request")
+def _handle_create_nwchem_dft_input_from_request(arguments: dict[str, Any]) -> dict[str, Any]:
+    result = create_nwchem_dft_input_from_request(
+        formula=arguments.get("formula"),
+        geometry_path=arguments.get("geometry_file"),
+        library_path=basis_library_path(arguments.get("library_path")),
+        basis_assignments=arguments.get("basis_assignments"),
+        ecp_assignments=arguments.get("ecp_assignments"),
+        default_basis=arguments.get("default_basis"),
+        default_ecp=arguments.get("default_ecp"),
+        xc_functional=arguments.get("xc_functional"),
+        task_operations=arguments.get("task_operations"),
+        charge=arguments.get("charge"),
+        multiplicity=arguments.get("multiplicity"),
+        dft_settings=arguments.get("dft_settings"),
+        extra_blocks=arguments.get("extra_blocks"),
+        memory=arguments.get("memory"),
+        title=arguments.get("title"),
+        start_name=arguments.get("start_name"),
+        output_dir=arguments.get("output_dir"),
+        write_file=arguments.get("write_file", False),
+    )
+    # Don't send full input text through MCP — it can be huge with explicit basis blocks
+    if result.get("input_text") and len(result["input_text"]) > 5000:
+        result["input_text_truncated"] = result["input_text"][:2000] + "\n... (truncated, see written_file)"
+        del result["input_text"]
     return result
 
 
