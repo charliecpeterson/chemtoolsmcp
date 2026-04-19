@@ -21,10 +21,6 @@ env/
 *.t1_copy.*
 *.t2_copy.*
 *.zmat
-nwchemaitest/*.out
-nwchemaitest/*.nw
-nwchemaitest/*.log
-nwchemaitest/runner_profiles.local.json
 
 # Logs and temp
 *.log
@@ -35,15 +31,28 @@ nwchemaitest/runner_profiles.local.json
 .idea/
 *.swp
 
-# Local machine configs (these contain machine-specific paths)
-nwchemaitest/.mcp.json
-nwchemaitest/opencode.json
-nwchemaitest-2/.mcp.json
-nwchemaitest-2/opencode.json
+# Test directories (kept outside repo or in separate location)
+test_phase1/
+tests/
+test2/
+
+# Old monolithic tool script (superseded by chemtools/)
+chemtools_tool.py
+
+# Raw example I/O files for other codes (large, not part of MCP)
+examples/dirac/
+examples/molcas/
+examples/molpro/
+examples/nwchem/
+
+# Local working directories
+nwchemaitest/
+nwchemaitest-2/
+nwchem-test/
+tacc-new/
 
 # Large local-only data (not bundled)
 nwchem-docs/
-nwchem-test/train/
 Molcas\ docs/
 molpro\ docs/
 orbitron/
@@ -54,7 +63,7 @@ skill-*.json
 # Session transcripts / continuation logs
 2026-*.txt
 
-# TACC working directory (job files, outputs, session logs — keep CLAUDE.md + improvements doc)
+# TACC working directory (job files, outputs — keep CLAUDE.md)
 tacc/*.out
 tacc/*.err
 tacc/*.job
@@ -74,11 +83,8 @@ tacc/*.cosmo.xyz
 tacc/.mcp.json
 tacc/2026-*.txt
 
-# Test fixtures (mock files, not needed in repo)
-test_phase1/*.out
-test_phase1/*.db
-test_phase1/*.fdrst
-test_phase1/*.jobid
+# Claude Code local state
+.claude/
 
 # OS
 .DS_Store
