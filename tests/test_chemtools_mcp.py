@@ -250,7 +250,8 @@ class ChemtoolsMCPTests(unittest.TestCase):
         )
         self.assertFalse(should_exit)
         payload = response["result"]["structuredContent"]
-        self.assertEqual(payload["failure_class"], "wrong_state_convergence")
+        diag = payload.get("diagnosis", payload)
+        self.assertEqual(diag["failure_class"], "wrong_state_convergence")
 
     def test_diagnose_interrupted_frequency_tool_call(self) -> None:
         output_file = str(ROOT / "nwchem-test" / "train" / "cmcc3h2_s" / "cmcc3h2_s_1.out")
@@ -270,7 +271,8 @@ class ChemtoolsMCPTests(unittest.TestCase):
         )
         self.assertFalse(should_exit)
         payload = response["result"]["structuredContent"]
-        self.assertEqual(payload["failure_class"], "post_optimization_frequency_interrupted")
+        diag = payload.get("diagnosis", payload)
+        self.assertEqual(diag["failure_class"], "post_optimization_frequency_interrupted")
 
     def test_parse_mos_tool_call(self) -> None:
         output_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon.out")

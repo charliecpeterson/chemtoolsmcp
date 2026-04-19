@@ -4279,28 +4279,56 @@ def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
     return generate_input_batch(**kwargs)
 
 
-# Backward-compat aliases: old tool names → current tool names.
+# Backward-compat aliases: old tool names → (current name, arg translator).
 # These are NOT in tool_definitions() so models see only the current names.
-_TOOL_ALIASES: dict[str, str] = {
-    "diagnose_nwchem_output": "analyze_nwchem_case",
-    "summarize_nwchem_case": "analyze_nwchem_case",
-    "review_nwchem_case": "analyze_nwchem_case",
-    "check_nwchem_run_status": "get_nwchem_run_status",
-    "review_nwchem_followup_outcome": "compare_nwchem_runs",
-    "suggest_nwchem_scf_fix_strategy": "suggest_nwchem_recovery",
-    "suggest_nwchem_state_recovery_strategy": "suggest_nwchem_recovery",
-    "prepare_nwchem_run": "launch_nwchem_run",
-    "render_nwchem_basis_from_input": "render_nwchem_basis_block",
-    "summarize_cube_file": "parse_cube_file",
-    "resolve_nwchem_ecp": "render_nwchem_ecp_block",
-    "render_nwchem_ecp_from_elements": "render_nwchem_ecp_block",
-    "resolve_nwchem_basis_setup": "render_nwchem_basis_setup",
+def _identity(args: dict[str, Any]) -> dict[str, Any]:
+    return args
+
+
+def _scf_fix_args(args: dict[str, Any]) -> dict[str, Any]:
+    args = dict(args)
+    args["mode"] = "scf"
+    return args
+
+
+def _state_recovery_args(args: dict[str, Any]) -> dict[str, Any]:
+    args = dict(args)
+    args["mode"] = "state"
+    return args
+
+
+def _compact_to_detail(args: dict[str, Any]) -> dict[str, Any]:
+    args = dict(args)
+    if args.pop("compact", False):
+        args["detail"] = "compact"
+    return args
+
+
+_TOOL_ALIASES: dict[str, tuple[str, Any]] = {
+    "diagnose_nwchem_output": ("analyze_nwchem_case", _identity),
+    "summarize_nwchem_case": ("analyze_nwchem_case", _compact_to_detail),
+    "review_nwchem_case": ("analyze_nwchem_case", _compact_to_detail),
+    "check_nwchem_run_status": ("get_nwchem_run_status", _identity),
+    "review_nwchem_followup_outcome": ("compare_nwchem_runs", _identity),
+    "suggest_nwchem_scf_fix_strategy": ("suggest_nwchem_recovery", _scf_fix_args),
+    "suggest_nwchem_state_recovery_strategy": ("suggest_nwchem_recovery", _state_recovery_args),
+    "prepare_nwchem_run": ("launch_nwchem_run", _identity),
+    "render_nwchem_basis_from_input": ("render_nwchem_basis_block", _identity),
+    "summarize_cube_file": ("parse_cube_file", _identity),
+    "resolve_nwchem_ecp": ("render_nwchem_ecp_block", _identity),
+    "render_nwchem_ecp_from_elements": ("render_nwchem_ecp_block", _identity),
+    "resolve_nwchem_basis_setup": ("render_nwchem_basis_setup", _identity),
 }
 
 
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     log_event(f"dispatch_tool start name={name}")
-    resolved = _TOOL_ALIASES.get(name, name)
+    alias = _TOOL_ALIASES.get(name)
+    if alias:
+        resolved, translate = alias
+        arguments = translate(arguments)
+    else:
+        resolved = name
     handler = _TOOL_REGISTRY.get(resolved)
     if handler is None:
         raise ValueError(f"unknown tool: {name}")
