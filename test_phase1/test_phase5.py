@@ -175,7 +175,7 @@ from chemtools.mcp import nwchem as mcp_nwchem
 
 tool_count = len(mcp_nwchem.tool_definitions())
 report(f"tool count is 93", tool_count,
-       lambda c: assert_(c == 96, f"tool_count={c}"))
+       lambda c: assert_(c == 98, f"tool_count={c}"))
 
 tool_names = {t["name"] for t in mcp_nwchem.tool_definitions()}
 phase5_tools = [

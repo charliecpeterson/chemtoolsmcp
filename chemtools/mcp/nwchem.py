@@ -116,6 +116,8 @@ from chemtools import (  # noqa: E402
     parse_trajectory,
     review_nwchem_input_request,
     summarize_output,
+    check_memory_fit,
+    estimate_freq_walltime,
 )
 from chemtools.eval import evaluate_case, evaluate_cases
 
@@ -2543,6 +2545,54 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "check_nwchem_memory_fit",
+            "description": (
+                "Check whether an NWChem input's memory directive fits the target node. "
+                "Reads the 'memory total' line from the input file, multiplies by MPI ranks, "
+                "and compares against the node's physical RAM (from the runner profile). "
+                "Returns warnings if the job would crash with MA_init out-of-memory errors, "
+                "and suggests a safe memory value. IMPORTANT: call this before launching, "
+                "especially when switching profiles or changing node counts."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the .nw input file."},
+                    "profile": {"type": "string", "description": "Runner profile name (reads node_memory_mb from it)."},
+                    "profiles_path": {"type": "string", "description": "Custom profiles file path."},
+                    "nodes": {"type": "integer", "description": "Override number of nodes."},
+                    "mpi_ranks": {"type": "integer", "description": "Override total MPI ranks."},
+                    "node_memory_mb": {"type": "integer", "description": "Override node RAM in MB (bypasses profile lookup)."},
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "estimate_nwchem_freq_walltime",
+            "description": (
+                "Estimate walltime needed for a numerical frequency calculation. "
+                "NWChem numerical frequencies require 6*N_atoms gradient evaluations. "
+                "CRITICAL: NWChem CANNOT checkpoint mid-frequency — if the job exceeds "
+                "walltime, ALL progress is lost. This tool estimates total time and "
+                "recommends multi-node scaling if the job won't fit in the walltime limit. "
+                "Call this BEFORE launching any frequency job to avoid wasting compute time."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "n_atoms": {"type": "integer", "description": "Number of atoms in the molecule."},
+                    "seconds_per_displacement": {"type": "number", "description": "Measured seconds per displacement (from a prior run). If omitted, uses heuristic estimate."},
+                    "n_displacements": {"type": "integer", "description": "Total displacements (default: 6 * n_atoms for central differences)."},
+                    "mpi_ranks": {"type": "integer", "description": "MPI ranks per node (default: 1)."},
+                    "nodes": {"type": "integer", "description": "Number of nodes (default: 1)."},
+                    "max_walltime_hours": {"type": "number", "description": "Maximum walltime in hours (default: 48)."},
+                },
+                "required": ["n_atoms"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -4277,6 +4327,39 @@ def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
     if arguments.get("campaign_id") is not None:
         kwargs["campaign_id"] = arguments["campaign_id"]
     return generate_input_batch(**kwargs)
+
+
+@_tool("check_nwchem_memory_fit")
+def _handle_check_memory_fit(arguments: dict[str, Any]) -> dict[str, Any]:
+    profile_resources = None
+    if arguments.get("profile"):
+        from chemtools.runner import load_runner_profiles, _resolve_profile
+        profiles_path = arguments.get("profiles_path")
+        loaded = load_runner_profiles(profiles_path)
+        resolved = _resolve_profile(loaded, arguments["profile"])
+        profile_resources = resolved.get("resources", {})
+        # Merge resource_overrides if present
+        if arguments.get("resource_overrides"):
+            profile_resources = {**profile_resources, **arguments["resource_overrides"]}
+    return check_memory_fit(
+        input_file=arguments["input_file"],
+        profile_resources=profile_resources,
+        nodes=arguments.get("nodes", 1),
+        mpi_ranks=arguments.get("mpi_ranks", 1),
+        node_memory_mb=arguments.get("node_memory_mb"),
+    )
+
+
+@_tool("estimate_nwchem_freq_walltime")
+def _handle_estimate_freq_walltime(arguments: dict[str, Any]) -> dict[str, Any]:
+    return estimate_freq_walltime(
+        n_atoms=arguments["n_atoms"],
+        seconds_per_displacement=arguments.get("seconds_per_displacement"),
+        n_displacements=arguments.get("n_displacements"),
+        mpi_ranks=arguments.get("mpi_ranks", 1),
+        nodes=arguments.get("nodes", 1),
+        max_walltime_hours=arguments.get("max_walltime_hours", 48.0),
+    )
 
 
 # Backward-compat aliases: old tool names → (current name, arg translator).

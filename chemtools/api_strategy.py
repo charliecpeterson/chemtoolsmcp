@@ -2534,6 +2534,199 @@ def suggest_memory(
 
 
 # ---------------------------------------------------------------------------
+# Memory fitness check (profile-aware)
+# ---------------------------------------------------------------------------
+
+
+def check_memory_fit(
+    input_file: str,
+    profile_resources: dict[str, Any] | None = None,
+    nodes: int = 1,
+    mpi_ranks: int = 1,
+    node_memory_mb: int | None = None,
+) -> dict[str, Any]:
+    """Check if an NWChem input's memory directive fits the target node.
+
+    Reads the ``memory total`` line from *input_file* and compares against
+    the node capacity.  Returns warnings and a corrected memory string when
+    the requested allocation would exceed available RAM.
+
+    *profile_resources* is the ``resources`` dict from a runner profile.
+    If provided, ``nodes``, ``mpi_ranks``, and ``node_memory_mb`` are read
+    from it (explicit kwargs override).
+    """
+    pr = profile_resources or {}
+    nodes = nodes if nodes != 1 else int(pr.get("nodes", nodes))
+    mpi_ranks = mpi_ranks if mpi_ranks != 1 else int(pr.get("mpi_ranks", mpi_ranks))
+    node_memory_mb = node_memory_mb or pr.get("node_memory_mb")
+
+    # Read input to find memory directive
+    text = Path(input_file).read_text(encoding="utf-8", errors="replace")
+    mem_line = ""
+    for line in text.splitlines():
+        stripped = line.strip().lower()
+        if stripped.startswith("memory "):
+            mem_line = stripped
+            break
+
+    # Extract total MB from memory line
+    requested_mb_per_rank = 0
+    if mem_line:
+        import re
+        m = re.search(r"total\s+(\d+)\s*(mb|mw|gb)", mem_line)
+        if m:
+            val = int(m.group(1))
+            unit = m.group(2)
+            if unit == "gb":
+                val *= 1024
+            elif unit == "mw":
+                val *= 8  # 1 MW = 8 MB (64-bit words)
+            requested_mb_per_rank = val
+
+    if not requested_mb_per_rank:
+        return {
+            "status": "no_memory_directive",
+            "message": "No 'memory total' directive found in input. NWChem will use defaults.",
+            "warnings": [],
+        }
+
+    ranks_per_node = max(1, mpi_ranks // max(1, nodes))
+    total_requested_per_node = requested_mb_per_rank * ranks_per_node
+
+    warnings: list[dict[str, Any]] = []
+    safe_mb_per_rank: int | None = None
+
+    if node_memory_mb:
+        # Reserve 15% for OS + MPI runtime
+        usable_mb = int(node_memory_mb * 0.85)
+        if total_requested_per_node > usable_mb:
+            safe_mb_per_rank = max(400, (usable_mb // ranks_per_node // 100) * 100)
+            warnings.append({
+                "code": "memory_exceeds_node",
+                "severity": "error",
+                "message": (
+                    f"Requested {requested_mb_per_rank} MB/rank × {ranks_per_node} ranks "
+                    f"= {total_requested_per_node} MB, but node has {node_memory_mb} MB "
+                    f"(~{usable_mb} MB usable). Job will crash with MA_init error."
+                ),
+                "fix": f"memory total {safe_mb_per_rank} mb",
+            })
+        elif total_requested_per_node > usable_mb * 0.9:
+            warnings.append({
+                "code": "memory_tight",
+                "severity": "warning",
+                "message": (
+                    f"Requested {total_requested_per_node} MB/node is within 10% of "
+                    f"usable capacity ({usable_mb} MB). Consider reducing for safety."
+                ),
+            })
+
+    return {
+        "status": "error" if any(w["severity"] == "error" for w in warnings) else (
+            "warning" if warnings else "ok"),
+        "requested_mb_per_rank": requested_mb_per_rank,
+        "ranks_per_node": ranks_per_node,
+        "total_mb_per_node": total_requested_per_node,
+        "node_memory_mb": node_memory_mb,
+        "safe_mb_per_rank": safe_mb_per_rank,
+        "warnings": warnings,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Frequency walltime estimation
+# ---------------------------------------------------------------------------
+
+
+def estimate_freq_walltime(
+    n_atoms: int,
+    seconds_per_displacement: float | None = None,
+    n_displacements: int | None = None,
+    mpi_ranks: int = 1,
+    nodes: int = 1,
+    max_walltime_hours: float = 48.0,
+) -> dict[str, Any]:
+    """Estimate walltime needed for a numerical frequency calculation.
+
+    NWChem numerical frequencies require 6*N_atoms gradient evaluations
+    (central differences: +/- displacement for each Cartesian coordinate).
+    Each gradient evaluation is roughly the cost of a single-point SCF.
+
+    If *seconds_per_displacement* is not provided, uses a rough heuristic
+    based on atom count and MPI parallelism.
+
+    IMPORTANT: NWChem cannot checkpoint mid-frequency. If the job runs out
+    of walltime, ALL progress is lost. The job must complete in one submission.
+    """
+    if n_displacements is None:
+        n_displacements = n_atoms * 6  # central differences: ±Δ for x,y,z per atom
+
+    if seconds_per_displacement is None:
+        # Rough heuristic: ~5 min per displacement for a 20-atom DFT/6-31G* on 48 cores
+        # Scale quadratically with atom count, inversely with MPI parallelism
+        base_seconds = 300.0 * (n_atoms / 20.0) ** 1.5
+        total_ranks = mpi_ranks * nodes
+        # Diminishing returns past ~64 ranks for intra-displacement parallelism
+        effective_speedup = min(total_ranks, 64) + max(0, total_ranks - 64) * 0.3
+        seconds_per_displacement = base_seconds * (48.0 / max(1, effective_speedup))
+
+    total_seconds = n_displacements * seconds_per_displacement
+    total_hours = total_seconds / 3600.0
+
+    fits_in_walltime = total_hours <= max_walltime_hours
+    safety_margin = max_walltime_hours - total_hours if fits_in_walltime else 0
+
+    # Estimate how many nodes needed to fit in max_walltime
+    if not fits_in_walltime and nodes == 1:
+        # Try scaling up nodes
+        for n in [2, 3, 4, 6, 8]:
+            total_ranks_n = mpi_ranks * n
+            eff = min(total_ranks_n, 64) + max(0, total_ranks_n - 64) * 0.3
+            scaled_seconds = (48.0 / max(1, eff)) * 300.0 * (n_atoms / 20.0) ** 1.5
+            scaled_hours = (n_displacements * scaled_seconds) / 3600.0
+            if scaled_hours <= max_walltime_hours * 0.9:
+                suggested_nodes = n
+                break
+        else:
+            suggested_nodes = None
+    else:
+        suggested_nodes = None
+
+    result: dict[str, Any] = {
+        "n_atoms": n_atoms,
+        "n_displacements": n_displacements,
+        "seconds_per_displacement": round(seconds_per_displacement, 1),
+        "estimated_total_hours": round(total_hours, 1),
+        "max_walltime_hours": max_walltime_hours,
+        "fits_in_walltime": fits_in_walltime,
+        "safety_margin_hours": round(safety_margin, 1),
+        "mpi_ranks": mpi_ranks,
+        "nodes": nodes,
+        "cannot_checkpoint": True,
+        "warning": (
+            "NWChem CANNOT checkpoint numerical frequency calculations. "
+            "If the job exceeds walltime, ALL progress is lost. "
+            "Ensure sufficient walltime and consider multi-node to speed up."
+        ),
+    }
+    if suggested_nodes:
+        result["suggested_nodes"] = suggested_nodes
+        result["suggestion"] = (
+            f"Single-node estimate is {total_hours:.0f}h which exceeds "
+            f"{max_walltime_hours:.0f}h walltime. Use {suggested_nodes} nodes "
+            f"({mpi_ranks * suggested_nodes} total MPI ranks) to fit within walltime."
+        )
+    elif not fits_in_walltime:
+        result["suggestion"] = (
+            f"Estimated {total_hours:.0f}h exceeds {max_walltime_hours:.0f}h walltime. "
+            f"Even with multi-node scaling this may not fit. Consider analytical "
+            f"frequencies (if available) or a smaller basis set."
+        )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Relativistic correction advisor
 # ---------------------------------------------------------------------------
 

@@ -23,7 +23,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
   eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 96 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 98 tools, thin wrappers over chemtools/
     nwchem_docs.py   NWChem documentation lookup server
     # Future: molpro.py, orca.py
 
@@ -36,7 +36,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate}
-- Current tool count: 96
+- Current tool count: 98
 
 ### Tool categories (93 tools)
 

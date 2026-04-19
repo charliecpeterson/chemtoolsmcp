@@ -48,7 +48,7 @@ def inspect_runner_profiles(profiles_path: str | None = None) -> dict[str, Any]:
                 "mpi_launch": (profile.get("execution") or {}).get("mpi_launch"),
                 "resources": {
                     k: v for k, v in (profile.get("resources") or {}).items()
-                    if k in {"nodes", "mpi_ranks", "omp_threads", "walltime", "partition", "account"}
+                    if k in {"nodes", "mpi_ranks", "omp_threads", "walltime", "partition", "account", "node_memory_mb", "max_walltime"}
                 },
             }
             for name, profile in profiles.items()

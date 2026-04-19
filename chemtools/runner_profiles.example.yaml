@@ -29,6 +29,8 @@ profiles:
       omp_threads: 1
       memory: null
       walltime: null
+      node_memory_mb: null        # Total RAM per node (MB) — enables auto memory ceiling
+      max_walltime: null           # Max walltime the queue allows (e.g. "48:00:00")
     env:
       OMP_NUM_THREADS: "{omp_threads}"
     file_rules:
@@ -50,6 +52,8 @@ profiles:
       omp_threads: 1
       memory: null
       walltime: null
+      node_memory_mb: null
+      max_walltime: null
     env:
       OMP_NUM_THREADS: "{omp_threads}"
     file_rules:
@@ -122,6 +126,8 @@ profiles:
       walltime: "24:00:00"
       partition: "compute"
       account: null
+      node_memory_mb: null        # Set to node RAM in MB for auto memory checks
+      max_walltime: null           # Set to max queue walltime
     modules:
       purge_first: true
       load:
@@ -176,6 +182,8 @@ profiles:
       walltime: "24:00:00"
       partition: "skx"
       account: null     # Set to your allocation, e.g. "TG-CHE123456"
+      node_memory_mb: 192000   # SKX nodes: 192 GB RAM
+      max_walltime: "48:00:00"
     modules:
       purge_first: false
       load: []          # Modules already set in .bashrc or not needed
@@ -226,6 +234,8 @@ profiles:
       walltime: "24:00:00"
       partition: "spr"
       account: null
+      node_memory_mb: 128000   # SPR nodes: 128 GB RAM
+      max_walltime: "48:00:00"
     modules:
       purge_first: false
       load: []
