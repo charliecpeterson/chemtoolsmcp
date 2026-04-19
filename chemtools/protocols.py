@@ -80,6 +80,89 @@ PROTOCOLS: dict[str, dict[str, Any]] = {
         "dynamic": True,
         "dynamic_generator": "spin_states",
     },
+    "freq_only": {
+        "description": "Frequency analysis at a previously optimized geometry",
+        "steps": [
+            {"id": "freq", "task": "dft freq", "depends_on": None},
+        ],
+        "method": "dft",
+        "functional": "b3lyp",
+        "post_process": ["check_nwchem_freq_plausibility"],
+        "checks": ["no_imaginary_modes"],
+        "on_imaginary_modes": "displace_and_reopt",
+    },
+    "tce_single_point": {
+        "description": "Correlated single-point energy (CCSD or CCSD(T)) at existing geometry",
+        "steps": [
+            {"id": "scf", "task": "scf energy", "depends_on": None},
+            {"id": "tce", "task": "tce energy", "depends_on": "scf",
+             "auto_input": "reuse_vectors_for_tce"},
+        ],
+        "method": "tce",
+        "tce_method": "ccsd(t)",
+        "post_process": ["parse_nwchem_tce_output"],
+    },
+    "relativistic_dft": {
+        "description": "DFT with scalar relativistic corrections (DKH2 or X2C) for heavy elements",
+        "steps": [
+            {"id": "energy", "task": "dft energy", "depends_on": None},
+        ],
+        "method": "dft",
+        "functional": "b3lyp",
+        "relativistic": "dkh2",
+        "basis_rule": "suggest_basis_set(purpose='energy', relativistic=True)",
+    },
+    "thermochem_opt_freq_reopt": {
+        "description": "Optimize, frequency, check for imaginary modes, re-optimize if needed",
+        "steps": [
+            {"id": "opt", "task": "dft optimize", "depends_on": None},
+            {"id": "freq", "task": "dft freq", "depends_on": "opt",
+             "auto_input": "extract_geometry_and_switch_to_freq"},
+            {"id": "reopt", "task": "dft optimize", "depends_on": "freq",
+             "auto_input": "displace_along_imaginary_mode",
+             "conditional": "has_imaginary_modes"},
+            {"id": "freq2", "task": "dft freq", "depends_on": "reopt",
+             "auto_input": "extract_geometry_and_switch_to_freq",
+             "conditional": "reopt_ran"},
+        ],
+        "method": "dft",
+        "functional": "b3lyp",
+        "post_process": ["check_nwchem_freq_plausibility"],
+        "checks": ["no_imaginary_modes"],
+    },
+    "solvation_comparison": {
+        "description": "Compare gas-phase and COSMO solvation energies",
+        "steps": [
+            {"id": "gas", "task": "dft energy", "depends_on": None},
+            {"id": "solvent", "task": "dft energy", "depends_on": None,
+             "cosmo": True, "cosmo_solvent": "water"},
+        ],
+        "method": "dft",
+        "functional": "b3lyp",
+        "parallel_independent": True,
+    },
+    "vertical_excitation_tddft": {
+        "description": "TDDFT vertical excitation energies at a ground-state geometry",
+        "steps": [
+            {"id": "gs", "task": "dft energy", "depends_on": None},
+            {"id": "tddft", "task": "tddft energy", "depends_on": "gs",
+             "auto_input": "reuse_vectors_for_tddft"},
+        ],
+        "method": "tddft",
+        "functional": "b3lyp",
+        "n_roots": 10,
+    },
+    "reaction_energy": {
+        "description": "Compute reaction energy from reactant and product single points",
+        "steps": [
+            # Steps are generated dynamically from a list of species
+        ],
+        "method": "dft",
+        "functional": "b3lyp",
+        "dynamic": True,
+        "dynamic_generator": "reaction_species",
+        "post_process": ["compute_reaction_energy"],
+    },
 }
 
 
@@ -117,8 +200,13 @@ def plan_calculation(
 
     # Build steps
     steps = proto.get("steps", [])
-    if proto.get("dynamic") and proto.get("dynamic_generator") == "spin_states":
-        steps = _generate_spin_scan_steps(input_file, overrides)
+    if proto.get("dynamic"):
+        gen = proto.get("dynamic_generator")
+        if gen == "spin_states":
+            steps = _generate_spin_scan_steps(input_file, overrides)
+        elif gen == "reaction_species":
+            steps = _generate_reaction_steps(input_file, overrides)
+        # else: keep static steps
 
     plan_steps: list[dict[str, Any]] = []
     for step in steps:
@@ -236,5 +324,25 @@ def _generate_spin_scan_steps(
             "task": "dft optimize",
             "depends_on": None,
             "mult_override": mult,
+        })
+    return steps
+
+
+def _generate_reaction_steps(
+    input_file: str,
+    overrides: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Generate single-point steps for each species in a reaction."""
+    species = overrides.get("species", [])
+    if not species:
+        return [{"id": "species_0", "task": "dft energy", "depends_on": None}]
+    steps = []
+    for i, sp in enumerate(species):
+        label = sp.get("label", f"species_{i}")
+        steps.append({
+            "id": label,
+            "task": "dft energy",
+            "depends_on": None,
+            "species_info": sp,
         })
     return steps
