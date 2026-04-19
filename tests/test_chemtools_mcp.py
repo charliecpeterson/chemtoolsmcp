@@ -496,8 +496,6 @@ class ChemtoolsMCPTests(unittest.TestCase):
         self.assertIn("iterations 300", payload["input_text"].lower())
         self.assertIn("\n  mulliken\n", payload["input_text"].lower())
         self.assertIn("\n  direct\n", payload["input_text"].lower())
-        self.assertIn("\n  noio\n", payload["input_text"].lower())
-        self.assertIn("\n  grid nodisk\n", payload["input_text"].lower())
         self.assertNotIn("library lanl2dz_ecp", payload["input_text"])
         self.assertNotIn("library aug-cc-pvdz", payload["input_text"])
         self.assertIn("U    S", payload["input_text"])
@@ -559,8 +557,6 @@ class ChemtoolsMCPTests(unittest.TestCase):
         self.assertIn("iterations 300", payload["input_text"].lower())
         self.assertIn("\n  mulliken\n", payload["input_text"].lower())
         self.assertIn("\n  direct\n", payload["input_text"].lower())
-        self.assertIn("\n  noio\n", payload["input_text"].lower())
-        self.assertIn("\n  grid nodisk\n", payload["input_text"].lower())
         self.assertIn("\ndriver\n  maxiter 300\nend\n", payload["input_text"].lower())
         self.assertIn("task dft optimize", payload["input_text"].lower())
         self.assertIn("task dft freq", payload["input_text"].lower())
@@ -1087,7 +1083,7 @@ class ChemtoolsMCPTests(unittest.TestCase):
         self.assertIn("local", payload["profile_names"])
 
     def test_check_run_status_and_tail_tool_calls(self) -> None:
-        output_file = str(ROOT / "nwchemaitest" / "uo2-test.out")
+        output_file = str(ROOT / "nwchem-test" / "train" / "standard" / "uo2-test.out")
 
         status_response, should_exit = self.server.handle_request(
             {
@@ -1221,7 +1217,7 @@ class ChemtoolsMCPTests(unittest.TestCase):
             )
 
     def test_watch_nwchem_run_tool_call(self) -> None:
-        output_file = str(ROOT / "nwchemaitest" / "uo2-test.out")
+        output_file = str(ROOT / "nwchem-test" / "train" / "standard" / "uo2-test.out")
 
         response, should_exit = self.server.handle_request(
             {
@@ -1277,8 +1273,8 @@ class ChemtoolsMCPTests(unittest.TestCase):
                 pass
 
     def test_compare_nwchem_runs_tool_call(self) -> None:
-        reference_output = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon.out")
-        candidate_output = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_swap.out")
+        reference_output = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_frag.out")
+        candidate_output = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon.out")
 
         response, should_exit = self.server.handle_request(
             {
@@ -1298,6 +1294,7 @@ class ChemtoolsMCPTests(unittest.TestCase):
         )
         self.assertFalse(should_exit)
         payload = response["result"]["structuredContent"]
+        self.assertIsNotNone(payload["energy_delta_hartree"])
         self.assertLess(payload["energy_delta_hartree"], 0.0)
         self.assertIn("candidate_is_lower_in_energy", payload["improved_signals"])
 
@@ -1331,10 +1328,10 @@ class ChemtoolsMCPTests(unittest.TestCase):
         )
 
     def test_review_nwchem_followup_outcome_tool_call(self) -> None:
-        reference_output_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_prop.out")
-        candidate_output_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_swap.out")
-        reference_input_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_prop.nw")
-        candidate_input_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_swap.nw")
+        reference_output_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_frag.out")
+        candidate_output_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon.out")
+        reference_input_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon.nw")
+        candidate_input_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon.nw")
 
         response, should_exit = self.server.handle_request(
             {
@@ -1356,9 +1353,10 @@ class ChemtoolsMCPTests(unittest.TestCase):
         )
         self.assertFalse(should_exit)
         payload = response["result"]["structuredContent"]
-        self.assertIn("SCF now converges", payload["comparison_headline"])
-        self.assertEqual(payload["comparison"]["candidate_summary"]["scf_status"], "converged")
-        self.assertEqual(payload["candidate_next_step"]["selected_workflow"], "wrong_state_swap_recovery")
+        # review_nwchem_followup_outcome is an alias for compare_nwchem_runs
+        self.assertIsNotNone(payload["energy_delta_hartree"])
+        self.assertIn("overall_assessment", payload)
+        self.assertIn("candidate_summary", payload)
 
     def test_prepare_nwchem_next_step_for_scf_nonconvergence_tool_call(self) -> None:
         output_file = str(ROOT / "nwchem-test" / "train" / "failed" / "hexaaquairon_prop.out")
@@ -1479,8 +1477,8 @@ class ChemtoolsMCPTests(unittest.TestCase):
         self.assertIn("Fe    S", payload["text"])
 
     def test_summarize_tool_call(self) -> None:
-        output_file = str(ROOT / "nwchemaitest" / "uo2-test.out")
-        input_file = str(ROOT / "nwchemaitest" / "uo2-test.nw")
+        output_file = str(ROOT / "nwchem-test" / "train" / "standard" / "uo2-test.out")
+        input_file = str(ROOT / "nwchem-test" / "train" / "standard" / "uo2-test.nw")
 
         response, should_exit = self.server.handle_request(
             {

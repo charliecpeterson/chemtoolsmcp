@@ -4314,7 +4314,7 @@ _TOOL_ALIASES: dict[str, tuple[str, Any]] = {
     "suggest_nwchem_state_recovery_strategy": ("suggest_nwchem_recovery", _state_recovery_args),
     "prepare_nwchem_run": ("launch_nwchem_run", _identity),
     "render_nwchem_basis_from_input": ("render_nwchem_basis_block", _identity),
-    "summarize_cube_file": ("parse_cube_file", _identity),
+    "summarize_cube_file": ("parse_cube_file", lambda args: {**args, "summarize": True}),
     "resolve_nwchem_ecp": ("render_nwchem_ecp_block", _identity),
     "render_nwchem_ecp_from_elements": ("render_nwchem_ecp_block", _identity),
     "resolve_nwchem_basis_setup": ("render_nwchem_basis_setup", _identity),
