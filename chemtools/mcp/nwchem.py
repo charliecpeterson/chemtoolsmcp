@@ -98,6 +98,16 @@ from chemtools import (  # noqa: E402
     init_session_log,
     append_session_log,
     next_versioned_path,
+    register_run,
+    update_run_status,
+    list_runs,
+    get_run_summary,
+    create_campaign,
+    get_campaign_status,
+    get_campaign_energies,
+    create_workflow,
+    advance_workflow,
+    generate_input_batch,
 )
 
 
@@ -2040,6 +2050,219 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # --- Phase 3: Campaign / scale management ---
+        {
+            "name": "register_nwchem_run",
+            "description": (
+                "Register a new run in the persistent run registry. "
+                "Call this when submitting a job to track it across sessions. "
+                "Returns a run_id for later updates. Optionally link to a campaign or workflow."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "job_name": {"type": "string", "description": "Job name (e.g. 'mol_opt')."},
+                    "input_file": {"type": "string"},
+                    "output_file": {"type": "string"},
+                    "profile": {"type": "string", "description": "Runner profile name."},
+                    "method": {"type": "string", "description": "E.g. 'DFT', 'CCSD(T)'."},
+                    "functional": {"type": "string"},
+                    "basis": {"type": "string"},
+                    "n_atoms": {"type": "integer"},
+                    "elements": {"type": "array", "items": {"type": "string"}},
+                    "charge": {"type": "integer"},
+                    "multiplicity": {"type": "integer"},
+                    "mpi_ranks": {"type": "integer"},
+                    "campaign_id": {"type": "integer", "description": "Link to a campaign."},
+                    "workflow_id": {"type": "integer", "description": "Link to a workflow."},
+                    "workflow_step_id": {"type": "string", "description": "Step ID within a workflow."},
+                    "parent_run_id": {"type": "integer", "description": "Previous run in a restart chain."},
+                    "tags": {"type": "object", "description": "Arbitrary metadata."},
+                },
+                "required": ["job_name"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "update_nwchem_run_status",
+            "description": (
+                "Update a registered run's status and optionally its results "
+                "(energy, H, G, imaginary modes, walltime). "
+                "Call after a job completes, fails, or is cancelled."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer", "description": "The run_id from register_nwchem_run."},
+                    "status": {"type": "string", "enum": ["submitted", "running", "completed", "failed", "timelimited", "oom", "cancelled"]},
+                    "energy_hartree": {"type": "number"},
+                    "h_hartree": {"type": "number", "description": "Enthalpy H(T) in Hartree."},
+                    "g_hartree": {"type": "number", "description": "Gibbs G(T) in Hartree."},
+                    "imaginary_modes": {"type": "integer"},
+                    "walltime_used_sec": {"type": "number"},
+                    "sec_per_gradient": {"type": "number"},
+                    "output_file": {"type": "string"},
+                },
+                "required": ["run_id", "status"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "list_nwchem_runs",
+            "description": (
+                "List registered runs, optionally filtered by campaign, workflow, status, or method. "
+                "Returns the most recent runs first."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {"type": "integer"},
+                    "workflow_id": {"type": "integer"},
+                    "status": {"type": "string"},
+                    "method": {"type": "string"},
+                    "limit": {"type": "integer", "description": "Max results (default 50)."},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_nwchem_run_summary",
+            "description": (
+                "Get detailed info for a single registered run, including its restart chain. "
+                "Look up by run_id or job_name."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer"},
+                    "job_name": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "create_nwchem_campaign",
+            "description": (
+                "Create a campaign to group related runs (e.g. a ligand screen, "
+                "basis set convergence study, or conformer scan). "
+                "Returns a campaign_id to pass when registering runs."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Unique campaign name."},
+                    "description": {"type": "string"},
+                    "tags": {"type": "object"},
+                },
+                "required": ["name"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_nwchem_campaign_status",
+            "description": (
+                "Get aggregate status for a campaign: total/completed/running/failed counts, "
+                "completion percentage, and estimated remaining time."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {"type": "integer"},
+                    "name": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_nwchem_campaign_energies",
+            "description": (
+                "Get an energy table for all completed runs in a campaign, "
+                "sorted by energy with relative energies in kcal/mol. "
+                "Includes H(T) and G(T) if available."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {"type": "integer"},
+                    "name": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "create_nwchem_workflow",
+            "description": (
+                "Create a workflow DAG with step dependencies. Each step can depend on "
+                "a previous step. Use advance_nwchem_workflow to check which steps are "
+                "ready to launch. Steps: [{id, depends_on, input_file, profile, auto_input}]."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Workflow name."},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "depends_on": {"type": "string"},
+                                "input_file": {"type": "string"},
+                                "profile": {"type": "string"},
+                                "auto_input": {"type": "object"},
+                            },
+                            "required": ["id"],
+                        },
+                        "description": "Workflow steps with dependencies.",
+                    },
+                    "protocol": {"type": "string"},
+                    "campaign_id": {"type": "integer"},
+                },
+                "required": ["name", "steps"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "advance_nwchem_workflow",
+            "description": (
+                "Check a workflow's progress and return which steps are ready to launch. "
+                "Does not launch jobs — the caller decides. Returns the workflow state, "
+                "completed/running/failed steps, and a list of unblocked steps."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workflow_id": {"type": "integer", "description": "The workflow ID."},
+                },
+                "required": ["workflow_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "generate_nwchem_input_batch",
+            "description": (
+                "Generate multiple NWChem inputs by varying parameters from a template. "
+                "Supports scanning over charge, multiplicity, task, memory, or any block.keyword "
+                "(e.g. dft.xc for functionals). Generates all combinations (Cartesian product). "
+                "Optionally registers all generated inputs in a campaign."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "template_input": {"type": "string", "description": "Path to the base .nw file."},
+                    "vary": {
+                        "type": "object",
+                        "additionalProperties": {"type": "array"},
+                        "description": "Parameters to vary. Keys are param names, values are lists. E.g. {'charge': [0,1,2], 'mult': [1,3,5]}.",
+                    },
+                    "output_dir": {"type": "string", "description": "Directory to write generated inputs."},
+                    "naming_pattern": {"type": "string", "description": "Filename pattern. Placeholders: {stem}, {idx}, plus vary keys. Default: {stem}_{key}_{value}"},
+                    "campaign_id": {"type": "integer", "description": "Register generated inputs in this campaign."},
+                },
+                "required": ["template_input", "vary", "output_dir"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -3487,6 +3710,123 @@ def _handle_create_nwchem_input_variant(arguments: dict[str, Any]) -> dict[str, 
     )
     result.pop("input_text", None)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Handlers — run registry, campaigns, workflows, batch generation
+# ---------------------------------------------------------------------------
+
+@_tool("register_nwchem_run")
+def _handle_register_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    return register_run(
+        job_name=arguments["job_name"],
+        input_file=arguments.get("input_file"),
+        output_file=arguments.get("output_file"),
+        profile=arguments.get("profile"),
+        method=arguments.get("method"),
+        functional=arguments.get("functional"),
+        basis=arguments.get("basis"),
+        n_atoms=arguments.get("n_atoms"),
+        elements=arguments.get("elements"),
+        charge=arguments.get("charge"),
+        multiplicity=arguments.get("multiplicity"),
+        mpi_ranks=arguments.get("mpi_ranks"),
+        campaign_id=arguments.get("campaign_id"),
+        workflow_id=arguments.get("workflow_id"),
+        workflow_step_id=arguments.get("workflow_step_id"),
+        parent_run_id=arguments.get("parent_run_id"),
+        tags=arguments.get("tags"),
+    )
+
+
+@_tool("update_nwchem_run_status")
+def _handle_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    return update_run_status(
+        run_id=arguments["run_id"],
+        status=arguments["status"],
+        energy_hartree=arguments.get("energy_hartree"),
+        h_hartree=arguments.get("h_hartree"),
+        g_hartree=arguments.get("g_hartree"),
+        imaginary_modes=arguments.get("imaginary_modes"),
+        walltime_used_sec=arguments.get("walltime_used_sec"),
+        sec_per_gradient=arguments.get("sec_per_gradient"),
+        output_file=arguments.get("output_file"),
+    )
+
+
+@_tool("list_nwchem_runs")
+def _handle_list_runs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {"runs": list_runs(
+        campaign_id=arguments.get("campaign_id"),
+        workflow_id=arguments.get("workflow_id"),
+        status=arguments.get("status"),
+        method=arguments.get("method"),
+        limit=arguments.get("limit", 50),
+    )}
+
+
+@_tool("get_nwchem_run_summary")
+def _handle_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
+    return get_run_summary(
+        run_id=arguments.get("run_id"),
+        job_name=arguments.get("job_name"),
+    )
+
+
+@_tool("create_nwchem_campaign")
+def _handle_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
+    return create_campaign(
+        name=arguments["name"],
+        description=arguments.get("description"),
+        tags=arguments.get("tags"),
+    )
+
+
+@_tool("get_nwchem_campaign_status")
+def _handle_get_campaign_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    return get_campaign_status(
+        campaign_id=arguments.get("campaign_id"),
+        name=arguments.get("name"),
+    )
+
+
+@_tool("get_nwchem_campaign_energies")
+def _handle_get_campaign_energies(arguments: dict[str, Any]) -> dict[str, Any]:
+    return get_campaign_energies(
+        campaign_id=arguments.get("campaign_id"),
+        name=arguments.get("name"),
+    )
+
+
+@_tool("create_nwchem_workflow")
+def _handle_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    return create_workflow(
+        name=arguments["name"],
+        steps=arguments["steps"],
+        protocol=arguments.get("protocol"),
+        campaign_id=arguments.get("campaign_id"),
+    )
+
+
+@_tool("advance_nwchem_workflow")
+def _handle_advance_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    return advance_workflow(
+        workflow_id=arguments["workflow_id"],
+    )
+
+
+@_tool("generate_nwchem_input_batch")
+def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
+    kwargs: dict[str, Any] = dict(
+        template_input=arguments["template_input"],
+        vary=arguments["vary"],
+        output_dir=arguments["output_dir"],
+    )
+    if arguments.get("naming_pattern"):
+        kwargs["naming_pattern"] = arguments["naming_pattern"]
+    if arguments.get("campaign_id") is not None:
+        kwargs["campaign_id"] = arguments["campaign_id"]
+    return generate_input_batch(**kwargs)
 
 
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:

@@ -97,6 +97,18 @@ from .api import (
     swap_nwchem_movecs,
     tail_nwchem_output,
 )
+from .registry import (
+    register_run,
+    update_run_status,
+    list_runs,
+    get_run_summary,
+    create_campaign,
+    get_campaign_status,
+    get_campaign_energies,
+    create_workflow,
+    advance_workflow,
+    generate_input_batch,
+)
 from .eval import evaluate_case, evaluate_cases
 
 __all__ = [
@@ -197,6 +209,16 @@ __all__ = [
     "summarize_output",
     "swap_nwchem_movecs",
     "tail_nwchem_output",
+    "register_run",
+    "update_run_status",
+    "list_runs",
+    "get_run_summary",
+    "create_campaign",
+    "get_campaign_status",
+    "get_campaign_energies",
+    "create_workflow",
+    "advance_workflow",
+    "generate_input_batch",
     "evaluate_case",
     "evaluate_cases",
 ]

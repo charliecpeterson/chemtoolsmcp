@@ -323,8 +323,8 @@ print("\n=== P2-6. MCP tool count ===")
 from chemtools.mcp import nwchem as mcp_nwchem
 
 tool_count = len(mcp_nwchem.tool_definitions())
-report(f"tool count is 75 (was 72)", tool_count,
-       lambda c: assert_(c == 75, f"tool_count={c}"))
+report(f"tool count is 85 (was 75)", tool_count,
+       lambda c: assert_(c == 85, f"tool_count={c}"))
 
 # Verify new tools exist
 tool_names = {t["name"] for t in mcp_nwchem.tool_definitions()}
