@@ -4279,9 +4279,29 @@ def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
     return generate_input_batch(**kwargs)
 
 
+# Backward-compat aliases: old tool names → current tool names.
+# These are NOT in tool_definitions() so models see only the current names.
+_TOOL_ALIASES: dict[str, str] = {
+    "diagnose_nwchem_output": "analyze_nwchem_case",
+    "summarize_nwchem_case": "analyze_nwchem_case",
+    "review_nwchem_case": "analyze_nwchem_case",
+    "check_nwchem_run_status": "get_nwchem_run_status",
+    "review_nwchem_followup_outcome": "compare_nwchem_runs",
+    "suggest_nwchem_scf_fix_strategy": "suggest_nwchem_recovery",
+    "suggest_nwchem_state_recovery_strategy": "suggest_nwchem_recovery",
+    "prepare_nwchem_run": "launch_nwchem_run",
+    "render_nwchem_basis_from_input": "render_nwchem_basis_block",
+    "summarize_cube_file": "parse_cube_file",
+    "resolve_nwchem_ecp": "render_nwchem_ecp_block",
+    "render_nwchem_ecp_from_elements": "render_nwchem_ecp_block",
+    "resolve_nwchem_basis_setup": "render_nwchem_basis_setup",
+}
+
+
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     log_event(f"dispatch_tool start name={name}")
-    handler = _TOOL_REGISTRY.get(name)
+    resolved = _TOOL_ALIASES.get(name, name)
+    handler = _TOOL_REGISTRY.get(resolved)
     if handler is None:
         raise ValueError(f"unknown tool: {name}")
     payload = handler(arguments)
