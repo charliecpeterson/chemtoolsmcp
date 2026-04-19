@@ -940,6 +940,18 @@ def tool_definitions() -> list[dict[str, Any]]:
                             "Set false to return immediately after submission."
                         ),
                     },
+                    "auto_register": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": (
+                            "When true (default), auto-registers the run in the SQLite registry. "
+                            "If auto_watch is also true, auto-updates status on completion."
+                        ),
+                    },
+                    "campaign_id": {"type": "integer", "description": "Link this run to a campaign (requires auto_register)."},
+                    "workflow_id": {"type": "integer", "description": "Link this run to a workflow."},
+                    "workflow_step_id": {"type": "string", "description": "Workflow step ID."},
+                    "parent_run_id": {"type": "integer", "description": "Previous run in a restart chain."},
                 },
                 "required": ["input_file", "profile"],
                 "additionalProperties": False,
@@ -2860,6 +2872,7 @@ def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     dry_run = arguments.get("dry_run", False)
     auto_watch = arguments.get("auto_watch", True)
+    auto_register = arguments.get("auto_register", True)
     result = launch_nwchem_run(
         input_path=arguments["input_file"],
         profile=arguments["profile"],
@@ -2870,6 +2883,24 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
         write_script=arguments.get("write_script", True),
         dry_run=dry_run,
     )
+    # Auto-register in the run registry
+    if not dry_run and auto_register:
+        try:
+            reg = register_run(
+                job_name=result.get("job_name", arguments.get("job_name", "")),
+                input_file=arguments["input_file"],
+                output_file=result.get("output_file"),
+                profile=arguments["profile"],
+                campaign_id=arguments.get("campaign_id"),
+                workflow_id=arguments.get("workflow_id"),
+                workflow_step_id=arguments.get("workflow_step_id"),
+                parent_run_id=arguments.get("parent_run_id"),
+                mpi_ranks=arguments.get("resource_overrides", {}).get("mpi_ranks") if arguments.get("resource_overrides") else None,
+            )
+            result["registry"] = reg
+        except Exception as exc:
+            result["registry_error"] = str(exc)
+
     # For scheduler jobs: automatically watch until terminal unless opted out
     if (
         not dry_run
@@ -2893,6 +2924,32 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
             timeout_seconds=None,   # no timeout — let the scheduler walltime govern
         )
         result["watch"] = watch_result
+
+        # Auto-update registry with final status
+        if auto_register and result.get("registry", {}).get("run_id"):
+            try:
+                run_id = result["registry"]["run_id"]
+                overall = watch_result.get("overall_status", "")
+                status_map = {
+                    "completed": "completed",
+                    "failed": "failed",
+                    "error": "failed",
+                    "timelimit": "timelimited",
+                    "cancelled": "cancelled",
+                }
+                reg_status = status_map.get(overall, overall)
+                if reg_status:
+                    update_kwargs: dict[str, Any] = {"run_id": run_id, "status": reg_status}
+                    # Extract energy from watch result if available
+                    prog = watch_result.get("progress_summary", {})
+                    tasks = prog.get("tasks", []) if prog else []
+                    if tasks:
+                        last_task = tasks[-1]
+                        if last_task.get("energy") is not None:
+                            update_kwargs["energy_hartree"] = last_task["energy"]
+                    update_run_status(**update_kwargs)
+            except Exception:
+                pass  # best-effort
     return result
 
 

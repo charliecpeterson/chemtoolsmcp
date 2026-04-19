@@ -19,12 +19,15 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   nwchem_input.py    Input file parsing utilities
   diagnostics.py     High-level diagnosis functions
   data/nwchem/       Bundled NWChem data (basis library — 608 files)
+  registry.py       SQLite-backed run registry, campaigns, workflows, batch generation
+  protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
+  eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 64 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 93 tools, thin wrappers over chemtools/
     nwchem_docs.py   NWChem documentation lookup server
     # Future: molpro.py, orca.py
 
-tests/               Test suite
+test_phase1/         Test suite (Phases 2–5, 213 tests)
 ```
 
 ## MCP Tool Architecture
@@ -32,8 +35,24 @@ tests/               Test suite
 - Domain logic lives in `chemtools/*.py`
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
-- Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap}
-- Current tool count: 64
+- Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate}
+- Current tool count: 93
+
+### Tool categories (93 tools)
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| Input drafting | 16 | `create_nwchem_input`, `draft_nwchem_tce_input`, `draft_nwchem_mcscf_input` |
+| Output parsing | 14 | `parse_nwchem_output`, `parse_nwchem_tce_output`, `parse_nwchem_thermochem` |
+| Analysis & diagnosis | 10 | `analyze_nwchem_case`, `check_nwchem_spin_charge_state`, `summarize_nwchem_output` |
+| Strategy & suggestions | 10 | `suggest_basis_set`, `suggest_nwchem_recovery`, `suggest_spin_state` |
+| Basis & ECP | 4 | `render_nwchem_basis_setup`, `basis_library_summary` |
+| Job management | 8 | `launch_nwchem_run`, `watch_nwchem_run`, `watch_multiple_runs` |
+| Registry & campaigns | 10 | `register_nwchem_run`, `create_nwchem_campaign`, `advance_nwchem_workflow` |
+| Workflow & protocols | 6 | `plan_nwchem_calculation`, `get_nwchem_workflow_state`, `prepare_nwchem_next_step` |
+| Geometry | 5 | `extract_nwchem_geometry`, `inspect_nwchem_geometry`, `displace_nwchem_geometry_along_mode` |
+| Session & versioning | 4 | `init_session_log`, `append_session_log`, `next_versioned_path` |
+| TCE (correlated methods) | 6 | `parse_nwchem_movecs`, `swap_nwchem_movecs`, `validate_nwchem_tce_setup` |
 
 ## How to Add a New Tool
 
@@ -64,6 +83,10 @@ Common patterns:
 - **Never overwrite input files** — always call `next_versioned_path` before writing a modified `.nw` file; the first version stays as-is and revisions become `_v2.nw`, `_v3.nw`, etc.
 - **Always start a session log** — call `init_session_log` at the beginning of any multi-step workflow; append entries with `append_session_log` after each action, decision, or error; write a `summary` entry at the end
 - **Parallel job monitoring** — submit jobs with `auto_watch=false`, then call `watch_multiple_runs` (not `watch_nwchem_run` in a loop) to block until all finish simultaneously
+- **Register runs in the registry** — call `register_nwchem_run` when submitting jobs, `update_nwchem_run_status` after completion; this enables campaign tracking and energy tables across sessions
+- **Use campaigns for related runs** — create a campaign first (`create_nwchem_campaign`), then link runs via `campaign_id`; use `get_nwchem_campaign_energies` for sorted energy tables with relative energies in kcal/mol
+- **Workflow DAGs for multi-step protocols** — use `create_nwchem_workflow` for dependent steps (opt→freq), then `advance_nwchem_workflow` to find ready-to-launch steps
+- **Registry is SQLite at `~/.chemtools/registry.db`** — uses stdlib `sqlite3`, no external dependency; override with `CHEMTOOLS_REGISTRY_DB` env var for testing
 
 ## Runner Profiles
 
@@ -191,6 +214,37 @@ launch_nwchem_run(auto_watch=false)                 → submit all jobs first
 watch_multiple_runs(jobs=[...])                     → block until all done
 # Analyze each result
 append_session_log(entry_type="summary", ...)       → final summary
+```
+
+### Agent workflow for campaigns (e.g. ligand screen)
+
+```
+init_session_log(...)                               → start running doc
+create_nwchem_campaign(name="ligand_screen")         → get campaign_id
+generate_nwchem_input_batch(template, vary={...})    → create all inputs
+# For each generated input:
+register_nwchem_run(campaign_id=..., ...)            → track in registry
+lint_nwchem_input                                    → validate
+launch_nwchem_run(auto_watch=false)                  → submit
+# After all submitted:
+watch_multiple_runs(jobs=[...])                      → block until done
+# After completion:
+update_nwchem_run_status(run_id=..., status=..., energy_hartree=...) → record results
+get_nwchem_campaign_energies(campaign_id=...)         → sorted energy table
+append_session_log(entry_type="summary", ...)         → final summary
+```
+
+### Agent workflow for multi-step protocols (e.g. opt→freq)
+
+```
+init_session_log(...)                               → start running doc
+plan_nwchem_calculation(protocol="thermochem_dft")   → get step plan
+create_nwchem_workflow(steps=[...])                  → create DAG
+advance_nwchem_workflow(workflow_id=...)              → find ready steps
+# Launch ready step, wait, update status
+advance_nwchem_workflow(workflow_id=...)              → next ready steps
+# Repeat until workflow is done
+append_session_log(entry_type="summary", ...)         → final summary
 ```
 
 ## Development Environment
