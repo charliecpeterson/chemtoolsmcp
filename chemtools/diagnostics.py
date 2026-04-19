@@ -1204,3 +1204,401 @@ def _last_task_kind(tasks_payload: dict[str, Any]) -> str | None:
     if not generic_tasks:
         return None
     return generic_tasks[-1]["kind"]
+
+
+# -------------------------------------------------------------------
+# Electronic structure summary
+# -------------------------------------------------------------------
+
+_HARTREE_TO_EV = 27.211386245988
+
+# Transition metals and actinides/lanthanides for metal-center detection
+_METALS_FOR_SUMMARY = {
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy",
+    "Ho", "Er", "Tm", "Yb", "Lu",
+    "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf",
+    "Es", "Fm", "Md", "No", "Lr",
+}
+
+
+def summarize_electronic_structure(
+    output_path: str,
+    input_path: str | None = None,
+) -> dict[str, Any]:
+    """Produce a compact electronic structure summary from an NWChem output.
+
+    Combines:
+    - HOMO-LUMO gap and frontier orbital character (from MO analysis)
+    - Mulliken charges on metal centers and key atoms
+    - Spin density distribution (for open-shell systems)
+    - SOMO count and character
+
+    Returns a compact dict suitable for quick assessment of whether the
+    electronic state is physically reasonable.
+    """
+    contents = read_text(output_path)
+
+    # --- MO analysis ---
+    mos_data = nwchem.parse_mos(output_path, contents, top_n=5)
+    homo = mos_data.get("homo")
+    lumo = mos_data.get("lumo")
+    gap_hartree = mos_data.get("homo_lumo_gap_hartree")
+    gap_ev = gap_hartree * _HARTREE_TO_EV if gap_hartree is not None else None
+    somo_count = mos_data.get("somo_count", 0)
+    somos = mos_data.get("somos", [])
+
+    # Classify frontier orbital character
+    def _classify_orbital(orb: dict[str, Any] | None) -> dict[str, Any] | None:
+        if orb is None:
+            return None
+        top_atoms = orb.get("top_atom_contributions", [])
+        dominant = top_atoms[0] if top_atoms else {}
+        shells = {s["ao_shell"]: s.get("fraction_of_visible", 0)
+                  for s in (orb.get("ao_shell_contributions") or [])}
+        return {
+            "vector_number": orb.get("vector_number"),
+            "energy_hartree": orb.get("energy_hartree"),
+            "energy_ev": (orb["energy_hartree"] * _HARTREE_TO_EV
+                          if orb.get("energy_hartree") is not None else None),
+            "spin": orb.get("spin"),
+            "dominant_character": orb.get("dominant_character"),
+            "dominant_atom": dominant.get("element"),
+            "dominant_atom_index": dominant.get("atom_index"),
+            "shell_breakdown": shells,
+        }
+
+    # --- Population analysis ---
+    pop_data = nwchem.parse_population_analysis(output_path, contents)
+    mulliken = pop_data.get("methods", {}).get("mulliken", {})
+
+    # Extract charges
+    charges_info: list[dict[str, Any]] = []
+    total_pop = mulliken.get("latest_total") or {}
+    all_atoms_charge = total_pop.get("atoms", [])
+
+    # Extract spin density
+    spin_info: list[dict[str, Any]] = []
+    spin_pop = mulliken.get("latest_spin") or {}
+    all_atoms_spin = spin_pop.get("atoms", [])
+    total_spin_density = spin_pop.get("population_sum")
+
+    # Build per-atom charge + spin map
+    atom_data: dict[int, dict[str, Any]] = {}
+    for atom in all_atoms_charge:
+        idx = atom.get("atom_index", 0)
+        atom_data[idx] = {
+            "atom_index": idx,
+            "element": atom.get("element", "?"),
+            "mulliken_charge": atom.get("net_atomic_charge"),
+        }
+    for atom in all_atoms_spin:
+        idx = atom.get("atom_index", 0)
+        if idx in atom_data:
+            atom_data[idx]["mulliken_spin_density"] = atom.get("population")
+        else:
+            atom_data[idx] = {
+                "atom_index": idx,
+                "element": atom.get("element", "?"),
+                "mulliken_charge": None,
+                "mulliken_spin_density": atom.get("population"),
+            }
+
+    # Identify metal centers
+    metal_centers: list[dict[str, Any]] = []
+    for idx, data in sorted(atom_data.items()):
+        elem = data.get("element", "")
+        if elem in _METALS_FOR_SUMMARY:
+            spin_dens = data.get("mulliken_spin_density")
+            metal_centers.append({
+                "atom": f"{elem}({idx})",
+                "element": elem,
+                "atom_index": idx,
+                "mulliken_charge": data.get("mulliken_charge"),
+                "mulliken_spin_density": spin_dens,
+            })
+
+    # Largest charge sites (non-metal)
+    sorted_by_charge = sorted(
+        [a for a in atom_data.values() if a.get("mulliken_charge") is not None],
+        key=lambda a: abs(a.get("mulliken_charge", 0)),
+        reverse=True,
+    )
+    # Take top 5 non-metal charge sites
+    top_charge_sites = [
+        {"atom": f"{a['element']}({a['atom_index']})",
+         "mulliken_charge": round(a["mulliken_charge"], 3)}
+        for a in sorted_by_charge[:8]
+        if a["element"] not in _METALS_FOR_SUMMARY
+    ][:5]
+
+    # Largest spin density sites
+    sorted_by_spin = sorted(
+        [a for a in atom_data.values()
+         if a.get("mulliken_spin_density") is not None
+         and abs(a.get("mulliken_spin_density", 0)) > 0.05],
+        key=lambda a: abs(a.get("mulliken_spin_density", 0)),
+        reverse=True,
+    )
+    top_spin_sites = [
+        {"atom": f"{a['element']}({a['atom_index']})",
+         "spin_density": round(a["mulliken_spin_density"], 3)}
+        for a in sorted_by_spin[:8]
+    ]
+
+    # --- SCF energy ---
+    scf_data = parse_scf(output_path)
+    total_energy = scf_data.get("total_energy_hartree")
+
+    # --- Multiplicity from input ---
+    multiplicity: int | None = None
+    charge: int | None = None
+    if input_path:
+        try:
+            inp = inspect_nwchem_input(input_path, read_text(input_path))
+            multiplicity = inp.get("multiplicity")
+            charge = inp.get("charge")
+        except Exception:
+            pass
+    if multiplicity is None:
+        # Try from output
+        spin_mult_match = re.search(r"Spin multiplicity:\s*(\d+)", contents)
+        if spin_mult_match:
+            multiplicity = int(spin_mult_match.group(1))
+        else:
+            mult_match = re.search(r"open shells\s*:\s*(\d+)", contents)
+            if mult_match:
+                multiplicity = int(mult_match.group(1)) + 1
+            else:
+                nopen_match = re.search(r"nopen\s*=\s*(\d+)", contents)
+                if nopen_match:
+                    multiplicity = int(nopen_match.group(1)) + 1
+    if charge is None:
+        # NWChem prints "charge +1" or "charge -2" in the input echo
+        charge_match = re.search(r"^\s*charge\s+([+-]?\d+)", contents, re.MULTILINE)
+        if charge_match:
+            charge = int(charge_match.group(1))
+
+    # --- Spin consistency check ---
+    expected_unpaired: int | None = None
+    spin_consistent: bool | None = None
+    if multiplicity is not None:
+        expected_unpaired = multiplicity - 1
+        if total_spin_density is not None:
+            spin_consistent = abs(total_spin_density - expected_unpaired) < 0.5
+
+    # --- Warnings ---
+    warnings: list[str] = []
+    if gap_ev is not None and gap_ev < 0.5:
+        warnings.append(
+            f"Very small HOMO-LUMO gap ({gap_ev:.3f} eV) — "
+            "possible near-degeneracy or wrong electronic state."
+        )
+    if spin_consistent is False and total_spin_density is not None and expected_unpaired is not None:
+        warnings.append(
+            f"Spin density sum ({total_spin_density:.2f}) does not match "
+            f"expected unpaired electrons ({expected_unpaired}) for multiplicity {multiplicity}."
+        )
+    if somo_count > 0 and multiplicity is not None:
+        if somo_count != (multiplicity - 1):
+            warnings.append(
+                f"SOMO count ({somo_count}) differs from expected "
+                f"({multiplicity - 1}) for multiplicity {multiplicity}."
+            )
+
+    # Metal-specific checks
+    for mc in metal_centers:
+        spin_d = mc.get("mulliken_spin_density")
+        if spin_d is not None and expected_unpaired is not None:
+            # If metal has way more spin than expected total, flag it
+            if abs(spin_d) > expected_unpaired + 0.5:
+                warnings.append(
+                    f"{mc['atom']}: spin density ({spin_d:.2f}) exceeds total "
+                    f"expected unpaired ({expected_unpaired})."
+                )
+
+    return {
+        "total_energy_hartree": total_energy,
+        "charge": charge,
+        "multiplicity": multiplicity,
+        "homo_lumo_gap_hartree": gap_hartree,
+        "homo_lumo_gap_ev": round(gap_ev, 4) if gap_ev is not None else None,
+        "homo": _classify_orbital(homo),
+        "lumo": _classify_orbital(lumo),
+        "somo_count": somo_count,
+        "somos": [_classify_orbital(s) for s in somos[:5]],
+        "metal_centers": metal_centers,
+        "top_charge_sites": top_charge_sites,
+        "total_spin_density": (round(total_spin_density, 3)
+                               if total_spin_density is not None else None),
+        "expected_unpaired_electrons": expected_unpaired,
+        "spin_state_consistent": spin_consistent,
+        "top_spin_density_sites": top_spin_sites,
+        "warnings": warnings,
+    }
+
+
+# -------------------------------------------------------------------
+# Spin-state tracking across optimization
+# -------------------------------------------------------------------
+
+_S2_RE = re.compile(r"<S2>\s*=\s*([\d.]+)\s*\(Exact\s*=\s*([\d.]+)\)")
+_OPT_ENERGY_RE = re.compile(r"Total\s+(?:DFT|SCF)\s+energy\s*=\s*([-\d.DEde+]+)")
+
+
+def track_spin_state_across_optimization(
+    output_path: str,
+) -> dict[str, Any]:
+    """Track <S²> and energy across optimization steps to detect spin flips.
+
+    Parses per-step DFT/SCF energies and <S²> values from an optimization
+    output. Detects discontinuities that suggest the electronic state changed
+    during optimization (spin flip, state crossing, broken-symmetry collapse).
+
+    Returns
+    -------
+    dict with:
+      n_steps           number of optimization steps parsed
+      steps             per-step data: energy, <S²>, delta_E
+      s2_exact          expected <S²> value
+      flip_detected     bool — True if a likely spin flip was found
+      flip_steps        list of step indices where flips were detected
+      energy_jumps      list of step indices with anomalously large ΔE
+      recommendation    text advice if issues found
+      warnings          list of concerns
+    """
+    contents = read_text(output_path)
+    warnings: list[str] = []
+
+    # Parse trajectory for per-step energies
+    traj = nwchem.parse_trajectory(output_path, contents, include_positions=False)
+    frames = traj.get("frames", [])
+
+    # Parse all <S²> values with their line positions
+    s2_values: list[tuple[int, float, float]] = []  # (line_no, computed, exact)
+    # Track opt step summary lines "@    N  energy ..." as step boundaries
+    step_summary_lines: list[int] = []  # line numbers of "@    N ..." data lines
+    _step_summary_re = re.compile(r"^@\s+\d+\s+[-\d.]")
+
+    for line_no, line in enumerate(contents.splitlines()):
+        s2_match = _S2_RE.search(line)
+        if s2_match:
+            s2_values.append((
+                line_no,
+                float(s2_match.group(1)),
+                float(s2_match.group(2)),
+            ))
+        if _step_summary_re.match(line):
+            step_summary_lines.append(line_no)
+
+    s2_exact = s2_values[0][2] if s2_values else None
+
+    # NWChem prints <S²> per SCF convergence. During optimization, each step
+    # involves energy + gradient SCF convergences, each printing <S²>.
+    # The step summary line (@    N ...) appears AFTER the step's work.
+    # So for step i, the relevant <S²> values are between summary[i-1] and summary[i]
+    # (or between 0 and summary[0] for step 0).
+    def _last_s2_in_range(start: int, end: int) -> float | None:
+        result = None
+        for line_no, s2_val, _ in s2_values:
+            if start <= line_no < end:
+                result = s2_val
+        return result
+
+    n_lines = len(contents.splitlines())
+    step_data: list[dict[str, Any]] = []
+    for i, frame in enumerate(frames):
+        e = frame.get("energy_hartree")
+        delta_e = frame.get("delta_e_hartree")
+
+        # Determine line range for this step
+        if step_summary_lines and i < len(step_summary_lines):
+            range_end = step_summary_lines[i]
+            range_start = step_summary_lines[i - 1] if i > 0 else 0
+        elif step_summary_lines:
+            range_start = step_summary_lines[-1]
+            range_end = n_lines
+        else:
+            range_start = 0
+            range_end = n_lines
+
+        s2_computed = _last_s2_in_range(range_start, range_end)
+
+        step_data.append({
+            "step": frame["step"],
+            "energy_hartree": e,
+            "delta_e_hartree": delta_e,
+            "s2_computed": round(s2_computed, 4) if s2_computed is not None else None,
+        })
+
+    # Detect spin flips: large discontinuities in <S²>
+    flip_steps: list[int] = []
+    energy_jumps: list[int] = []
+    s2_threshold = 0.5  # >0.5 change in <S²> suggests a spin flip
+
+    for i in range(1, len(step_data)):
+        s2_prev = step_data[i - 1].get("s2_computed")
+        s2_curr = step_data[i].get("s2_computed")
+        if s2_prev is not None and s2_curr is not None:
+            if abs(s2_curr - s2_prev) > s2_threshold:
+                flip_steps.append(step_data[i]["step"])
+
+        # Detect energy jumps (> 50 mHartree = ~31 kcal/mol)
+        e_prev = step_data[i - 1].get("energy_hartree")
+        e_curr = step_data[i].get("energy_hartree")
+        if e_prev is not None and e_curr is not None:
+            if abs(e_curr - e_prev) > 0.05:
+                energy_jumps.append(step_data[i]["step"])
+
+    flip_detected = len(flip_steps) > 0
+
+    # Also check: <S²> contamination (computed vs exact)
+    if s2_exact is not None and step_data:
+        last_s2 = None
+        for sd in reversed(step_data):
+            if sd.get("s2_computed") is not None:
+                last_s2 = sd["s2_computed"]
+                break
+        if last_s2 is not None:
+            contamination = last_s2 - s2_exact
+            if abs(contamination) > 1.0:
+                warnings.append(
+                    f"Significant spin contamination: <S²>={last_s2:.4f} vs "
+                    f"exact={s2_exact:.4f} (diff={contamination:.4f}). "
+                    "Consider using a more stable SCF approach or MCSCF."
+                )
+            elif abs(contamination) > 0.3:
+                warnings.append(
+                    f"Moderate spin contamination: <S²>={last_s2:.4f} vs "
+                    f"exact={s2_exact:.4f} (diff={contamination:.4f})."
+                )
+
+    # Build recommendation
+    recommendation: str | None = None
+    if flip_detected:
+        recommendation = (
+            f"Spin flip detected at step(s) {flip_steps}. "
+            "The electronic state changed during optimization. Consider: "
+            "(1) restarting from the pre-flip geometry with tighter SCF convergence, "
+            "(2) using level shifting or fractional occupation to stabilize the desired state, "
+            "(3) running MCSCF if near-degeneracy is expected."
+        )
+    elif energy_jumps:
+        recommendation = (
+            f"Large energy jump(s) at step(s) {energy_jumps}. "
+            "This may indicate SCF convergence to a different solution. "
+            "Check the SCF convergence at those steps."
+        )
+
+    return {
+        "n_steps": len(step_data),
+        "steps": step_data,
+        "s2_exact": s2_exact,
+        "flip_detected": flip_detected,
+        "flip_steps": flip_steps,
+        "energy_jumps": energy_jumps,
+        "recommendation": recommendation,
+        "warnings": warnings,
+    }

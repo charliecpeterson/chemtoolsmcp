@@ -230,6 +230,42 @@ if MOCK_ERR.exists():
                               f"next_action tool={s.get('next_action', {}).get('tool')}"))
     print(f"         timelimit state={tl_state['state']}, confidence={tl_state['confidence']}")
 
+# Test new fields: missing_files and related_jobs
+report("has missing_files field", tl_state,
+       lambda s: assert_("missing_files" in s, "no missing_files"))
+report("has related_jobs field", tl_state,
+       lambda s: assert_("related_jobs" in s, "no related_jobs"))
+
+# Test output-only mode (no input_file provided)
+if FREQ_OUTPUT.exists():
+    output_only_state = get_nwchem_workflow_state(
+        output_file=str(FREQ_OUTPUT),
+    )
+    report("output-only: returns state", output_only_state,
+           lambda s: assert_("state" in s, "no state key"))
+    report("output-only: detects task from input echo", output_only_state,
+           lambda s: assert_(s["state"] in ("freq_complete", "imaginary_modes", "completed"),
+                              f"state={s['state']}"))
+    report("output-only: reports missing .nw", output_only_state,
+           lambda s: assert_(any(".nw" in f for f in s.get("missing_files", [])),
+                              f"missing_files={s.get('missing_files')}"))
+    print(f"         output-only state={output_only_state['state']}")
+    print(f"         missing_files={output_only_state.get('missing_files', [])}")
+
+# Test incomplete output without .fdrst (stopped mid-freq, no checkpoint)
+fake_incomplete = Path(tmpdir) / "nofdrst.out"
+fake_incomplete_nw = Path(tmpdir) / "nofdrst.nw"
+fake_incomplete_nw.write_text("restart nofdrst\nmemory total 2000 mb\ntask dft freq\n")
+fake_incomplete.write_text("Some NWChem output with freq data but no Total times cpu:\n")
+nofdrst_state = get_nwchem_workflow_state(
+    input_file=str(fake_incomplete_nw),
+    output_file=str(fake_incomplete),
+)
+report("incomplete freq: warns about missing fdrst", nofdrst_state,
+       lambda s: assert_(any(".fdrst" in f for f in s.get("missing_files", [])),
+                          f"missing_files={s.get('missing_files')}"))
+print(f"         nofdrst state={nofdrst_state['state']}, confidence={nofdrst_state['confidence']}")
+
 
 # ============================================================
 print("\n=== P2-5. list_protocols + plan_calculation ===")
@@ -287,8 +323,8 @@ print("\n=== P2-6. MCP tool count ===")
 from chemtools.mcp import nwchem as mcp_nwchem
 
 tool_count = len(mcp_nwchem.tool_definitions())
-report(f"tool count is 72 (was 68)", tool_count,
-       lambda c: assert_(c == 72, f"tool_count={c}"))
+report(f"tool count is 75 (was 72)", tool_count,
+       lambda c: assert_(c == 75, f"tool_count={c}"))
 
 # Verify new tools exist
 tool_names = {t["name"] for t in mcp_nwchem.tool_definitions()}

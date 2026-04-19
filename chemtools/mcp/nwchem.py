@@ -48,6 +48,9 @@ from chemtools import (  # noqa: E402
     draft_nwchem_atom_input,
     draft_nwchem_vectors_swap_input,
     compute_reaction_energy,
+    parse_nwchem_thermochem,
+    summarize_electronic_structure,
+    track_spin_state_across_optimization,
     find_restart_assets,
     inspect_input,
     inspect_runner_profiles,
@@ -261,7 +264,9 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "Collects the best available energy per species (CCSD(T) > CCSD > MP2 > DFT > SCF) "
                 "and returns ΔE in Hartree, kcal/mol, and eV. "
                 "Use for atomization energies (FeO2⁻ → Fe + 2O), binding energies, "
-                "reaction enthalpies (before ZPE/thermal corrections), or isomerization energies. "
+                "reaction enthalpies, or isomerization energies. "
+                "Set include_thermochem=true to also compute ΔE+ZPE, ΔH(T), ΔG(T) "
+                "from frequency outputs (requires all species to have thermochemistry data). "
                 "Example: species={'mol': 'mol.out', 'A': 'a.out', 'B': 'b.out'}, "
                 "reactants={'mol': 1}, products={'A': 1, 'B': 1}."
             ),
@@ -287,8 +292,92 @@ def tool_definitions() -> list[dict[str, Any]]:
                         "type": "string",
                         "description": "If set, only use energies from this method level (e.g. 'CCSD'). Default: auto (highest available).",
                     },
+                    "include_thermochem": {
+                        "type": "boolean",
+                        "description": "If true, extract ZPE/H(T)/G(T) from frequency outputs and compute ΔE+ZPE, ΔH, ΔG. Default: false.",
+                    },
                 },
                 "required": ["species", "reactants", "products"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_nwchem_thermochem",
+            "description": (
+                "Extract complete thermochemistry from an NWChem frequency output: "
+                "electronic energy (E_scf), zero-point energy (ZPE), enthalpy H(T), "
+                "Gibbs free energy G(T), entropy S, and heat capacity Cv. "
+                "Combines the SCF/DFT energy with frequency-derived corrections. "
+                "Returns all quantities in both Hartree and kcal/mol. "
+                "Warns if imaginary modes are present (saddle point, not a minimum). "
+                "Call this after check_nwchem_freq_plausibility confirms no significant imaginary modes."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {
+                        "type": "string",
+                        "description": "Path to the NWChem frequency output file.",
+                    },
+                    "T": {
+                        "type": "number",
+                        "description": "Temperature in Kelvin (default 298.15). Note: NWChem computes corrections at the temperature in the input; this is for reporting only.",
+                    },
+                    "P": {
+                        "type": "number",
+                        "description": "Pressure in atm (default 1.0). For reporting only.",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "summarize_nwchem_electronic_structure",
+            "description": (
+                "Produce a compact electronic structure summary from an NWChem output: "
+                "HOMO-LUMO gap (Hartree and eV), frontier orbital character, SOMO count, "
+                "Mulliken charges and spin densities on metal centers, "
+                "spin-state consistency check, and top charge/spin sites. "
+                "Use after a DFT or SCF calculation to verify the electronic state is "
+                "physically reasonable before proceeding to the next step."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {
+                        "type": "string",
+                        "description": "Path to the NWChem output file.",
+                    },
+                    "input_file": {
+                        "type": "string",
+                        "description": "Optional path to the NWChem input file (used to read charge/multiplicity).",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "track_nwchem_spin_state",
+            "description": (
+                "Track <S²> and energy across optimization steps to detect spin-state "
+                "changes during geometry optimization. Parses per-step DFT energies and "
+                "<S²> values, detects discontinuities that suggest spin flips, state "
+                "crossings, or broken-symmetry collapse. Reports spin contamination. "
+                "Call this after an optimization completes (especially for open-shell "
+                "transition-metal or f-element systems) to verify the electronic state "
+                "remained consistent throughout."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {
+                        "type": "string",
+                        "description": "Path to the NWChem optimization output file.",
+                    },
+                },
+                "required": ["output_file"],
                 "additionalProperties": False,
             },
         },
@@ -1888,17 +1977,22 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "imaginary_modes, opt_converged, completed, oom, etc.) plus a pre-filled "
                 "next_action with all parameters ready. A model can drive the full NWChem "
                 "workflow by looping: call this tool → execute next_action → repeat. "
-                "Domain logic is encoded in the tool, not expected from the model."
+                "Domain logic is encoded in the tool, not expected from the model. "
+                "input_file is optional — when only the .out file is available, the tool "
+                "parses the NWChem input echo from the output. The tool also checks squeue "
+                "for related running jobs and reports them in related_jobs (never assumes — "
+                "asks the model to confirm with the user). Missing companion files (.nw, "
+                ".fdrst, .err, .db, .movecs) are listed in missing_files."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file. Optional — parsed from output echo if missing."},
                     "output_file": {"type": "string", "description": "Path to the NWChem .out output file."},
                     "profile": {"type": "string", "description": "Runner profile name (e.g. 'stampede3_skx')."},
                     "error_file": {"type": "string", "description": "Path to .err file. Auto-derived from output_file if omitted."},
                 },
-                "required": ["input_file", "output_file"],
+                "required": ["output_file"],
                 "additionalProperties": False,
             },
         },
@@ -2015,6 +2109,31 @@ def _handle_compute_reaction_energy(arguments: dict[str, Any]) -> dict[str, Any]
         reactants=arguments["reactants"],
         products=arguments["products"],
         method=arguments.get("method"),
+        include_thermochem=arguments.get("include_thermochem", False),
+    )
+
+
+@_tool("parse_nwchem_thermochem")
+def _handle_parse_nwchem_thermochem(arguments: dict[str, Any]) -> dict[str, Any]:
+    return parse_nwchem_thermochem(
+        path=arguments["output_file"],
+        T=arguments.get("T", 298.15),
+        P=arguments.get("P", 1.0),
+    )
+
+
+@_tool("summarize_nwchem_electronic_structure")
+def _handle_summarize_electronic_structure(arguments: dict[str, Any]) -> dict[str, Any]:
+    return summarize_electronic_structure(
+        output_path=arguments["output_file"],
+        input_path=arguments.get("input_file"),
+    )
+
+
+@_tool("track_nwchem_spin_state")
+def _handle_track_spin_state(arguments: dict[str, Any]) -> dict[str, Any]:
+    return track_spin_state_across_optimization(
+        output_path=arguments["output_file"],
     )
 
 
@@ -3335,7 +3454,7 @@ def _handle_next_versioned_path(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("get_nwchem_workflow_state")
 def _handle_get_nwchem_workflow_state(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_nwchem_workflow_state(
-        input_file=arguments["input_file"],
+        input_file=arguments.get("input_file"),
         output_file=arguments["output_file"],
         profile=arguments.get("profile", ""),
         error_file=arguments.get("error_file"),
