@@ -289,6 +289,14 @@ def render_nwchem_run(
     for key, value in (resource_overrides or {}).items():
         resources[key] = value
 
+    # Sanity check: if nodes changed but mpi_ranks wasn't scaled, warn
+    nodes = resources.get("nodes") or 1
+    cores_per_node = resources.get("cores_per_node") or resources.get("mpi_ranks") or 1
+    mpi_ranks = resources.get("mpi_ranks") or 1
+    if nodes > 1 and mpi_ranks <= cores_per_node:
+        # Auto-scale mpi_ranks = cores_per_node * nodes when only nodes was overridden
+        resources["mpi_ranks"] = cores_per_node * nodes
+
     context: dict[str, Any] = {
         "job_name": effective_job_name,
         "job_dir": job_dir,
@@ -380,9 +388,17 @@ def render_nwchem_run(
         )
         mpi_launch = execution.get("mpi_launch") or profile_payload.get("resources", {}).get("mpi_launch") or ""
         account = context.get("account")
-        account_line = f"#SBATCH -A {account}" if scheduler_type == "slurm" and account else (
-            f"#PBS -A {account}" if scheduler_type == "pbs" and account else ""
-        )
+        if account:
+            if scheduler_type == "slurm":
+                account_line = f"#SBATCH -A {account}"
+            elif scheduler_type == "pbs":
+                account_line = f"#PBS -A {account}"
+            elif scheduler_type == "lsf":
+                account_line = f"#BSUB -P {account}"
+            else:
+                account_line = ""
+        else:
+            account_line = ""
         scheduler_context = dict(context)
         scheduler_context.update({
             "module_block": module_block,
@@ -999,8 +1015,8 @@ def _is_terminal_status(status: dict[str, Any]) -> bool:
     # HPC: scheduler reports a hard terminal state — job is done regardless of output
     if sched_status in {"failed", "cancelled"}:
         return True
-    # HPC: scheduler says completed and output file exists — let output-based detection take over
-    if sched_status == "completed" and output_file.get("exists"):
+    # HPC: scheduler says completed (or aged out of squeue) and output file exists
+    if sched_status in {"completed", "not_found"} and output_file.get("exists"):
         return True
 
     if (

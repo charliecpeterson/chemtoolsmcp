@@ -118,6 +118,8 @@ from chemtools import (  # noqa: E402
     summarize_output,
     check_memory_fit,
     estimate_freq_walltime,
+    suggest_hpc_resources,
+    detect_hpc_accounts,
 )
 from chemtools.eval import evaluate_case, evaluate_cases
 
@@ -480,9 +482,10 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "suggest_resources",
             "description": (
-                "Recommend MPI rank count and memory per rank for a NWChem job based on the input file "
-                "and hardware specs. Uses a basis-functions-per-rank scaling model tuned per CPU architecture. "
-                "Provide hw_specs from query results or let it use defaults."
+                "Low-level: recommend MPI rank count and memory per rank for a single node. "
+                "For HPC jobs, prefer suggest_nwchem_resources instead — it is profile-aware, "
+                "multi-node capable, and handles task-type-specific walltime and memory. "
+                "This tool only handles single-node rank/memory selection using a BF/rank scaling model."
             ),
             "inputSchema": {
                 "type": "object",
@@ -619,7 +622,7 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "expected_metals": {"type": "array", "items": {"type": "string"}},
                     "expected_somos": {"type": "integer"},
                     "iterations": {"type": "integer", "default": 1},
-                    "convergence_energy": {"type": "string", "default": "1e3"},
+                    "convergence_energy": {"type": "string", "default": "1e-3"},
                     "smear": {"type": "number"},
                     "output_dir": {"type": "string"},
                     "base_name": {"type": "string"},
@@ -883,7 +886,7 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "profile": {"type": "string", "description": "Runner profile name (for memory ceiling check)."},
                     "profiles_path": {"type": "string"},
                 },
-                "required": ["input_file", "profile"],
+                "required": ["input_file"],
                 "additionalProperties": False,
             },
         },
@@ -2564,6 +2567,7 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "nodes": {"type": "integer", "description": "Override number of nodes."},
                     "mpi_ranks": {"type": "integer", "description": "Override total MPI ranks."},
                     "node_memory_mb": {"type": "integer", "description": "Override node RAM in MB (bypasses profile lookup)."},
+                    "resource_overrides": {"type": "object", "description": "Resource overrides to merge into profile resources (e.g. from suggest_nwchem_resources)."},
                 },
                 "required": ["input_file"],
                 "additionalProperties": False,
@@ -2590,6 +2594,50 @@ def tool_definitions() -> list[dict[str, Any]]:
                     "max_walltime_hours": {"type": "number", "description": "Maximum walltime in hours (default: 48)."},
                 },
                 "required": ["n_atoms"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "suggest_nwchem_resources",
+            "description": (
+                "Recommend optimal HPC resources for a NWChem job. Analyzes the input "
+                "file (atoms, basis set, method, task type) and the runner profile's "
+                "hardware specs (cores/node, memory/node, max nodes, max walltime) to "
+                "recommend nodes, MPI ranks, walltime, and NWChem memory directive. "
+                "Returns resource_overrides ready to pass to launch_nwchem_run. "
+                "Call this BEFORE launching jobs on HPC to avoid wasting queue time "
+                "with suboptimal resources. Requires the profile to have hardware "
+                "fields populated (cores_per_node, node_memory_mb, etc.)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "profile": {"type": "string", "description": "Runner profile name (e.g. 'stampede3_skx')."},
+                    "profiles_path": {"type": "string", "description": "Optional path to runner profiles YAML/JSON."},
+                },
+                "required": ["input_file", "profile"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "detect_nwchem_hpc_accounts",
+            "description": (
+                "Detect available HPC allocation accounts for a runner profile. "
+                "Runs the profile's account_command (e.g. /usr/local/etc/taccinfo on TACC) "
+                "to discover project names, available SUs, and expiration dates. "
+                "Returns the recommended account (most SUs available) ready to use in "
+                "resource_overrides. Automatically called by suggest_nwchem_resources "
+                "when account is not set, but can also be called standalone to check "
+                "allocation status."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "profile": {"type": "string", "description": "Runner profile name (e.g. 'stampede3_skx')."},
+                    "profiles_path": {"type": "string", "description": "Optional path to runner profiles YAML/JSON."},
+                },
+                "required": ["profile"],
                 "additionalProperties": False,
             },
         },
@@ -2809,7 +2857,7 @@ def _handle_draft_nwchem_property_check_input(arguments: dict[str, Any]) -> dict
         expected_metal_elements=arguments.get("expected_metals"),
         expected_somo_count=arguments.get("expected_somos"),
         iterations=arguments.get("iterations", 1),
-        convergence_energy=arguments.get("convergence_energy", "1e3"),
+        convergence_energy=arguments.get("convergence_energy", "1e-3"),
         smear=arguments.get("smear"),
         output_dir=arguments.get("output_dir"),
         base_name=arguments.get("base_name"),
@@ -4341,13 +4389,17 @@ def _handle_check_memory_fit(arguments: dict[str, Any]) -> dict[str, Any]:
         # Merge resource_overrides if present
         if arguments.get("resource_overrides"):
             profile_resources = {**profile_resources, **arguments["resource_overrides"]}
-    return check_memory_fit(
-        input_file=arguments["input_file"],
-        profile_resources=profile_resources,
-        nodes=arguments.get("nodes", 1),
-        mpi_ranks=arguments.get("mpi_ranks", 1),
-        node_memory_mb=arguments.get("node_memory_mb"),
-    )
+    kwargs: dict[str, Any] = {
+        "input_file": arguments["input_file"],
+        "profile_resources": profile_resources,
+    }
+    if "nodes" in arguments:
+        kwargs["nodes"] = arguments["nodes"]
+    if "mpi_ranks" in arguments:
+        kwargs["mpi_ranks"] = arguments["mpi_ranks"]
+    if "node_memory_mb" in arguments:
+        kwargs["node_memory_mb"] = arguments["node_memory_mb"]
+    return check_memory_fit(**kwargs)
 
 
 @_tool("estimate_nwchem_freq_walltime")
@@ -4359,6 +4411,23 @@ def _handle_estimate_freq_walltime(arguments: dict[str, Any]) -> dict[str, Any]:
         mpi_ranks=arguments.get("mpi_ranks", 1),
         nodes=arguments.get("nodes", 1),
         max_walltime_hours=arguments.get("max_walltime_hours", 48.0),
+    )
+
+
+@_tool("suggest_nwchem_resources")
+def _handle_suggest_hpc_resources(arguments: dict[str, Any]) -> dict[str, Any]:
+    return suggest_hpc_resources(
+        input_file=arguments["input_file"],
+        profile=arguments["profile"],
+        profiles_path=arguments.get("profiles_path"),
+    )
+
+
+@_tool("detect_nwchem_hpc_accounts")
+def _handle_detect_hpc_accounts(arguments: dict[str, Any]) -> dict[str, Any]:
+    return detect_hpc_accounts(
+        profile=arguments["profile"],
+        profiles_path=arguments.get("profiles_path"),
     )
 
 

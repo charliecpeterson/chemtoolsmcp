@@ -31,6 +31,9 @@ profiles:
       walltime: null
       node_memory_mb: null        # Total RAM per node (MB) — enables auto memory ceiling
       max_walltime: null           # Max walltime the queue allows (e.g. "48:00:00")
+      cores_per_node: null         # Physical cores per node — enables auto rank selection
+      max_nodes: null              # Max nodes available — enables multi-node suggestions
+      cpu_arch: null               # CPU microarch (skx, spr, avx2, etc.) — tunes BF/rank
     env:
       OMP_NUM_THREADS: "{omp_threads}"
     file_rules:
@@ -54,6 +57,9 @@ profiles:
       walltime: null
       node_memory_mb: null
       max_walltime: null
+      cores_per_node: null
+      max_nodes: null
+      cpu_arch: null
     env:
       OMP_NUM_THREADS: "{omp_threads}"
     file_rules:
@@ -128,6 +134,9 @@ profiles:
       account: null
       node_memory_mb: null        # Set to node RAM in MB for auto memory checks
       max_walltime: null           # Set to max queue walltime
+      cores_per_node: null         # Physical cores per node
+      max_nodes: null              # Max nodes available for jobs
+      cpu_arch: null               # CPU microarch for BF/rank tuning
     modules:
       purge_first: true
       load:
@@ -141,21 +150,35 @@ profiles:
       error_file: "{job_name}.err"
       restart_prefix: "{job_name}"
 
+  # ---------------------------------------------------------------------------
+  # TACC Stampede3 profiles
+  #
+  # All Stampede3 profiles share the same launcher, scheduler template, and
+  # execution settings.  They differ only in partition hardware specs.
+  # The MCP's suggest_nwchem_resources tool reads the hardware fields and
+  # picks optimal nodes/ranks/walltime/memory automatically.
+  #
+  # ibrun is TACC's MPI launcher — it does NOT take -n; it reads the task
+  # count from SLURM's allocation.  Never use mpirun/srun on TACC.
+  #
+  # Charge rates (SU/node-hr): skx=1, icx=1.5, spr=2
+  # ---------------------------------------------------------------------------
+
   stampede3_skx:
     description: >
-      TACC Stampede3 SKX nodes (48 cores/node, Intel Skylake).
-      Uses ibrun (TACC's MPI launcher — does not take -n, uses SLURM task allocation).
-      Copy to your local runner_profiles.local.yaml and set nwchem_executable.
-    launcher:
+      TACC Stampede3 SKX partition — 1,060 nodes, 2×24-core Intel Xeon
+      Platinum 8160 (Skylake), 192 GB DDR4.  Best balance of memory/core
+      and availability for most NWChem DFT/SCF/TCE jobs.
+    launcher: &stampede3_launcher
       kind: "scheduler"
       submit_command: "sbatch"
       scheduler_type: "slurm"
       job_id_regex: "Submitted batch job (\\d+)"
       status_command: "squeue -j {job_id} -h -o %T"
       cancel_command: "scancel {job_id}"
-    scheduler:
+    scheduler: &stampede3_scheduler
       system: "slurm"
-      script_template: |
+      script_template: &stampede3_script |
         #!/bin/bash
         #SBATCH -J {job_name}
         #SBATCH -o {output_file}
@@ -170,63 +193,99 @@ profiles:
         {pre_run_block}
         {mpi_launch} {nwchem_executable} {input_file}
       submit_script_name: "{job_name}.job"
-    execution:
-      # Set this to your actual NWChem binary path
+    execution: &stampede3_execution
       nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
       mpi_launch: "ibrun"
       shell: "/bin/bash"
     resources:
+      # --- Default job resources (overridden by suggest_nwchem_resources) ---
       nodes: 1
       mpi_ranks: 48
       omp_threads: 1
       walltime: "24:00:00"
       partition: "skx"
-      account: null     # Set to your allocation, e.g. "TG-CHE123456"
-      node_memory_mb: 192000   # SKX nodes: 192 GB RAM
+      account: null           # Set to your allocation, or let account_command auto-detect
+      account_command: "/usr/local/etc/taccinfo"  # TACC: auto-detect allocation name + SUs
+      # --- Hardware description (static — describes the machine) ---
+      cores_per_node: 48      # 2×24-core Xeon Platinum 8160
+      node_memory_mb: 192000  # 192 GB DDR4
+      max_nodes: 256          # Max nodes per job (skx queue limit)
       max_walltime: "48:00:00"
-    modules:
+      cpu_arch: "skx"         # Intel Skylake, AVX-512
+    modules: &stampede3_modules
       purge_first: false
-      load: []          # Modules already set in .bashrc or not needed
+      load: []
     env: {}
-    hooks:
+    hooks: &stampede3_hooks_default
       pre_run: []
-    file_rules:
+    file_rules: &stampede3_file_rules
       output_file: "{job_name}.out"
       error_file: "{job_name}.err"
       restart_prefix: "{job_name}"
 
+  stampede3_skx_dev:
+    description: >
+      TACC Stampede3 SKX dev queue — same hardware as skx but 2-hour max
+      walltime, 16-node max.  Use for testing inputs and short runs.
+    launcher: *stampede3_launcher
+    scheduler: *stampede3_scheduler
+    execution: *stampede3_execution
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "2:00:00"
+      partition: "skx-dev"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 16           # Dev queue limit
+      max_walltime: "2:00:00" # Dev queue: 2 hours max
+      cpu_arch: "skx"
+    modules: *stampede3_modules
+    env: {}
+    hooks: *stampede3_hooks_default
+    file_rules: *stampede3_file_rules
+
+  stampede3_icx:
+    description: >
+      TACC Stampede3 ICX partition — 224 nodes, 2×40-core Intel Xeon
+      Platinum 8380 (Ice Lake), 256 GB DDR4.  Most memory per core of
+      any CPU partition (3.2 GB/core).  Good for memory-hungry DFT or
+      correlated methods.  Charge rate: 1.5 SU/node-hr.
+    launcher: *stampede3_launcher
+    scheduler: *stampede3_scheduler
+    execution: *stampede3_execution
+    resources:
+      nodes: 1
+      mpi_ranks: 80
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "icx"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 80      # 2×40-core Xeon Platinum 8380
+      node_memory_mb: 256000  # 256 GB DDR4 — most memory/core on Stampede3
+      max_nodes: 32           # Max nodes per job (icx queue limit)
+      max_walltime: "48:00:00"
+      cpu_arch: "icx"         # Intel Ice Lake, AVX-512
+    modules: *stampede3_modules
+    env: {}
+    hooks: *stampede3_hooks_default
+    file_rules: *stampede3_file_rules
+
   stampede3_spr:
     description: >
-      TACC Stampede3 SPR nodes (112 cores/node, Intel Sapphire Rapids).
-      Uses ibrun. Adjust mpi_ranks to the cores you want (max 112 per node).
-    launcher:
-      kind: "scheduler"
-      submit_command: "sbatch"
-      scheduler_type: "slurm"
-      job_id_regex: "Submitted batch job (\\d+)"
-      status_command: "squeue -j {job_id} -h -o %T"
-      cancel_command: "scancel {job_id}"
-    scheduler:
-      system: "slurm"
-      script_template: |
-        #!/bin/bash
-        #SBATCH -J {job_name}
-        #SBATCH -o {output_file}
-        #SBATCH -e {error_file}
-        #SBATCH -p {partition}
-        #SBATCH -N {nodes}
-        #SBATCH -n {mpi_ranks}
-        #SBATCH -t {walltime}
-        {account_line}
-        {module_block}
-        cd {job_dir}
-        {pre_run_block}
-        {mpi_launch} {nwchem_executable} {input_file}
-      submit_script_name: "{job_name}.job"
-    execution:
-      nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
-      mpi_launch: "ibrun"
-      shell: "/bin/bash"
+      TACC Stampede3 SPR partition — 560 nodes, 2×56-core Intel Xeon
+      CPU Max 9480 (Sapphire Rapids), 128 GB HBM2e.  Highest core count
+      per node but lowest memory/core (1.1 GB/core).  Best for large jobs
+      that are compute-bound, not memory-bound.  Charge rate: 2 SU/node-hr.
+      NOTE: /opt/apps/python shadows system MKL — use LD_LIBRARY_PATH fix
+      in pre_run if NWChem segfaults on SPR.
+    launcher: *stampede3_launcher
+    scheduler: *stampede3_scheduler
+    execution: *stampede3_execution
     resources:
       nodes: 1
       mpi_ranks: 112
@@ -234,18 +293,19 @@ profiles:
       walltime: "24:00:00"
       partition: "spr"
       account: null
-      node_memory_mb: 128000   # SPR nodes: 128 GB RAM
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 112     # 2×56-core Xeon CPU Max 9480
+      node_memory_mb: 128000  # 128 GB HBM2e — fast but limited capacity
+      max_nodes: 32           # Max nodes per job (spr queue limit)
       max_walltime: "48:00:00"
-    modules:
-      purge_first: false
-      load: []
+      cpu_arch: "spr"         # Intel Sapphire Rapids, AVX-512
+    modules: *stampede3_modules
     env: {}
     hooks:
-      pre_run: []
-    file_rules:
-      output_file: "{job_name}.out"
-      error_file: "{job_name}.err"
-      restart_prefix: "{job_name}"
+      pre_run:
+        # Fix MKL conflict: /opt/apps/python shadows system MKL on SPR
+        - "export LD_LIBRARY_PATH=$(echo $LD_LIBRARY_PATH | tr ':' '\\n' | grep -v /opt/apps/python | tr '\\n' ':')"
+    file_rules: *stampede3_file_rules
 
   pbs_cpu:
     description: "Generic PBS/Torque cluster. Customize nwchem_executable and resources."

@@ -3,12 +3,12 @@
 # Place this file somewhere on Stampede3, e.g.:
 #   ~/.config/chemtools/runner_profiles.yaml
 #
-# Then tell the MCP server where to find it via the environment variable:
+# Then tell the MCP server where to find it:
 #   export CHEMTOOLS_RUNNER_PROFILES=~/.config/chemtools/runner_profiles.yaml
 #
-# Or set it in your .mcp.json "env" block (see .mcp.json in this directory).
-#
 # Edit nwchem_executable to match your NWChem installation.
+# Hardware fields (cores_per_node, node_memory_mb, etc.) describe the machine
+# and are used by suggest_nwchem_resources to auto-pick optimal resources.
 
 schema_version: "1.0"
 
@@ -16,18 +16,18 @@ profiles:
 
   stampede3_skx:
     description: >
-      Stampede3 SKX nodes — Intel Skylake, 48 cores/node.
-      Default profile for most DFT/SCF calculations.
-    launcher:
+      Stampede3 SKX — 48 cores, 192 GB DDR4.
+      Default profile for most DFT/SCF/TCE jobs.
+    launcher: &tacc_launcher
       kind: "scheduler"
       submit_command: "sbatch"
       scheduler_type: "slurm"
       job_id_regex: "Submitted batch job (\\d+)"
       status_command: "squeue -j {job_id} -h -o %T"
       cancel_command: "scancel {job_id}"
-    scheduler:
+    scheduler: &tacc_scheduler
       system: "slurm"
-      script_template: |
+      script_template: &tacc_script |
         #!/bin/bash
         #SBATCH -J {job_name}
         #SBATCH -o {output_file}
@@ -37,12 +37,12 @@ profiles:
         #SBATCH -n {mpi_ranks}
         #SBATCH -t {walltime}
         {account_line}
-
+        {module_block}
         cd {job_dir}
-
+        {pre_run_block}
         {mpi_launch} {nwchem_executable} {input_file}
       submit_script_name: "{job_name}.job"
-    execution:
+    execution: &tacc_execution
       nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
       mpi_launch: "ibrun"
       shell: "/bin/bash"
@@ -52,98 +52,81 @@ profiles:
       omp_threads: 1
       walltime: "24:00:00"
       partition: "skx"
-      account: null          # Set to your allocation, e.g. "TG-CHE123456"
-    modules:
-      purge_first: false     # Stampede3 login env is usually fine
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 256
+      max_walltime: "48:00:00"
+      cpu_arch: "skx"
+    modules: &tacc_modules
+      purge_first: false
       load: []
-    hooks:
+    env: {}
+    hooks: &tacc_hooks_default
       pre_run: []
-    file_rules:
+    file_rules: &tacc_file_rules
       output_file: "{job_name}.out"
       error_file: "{job_name}.err"
       restart_prefix: "{job_name}"
 
   stampede3_skx_dev:
     description: >
-      Stampede3 SKX development queue — max 2 hours, priority access.
-      Use for short test runs and input debugging before a production job.
-    launcher:
-      kind: "scheduler"
-      submit_command: "sbatch"
-      scheduler_type: "slurm"
-      job_id_regex: "Submitted batch job (\\d+)"
-      status_command: "squeue -j {job_id} -h -o %T"
-      cancel_command: "scancel {job_id}"
-    scheduler:
-      system: "slurm"
-      script_template: |
-        #!/bin/bash
-        #SBATCH -J {job_name}
-        #SBATCH -o {output_file}
-        #SBATCH -e {error_file}
-        #SBATCH -p {partition}
-        #SBATCH -N {nodes}
-        #SBATCH -n {mpi_ranks}
-        #SBATCH -t {walltime}
-        {account_line}
-
-        cd {job_dir}
-
-        {mpi_launch} {nwchem_executable} {input_file}
-      submit_script_name: "{job_name}.job"
-    execution:
-      nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
-      mpi_launch: "ibrun"
-      shell: "/bin/bash"
+      Stampede3 SKX dev queue — 2-hour max, priority access.
+      Use for short test runs before production.
+    launcher: *tacc_launcher
+    scheduler: *tacc_scheduler
+    execution: *tacc_execution
     resources:
       nodes: 1
       mpi_ranks: 48
       omp_threads: 1
-      walltime: "02:00:00"   # dev queue hard limit
+      walltime: "2:00:00"
       partition: "skx-dev"
       account: null
-    modules:
-      purge_first: false
-      load: []
-    hooks:
-      pre_run: []
-    file_rules:
-      output_file: "{job_name}.out"
-      error_file: "{job_name}.err"
-      restart_prefix: "{job_name}"
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 16
+      max_walltime: "2:00:00"
+      cpu_arch: "skx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules: *tacc_file_rules
+
+  stampede3_icx:
+    description: >
+      Stampede3 ICX — 80 cores, 256 GB DDR4.
+      Most memory per node. Use for memory-hungry methods.
+    launcher: *tacc_launcher
+    scheduler: *tacc_scheduler
+    execution: *tacc_execution
+    resources:
+      nodes: 1
+      mpi_ranks: 80
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "icx"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 80
+      node_memory_mb: 256000
+      max_nodes: 32
+      max_walltime: "48:00:00"
+      cpu_arch: "icx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules: *tacc_file_rules
 
   stampede3_spr:
     description: >
-      Stampede3 SPR nodes — Intel Sapphire Rapids, 112 cores/node.
-      Use for larger calculations that benefit from more cores or memory.
-    launcher:
-      kind: "scheduler"
-      submit_command: "sbatch"
-      scheduler_type: "slurm"
-      job_id_regex: "Submitted batch job (\\d+)"
-      status_command: "squeue -j {job_id} -h -o %T"
-      cancel_command: "scancel {job_id}"
-    scheduler:
-      system: "slurm"
-      script_template: |
-        #!/bin/bash
-        #SBATCH -J {job_name}
-        #SBATCH -o {output_file}
-        #SBATCH -e {error_file}
-        #SBATCH -p {partition}
-        #SBATCH -N {nodes}
-        #SBATCH -n {mpi_ranks}
-        #SBATCH -t {walltime}
-        {account_line}
-
-        cd {job_dir}
-
-        {mpi_launch} {nwchem_executable} {input_file}
-      submit_script_name: "{job_name}.job"
-    execution:
-      nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
-      mpi_launch: "ibrun"
-      shell: "/bin/bash"
+      Stampede3 SPR — 112 cores, 128 GB HBM.
+      Compute-bound only. Low memory/core (1.1 GB/core).
+    launcher: *tacc_launcher
+    scheduler: *tacc_scheduler
+    execution: *tacc_execution
     resources:
       nodes: 1
       mpi_ranks: 112
@@ -151,12 +134,15 @@ profiles:
       walltime: "24:00:00"
       partition: "spr"
       account: null
-    modules:
-      purge_first: false
-      load: []
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 112
+      node_memory_mb: 128000
+      max_nodes: 32
+      max_walltime: "48:00:00"
+      cpu_arch: "spr"
+    modules: *tacc_modules
+    env: {}
     hooks:
-      pre_run: []
-    file_rules:
-      output_file: "{job_name}.out"
-      error_file: "{job_name}.err"
-      restart_prefix: "{job_name}"
+      pre_run:
+        - "export LD_LIBRARY_PATH=$(echo $LD_LIBRARY_PATH | tr ':' '\\n' | grep -v /opt/apps/python | tr '\\n' ':')"
+    file_rules: *tacc_file_rules

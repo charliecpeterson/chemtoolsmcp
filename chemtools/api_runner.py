@@ -48,7 +48,7 @@ def inspect_runner_profiles(profiles_path: str | None = None) -> dict[str, Any]:
                 "mpi_launch": (profile.get("execution") or {}).get("mpi_launch"),
                 "resources": {
                     k: v for k, v in (profile.get("resources") or {}).items()
-                    if k in {"nodes", "mpi_ranks", "omp_threads", "walltime", "partition", "account", "node_memory_mb", "max_walltime"}
+                    if k in {"nodes", "mpi_ranks", "omp_threads", "walltime", "partition", "account", "account_command", "node_memory_mb", "max_walltime", "cores_per_node", "max_nodes", "cpu_arch"}
                 },
             }
             for name, profile in profiles.items()
@@ -383,7 +383,7 @@ def watch_multiple_nwchem_runs(
         })
 
     _TERMINAL = {"completed_success", "completed_failed", "completed_incomplete",
-                 "error_only", "cancelled"}
+                 "error_only", "cancelled", "output_present_unknown"}
 
     while True:
         poll_count += 1

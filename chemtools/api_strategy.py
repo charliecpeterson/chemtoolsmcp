@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -16,15 +17,6 @@ from .nwchem_input import inspect_nwchem_input
 from . import nwchem
 from ._api_utils import _TRANSITION_METALS, _COVALENT_RADII, _strategy_entry, _coerce_api_int, _coerce_api_float
 from .api_output import parse_mcscf_output
-
-
-# Private helpers also needed by strategy functions
-def _normalize_stem_for_match(stem: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", stem.lower())
-
-
-def _stem_tokens(stem: str) -> list[str]:
-    return [token for token in re.split(r"[^a-z0-9]+", stem.lower()) if token]
 
 
 def check_spin_charge_state(
@@ -2382,6 +2374,7 @@ def _basis_scale(basis: str) -> float:
 _BF_PER_RANK_TARGET: dict[str, int] = {
     "spr":     60,   # AVX-512, high memory bandwidth (Stampede3 SPR)
     "skx":     80,   # AVX-512, standard Skylake (Stampede3 SKX)
+    "icx":     75,   # AVX-512, Ice Lake — slightly faster than SKX (Stampede3 ICX)
     "avx512":  70,
     "avx2":    90,
     "knl":    120,   # KNL: high core count but weak single-core
@@ -2395,9 +2388,15 @@ def suggest_resources(
 ) -> dict[str, Any]:
     """Recommend mpi_ranks and memory_per_rank_mb for a NWChem job.
 
+    .. deprecated::
+        For HPC jobs, use :func:`suggest_hpc_resources` instead — it is
+        profile-aware, multi-node capable, and handles task-type-specific
+        walltime and memory estimation.  This function only handles
+        single-node rank/memory selection.
+
     Args:
         input_file: Path to the NWChem .nw input file.
-        hw_specs: From query_partition_specs() or get_local_resource_budget().
+        hw_specs: Hardware specs dict.
             Expected keys: cpus_per_node (or available_cores), node_memory_mb
             (or available_mem_mb), cpu_arch.
     """
@@ -3661,4 +3660,417 @@ def _wf_result(
     }
     if next_action is not None:
         result["next_action"] = next_action
+    return result
+
+
+# ---------------------------------------------------------------------------
+# HPC resource advisor (profile-aware, multi-node, task-type-aware)
+# ---------------------------------------------------------------------------
+
+
+def _parse_walltime_hours(wt: str | None) -> float | None:
+    """Parse HH:MM:SS walltime string to hours."""
+    if not wt:
+        return None
+    parts = wt.strip().split(":")
+    try:
+        if len(parts) == 3:
+            return int(parts[0]) + int(parts[1]) / 60 + int(parts[2]) / 3600
+        if len(parts) == 2:
+            return int(parts[0]) + int(parts[1]) / 60
+        return float(parts[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def _format_walltime(hours: float) -> str:
+    """Format hours as HH:MM:SS walltime string."""
+    h = int(hours)
+    m = int((hours - h) * 60)
+    return f"{h}:{m:02d}:00"
+
+
+def detect_hpc_accounts(
+    profile: str,
+    profiles_path: str | None = None,
+) -> dict[str, Any]:
+    """Detect available HPC allocation accounts for a runner profile.
+
+    Runs the profile's ``account_command`` (e.g. ``/usr/local/etc/taccinfo``)
+    and parses the output to find project names and available SUs.
+
+    Returns a dict with ``accounts`` list (each with name, avail_sus, expires)
+    and ``recommended`` (the account with the most SUs remaining).
+    """
+    import subprocess
+    from .runner import load_runner_profiles, _resolve_profile
+
+    loaded = load_runner_profiles(profiles_path)
+    profile_payload = _resolve_profile(loaded, profile)
+    res = profile_payload.get("resources", {})
+    account_cmd = res.get("account_command")
+
+    if not account_cmd:
+        static_account = res.get("account")
+        if static_account:
+            return {
+                "accounts": [{"name": static_account, "avail_sus": None, "expires": None}],
+                "recommended": static_account,
+                "source": "profile_static",
+            }
+        return {
+            "accounts": [],
+            "recommended": None,
+            "source": "none",
+            "message": "No account_command or static account in profile. "
+                       "Set resources.account or resources.account_command.",
+        }
+
+    try:
+        result = subprocess.run(
+            account_cmd, shell=True, capture_output=True, text=True, timeout=15,
+        )
+        output = result.stdout
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return {
+            "accounts": [],
+            "recommended": res.get("account"),
+            "source": "error",
+            "message": f"Failed to run account_command: {exc}",
+        }
+
+    # Parse taccinfo-style output:
+    #   | Name           Avail SUs     Expires |
+    #   | TG-CHE250093         818  2026-06-08 |
+    # Also handle generic formats: "account_name  SUs  date"
+    import re
+    accounts: list[dict[str, Any]] = []
+    for line in output.splitlines():
+        # Strip table borders
+        stripped = line.strip().strip("|").strip()
+        if not stripped or stripped.startswith("-") or "Name" in stripped:
+            continue
+        # Try to match: project_name  number  date
+        m = re.match(
+            r"(\S+)\s+(\d+)\s+(\d{4}-\d{2}-\d{2})", stripped
+        )
+        if m:
+            accounts.append({
+                "name": m.group(1),
+                "avail_sus": int(m.group(2)),
+                "expires": m.group(3),
+            })
+
+    # Pick the account with the most SUs as recommended
+    recommended = None
+    if accounts:
+        best = max(accounts, key=lambda a: a["avail_sus"] or 0)
+        recommended = best["name"]
+
+    return {
+        "accounts": accounts,
+        "recommended": recommended,
+        "source": "account_command",
+        "command": account_cmd,
+        "raw_output": output.strip(),
+    }
+
+
+def suggest_hpc_resources(
+    input_file: str,
+    profile: str,
+    profiles_path: str | None = None,
+) -> dict[str, Any]:
+    """Recommend optimal HPC resources for a NWChem job based on profile hardware specs.
+
+    Analyzes the input file (atoms, basis, method, task type) and the profile's
+    hardware description (cores_per_node, node_memory_mb, max_nodes, max_walltime,
+    cpu_arch) to recommend:
+    - nodes, mpi_ranks, walltime
+    - NWChem memory directive
+    - partition (if profile specifies one)
+    - account (auto-detected from account_command if available)
+
+    Returns a dict with recommended ``resource_overrides`` ready to pass to
+    ``launch_nwchem_run``, plus rationale explaining the choices.
+
+    Args:
+        input_file: Path to the NWChem .nw input file.
+        profile: Runner profile name (must have hardware fields populated).
+        profiles_path: Optional path to profiles YAML/JSON.
+    """
+    from .runner import load_runner_profiles, _resolve_profile
+    from .nwchem_input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
+
+    # --- Load profile hardware specs ---
+    loaded = load_runner_profiles(profiles_path)
+    profile_payload = _resolve_profile(loaded, profile)
+    res = profile_payload.get("resources", {})
+
+    cores_per_node = res.get("cores_per_node") or res.get("mpi_ranks") or 48
+    node_memory_mb = res.get("node_memory_mb")
+    max_nodes = res.get("max_nodes") or 1
+    max_wt_str = res.get("max_walltime")
+    max_wt_hours = _parse_walltime_hours(max_wt_str) or 48.0
+    cpu_arch = res.get("cpu_arch") or "generic"
+    partition = res.get("partition")
+
+    # --- Analyze input file ---
+    summary = inspect_nwchem_input(input_file)
+    elements = summary.get("elements", [])
+    n_atoms = len(elements) if elements else 1
+    n_heavy = sum(1 for e in elements if e != "H") if elements else n_atoms
+    tasks = summary.get("tasks") or [{}]
+    # Use the last task line — typically the main calculation
+    main_task = tasks[-1] if tasks else {}
+    module = (main_task.get("module") or "dft").lower()
+    operation = (main_task.get("operation") or "energy").lower()
+
+    # Detect task type
+    is_freq = operation in ("freq", "frequencies", "vib")
+    is_opt = operation in ("optimize", "saddle")
+    is_tce = module == "tce"
+
+    # Basis info
+    basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
+    basis_name = ""
+    if basis_blocks:
+        basis_name = basis_blocks[0].get("default_library", "") or ""
+    scale = _basis_scale(basis_name) if basis_name else 1.5
+    n_bf = max(10, int(n_heavy * 15 * scale))
+
+    rationale: list[str] = []
+    warnings: list[str] = []
+
+    # --- Step 1: Determine optimal MPI ranks per node ---
+    bf_per_rank = _BF_PER_RANK_TARGET.get(cpu_arch, 80)
+    ranks_by_scaling = max(1, n_bf // bf_per_rank)
+
+    # Memory constraint on ranks per node
+    if node_memory_mb:
+        # Reserve 15% for OS + MPI
+        usable_mb = int(node_memory_mb * 0.85)
+        # Need at least 400 MB/rank for NWChem to start
+        max_ranks_by_memory = max(1, usable_mb // 400)
+    else:
+        max_ranks_by_memory = cores_per_node
+
+    ranks_per_node = min(ranks_by_scaling, max_ranks_by_memory, cores_per_node)
+    ranks_per_node = max(1, ranks_per_node)
+
+    # For small molecules, don't use more ranks than useful
+    if ranks_by_scaling < cores_per_node // 2:
+        ranks_per_node = max(1, ranks_by_scaling)
+        rationale.append(
+            f"Small molecule ({n_atoms} atoms, ~{n_bf} BF): using {ranks_per_node} "
+            f"ranks/node instead of full {cores_per_node} cores for efficiency"
+        )
+    else:
+        ranks_per_node = min(cores_per_node, max_ranks_by_memory)
+        rationale.append(
+            f"{n_atoms} atoms, ~{n_bf} BF, {bf_per_rank} BF/rank target → "
+            f"{ranks_per_node} ranks/node (of {cores_per_node} available)"
+        )
+
+    # --- Step 2: Determine number of nodes ---
+    nodes = 1
+
+    if is_freq:
+        # Numerical freq: 6*N_atoms displacements, no checkpoint, need to finish in one go
+        n_displacements = n_atoms * 6
+        # Rough heuristic: seconds per displacement
+        base_seconds = 300.0 * (n_atoms / 20.0) ** 1.5
+        total_ranks_1node = ranks_per_node
+        eff_1 = min(total_ranks_1node, 64) + max(0, total_ranks_1node - 64) * 0.3
+        secs_per_disp_1 = base_seconds * (48.0 / max(1, eff_1))
+        hours_1node = (n_displacements * secs_per_disp_1) / 3600.0
+
+        if hours_1node > max_wt_hours * 0.85:
+            # Need multi-node
+            for n in range(2, max_nodes + 1):
+                total_ranks_n = ranks_per_node * n
+                eff_n = min(total_ranks_n, 64) + max(0, total_ranks_n - 64) * 0.3
+                secs_n = base_seconds * (48.0 / max(1, eff_n))
+                hours_n = (n_displacements * secs_n) / 3600.0
+                if hours_n <= max_wt_hours * 0.85:
+                    nodes = n
+                    break
+            else:
+                nodes = min(max_nodes, 8)
+                warnings.append(
+                    f"Frequency job estimated at {hours_1node:.0f}h on 1 node. "
+                    f"Even with {nodes} nodes it may exceed {max_wt_hours:.0f}h walltime. "
+                    f"Consider analytical frequencies or a smaller basis."
+                )
+            rationale.append(
+                f"Numerical freq: {n_displacements} displacements, estimated "
+                f"{hours_1node:.0f}h on 1 node → {nodes} nodes to fit in "
+                f"{max_wt_hours:.0f}h walltime"
+            )
+        else:
+            rationale.append(
+                f"Numerical freq: {n_displacements} displacements, estimated "
+                f"{hours_1node:.1f}h — fits on 1 node"
+            )
+        warnings.append(
+            "NWChem CANNOT checkpoint numerical frequencies. If the job "
+            "exceeds walltime, ALL progress is lost."
+        )
+
+    elif is_tce:
+        # TCE is memory-hungry — may need multi-node for memory
+        mem_rec = suggest_memory(n_atoms=n_atoms, basis=basis_name or "6-31g*",
+                                method="tce", n_heavy_atoms=n_heavy)
+        total_mem_needed = mem_rec["recommended_total_mb"] * ranks_per_node
+        if node_memory_mb and total_mem_needed > node_memory_mb * 0.80:
+            nodes = min(max_nodes, max(2, math.ceil(
+                total_mem_needed / (node_memory_mb * 0.80)
+            )))
+            rationale.append(
+                f"TCE: estimated {total_mem_needed} MB total memory needed, "
+                f"node has {node_memory_mb} MB → {nodes} nodes for memory"
+            )
+        else:
+            rationale.append("TCE single-point: fits on 1 node")
+
+    total_ranks = ranks_per_node * nodes
+
+    # --- Step 3: Determine walltime ---
+    if is_freq:
+        n_displacements = n_atoms * 6
+        base_seconds = 300.0 * (n_atoms / 20.0) ** 1.5
+        eff = min(total_ranks, 64) + max(0, total_ranks - 64) * 0.3
+        secs_per_disp = base_seconds * (48.0 / max(1, eff))
+        est_hours = (n_displacements * secs_per_disp) / 3600.0
+        # Add 20% safety margin
+        walltime_hours = min(max_wt_hours, est_hours * 1.2)
+        walltime_hours = max(2.0, walltime_hours)  # minimum 2h
+        rationale.append(
+            f"Freq walltime: {est_hours:.1f}h estimated + 20% margin → "
+            f"{walltime_hours:.1f}h"
+        )
+    elif is_opt:
+        # Optimization: moderate walltime, depends on molecule size
+        if n_atoms <= 10:
+            walltime_hours = min(max_wt_hours, 4.0)
+        elif n_atoms <= 30:
+            walltime_hours = min(max_wt_hours, 12.0)
+        elif n_atoms <= 60:
+            walltime_hours = min(max_wt_hours, 24.0)
+        else:
+            walltime_hours = min(max_wt_hours, 48.0)
+        rationale.append(
+            f"Optimization: {n_atoms} atoms → {walltime_hours:.0f}h walltime"
+        )
+    elif is_tce:
+        # TCE single-points can be long
+        if n_atoms <= 5:
+            walltime_hours = min(max_wt_hours, 6.0)
+        elif n_atoms <= 15:
+            walltime_hours = min(max_wt_hours, 24.0)
+        else:
+            walltime_hours = min(max_wt_hours, 48.0)
+        rationale.append(
+            f"TCE single-point: {n_atoms} atoms → {walltime_hours:.0f}h walltime"
+        )
+    else:
+        # Single-point energy: usually fast
+        if n_atoms <= 5:
+            walltime_hours = min(max_wt_hours, 1.0)
+        elif n_atoms <= 20:
+            walltime_hours = min(max_wt_hours, 4.0)
+        elif n_atoms <= 50:
+            walltime_hours = min(max_wt_hours, 8.0)
+        else:
+            walltime_hours = min(max_wt_hours, 24.0)
+        rationale.append(
+            f"Single-point energy: {n_atoms} atoms → {walltime_hours:.0f}h walltime"
+        )
+
+    walltime_str = _format_walltime(walltime_hours)
+
+    # --- Step 4: Determine NWChem memory directive ---
+    if node_memory_mb:
+        usable_mb = int(node_memory_mb * 0.85)
+        mem_per_rank = max(400, (usable_mb // ranks_per_node // 100) * 100)
+    else:
+        mem_rec = suggest_memory(
+            n_atoms=n_atoms, basis=basis_name or "6-31g*",
+            method=module, n_heavy_atoms=n_heavy,
+        )
+        mem_per_rank = mem_rec["recommended_total_mb"]
+
+    mem_suggestion = suggest_memory(
+        n_atoms=n_atoms, basis=basis_name or "6-31g*",
+        method=module, n_heavy_atoms=n_heavy,
+    )
+    # Use the larger of: what the method needs, or what fits the node
+    recommended_mem = max(mem_suggestion["recommended_total_mb"], 500)
+    if node_memory_mb:
+        usable_mb = int(node_memory_mb * 0.85)
+        ceiling = max(400, (usable_mb // ranks_per_node // 100) * 100)
+        if recommended_mem > ceiling:
+            warnings.append(
+                f"Recommended memory {recommended_mem} MB/rank exceeds safe "
+                f"ceiling {ceiling} MB/rank for {ranks_per_node} ranks on "
+                f"{node_memory_mb} MB node. Capping to {ceiling} MB."
+            )
+            recommended_mem = ceiling
+    nwchem_mem = recommended_mem
+
+    # --- Step 5: Detect account ---
+    account = res.get("account")
+    account_info: dict[str, Any] | None = None
+    if not account and res.get("account_command"):
+        acct_result = detect_hpc_accounts(profile, profiles_path)
+        account_info = acct_result
+        if acct_result.get("recommended"):
+            account = acct_result["recommended"]
+            # Find the recommended account's SU balance
+            rec_sus = next(
+                (a.get("avail_sus", "?") for a in acct_result["accounts"]
+                 if a["name"] == account), "?"
+            )
+            rationale.append(
+                f"Account auto-detected: {account} ({rec_sus} SUs available)"
+            )
+
+    # Build resource_overrides dict
+    resource_overrides: dict[str, Any] = {
+        "nodes": nodes,
+        "mpi_ranks": total_ranks,
+        "walltime": walltime_str,
+    }
+    if account:
+        resource_overrides["account"] = account
+
+    result: dict[str, Any] = {
+        "profile": profile,
+        "resource_overrides": resource_overrides,
+        "recommended_memory_per_rank_mb": nwchem_mem,
+        "nwchem_memory_directive": f"memory total {nwchem_mem} mb",
+        "nodes": nodes,
+        "ranks_per_node": ranks_per_node,
+        "total_mpi_ranks": total_ranks,
+        "walltime": walltime_str,
+        "estimated_basis_functions": n_bf,
+        "n_atoms": n_atoms,
+        "n_heavy_atoms": n_heavy,
+        "method": module,
+        "task_type": operation,
+        "partition": partition,
+        "hardware": {
+            "cores_per_node": cores_per_node,
+            "node_memory_mb": node_memory_mb,
+            "max_nodes": max_nodes,
+            "max_walltime": max_wt_str,
+            "cpu_arch": cpu_arch,
+        },
+        "rationale": rationale,
+        "warnings": warnings,
+    }
+    if account:
+        result["account"] = account
+    if account_info:
+        result["account_info"] = account_info
     return result

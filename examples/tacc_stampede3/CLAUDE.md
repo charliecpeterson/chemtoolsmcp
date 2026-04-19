@@ -16,13 +16,22 @@ you are on a login node.
 
 ## Runner profiles
 
-| Profile | Partition | Cores | Max walltime | Use for |
-|---|---|---|---|---|
-| `stampede3_skx` | `skx` | 48 | 48 h | Most DFT/SCF/TCE jobs |
-| `stampede3_skx_dev` | `skx-dev` | 48 | 2 h | Testing inputs, short runs |
-| `stampede3_spr` | `spr` | 112 | 48 h | Large basis sets, more memory |
+| Profile | Partition | Cores/node | RAM/node | Max nodes/job | Max walltime | SU rate | Use for |
+|---|---|---|---|---|---|---|---|
+| `stampede3_skx` | `skx` | 48 | 192 GB | 256 | 48 h | 1.0 | Default — best memory/core (4 GB/core), cheapest |
+| `stampede3_skx_dev` | `skx-dev` | 48 | 192 GB | 16 | 2 h | 1.0 | Testing inputs, short runs |
+| `stampede3_icx` | `icx` | 80 | 256 GB | 32 | 48 h | 1.5 | Memory-hungry jobs (large basis, correlated) |
+| `stampede3_spr` | `spr` | 112 | 128 GB HBM | 32 | 48 h | 2.0 | Compute-bound, not memory-bound |
 
-Default walltime is 24 h. Override with `resource_overrides={"walltime": "48:00:00"}`.
+### Partition selection guidance
+
+- **skx** (default): 4 GB/core, cheapest SU rate, largest node pool. Use for most jobs.
+- **icx**: 3.2 GB/core but 256 GB total — best when you need raw memory per node.
+- **spr**: Only 1.1 GB/core (128 GB HBM). Fast compute but easy to OOM. Avoid for
+  memory-hungry methods (large basis CCSD(T), big DFT grids). MKL conflict fixed
+  automatically via `pre_run` hook in the profile.
+
+Use `suggest_nwchem_resources(input_file, profile)` to auto-select optimal resources.
 
 ## Standard workflow (single job)
 
@@ -31,10 +40,14 @@ init_session_log(log_path="session.md",
                  session_title="...",
                  working_dir="...")              → start running log (do this first)
 inspect_runner_profiles                          → confirm profiles are loaded
-render_job_script(profile="stampede3_skx")       → preview .job script before submitting
+suggest_nwchem_resources(input_file=...,
+                         profile="stampede3_skx") → auto-pick nodes/ranks/walltime/memory
+render_job_script(profile="stampede3_skx",
+                  resource_overrides=...)         → preview .job script before submitting
 lint_nwchem_input(input_file=...)                → catch errors before wasting queue time
 launch_nwchem_run(input_file=...,
                   profile="stampede3_skx",
+                  resource_overrides=...,
                   auto_watch=true)               → sbatch + block until job finishes
 append_session_log(entry_type="result", ...)     → record what happened
 analyze_nwchem_case(output_file=...,
@@ -92,13 +105,21 @@ append_session_log(entry_type="summary", ...)    → final summary
   Do not cancel a job just because the output hasn't grown — check `slow_phase` in
   the watch result first.
 
+- **SPR MKL conflict**: The `stampede3_spr` profile includes a `pre_run` hook that
+  fixes a known MKL library conflict on SPR nodes. This is automatic.
+
 - **Scratch**: For large jobs (many atoms, large basis), set `SCRATCH_DIR=$SCRATCH`
   in `hooks.pre_run` in your runner profile and point NWChem scratch there.
 
 ## Allocation
 
-Set `account` in your runner profile (or pass `resource_overrides={"account": "TG-XXX"}`)
-if your project requires a specific XSEDE/ACCESS allocation.
+Accounts are **auto-detected** by the profiles. Each Stampede3 profile has
+`account_command: "/usr/local/etc/taccinfo"` — the `suggest_nwchem_resources` tool
+runs this automatically and picks the allocation with the most SUs remaining.
+
+To check your allocation manually: `detect_nwchem_hpc_accounts(profile="stampede3_skx")`
+
+You can also override: `resource_overrides={"account": "TG-CHE250093"}`.
 
 ## Files after a run
 

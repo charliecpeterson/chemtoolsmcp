@@ -23,7 +23,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
   eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 98 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 100 tools, thin wrappers over chemtools/
     nwchem_docs.py   NWChem documentation lookup server
     # Future: molpro.py, orca.py
 
@@ -35,23 +35,24 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Domain logic lives in `chemtools/*.py`
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
-- Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate}
-- Current tool count: 98
+- Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
+- Current tool count: 100
 
-### Tool categories (93 tools)
+### Tool categories (100 tools)
 
 | Category | Count | Examples |
 |----------|-------|---------|
 | Input drafting | 17 | `create_nwchem_input`, `create_nwchem_dft_input_from_request`, `draft_nwchem_tce_input` |
-| Output parsing | 14 | `parse_nwchem_output`, `parse_nwchem_tce_output`, `parse_nwchem_thermochem` |
-| Analysis & diagnosis | 10 | `analyze_nwchem_case`, `check_nwchem_spin_charge_state`, `summarize_nwchem_output` |
-| Strategy & suggestions | 10 | `suggest_basis_set`, `suggest_nwchem_recovery`, `suggest_spin_state` |
+| Output parsing | 16 | `parse_nwchem_output`, `parse_nwchem_tce_output`, `parse_nwchem_thermochem`, `parse_nwchem_freq_progress`, `parse_nwchem_tasks`, `parse_nwchem_trajectory` |
+| Analysis & diagnosis | 11 | `analyze_nwchem_case`, `check_nwchem_spin_charge_state`, `summarize_nwchem_output`, `preflight_check`, `review_nwchem_progress` |
+| Strategy & suggestions | 12 | `suggest_basis_set`, `suggest_nwchem_recovery`, `suggest_spin_state`, `suggest_nwchem_resources`, `suggest_resources` |
+| Resource & HPC | 5 | `suggest_nwchem_resources`, `detect_nwchem_hpc_accounts`, `check_nwchem_memory_fit`, `estimate_nwchem_freq_walltime`, `render_job_script` |
 | Basis & ECP | 4 | `render_nwchem_basis_setup`, `basis_library_summary` |
-| Job management | 8 | `launch_nwchem_run`, `watch_nwchem_run`, `watch_multiple_runs` |
-| Registry & campaigns | 10 | `register_nwchem_run`, `create_nwchem_campaign`, `advance_nwchem_workflow` |
-| Workflow & protocols | 6 | `plan_nwchem_calculation`, `get_nwchem_workflow_state`, `prepare_nwchem_next_step` |
+| Job management | 7 | `launch_nwchem_run`, `watch_nwchem_run`, `watch_multiple_runs`, `terminate_nwchem_run`, `get_nwchem_run_status`, `tail_nwchem_output` |
+| Registry & campaigns | 9 | `register_nwchem_run`, `create_nwchem_campaign`, `get_nwchem_campaign_energies`, `generate_nwchem_input_batch` |
+| Workflow & protocols | 7 | `plan_nwchem_calculation`, `plan_nwchem_workflow`, `get_nwchem_workflow_state`, `prepare_nwchem_next_step`, `advance_nwchem_workflow`, `create_nwchem_workflow`, `list_nwchem_protocols` |
 | Geometry | 5 | `extract_nwchem_geometry`, `inspect_nwchem_geometry`, `displace_nwchem_geometry_along_mode` |
-| Session & versioning | 4 | `init_session_log`, `append_session_log`, `next_versioned_path` |
+| Session & versioning | 3 | `init_session_log`, `append_session_log`, `next_versioned_path` |
 | TCE (correlated methods) | 6 | `parse_nwchem_movecs`, `swap_nwchem_movecs`, `validate_nwchem_tce_setup` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
@@ -133,6 +134,12 @@ NWChem is submitted to a queue. The agent submits via `sbatch`/`qsub`, writes
 | `execution.nwchem_executable` | Full path to the NWChem binary |
 | `execution.mpi_launch` | Full MPI launch prefix: `ibrun` (TACC), `srun`, `mpirun -np 48` |
 | `resources.nodes/mpi_ranks/walltime/partition/account` | Default job resources |
+| `resources.account_command` | Shell command to discover allocations (e.g. `/usr/local/etc/taccinfo` on TACC) |
+| `resources.cores_per_node` | Physical cores per node — enables auto rank selection |
+| `resources.node_memory_mb` | Total RAM per node in MB — enables memory ceiling checks |
+| `resources.max_nodes` | Max nodes available for jobs — enables multi-node suggestions |
+| `resources.max_walltime` | Max walltime the queue allows (e.g. `"48:00:00"`) |
+| `resources.cpu_arch` | CPU microarchitecture (`skx`, `icx`, `spr`, `avx2`) — tunes BF/rank |
 | `scheduler.script_template` | Shell script with `{placeholder}` substitutions |
 | `scheduler.submit_script_name` | Filename for the generated script, e.g. `{job_name}.job` |
 | `modules.load` | List of `module load` commands to include in the script |
@@ -144,39 +151,28 @@ NWChem is submitted to a queue. The agent submits via `sbatch`/`qsub`, writes
 empty string), `{nwchem_executable}`, `{mpi_launch}`, `{module_block}`, `{pre_run_block}`,
 `{job_dir}`, `{input_file}`.
 
-**TACC Stampede3 example** (profiles `stampede3_skx` / `stampede3_spr` in the example file):
+**TACC Stampede3 example** (profiles `stampede3_skx` / `stampede3_icx` / `stampede3_spr` / `stampede3_skx_dev` in the example file):
 ```yaml
 stampede3_skx:
-  launcher:
-    kind: "scheduler"
-    submit_command: "sbatch"
-    scheduler_type: "slurm"
-    job_id_regex: "Submitted batch job (\\d+)"
-    status_command: "squeue -j {job_id} -h -o %T"
-    cancel_command: "scancel {job_id}"
-  scheduler:
-    script_template: |
-      #!/bin/bash
-      #SBATCH -J {job_name}
-      #SBATCH -o {output_file}
-      #SBATCH -e {error_file}
-      #SBATCH -p {partition}
-      #SBATCH -N {nodes}
-      #SBATCH -n {mpi_ranks}
-      #SBATCH -t {walltime}
-      {account_line}
-      cd {job_dir}
-      {mpi_launch} {nwchem_executable} {input_file}
-    submit_script_name: "{job_name}.job"
+  launcher: { kind: "scheduler", submit_command: "sbatch", ... }
+  scheduler: { script_template: "...", submit_script_name: "{job_name}.job" }
   execution:
-    nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
+    nwchem_executable: "/path/to/nwchem"
     mpi_launch: "ibrun"
   resources:
+    # --- Defaults (overridden by suggest_nwchem_resources) ---
     nodes: 1
     mpi_ranks: 48
     partition: "skx"
     walltime: "24:00:00"
     account: null
+    account_command: "/usr/local/etc/taccinfo"  # auto-detect allocation
+    # --- Hardware description (static) ---
+    cores_per_node: 48
+    node_memory_mb: 192000
+    max_nodes: 256
+    max_walltime: "48:00:00"
+    cpu_arch: "skx"
 ```
 
 ### How HPC monitoring works
@@ -190,14 +186,35 @@ stampede3_skx:
    the same as local runs
 5. `terminate_nwchem_run` accepts `job_id + profile` for HPC cancel (calls `scancel`/`qdel`)
 
+### Auto resource selection
+
+The `suggest_nwchem_resources` tool analyzes an input file against a profile's hardware
+specs and recommends optimal nodes, MPI ranks, walltime, and memory directive. This
+replaces manual guessing and prevents common HPC failures (OOM, walltime exceeded).
+
+Profiles should describe the machine with these fields in `resources`:
+- `cores_per_node` — physical cores per node
+- `node_memory_mb` — total RAM per node in MB
+- `max_nodes` — max nodes available for jobs
+- `max_walltime` — max walltime the queue allows (e.g. `"48:00:00"`)
+- `cpu_arch` — CPU microarchitecture (`skx`, `spr`, `avx2`, etc.)
+
+The advisor handles:
+- **Small molecules**: reduces ranks to avoid communication overhead
+- **Numerical frequencies**: estimates 6*N_atoms displacements, scales to multi-node
+  if needed, warns about no checkpoint capability
+- **TCE**: scales nodes for memory when correlation memory exceeds single node
+- **Walltime**: task-type-aware estimates with safety margins
+
 ### Agent workflow for HPC (single job)
 
 ```
 init_session_log(log_path=..., session_title=...)  → start running doc
 inspect_runner_profiles                             → verify profile is available
-render_job_script(profile=...)                      → preview the .job script
+suggest_nwchem_resources(input_file, profile)        → get optimal resource_overrides
+render_job_script(profile=..., resource_overrides=.) → preview the .job script
 lint_nwchem_input                                   → check input is correct
-launch_nwchem_run(auto_watch=true)                  → sbatch + block until done
+launch_nwchem_run(auto_watch=true, resource_overrides=.) → sbatch + block until done
 append_session_log(entry_type="result", ...)        → record outcome
 analyze_nwchem_case                                 → diagnosis
 append_session_log(entry_type="summary", ...)       → final summary

@@ -1,0 +1,53 @@
+# chemtools runner profiles for a local workstation
+#
+# Copy this file and edit nwchem_executable + mpi_ranks:
+#   cp runner_profiles.yaml ~/.config/chemtools/runner_profiles.yaml
+#   export CHEMTOOLS_RUNNER_PROFILES=~/.config/chemtools/runner_profiles.yaml
+#
+# Find your NWChem binary: which nwchem
+# Find your core count:    nproc
+
+schema_version: "1.0"
+
+profiles:
+
+  local:
+    description: "Single-process NWChem (no MPI). For small test jobs."
+    launcher:
+      kind: "direct"
+      command: "nwchem"               # Change to full path if not on $PATH
+    execution:
+      command_template: "{launcher} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+    resources:
+      mpi_ranks: 1
+      omp_threads: 1
+    env:
+      OMP_NUM_THREADS: "{omp_threads}"
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  local_mpirun:
+    description: "MPI-parallel NWChem via mpirun. Set mpi_ranks to your core count."
+    launcher:
+      kind: "direct"
+      command: "mpirun -np {mpi_ranks} nwchem"   # Change 'nwchem' to full path if needed
+    execution:
+      command_template: "{launcher} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+    resources:
+      mpi_ranks: 8                    # ← Set to your core count (run: nproc)
+      omp_threads: 1
+      # --- Hardware description (optional, enables suggest_nwchem_resources) ---
+      # cores_per_node: 8             # Physical cores
+      # node_memory_mb: 32000         # Total RAM in MB (run: free -m)
+    env:
+      OMP_NUM_THREADS: "{omp_threads}"
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
