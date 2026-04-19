@@ -108,6 +108,13 @@ from chemtools import (  # noqa: E402
     create_workflow,
     advance_workflow,
     generate_input_batch,
+    basis_library_summary,
+    check_spin_charge_state,
+    inspect_nwchem_geometry,
+    parse_tasks,
+    parse_trajectory,
+    review_nwchem_input_request,
+    summarize_output,
 )
 
 
@@ -2050,6 +2057,182 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # --- Phase 5: Gap-fill tools ---
+        {
+            "name": "basis_library_summary",
+            "description": (
+                "List all basis sets and ECPs available in the bundled library. "
+                "Returns counts and names grouped by category (orbital, ECP, auxiliary). "
+                "Use this to check what basis sets are available before drafting inputs."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "check_nwchem_spin_charge_state",
+            "description": (
+                "Validate the spin/charge state from a completed NWChem output. "
+                "Checks <S²> vs expected, SOMO count, Mulliken spin density on metals, "
+                "and flags spin contamination or wrong-state convergence. "
+                "Essential after any open-shell SCF/DFT calculation."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string", "description": "Path to the NWChem output file."},
+                    "input_file": {"type": "string", "description": "Path to the NWChem input file."},
+                    "expected_metals": {
+                        "type": "array", "items": {"type": "string"},
+                        "description": "Metal element symbols to check spin density on (e.g. ['Fe', 'Ru']).",
+                    },
+                    "expected_somos": {
+                        "type": "integer",
+                        "description": "Expected number of singly-occupied MOs.",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "inspect_nwchem_geometry",
+            "description": (
+                "Inspect the geometry from an NWChem input file. Returns atom count, "
+                "elements, coordinate format (xyz/zmatrix), symmetry, bond distances, "
+                "and detects potential issues (close contacts, missing atoms). "
+                "Use before running a calculation to verify the geometry is reasonable."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem input file."},
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_nwchem_tasks",
+            "description": (
+                "Parse task boundaries and energies from NWChem output. "
+                "Returns each task's module, operation, energy, status, and timing. "
+                "Useful for multi-task outputs (e.g. opt followed by freq)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string", "description": "Path to the NWChem output file."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_nwchem_trajectory",
+            "description": (
+                "Parse the optimization trajectory from NWChem output. "
+                "Returns per-step energies, gradients, step sizes, and convergence criteria. "
+                "Optionally includes atomic positions at each step. "
+                "Use to understand optimization progress and convergence behavior."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string", "description": "Path to the NWChem output file."},
+                    "include_positions": {
+                        "type": "boolean", "default": False,
+                        "description": "Include atomic positions at each step (verbose).",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "review_nwchem_input_request",
+            "description": (
+                "Pre-flight review of input parameters before creating an NWChem input. "
+                "Validates basis/element compatibility, checks charge/multiplicity, "
+                "suggests corrections. Call this before create_nwchem_input to catch errors early."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "formula": {"type": "string", "description": "Molecular formula (e.g. 'C6H6')."},
+                    "geometry_file": {"type": "string", "description": "Path to geometry file (.xyz)."},
+                    "basis_assignments": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                        "description": "Element → basis name mapping.",
+                    },
+                    "ecp_assignments": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    },
+                    "default_basis": {"type": "string"},
+                    "default_ecp": {"type": "string"},
+                    "module": {"type": "string", "default": "dft", "description": "Calculation module (scf, dft, tce)."},
+                    "task_operations": {
+                        "type": "array", "items": {"type": "string"},
+                        "description": "Operations to perform (e.g. ['optimize', 'freq']).",
+                    },
+                    "functional": {"type": "string", "description": "DFT functional (e.g. 'b3lyp')."},
+                    "charge": {"type": "integer"},
+                    "multiplicity": {"type": "integer"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "review_nwchem_progress",
+            "description": (
+                "Check the progress of a running or recently completed NWChem job. "
+                "Parses the output file, detects slow phases, reports convergence progress, "
+                "and estimates remaining time. Works with both local and HPC jobs."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string", "description": "Path to the NWChem output file."},
+                    "input_file": {"type": "string"},
+                    "error_file": {"type": "string", "description": "Path to stderr file (.err)."},
+                    "process_id": {"type": "integer", "description": "PID for local jobs."},
+                    "profile": {"type": "string", "description": "Runner profile name for HPC jobs."},
+                    "job_id": {"type": "string", "description": "Scheduler job ID."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "summarize_nwchem_output",
+            "description": (
+                "Generate a compact summary of an NWChem output file. "
+                "Returns key results: final energy, convergence status, "
+                "spin state, geometry quality, and any warnings. "
+                "Lighter than analyze_nwchem_case — good for quick checks."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string", "description": "Path to the NWChem output file."},
+                    "input_file": {"type": "string"},
+                    "expected_metals": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "expected_somos": {"type": "integer"},
+                    "detail": {
+                        "type": "string", "enum": ["summary", "full"], "default": "summary",
+                        "description": "Level of detail.",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
         # --- Phase 3: Campaign / scale management ---
         {
             "name": "register_nwchem_run",
@@ -3710,6 +3893,88 @@ def _handle_create_nwchem_input_variant(arguments: dict[str, Any]) -> dict[str, 
     )
     result.pop("input_text", None)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Handlers — gap-fill tools (Phase 5)
+# ---------------------------------------------------------------------------
+
+@_tool("basis_library_summary")
+def _handle_basis_library_summary(arguments: dict[str, Any]) -> dict[str, Any]:
+    return basis_library_summary(
+        library_path=basis_library_path(arguments.get("library_path")),
+    )
+
+
+@_tool("check_nwchem_spin_charge_state")
+def _handle_check_spin_charge_state(arguments: dict[str, Any]) -> dict[str, Any]:
+    return check_spin_charge_state(
+        output_path=arguments["output_file"],
+        input_path=arguments.get("input_file"),
+        expected_metal_elements=arguments.get("expected_metals"),
+        expected_somo_count=arguments.get("expected_somos"),
+    )
+
+
+@_tool("inspect_nwchem_geometry")
+def _handle_inspect_nwchem_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
+    return inspect_nwchem_geometry(
+        input_path=arguments["input_file"],
+    )
+
+
+@_tool("parse_nwchem_tasks")
+def _handle_parse_nwchem_tasks(arguments: dict[str, Any]) -> dict[str, Any]:
+    return parse_tasks(arguments["output_file"])
+
+
+@_tool("parse_nwchem_trajectory")
+def _handle_parse_nwchem_trajectory(arguments: dict[str, Any]) -> dict[str, Any]:
+    return parse_trajectory(
+        path=arguments["output_file"],
+        include_positions=arguments.get("include_positions", False),
+    )
+
+
+@_tool("review_nwchem_input_request")
+def _handle_review_nwchem_input_request(arguments: dict[str, Any]) -> dict[str, Any]:
+    return review_nwchem_input_request(
+        formula=arguments.get("formula"),
+        geometry_path=arguments.get("geometry_file"),
+        library_path=basis_library_path(arguments.get("library_path")),
+        basis_assignments=arguments.get("basis_assignments"),
+        ecp_assignments=arguments.get("ecp_assignments"),
+        default_basis=arguments.get("default_basis"),
+        default_ecp=arguments.get("default_ecp"),
+        module=arguments.get("module", "dft"),
+        task_operations=arguments.get("task_operations"),
+        functional=arguments.get("functional"),
+        charge=arguments.get("charge"),
+        multiplicity=arguments.get("multiplicity"),
+    )
+
+
+@_tool("review_nwchem_progress")
+def _handle_review_nwchem_progress(arguments: dict[str, Any]) -> dict[str, Any]:
+    return review_nwchem_progress(
+        output_path=arguments["output_file"],
+        input_path=arguments.get("input_file"),
+        error_path=arguments.get("error_file"),
+        process_id=arguments.get("process_id"),
+        profile=arguments.get("profile"),
+        job_id=arguments.get("job_id"),
+    )
+
+
+@_tool("summarize_nwchem_output")
+def _handle_summarize_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
+    return summarize_output(
+        output_path=arguments["output_file"],
+        input_path=arguments.get("input_file"),
+        expected_metal_elements=arguments.get("expected_metals"),
+        expected_somo_count=arguments.get("expected_somos"),
+        detail_level=arguments.get("detail", "summary"),
+    )
 
 
 # ---------------------------------------------------------------------------
