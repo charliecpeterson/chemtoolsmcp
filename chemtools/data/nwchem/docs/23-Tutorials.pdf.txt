@@ -1,0 +1,132 @@
+More details in the documentation at the link 
+https://nwchemgit.github.io/Basis.html#spherical-or-cartesian
+.
+See also the following 
+forum entries
+.
+22.
+15
+ 
+Starting NWChem with 
+mpirun -np 1
+ crashes
+This is most likely due to the fact that NWChem was compiled with the setting 
+ARMCI_NETWORK=MPI-PR
+.
+This is the expected behavior, since 
+ARMCI_NETWORK=MPI-PR
+ requires asking for 
+for n+1 processes. In other words, a serial
+run (with a single computing process) is triggered by executing 
+mpirun -np 2
+.
+If you would prefer 
+mpirun -np 1
+ to work, other choice of 
+ARMCI_NETWORK
+ are possible as described in the 
+ARMCI
+documentation
+.
+22.
+16
+ 
+nb_wait_for_handle Error
+If you get the following error
+you can fix it by executing the following command
+22.
+17
+ 
+Memory errors
+If you get the following error
+you can fix it by either 
+increasing the memory line in the input file using the syntax described in the 
+Memory section
+ (e.g. 
+memory total 1000 mb
+), or by
+recompiling the NWChem binary with the 
+getmem.nwchem
+ script as described in the section avaible at this 
+link
+23 
+Tutorials
+23.
+1
+ 
+Links to material of past NWChem Tutorials
+EMSL Integration 2018 meeting 
+Tutorial EMSL 2018
+VΙ-SEEM NAT-GR LS+ : 2018 NWChem Workshop 
+(10-11 September 2018, Athens, Greece) 
+Tutorial Athens 2018
+Tutorial 2019 EMSL/ARM Aerosol Summer School
+Tutorial 2012 Singapore A*STAR
+23.
+2
+ 
+Websites containing NWChem material
+Simple DFT calculations and processing with NWChem (Youtube Videos' playlist) from the Department of Materials
+and Optoelectronic Science at the National Sun Yat-sen University, Taiwan 
+Link for Youtube playlist
+PRACE Spring School in Computational Chemistry 2019
+https://web.archive.org/web/20221103195703/https://events.prace-ri.eu/event/786/attachments/840/1256/QC-
+basis spherical
+{1} nb_wait_for_handle Error: all user-level nonblocking handles have been exhausted
+application called MPI_Abort(comm=0x84000002, -1)
+export COMEX_MAX_NB_OUTSTANDING=16
+[0] Received an Error in Communication: (-1) 0: ptsalloc: increase memory in input line: workshop-advanced.pdf
+Introduction To NWChem by B.J. Lynch (UMN) 2006
+https://web.archive.org/web/20230418140258/https://www.msi.umn.edu/sites/default/files/IntroNWChem.pdf
+Quantum Chemistry Course at Radboud University - Nijmegen 
+https://www.theochem.ru.nl/quantumchemistry
+NWChem tips from C.J. O'Brien (NCSU)
+https://sites.google.com/a/ncsu.edu/cjobrien-nwchem-tips/
+24 
+Forum
+We use google groups for the users' forum.
+The group is open to registered members.
+Please do mention your real name as display 
+name during the registration process.
+The group can be accessed from the following link
+https://groups.google.com/g/nwchem-forum
+If you have trouble registering to this group, please send an email to 
+nwchemgit@gmail.com
+You can use the form below to search the entries of the forum
+Search forum
+ 
+27 
+Supplementary Information
+27.2 
+Choosing the ARMCI Library
+27.2.
+1
+ 
+Overview
+The Global Arrays parallel environment relies upon a one-sided communication runtime system. There are at least three
+options currently available:
+ARMCI - This is the original one-sided library developed with Global 
+Arrays by PNNL. It supports the widest range of
+platforms. See 
+http://hpc.pnl.gov/globalarrays/support.shtml
+ for details.
+ComEx - This library is being developed by PNNL to replace ARMCI. It 
+supports the fewer platforms than ARMCI but
+may be more robust on 
+modern ones like InfiniBand. See 
+http://hpc.pnl.gov/globalarrays/support.shtml
+ for details.
+ARMCI-MPI - This library is a completely separate implementation of 
+the ARMCI interface maintained by Jeff
+Hammond. It uses the one-sided 
+communication features of MPI, rather than a platform-specific 
+conduit. It currents
+provides both MPI-2 and MPI-3 implementations; 
+the MPI-3 one is supported by nearly all platforms. See
+https://www.mpi-forum.org/implementation-status/
+ for details.
+By default, Global Arrays will choose ARMCI or ComEx, based upon the environment variables selected by the user (see
+GA documentation for details). When a native implementation is available and works reliably, this is the best option for the
+NWChem user. However, in cases where an native implementation of ARMCI is not available or is not reliable, the user
+should consider using one of the MPI-based implementations.
+There are many different ways to use MPI as the communication runtime of Global Arrays:

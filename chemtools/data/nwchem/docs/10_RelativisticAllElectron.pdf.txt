@@ -1,0 +1,635 @@
+The un-highlighted part (first five lines) is the ECP.
+The corresponding NWChem input is
+9.
+3
+.
+1
+ 
+Websites with Spin-Orbits ECPs
+https://www.tc.uni-koeln.de/PP/clickpse.en.html
+https://people.clarkson.edu/~pchristi/reps.html
+http://www.qchem.pnpi.spb.ru/recp
+https://pseudopotentiallibrary.org
+10 
+Relativistic all-electron approximations
+!  Q=20., MEFIT, MCDHF+Breit, Ref 37.  
+ECP,Hg,60,5,4;  
+1; 2,1.000000,0.000000;   
+2; 2,12.413071,275.774797; 2,6.897913,49.267898;   
+4; 2,11.310320,80.506984; 2,10.210773,161.034824; 2,5.939804,9.083416; 2,5.019755,18.367773;   
+4; 2,8.407895,51.137256; 2,8.214086,76.707459; 2,4.012612,6.561821; 2,3.795398,9.818070;  
+2; 2,3.273106,9.429001; 2,3.208321,12.494856;   
+2; 2,4.485296,-6.338414; 2,4.513200,-8.099863;   
+4; 2,11.310320,-161.013967;2,10.210773,161.034824;2,5.939804,-18.166832;2,5.019755,18.367773;  
+4; 2,8.407895,-51.137256; 2,8.214086,51.138306; 2,4.012612,-6.561821; 2,3.795398,6.545380;     
+2; 2,3.273106,-6.286001; 2,3.208321,6.247428;     
+2; 2,4.485296,3.169207; 2,4.513200,-3.239945;
+! References:  
+! [37] D. Figgen, G. Rauhut, M. Dolg, H. Stoll, Chem. Phys. 311, 227 (2005).  
+ecp  
+Hg nelec 60
+Hg ul
+2      1.0000000              0.0000000
+Hg S
+2     12.4130710            275.7747970
+2      6.8979130             49.2678980
+Hg P
+2     11.3103200             80.5069840
+2     10.2107730            161.0348240
+2      5.9398040              9.0834160
+2      5.0197550             18.3677730
+Hg D
+2      8.4078950             51.1372560
+2      8.2140860             76.7074590
+2      4.0126120              6.5618210
+2      3.7953980              9.8180700
+Hg F
+2      3.2731060              9.4290010
+2      3.2083210             12.4948560
+Hg G
+2      4.4852960             -6.3384140
+2      4.5132000             -8.0998630
+end
+so
+Hg P
+2  11.310320  161.013967
+2  10.210773  161.034824
+2   5.939804  -18.166832
+2   5.019755   18.367773
+Hg D     
+2   8.407895  -51.137256
+2   8.214086   51.138306
+2   4.012612   -6.561821
+2   3.795398    6.545380
+Hg F      
+2   3.273106   -6.286001
+2   3.208321    6.247428
+Hg G       
+2   4.485296    3.169207
+2   4.513200   -3.239945
+end 10.
+1
+ 
+Overview
+All methods which include treatment of relativistic effects are ultimately based on the Dirac equation, which has a four
+component wave function. The solutions to the Dirac equation describe both positrons (the "negative energy" states) and
+electrons (the "positive energy" states), as well as both spin orientations, hence the four components. The wave function
+may be broken down into two-component functions traditionally known as the large and small components; these may
+further be broken down into the spin components.
+The implementation of approximate all-electron relativistic methods in quantum chemical codes requires the removal of the
+negative energy states and the factoring out of the spin-free terms. Both of these may be achieved using a transformation
+of the Dirac Hamiltonian known in general as a Foldy-Wouthuysen (FW) transformation. Unfortunately this transformation
+cannot be represented in closed form for a general potential, and must be approximated. One popular approach is that
+originally formulated by Douglas and Kroll
+1
+ and developed by Hess
+2
+3
+. This approach decouples the positive and negative
+energy parts to second order in the external potential (and also fourth order in the fine structure constant, α). Other
+approaches include the Zeroth Order Regular Approximation (ZORA)
+4
+5
+6
+7
+ and modification of the Dirac equation by Dyall
+8
+,
+and involves an exact FW transformation on the atomic basis set level
+9
+10
+.
+Since these approximations only modify the integrals, they can in principle be used at all levels of theory. At present the
+Douglas-Kroll and ZORA implementations can be used at all levels of theory whereas Dyall's approach is currently
+available at the Hartree-Fock level. The derivatives have been implemented, allowing both methods to be used in geometry
+optimizations and frequency calculations.
+10.
+2
+ 
+RELATIVISTIC directive
+The 
+RELATIVISTIC
+ directive provides input for the implemented relativistic approximations and is a compound directive that
+encloses additional directives specific to the approximations:
+Only one of the methods may be chosen at a time. If both methods are found to be on in the input block, NWChem will stop
+and print an error message. There is one general option for both methods, the definition of the speed of light in atomic
+units:
+The following sections describe the optional sub-directives that can be specified within the 
+RELATIVISTIC
+ block.
+10.
+2
+.
+1
+ 
+Douglas-Kroll approximation
+The spin-free and spin-orbit one-electron Douglas-Kroll approximation have been implemented. The use of relativistic
+effects from this Douglas-Kroll approximation can be invoked by specifying:
+The ON|OFF string is used to turn on or off the Douglas-Kroll approximation. By default, if the 
+DOUGLAS-KROLL
+ keyword is
+found, the approximation will be used in the calculation. If the user wishes to calculate a non-relativistic quantity after
+turning on Douglas-Kroll, the user will need to define a new 
+RELATIVISTIC
+ block and turn the approximation 
+OFF
+. The user
+could also simply put a blank 
+RELATIVISTIC
+ block in the input file and all options will be turned off.
+RELATIVISTIC
+  [DOUGLAS-KROLL [<string (ON||OFF) default ON> \  
+                <string (FPP||DKH||DKFULL||DK3||DK3FULL) default DKH>]  || 
+   ZORA [ (ON || OFF) default ON ] ||   
+   DYALL-MOD-DIRAC [ (ON || OFF) default ON ]  ||
+                 [ (NESC1E || NESC2E) default NESC1E ] ]  ||
+   X2C [ (ON || OFF) default ON ]
+  [CLIGHT <real clight default 137.0359895>]  
+ END
+ CLIGHT <real clight default 137.0359895>
+ DOUGLAS-KROLL [<string (ON||OFF) default ON> \ 
+                <string (FPP||DKH||DKFULL|DK3|DK3FULL) default DKH>] The 
+FPP
+ is the approximation based on free-particle projection operators
+11
+ whereas the 
+DKH
+ and 
+DKFULL
+ approximations are
+based on external-field projection operators
+12
+. The latter two are considerably better approximations than the former. 
+DKH
+ is
+the Douglas-Kroll-Hess approach and is the approach that is generally implemented in quantum chemistry codes. 
+DKFULL
+includes certain cross-product integral terms ignored in the 
+DKH
+ approach (see for example Häberlen and Rösch
+13
+). The
+third-order Douglas-Kroll approximation has been implemented by T. Nakajima and K. Hirao
+14
+15
+. This approximation can be
+called using 
+DK3
+ (DK3 without cross-product integral terms) or 
+DK3FULL
+ (DK3 with cross-product integral terms).
+The contracted basis sets used in the calculations should reflect the relativistic effects, i.e. one should use contracted basis
+sets which were generated using the Douglas-Kroll Hamiltonian. Basis sets that were contracted using the non-relativistic
+(Schödinger) Hamiltonian WILL PRODUCE ERRONEOUS RESULTS for elements beyond the first row. See appendix A
+for available basis sets and their naming convention.
+NOTE: we suggest that spherical basis sets are used in the calculation. The use of high quality cartesian basis sets can
+lead to numerical inaccuracies.
+In order to compute the integrals needed for the Douglas-Kroll approximation the implementation makes use of a fitting
+basis set (see literature given above for details). The current code will create this fitting basis set based on the given 
+ao basis
+by simply uncontracting that basis. This again is what is commonly implemented in quantum chemistry codes that include
+the Douglas-Kroll method. Additional flexibility is available to the user by explicitly specifying a Douglas-Kroll fitting basis
+set. This basis set must be named 
+D-K basis
+ (see 
+Basis Sets
+).
+10.
+2
+.
+2
+ 
+Zeroth Order regular approximation (ZORA)
+The spin-free and spin-orbit one-electron zeroth-order regular approximation (ZORA) have been implemented. ZORA can
+be accessed only 
+via the 
+DFT
+ and 
+SO-DFT
+ modules. The use of relativistic effects with ZORA can be invoked by
+specifying:
+The 
+ON
+|
+OFF
+ string is used to turn on or off ZORA. No default is present, therefore 
+ZORA
+ keyword need to be followed by 
+ON
+in order for the approximation to be used in the calculation. If the user wishes to calculate a non-relativistic quantity after
+turning on ZORA, the user will need to define a new 
+RELATIVISTIC
+ block and turn the approximation OFF. The user can also
+simply put a blank 
+RELATIVISTIC
+ block in the input file and all options will be turned off.
+To increase the accuracy of ZORA calculations, the following settings may be used 
+in the relativistic block
+To invoke the relativistic ZORA model potential approach due to van Wullen (references 
+16
+ and 
+17
+).
+For model potentials constructed from 4-component densities:
+For model potentials constructed from 2-component densities:
+Both approaches are comparable in accuracy and depends on the system.
+ ZORA [<string (ON||OFF) >
+ relativistic
+     zora on
+     zora:cutoff 1d-30
+ end
+ relativistic
+     zora on
+     zora:cutoff 1d-30
+     modelpotential  1
+ end
+ relativistic
+     zora on
+     zora:cutoff 1d-30
+     modelpotential  2
+ end 10.
+2
+.
+3
+ 
+Dyall's Modified Dirac Hamitonian approximation
+The approximate methods described in this section are all based on Dyall's modified Dirac Hamiltonian. This Hamiltonian is
+entirely equivalent to the original Dirac Hamiltonian, and its solutions have the same properties. The modification is
+achieved by a transformation on the small component, extracting out σ
+⋅
+p
+/2mc. This gives the modified small component
+the same symmetry as the large component, and in fact it differs from the large component only at order α
+2
+. The advantage
+of the modification is that the operators now resemble the operators of the Breit-Pauli Hamiltonian, and can be classified in
+a similar fashion into spin-free, spin-orbit and spin-spin terms. It is the spin-free terms which have been implemented in
+NWChem, with a number of further approximations.
+The first is that the negative energy states are removed by a normalized elimination of the small component (NESC), which
+is equivalent to an exact Foldy-Wouthuysen (EFW) transformation. The number of components in the wave function is
+thereby effectively reduced from 4 to 2. NESC on its own does not provide any advantages, and in fact complicates things
+because the transformation is energy-dependent. The second approximation therefore performs the elimination on an
+atom-by-atom basis, which is equivalent to neglecting blocks which couple different atoms in the EFW transformation. The
+advantage of this approximation is that all the energy dependence can be included in the contraction coefficients of the
+basis set. The tests which have been done show that this approximation gives results well within chemical accuracy. The
+third approximation neglects the commutator of the EFW transformation with the two-electron Coulomb interaction, so that
+the only corrections that need to be made are in the one-electron integrals. This is the equivalent of the Douglas-Kroll(-
+Hess) approximation as it is usually applied.
+The use of these approximations can be invoked with the use of the 
+DYALL-MOD-DIRAC
+ directive in the 
+RELATIVISTIC
+ directive
+block. The syntax is as follows.
+The 
+ON
+|
+OFF
+ string is used to turn on or off the Dyall's modified Dirac approximation. By default, if the 
+DYALL-MOD-DIRAC
+keyword is found, the approximation will be used in the calculation. If the user wishes to calculate a non-relativistic quantity
+after turning on Dyall's modified Dirac, the user will need to define a new 
+RELATIVISTIC
+ block and turn the approximation 
+OFF
+.
+The user could also simply put a blank 
+RELATIVISTIC
+ block in the input file and all options will be turned off.
+Both one- and two-electron approximations are available 
+NESC1E
+ || 
+NESC2E
+, and both have analytic gradients. The one-
+electron approximation is the default. The two-electron approximation specified by 
+NESC2E
+ has some sub options which are
+placed on the same logical line as the 
+DYALL-MOD-DIRAC
+ directive, with the following syntax:
+The first sub-option gives the capability to limit the two-electron corrections to those in which the small components in any
+density must be on the same center. This reduces the 
+(LL|SS)
+ contributions to at most three-center integrals and the
+(SS|SS)
+ contributions to two centers. For a case with only one relativistic atom this option is redundant. The second
+controls the inclusion of the 
+(SS|SS)
+ integrals which are of order α
+4
+. For light atoms they may safely be neglected, but for
+heavy atoms they should be included.
+In addition to the selection of this keyword in the 
+RELATIVISTIC
+ directive block, it is necessary to supply basis sets in addition
+to the 
+ao basis
+. For the one-electron approximation, three basis sets are needed: the 
+atomic FW
+ basis set, the 
+large
+component
+ basis set and the 
+small
+ component basis set. The atomic FW basis set should be included in the 
+ao basis
+. The
+large and small components should similarly be incorporated in basis sets named 
+large component
+ and 
+small component
+,
+respectively. For the two-electron approximation, only two basis sets are needed. These are the large component and the
+small component. The large component should be included in the 
+ao basis
+ and the small component is specified separately
+as 
+small component
+, as for the one-electron approximation. This means that the two approximations can not be run correctly
+without changing the 
+ao basis
+, and it is up to the user to ensure that the basis sets are correctly specified.
+There is one further requirement in the specification of the basis sets. In the ao basis, it is necessary to add the 
+rel
+ keyword
+either to the 
+basis
+ directive or the 
+library
+ tag line (See 
+below
+ for examples). The former marks the basis functions specified
+ DYALL-MOD-DIRAC [ (ON || OFF) default ON ] 
+                 [ (NESC1E || NESC2E) default NESC1E ]
+ NESC2E [ (SS1CENT [ (ON || OFF) default ON ] || SSALL) default SSALL ]
+        [ (SSSS [ (ON || OFF) default ON ] || NOSSSS) default SSSS ] by the tag as relativistic, the latter marks the whole basis as relativistic. The marking is actually done at the unique shell
+level, so that it is possible not only to have relativistic and nonrelativistic atoms, it is also possible to have relativistic and
+nonrelativistic shells on a given atom. This would be useful, for example, for diffuse functions or for high angular momentum
+correlating functions, where the influence of relativity was small. The marking of shells as relativistic is necessary to set up
+a mapping between the ao basis and the large and/or small component basis sets. For the one-electron approximation the
+large and small component basis sets MUST be of the same size and construction, i.e. differing only in the contraction
+coefficients.
+It should also be noted that the relativistic code will NOT work with basis sets that contain sp shells, nor will it work with
+ECPs. Both of these are tested and flagged as an error.
+10.
+2
+.
+4
+ 
+Examples for DYALL-MOD-DIRAC
+Some examples follow. The first example sets up the data for relativistic calculations on water with the one-electron
+approximation and the two-electron approximation, using the library basis sets.
+The second example has oxygen as a relativistic atom and hydrogen nonrelativistic.
+ start h2o-dmd
+ geometry units bohr
+ symmetry c2v
+   O       0.000000000    0.000000000   -0.009000000
+   H       1.515260000    0.000000000   -1.058900000
+   H      -1.515260000    0.000000000   -1.058900000
+ end
+ basis "fw" rel
+   oxygen library cc-pvdz_pt_sf_fw
+   hydrogen library cc-pvdz_pt_sf_fw
+ end
+ basis "large"
+   oxygen library cc-pvdz_pt_sf_lc
+   hydrogen library cc-pvdz_pt_sf_lc
+ end
+ basis "large2" rel
+   oxygen library cc-pvdz_pt_sf_lc
+   hydrogen library cc-pvdz_pt_sf_lc
+ end
+ basis "small"
+   oxygen library cc-pvdz_pt_sf_sc
+   hydrogen library cc-pvdz_pt_sf_sc
+ end
+ set "ao basis" fw
+ set "large component" large
+ set "small component" small
+ relativistic
+   dyall-mod-dirac
+ end
+ task scf
+ set "ao basis" large2
+ unset "large component"
+ set "small component" small
+ relativistic
+   dyall-mod-dirac nesc2e
+ end
+ task scf 10.
+2
+.
+5
+ 
+X2C: exact two-component relativistic Hamiltonian
+The exact two-component Hamiltonian
+18
+19
+ has been implemented in the 
+DFT
+ module of NWChem
+20
+21
+22
+.
+The 
+ON
+|
+OFF
+ string is used to turn on or off X2C. By default, if the 
+X2C
+ keyword is found, the approximation will be used in
+the calculation. If the user wishes to calculate a non-relativistic quantity after turning on X2C, the user will need to define a
+new 
+RELATIVISTIC
+ block and turn the approximation OFF. The user can also simply put a blank 
+RELATIVISTIC
+ block in the input
+file and all options will be turned off.
+To increase the accuracy of X2C calculations, the following settings may be used 
+in the relativistic block
+10.
+3
+ 
+References
+1
+. 
+Douglas, M.; Kroll, N.M. (1974). "Quantum electrodynamical corrections to the fine structure of helium". Annals of Physics 82: 89-155.
+DOI:10.1016/0003-4916(74)90333-9
+. 
+2
+. 
+Hess, B.A. (1985). "Applicability of the no-pair equation with free-particle projection operators to atomic and molecular structure calculations".
+Physical Review A 32: 756-763. 
+DOI:10.1103/PhysRevA.32.756
+. 
+3
+. 
+Hess, B.A. (1986). "Relativistic electronic-structure calculations employing a two-component no-pair formalism with external-field projection
+operators". Physical Review A 33: 3742-3748. 
+DOI:10.1103/PhysRevA.33.3742
+. 
+4
+. 
+Chang, C; Pelissier, M; Durand, M (1986). "Regular Two-Component Pauli-Like Effective Hamiltonians in Dirac Theory". Physica Scripta 34: 394.
+DOI:10.1088/0031-8949/34/5/007
+. 
+5
+. 
+van Lenthe, E (1996). "The ZORA Equation" (in English). 
+6
+. 
+Faas, S.; Snijders, J.G.; van Lenthe, J.H.; van Lenthe, E.; Baerends, E.J. (1995). "The ZORA formalism applied to the Dirac-Fock equation".
+Chemical Physics Letters 246: 632-640. 
+DOI:10.1016/0009-2614(95)01156-0
+. 
+7
+. 
+Nichols, P.; Govind, N.; Bylaska, E.J.; de Jong, W.A. (2009). "Gaussian Basis Set and Planewave Relativistic Spin-Orbit Methods in NWChem".
+Journal of Chemical Theory and Computation 5: 491-499. 
+DOI:10.1021/ct8002892
+. 
+8
+. 
+Dyall, K.G. (1994). "An exact separation of the spin-free and spin-dependent terms of the Dirac–Coulomb–Breit Hamiltonian". The Journal of
+Chemical Physics 100: 2118-2127. 
+DOI:10.1063/1.466508
+. 
+9
+. 
+Dyall, K.G. (1997). "Interfacing relativistic and nonrelativistic methods. I. Normalized elimination of the small component in the modified Dirac
+equation". The Journal of Chemical Physics 106: 9618-9626. 
+DOI:10.1063/1.473860
+. 
+10
+. 
+Dyall, K.G.; Enevoldsen, T. (1999). "Interfacing relativistic and nonrelativistic methods. III. Atomic 4-spinor expansions and integral approximations".
+The Journal of Chemical Physics 111: 10000-10007. 
+DOI:10.1063/1.480353
+. 
+11
+. 
+Hess, B.A. (1985). "Applicability of the no-pair equation with free-particle projection operators to atomic and molecular structure calculations".
+Physical Review A 32: 756-763. 
+DOI:10.1103/PhysRevA.32.756
+. 
+ start h2o-dmd2
+ geometry units bohr
+ symmetry c2v
+   O       0.000000000    0.000000000   -0.009000000
+   H       1.515260000    0.000000000   -1.058900000
+   H      -1.515260000    0.000000000   -1.058900000
+ end
+ basis "ao basis"
+   oxygen library cc-pvdz_pt_sf_fw rel
+   hydrogen library cc-pvdz
+ end
+ basis "large component"
+   oxygen library cc-pvdz_pt_sf_lc
+ end
+ basis "small component"
+   oxygen library cc-pvdz_pt_sf_sc
+ end
+ relativistic
+   dyall-mod-dirac
+ end
+ task scf
+ X2C [<string (ON||OFF) default ON>
+ relativistic
+     x2c on
+     x2c:cutoff 1d-15
+ end 12
+. 
+Hess, B.A. (1986). "Relativistic electronic-structure calculations employing a two-component no-pair formalism with external-field projection
+operators". Physical Review A 33: 3742-3748. 
+DOI:10.1103/PhysRevA.33.3742
+. 
+13
+. 
+Haeberlen, O.D.; Roesch, N. (1992). "A scalar-relativistic extension of the linear combination of Gaussian-type orbitals local density functional
+method: application to AuH, AuCl and Au2". Chemical Physics Letters 199: 491-496. 
+DOI:10.1016/0009-2614(92)87033-L
+. 
+14
+. 
+Nakajima, T.; Hirao, K. (2000). "Numerical illustration of third-order Douglas-Kroll method: atomic and molecular properties of superheavy element
+112". Chemical Physics Letters 329: 511-516. 
+DOI:10.1016/S0009-2614(00)01035-6
+. 
+15
+. 
+Nakajima, T.; Hirao, K. (2000). "The higher-order Douglas–Kroll transformation". The Journal of Chemical Physics 113: 7786-7789.
+DOI:10.1063/1.1316037
+. 
+16
+. 
+van Wullen, C. (1998). "Molecular density functional calculations in the regular relativistic approximation: Method, application to coinage metal
+diatomics, hydrides, fluorides and chlorides, and comparison with first-order relativistic calculations". The Journal of Chemical Physics 109: 392-399
+DOI:10.1063/1.476576
+ 
+17
+. 
+van Wullen, C.; Michauk, C. (2005). "Accurate and efficient treatment of two-electron contributions in quasirelativistic high-order Douglas-Kroll
+density-functional calculations". The Journal of Chemical Physics 123, 204113 
+DOI:10.1063/1.2133731
+ 
+18
+. 
+Liu, W.; Peng, D. (2009). J. Chem. Phys. 2009, 131, 031104 
+DOI:10.1063/1.3159445
+ 
+19
+. 
+Saue, T. (2011). "Relativistic Hamiltonians for Chemistry: A Primer". ChemPhysChem, 12, 3077–3094 
+DOI:10.1002/cphc.201100682
+ 
+20
+. 
+Autschbach, J.; Peng, D; Reiher, M. (2012). J. Chem. Theory Comput. 2012, 8, 
+4239–4248 
+DOI:10.1021/ct300623j
+ 
+21
+. 
+Peng, D.; Reiher, M. (2012). Theor. Chem. Acc. 131, 1081 
+DOI:10.1007/s00214-011-1081-y
+ 
+22
+. 
+Autschbach, J. (2021). Quantum Theory for Chemical Applications:From Basic Concepts to Advanced Topics, Oxford, University Press, Chapter 24
+DOI:10.1093/oso/9780190920807.001.0001
+ 
+11 
+Quantum-Mechanical-Methods
+11.1 
+Hartree-Fock
+11.1.
+1
+ 
+Overview
+The NWChem self-consistent field (SCF) module computes closed-shell restricted Hartree-Fock (RHF) wavefunctions,
+restricted high-spin open-shell Hartree-Fock (ROHF) wavefunctions, and spin-unrestricted Hartree-Fock (UHF)
+wavefunctions. The Hartree-Fock equations are solved using a conjugate-gradient method with an orbital Hessian based
+preconditioner
+1
+. The module supports both replicated data and distributed data Fock builders
+2
+.
+The SCF directive provides input to the SCF module and is a compound directive that encloses additional directives
+specific to the SCF module:
+11.1.
+2
+ 
+Wavefunction type
+A spin-restricted, closed shell RHF calculation is performed by default. An error results if the number of electrons is
+inconsistent with this assumption. The number of electrons is inferred from the total charge on the system and the sum of
+the effective nuclear charges of all centers (atoms and dummy atoms, see 
+GEOMETRY
+). The total charge on the system is
+zero by default, unless specified at some value by input on the CHARGE directive 
+Total system charge
+.
+The options available to define the SCF wavefunction and multiplicity are as follows:
+ SCF
+   ...  
+ END

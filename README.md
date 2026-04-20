@@ -1,6 +1,6 @@
 # chemtools-mcp
 
-AI agent toolkit for computational chemistry. Provides MCP (Model Context Protocol) servers that give Claude structured access to quantum chemistry programs — parsing outputs, drafting inputs, managing jobs, and analyzing results.
+AI agent toolkit for computational chemistry. Provides an MCP (Model Context Protocol) server that gives Claude structured access to quantum chemistry programs — parsing outputs, drafting inputs, managing jobs, and analyzing results.
 
 Currently supports **NWChem**. Molpro, ORCA, and others planned.
 
@@ -22,56 +22,32 @@ pip install -e .
 
 ---
 
-## MCP Servers
+## MCP Server
 
-### `chemtools-nwchem` — NWChem tools (49 tools)
+### `chemtools-nwchem` — 106 tools
 
-Parses NWChem output, drafts inputs, manages jobs, analyzes results. Includes:
+Single server for all NWChem capabilities:
 - DFT/SCF geometry optimization and frequency workflows
 - TCE correlated methods (MP2, CCSD, CCSD(T)) with orbital ordering checks and T1/D1 diagnostics
 - MCSCF active-space suggestion and convergence review
 - Geometry and frequency plausibility checks
-- Basis set library (bundled — no extra download needed)
-
-### `chemtools-nwchem-docs` — NWChem documentation lookup
-
-Serves NWChem documentation for syntax reference. Requires a local copy of the NWChem docs.
+- Basis set library (bundled — 608 files, no extra download)
+- NWChem documentation search and lookup (bundled — 29 doc files, always available)
+- HPC job management (SLURM/PBS/LSF) with auto resource selection
+- Run registry, campaigns, and workflow DAGs
 
 ---
 
 ## Claude Desktop / Claude Code Configuration
 
-### NWChem only (most common)
-
 ```json
 {
   "mcpServers": {
     "chemtools-nwchem": {
       "command": "chemtools-nwchem",
       "env": {
-        "CHEMTOOLS_RUNNER_PROFILES": "/path/to/runner_profiles.json",
+        "CHEMTOOLS_RUNNER_PROFILES": "/path/to/runner_profiles.yaml",
         "CHEMTOOLS_MCP_LOG": "/tmp/chemtools-nwchem.log"
-      }
-    }
-  }
-}
-```
-
-### NWChem + documentation server
-
-```json
-{
-  "mcpServers": {
-    "chemtools-nwchem": {
-      "command": "chemtools-nwchem",
-      "env": {
-        "CHEMTOOLS_RUNNER_PROFILES": "/path/to/runner_profiles.json"
-      }
-    },
-    "chemtools-nwchem-docs": {
-      "command": "chemtools-nwchem-docs",
-      "env": {
-        "NWCHEM_DOCS_ROOT": "/path/to/nwchem-docs"
       }
     }
   }
@@ -82,29 +58,21 @@ Serves NWChem documentation for syntax reference. Requires a local copy of the N
 
 | Variable | Required | Description |
 |---|---|---|
-| `CHEMTOOLS_RUNNER_PROFILES` | Yes (to launch jobs) | Path to your `runner_profiles.json` |
+| `CHEMTOOLS_RUNNER_PROFILES` | Yes (to launch jobs) | Path to your `runner_profiles.yaml` |
 | `CHEMTOOLS_BASIS_LIBRARY` | No | Override bundled NWChem basis library path |
 | `CHEMTOOLS_MCP_LOG` | No | Debug log file path |
-| `NWCHEM_DOCS_ROOT` | Yes (docs server) | Path to local NWChem documentation |
 
 ---
 
 ## Runner Profiles
 
-Job launch is configured via a `runner_profiles.json` file — this is per-machine config that you create once and point `CHEMTOOLS_RUNNER_PROFILES` at.
+Job launch is configured via a runner profiles file (YAML or JSON) — per-machine config
+that you create once and point `CHEMTOOLS_RUNNER_PROFILES` at.
 
-Example for a local workstation using Apptainer:
-
-```json
-{
-  "workstation_mpi": {
-    "label": "Local workstation — 15 MPI ranks via Apptainer",
-    "launch_command": ["mpirun", "-np", "15", "apptainer", "exec",
-                       "/path/to/nwchem.sif", "nwchem"],
-    "work_dir": "/path/to/job/directory"
-  }
-}
-```
+Example files:
+- `examples/local_workstation/` — local workstation (direct process)
+- `examples/tacc_stampede3/` — TACC Stampede3 (SLURM scheduler)
+- `chemtools/runner_profiles.example.yaml` — full reference with all profile types
 
 ---
 
@@ -114,11 +82,12 @@ Example for a local workstation using Apptainer:
 chemtools/data/
   nwchem/
     basis_library/     ← bundled NWChem basis sets (608 files)
+    docs/              ← bundled NWChem documentation (29 text files)
   molpro/              ← future
   orca/                ← future
 ```
 
-The basis library is bundled with the package. No separate download needed.
+All data is bundled with the package. No separate downloads needed.
 
 ---
 
@@ -143,11 +112,10 @@ chemtools-molpro = "chemtools.mcp.molpro:main"
 chemtools/              Python library — all parsing, analysis, input generation
   api*.py               Public API (re-exported from api.py)
   nwchem_*.py           NWChem-specific modules
+  nwchem_docs.py        NWChem documentation search (bundled docs)
   common.py             Shared utilities (element tables, covalent radii, etc.)
-  data/nwchem/          Bundled NWChem data (basis library)
+  data/nwchem/          Bundled NWChem data (basis library + docs)
   mcp/
-    nwchem.py           NWChem MCP server (chemtools-nwchem entry point)
-    nwchem_docs.py      NWChem docs MCP server (chemtools-nwchem-docs entry point)
-
-tests/                  Test suite
+    nwchem.py           NWChem MCP server — 106 tools (chemtools-nwchem entry point)
+    nwchem_docs.py      Standalone docs server (backward-compat entry point)
 ```

@@ -1,0 +1,74 @@
+NWChem User Manual
+Release 7.2.0
+W.R. Wiley Environmental Molecular Sciences Laboratory
+Pacific Northwest National Laboratory
+P.O. Box 999, Richland, WA 99352
+Tue Mar 24 02:40:28 2026 24 2026
+Educational Community License, Version 2.0 (ECL-2.0)
+Table of Contents
+1 
+NWChem: Open Source High-Performance Computational
+Chemistry
+The NWChem software provides computational chemistry tools that can accurately tackle complex scientific problems. The
+software has been develop to efficiently use the aggregate resources available on supercomputers or computer clusters.
+NWChem can handle:
+Biomolecules, nanostructures, and solid-state
+NWChem From quantum to classical, and all combinations
+Ground and excited-states
+Gaussian basis functions or plane-waves
+Scaling from one to thousands of processors
+Properties and relativistic effects
+NWChem is actively developed by a consortium of developers and maintained by
+The Environmental Molecular Sciences Laboratory (EMSL)
+ located at the Pacific
+Northwest National Laboratory (
+PNNL
+) in Washington State. Researchers interested
+in contributing to NWChem should review the 
+Developers page
+. The code is distributed as open-source under the terms of
+the 
+Educational Community License version 2.0
+ (ECL 2.0).
+The NWChem development strategy is focused on providing new and essential scientific capabilities to its users in the
+areas of kinetics and dynamics of chemical transformations, chemistry at interfaces and in the condensed phase, and
+enabling innovative and integrated research at EMSL. At the same time continued development is needed to enable
+NWChem to effectively utilize architectures of tens of petaflops and beyond.
+1.
+1
+ 
+Latest NWChem release
+NWChem version 7.3.1 is the latest release available for download from the link
+https://github.com/nwchemgit/nwchem/releases
+.
+1.
+2
+ 
+EMSL Arrows
+Are you just learning how to use NWChem and would like to have an easy way to generate input decks,
+check your output decks against a large database of calculations, perform simple thermochemistry
+calculations, calculate the NMR and IR spectra of a modest size molecule, or just try out nwchem before installing it? EMSL
+Arrows scientific service can help. A web api to EMSL Arrows is now available for alpha testing.
+For more information see 
+EMSL Arrows - an easier way to use nwchem
+EMSL Arrows API
+1.
+3
+ 
+NWChem Documentation
+1.
+4
+ 
+NWChem Citation
+Please cite the following reference when publishing results obtained with NWChem:
+E. Aprà, E. J. Bylaska, W. A. de Jong, N. Govind, K. Kowalski, T. P. Straatsma, M. Valiev, H. J. J. van Dam, Y. Alexeev, J.
+Anchell, V. Anisimov, F. W. Aquino, R. Atta-Fynn, J. Autschbach, N. P. Bauman, J. C. Becca, D. E. Bernholdt, K.
+Bhaskaran-Nair, S. Bogatko, P. Borowski, J. Boschen, J. Brabec, A. Bruner, E. Cauët, Y. Chen, G. N. Chuev, C. J.
+Cramer, J. Daily, M. J. O. Deegan, T. H. Dunning Jr., M. Dupuis, K. G. Dyall, G. I. Fann, S. A. Fischer, A. Fonari, H. Früchtl,
+L. Gagliardi, J. Garza, N. Gawande, S. Ghosh, K. Glaesemann, A. W. Götz, J. Hammond, V. Helms, E. D. Hermes, K.
+Hirao, S. Hirata, M. Jacquelin, L. Jensen, B. G. Johnson, H. Jónsson, R. A. Kendall, M. Klemm, R. Kobayashi, V. Konkov,
+S. Krishnamoorthy, M. Krishnan, Z. Lin, R. D. Lins, R. J. Littlefield, A. J. Logsdail, K. Lopata, W. Ma, A. V. Marenich, J.
+Martin del Campo, D. Mejia-Rodriguez, J. E. Moore, J. M. Mullin, T. Nakajima, D. R. Nascimento, J. A. Nichols, P. J.
+Nichols, J. Nieplocha, A. Otero-de-la-Roza, B. Palmer, A. Panyala, T. Pirojsirikul, B. Peng, R. Peverati, J. Pittner, L.
+Pollack, R. M. Richard, P. Sadayappan, G. C. Schatz, W. A. Shelton, D. W. Silverstein, D. M. A. Smith, T. A. Soares, D.
+Song, M. Swart, H. L. Taylor, G. S. Thomas, V. Tipparaju, D. G. Truhlar, K. Tsemekhman, T. Van Voorhis, Á. Vázquez-

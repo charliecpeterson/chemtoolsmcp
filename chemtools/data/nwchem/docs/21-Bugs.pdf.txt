@@ -1,0 +1,110 @@
+computer
+# nodes
+cores/node
+total # cores
+Wall time (seconds)
+cascade
+9
+16
+144
+1247
+cascade
+20
+16
+320
+703
+tahoma
+4
+36
+144
+927
+tahoma
+9
+36
+324
+524
+Hardware used:
+EMSL cascade 
+specifications
+EMSL tahoma 
+specifications
+21 
+Known Bugs
+21.
+0
+.
+1
+ 
+How to report bugs
+Use our 
+Github issue tracker
+ to report new bugs.
+Also check there for other issues that may not have made it into these lists.
+See the 
+FAQ page
+ for solutions to common issues. 21.
+0
+.
+2
+ 
+Bugs present in NWChem binary packages
+The packages shipped with Ubuntu Bionic 18.04 are buggy. Calculations 
+stop with the error
+https://groups.google.com/g/nwchem-forum/c/RA0tYxdfvaw
+https://nwchemgit.github.io/Special_AWCforum/st/id3386/Ubuntu_18.html
+https://bugs.launchpad.net/ubuntu/+source/nwchem/+bug/1675817
+Please use commands to install an updated version (as described at the 
+NWChem 7.0.0 release page
+)
+21.
+0
+.
+3
+ 
+Known bugs for NWChem 6.8
+AR comppilation failure on Mac OSX
+ 
+https://github.com/nwchemgit/nwchem/issues/5
+ Temporary fix: set the env. variable USE_ARUR=n, e.g.
+Fix 
+available in 
+the branches master and hotfix/release-6-8
+Moldenfile property bug when symmetry and linear dependencies are present
+ 
+https://github.com/nwchemgit/nwchem/issues/7
+ Workaround described in the issue entry
+22 
+General information about NWChem
+22.
+1
+ 
+Where is the User's Manual?
+The NWChem User's Manual is now at 
+https://nwchemgit.github.io/Home.html
+22.
+2
+ 
+Where do I go for help with a Global Arrays problem?
+If you have problems with compiling the tools directory, please visit the Global Arrays Google group at
+http://groups.google.com/g/hpctools/
+ or visit the Global Arrays website at 
+http://hpc.pnl.gov/globalarrays/
+22.
+3
+ 
+Where do I go for help with NWChem problems?
+Please post your NWChem issue to the NWChem forum hosted on Google Groups at
+https://groups.google.com/g/nwchem-forum
+22.
+4
+ 
+Where do I find the installation instructions?
+For updated instructions for compiling NWChem please visit the following URL 
+https://nwchemgit.github.io/Compiling-
+NWChem.html
+spcart_bra2etran: nbf_xj.ne.nbf_sj  (xj-sj) =                   5
+sudo apt -y install curl  python3-dev gfortran  mpi-default-bin mpi-default-dev libopenblas-dev ssh
+curl -LJO https://github.com/nwchemgit/nwchem/releases/download/v7.0.0-release/nwchem-data_7.0.0-3_all.ubuntu_bionic.deb
+curl -LJO https://github.com/nwchemgit/nwchem/releases/download/v7.0.0-release/nwchem_7.0.0-3_amd64.ubuntu_bionic.deb
+sudo dpkg -i nwchem-data_7.0.0-3*_bionic.deb  nwchem_7.0.0-3*_bionic.deb
+make USE_ARUR=n

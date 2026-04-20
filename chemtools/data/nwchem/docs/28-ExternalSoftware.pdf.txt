@@ -1,0 +1,264 @@
+ARMCI_NETWORK
+Result
+Notes
+MPI-PR
+ARMCI with progress rank
+High-performance option.
+MPI-PT
+ARMCI with progress thread
+Not recommended.
+MPI-MT
+ARMCI over multi-threaded MPI
+Do not use Open-MPI 1.x.
+MPI-TS
+ARMCI over MPI without data server
+Universally portable but not always high-performance.
+MPI-SPAWN
+ARMCI using MPI dynamic processes
+Not recommended. 
+Requires MPI_Comm_spawn support.
+ARMCI
+Uses ARMCI-MPI. Requires 
+EXTERNAL_ARMCI_PATH
+.
+See 
+https://github.com/pmodels/armci-mpi
+ for details.
+It is difficult to provide complete guidance to the user as to which option to choose. However, we observe the following:
+ARMCI_NETWORK=MPI-PR
+ is stable and performs well on many platforms 
+(including Cray XC platforms, e.g. NERSC Cori).
+This port will use 
+one processes on each node for communication, therefore subtracting 
+one process (again on each
+node) for NWChem. Therefore, when 
+executing on a single node (i.e. the case of desktop execution) you 
+would need to
+ask for n+1 processes; in other words, a serial 
+execution would require the following mpirun invocation 
+mpirun -np 2 ...
+On Intel Omni Path systems, 
+MPI-PR
+ is more reliable 
+than 
+OPENIB
+ or 
+MPI-SPAWN
+. 
+ARMCI-MPI
+ with Casper and Intel MPI is
+also recommended. See 
+this page
+ 
+for details.
+The performance of 
+ARMCI-MPI
+ is greatly enhanced by 
+Casper
+. See 
+this 
+link
+ 
+for design details.
+When using ARMCI-MPI, please make sure to use the most recent version of MPI (MPICH 3.2+, Cray MPI 7.2+,
+MVAPICH2 2.0+, Intel MPI 5.1+, Open-MPI 2.0+). Older versions of MPI are known to have bugs in the MPI-3 RMA
+features that affect the correctness of NWChem.
+27.2.
+2
+ 
+Support
+Global Arrays, ARMCI and ComEx are developed and supported by PNNL. Use 
+https://github.com/GlobalArrays/ga/issues
+for support.
+ARMCI-MPI is maintained by Jeff Hammond. Use 
+https://github.com/pmodels/armci-mpi/issues
+ for support.
+27.2.
+3
+ 
+Automated installation of ARMCI-MPI
+If you wish to use ARMCI-MPI, a script is available to automatically install it:
+28 
+Interfaces with External Software
+28.
+1
+ 
+Overview
+NWChem can be interfaced with external software packages by following the instructions below.
+The interface can be set either using a pre-exisiting software package or by downloading and compiling the software from
+the NWChem makefile infrastructure.
+28.
+2
+ 
+Simint integrals library
+cd $NWCHEM_TOP/tools && ./install-armci-mpi To generate the 
+Simint
+) library and enable the NWChem interface (only for energy and first derivative code), you need to
+define the following environment variables at compile time:
+USE_SIMINT=y
+ (mandatory)
+SIMINT_MAXAM=
+"Maximum angular momentum" (optional, default is 3, therefore up to f orbitals)
+The following set directives are required in the input file to trigger use of Simint
+28.
+3
+ 
+OpenBLAS
+To build NWChem with the optimized BLAS and Lapack 
+OpenBLAS
+ library, you need to define the following environment
+variables at compile time:
+This procedure requires an internet connection to dowload the OpenBLAS source. 
+Instead, to use a pre-compiled OpenBLAS library, the 
+BLASOPT
+, 
+LAPACK_LIB
+ and 
+BLAS_SIZE
+ environment variable need to be
+set.
+28.
+4
+ 
+ScaLAPACK
+To build NWChem with the 
+ScaLAPACK
+ library, you need to define the following environment variables at compile time:
+This procedure requires an internet connection to dowload the OpenBLAS source. 
+Instead, to use a pre-compiled ScaLAPACK library, the 
+SCALAPACK_LIB
+ 
+and 
+SCALAPACK_SIZE
+ environment variable need to be
+set, 
+as described in the related 
+Compiling NWChem
+ section
+28.
+5
+ 
+ELPA
+To build NWChem with the 
+ELPA
+ eigensolver library, you need first to set the ScaLAPACK settings as described in the
+previous 
+section
+ and then you need to define the following environment variables at compile time:
+This procedure requires an internet connection to dowload the OpenBLAS source. 
+Instead, to use a pre-compiled ELPA library, the 
+ELPA
+ 
+and 
+ELPA_SIZE
+ environment variable need to be set.
+28.
+6
+ 
+Plumed
+The 
+BUILD_PLUMED
+ environment variable installs 
+Plumed
+ and interfaces it with the 
+qmd
+ module. This procedure requires an
+internet connection to dowload the Plumed source.
+Instead, if you wish to use an existing Plumed installation, the following environment variables must be set (after having
+unset 
+BUILD_PLUMED
+):
+set int:cando_txs f
+set int:cando_nw f
+BUILD_OPENBLAS=1
+BLAS_SIZE=8
+BUILD_SCALAPACK=1
+SCALAPACK_SIZE=8
+BUILD_ELPA=1
+USE_PLUMED=1 Requirements: * The environment variable 
+PATH
+ should to point to the location of the 
+plumed
+ command 
+and 
+LD_LIBRARY_PATH
+should point to the location of the plumed libraries. * 
+BLAS_SIZE
+ and 
+SCALAPACK_SIZE
+ must be equal to 4 (this is not a
+requirement when using 
+BUILD_PLUMED
+)
+28.
+7
+ 
+Libxc
+Building NWChem with the 
+libxc
+ DFT library requires setting the environment variable 
+USE_LIBXC=1
+.
+This procedure requires an internet connection to dowload the Libxc source.
+Instead, if you wish to use an existing libxc library, the following environment variables must be set, after having unset
+USE_LIBXC
+:
+LIBXC_INCLUDE
+ 
+location of the libxc C header files
+LIBXC_MODDIR
+ 
+location of the libxc fortran90 module files
+LIBXC_LIB
+ 
+location of the libxc libraries files
+For example, for Debian/Ubuntu systems, the following is needed after having installed the 
+libxc-dev
+ package
+For example, for Fedora systems, the following is needed after having installed the 
+libxc-devel
+ package
+28.
+8
+ 
+XTB
+Building NWChem with the Light-weight tight-binding framework 
+tblite
+ requires
+setting the environment variable 
+USE_TBLITE=1
+adding 
+xtb
+ to list of 
+NWCHEM_MODULES
+Example:
+29 
+Software supporting NWChem
+29.
+1
+ 
+Overview
+While we have done our best to compile an exhaustive list of software using NWChem, we might have missed packages
+and/or incorrectly described some software features. Please use the 
+Github Issue feature
+ to provide feedback on this page
+content.
+29.
+2
+ 
+User interface software
+ECCE
+ Extensible Computational Chemistry Environment 
+https://github.com/FriendsofECCE/ECCE
+ 
+1
+    unset USE_LIBXC
+    export LIBXC_LIB=/usr/lib/x86_64-linux-gnu
+    export LIBXC_INCLUDE=/usr/include
+    unset USE_LIBXC
+    export LIBXC_LIB=/usr/lib64
+    export LIBXC_INCLUDE=/usr/include 
+    export LIBXC_MODDIR=/usr/lib64/gfortran/modules
+make nwchem_config NWCHEM_MODULES='tinyqmpw xtb'
+export USE_TBLITE=1
+make

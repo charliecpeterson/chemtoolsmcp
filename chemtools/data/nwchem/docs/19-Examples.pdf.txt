@@ -1,0 +1,748 @@
+This illustrates how to handle signals from terminating child processes and how to generate simple plots on UNIX systems.
+The 
+scanning example
+ is modified so that instead of writing the data to a file for subsequent visualization, it is saved for
+subsequent visualization with Gnuplot (you'll need both Gnuplot and the corresponding package for Python in your
+PYTHONPATH. Look at 
+https://web.archive.org/web/20010717060625/http://monsoon.harvard.edu/~mhagger/download/
+).
+The issue is that NWChem traps various signals from the O/S that usually indicate bad news in order to provide better error
+handling and reliable clean-up of shared, parallel resources. One of these signals is SIGCHLD which is generated
+whenever a child process terminates. If you want to create child processes within Python, then the NWChem handler for
+SIGCHLD must be replaced with the default handler. There seems to be no easy way to restore the NWChem handler after
+the child has completed, but this should have no serious side effect.
+18.
+5
+ 
+Troubleshooting
+Common problems with Python programs inside NWChem.
+1
+. 
+You get the message
+0:python_input: indentation must be >= that of first line: 4
+ 
+This indicates that NWChem thinks that a line is less indented than 
+the first line. If this is not the case then perhaps
+there is a tab 
+in your input which NWChem treats as a single space character but 
+appears to you as more spaces. Try
+running untabify in Emacs. The 
+problem could also be the 
+END
+ directive that terminates the 
+PYTHON
+ 
+compound
+directive, since Python also has an end statement. To 
+avoid confusion the 
+END
+ directive for NWChem must be at the
+start of 
+the line.
+2
+. 
+Your program hangs or deadlocks – most likely you have a piece of 
+code that is restricted to executing on a subset of
+the processors 
+(perhaps just node 0) but is calling (perhaps indirectly) a function 
+that must execute on all nodes.
+19 
+NWChem Examples
+19.1 
+Sample input files
+ geometry units au  
+   O 0 0 0; H 0 1.430 -1.107; H 0 -1.430 -1.107  
+ end  
+ print none  
+ python  
+   import Gnuplot, time, signal  
+   def energy_at_exponent(exponent):  
+      input_parse('''  
+         basis noprint  
+            H library 3-21g; O library 3-21g; O d; %f 1.0  
+         end  
+      ''' % (exponent))  
+      return task_energy('scf')  
+   data = []  
+   exponent = 0.5  
+   while exponent <= 0.6:  
+      energy = energy_at_exponent(exponent)  
+      print ' exponent = ', exponent, ' energy = ', energy  
+      data = data + [exponent,energy](exponent,energy.md)  
+      exponent = exponent + 0.02  
+   if (ga_nodeid() == 0):  
+      signal.signal(signal.SIGCHLD, signal.SIG_DFL)  
+      g = Gnuplot.Gnuplot()  
+      g('set data style linespoints')  
+      g.plot(data)  
+      time.sleep(30)  # 30s to look at the plot  
+ end  
+ task python 19.1.
+1
+ 
+Water SCF calculation and geometry optimization in a 6-31g basis
+The 
+Getting Started
+ input file performs a geometry optimization in a single task. A single point SCF energy calculation is
+performed and then restarted to perform the optimization (both could of course be performed in a single task).
+19.1.
+1
+.
+1
+ 
+Job 1. Single point SCF energy
+The final energy should be -75.983998.
+19.1.
+1
+.
+2
+ 
+Job 2. Restarting and perform a geometry optimization
+There is no need to specify anything that has not changed from the previous input deck, though it will do no harm to repeat
+it.
+19.1.
+2
+ 
+Compute the polarizability of Ne using finite field
+19.1.
+2
+.
+1
+ 
+Job 1. Compute the atomic energy
+The final energy should be -128.496350.
+19.1.
+2
+.
+2
+ 
+Job 2. Compute the energy with applied field
+An external field may be simulated with point charges. The charges here apply a field of magnitude 0.01 atomic units to the
+atom at the origin. Since the basis functions have not been reordered by the additional centers we can also restart from the
+previous vectors, which is the default for a restart job.
+The final energy should be -128.496441, which together with the previous field-free result yields an estimate for the
+ start h2o 
+ title "Water in 6-31g basis set" 
+ geometry units au  
+   O      0.00000000    0.00000000    0.00000000  
+   H      0.00000000    1.43042809   -1.10715266  
+   H      0.00000000   -1.43042809   -1.10715266 
+ end  
+ basis  
+   H library 6-31g  
+   O library 6-31g  
+ end
+ task scf
+ restart h2o
+ title "Water geometry optimization"
+ 
+ task scf optimize
+ start ne
+ title "Neon"
+ geometry; ne 0 0 0; end
+ basis spherical 
+   ne library aug-cc-pvdz
+ end
+ scf; thresh 1e-10; end
+ task scf
+ restart ne  
+ title "Neon in electric field"  
+ geometry units atomic  
+   bq1 0 0 100 charge 50  
+   ne  0 0 0  
+   bq2 0 0 -100 charge -50  
+ end  
+ task scf polarizability of 1.83 atomic units. Note that by 
+default
+ NWChem does not include the interaction between the two point
+charges in the total energy.
+19.1.
+3
+ 
+SCF energy of H
+2
+CO using ECPs for C and O
+The following will compute the SCF energy for formaldehyde with ECPs on the Carbon and Oxygen centers.
+title "formaldehyde ECP deck"  
+start ecpchho  
+geometry units au  
+  C         0.000000  0.000000 -1.025176  
+  O         0.000000  0.000000  1.280289  
+  H         0.000000  1.767475 -2.045628  
+  H         0.000000 -1.767475 -2.045628  
+end  
+basis   
+  C  SP  
+   0.1675097360D+02 -0.7812840500D-01  0.3088908800D-01  
+   0.2888377460D+01 -0.3741108860D+00  0.2645728130D+00  
+   0.6904575040D+00  0.1229059640D+01  0.8225024920D+00  
+  C  SP  
+   0.1813976910D+00  0.1000000000D+01  0.1000000000D+01  
+  C  D  
+   0.8000000000D+00  0.1000000000D+01  
+  C  F  
+   0.1000000000D+01  0.1000000000D+01  
+  O  SP  
+   0.1842936330D+02 -0.1218775590D+00  0.5975796600D-01  
+   0.4047420810D+01 -0.1962142380D+00  0.3267825930D+00  
+   0.1093836980D+01  0.1156987900D+01  0.7484058930D+00  
+  O  SP  
+   0.2906290230D+00  0.1000000000D+01  0.1000000000D+01  
+  O  D  
+   0.8000000000D+00  0.1000000000D+01  
+  O  F  
+   0.1100000000D+01  0.1000000000D+01  
+  H  S  
+   0.1873113696D+02  0.3349460434D-01  
+   0.2825394365D+01  0.2347269535D+00  
+   0.6401216923D+00  0.8137573262D+00  
+  H  S     
+   0.1612777588D+00  0.1000000000D+01  
+end  
+ecp  
+  C nelec 2  
+  C ul  
+        1       80.0000000       -1.60000000  
+        1       30.0000000       -0.40000000  
+        2        0.5498205       -0.03990210  
+  C s  
+        0        0.7374760        0.63810832  
+        0      135.2354832       11.00916230  
+        2        8.5605569       20.13797020  
+  C p  
+        2       10.6863587       -3.24684280  
+        2       23.4979897        0.78505765  
+  O nelec 2  
+  O ul  
+        1       80.0000000       -1.60000000  
+        1       30.0000000       -0.40000000  
+        2        1.0953760       -0.06623814  
+  O s  
+        0        0.9212952        0.39552179  
+        0       28.6481971        2.51654843  
+        2        9.3033500       17.04478500  
+  O p  
+        2       52.3427019       27.97790770  
+        2       30.7220233      -16.49630500  
+end  
+scf  
+  vectors input hcore  
+  maxiter 20  
+end  
+task scf This should produce the following output:
+19.1.
+4
+ 
+MP2 optimization and CCSD(T) on nitrogen
+The following performs an MP2 geometry optimization followed by a CCSD(T) energy evaluation at the converged
+geometry. A Dunning correlation-consistent triple-zeta basis is used. The default of Cartesian basis functions must be
+overridden using the keyword spherical on the BASIS directive. The 1s core orbitals are frozen in both the MP2 and
+coupled-cluster calculations (note that these must separately specified). The final MP2 energy is -109.383276, and the
+CCSD(T) energy is -109.399662.
+19.2 
+Examples of geometries using symmetry
+Below are examples of the use of the 
+SYMMETRY directive
+ in the compound 
+GEOMETRY directive
+. The 
+z
+ axis is always
+the primary rotation axis. When in doubt about which axes and planes are used for the group elements, the keyword 
+print
+may be added to the 
+SYMMETRY
+ directive to obtain this information.
+19.2.
+1
+ 
+C
+s
+   methanol
+The 
+σ
+h
+ plane is the 
+xy
+ plane.
+19.2.
+2
+ 
+C
+2v
+   water
+The z axis is the 
+C
+2
+ axis and the 
+σ
+v
+ may be either the 
+xz
+ or the 
+yz
+ planes.
+      Final RHF  results   
+      ------------------   
+       
+        Total SCF energy =    -22.507927218024  
+     One electron energy =    -71.508730162974  
+     Two electron energy =     31.201960019808  
+Nuclear repulsion energy =     17.798842925142
+start n2   
+geometry  
+  symmetry d2h  
+  n 0 0 0.542  
+end  
+basis spherical  
+  n library cc-pvtz  
+end  
+mp2  
+  freeze core  
+end  
+task mp2 optimize  
+ccsd  
+  freeze core  
+end  
+task ccsd(t)
+ geometry units angstroms
+   C    0.11931097    -0.66334875     0.00000000
+   H    1.20599017    -0.87824237     0.00000000
+   H   -0.32267592    -1.15740001     0.89812652
+   O   -0.01716588     0.78143468     0.00000000
+   H   -1.04379735     0.88169812     0.00000000
+   symmetry cs
+ end 19.2.
+3
+ 
+D
+2h
+   acetylene
+Although acetylene has symmetry 
+D
+∞h
+ the subgroup 
+D
+2h
+ 
+includes all operations that interchange equivalent atoms which is
+what determines how much speedup you gain from using symmetry in building a Fock matrix.
+The 
+C
+2
+ axes are the x, y, and z axes. The σ planes are the xy, xz and yz planes. Generally, the unique atoms are placed to
+use the z as the primary rotational axis and use the xz or yz planes as the σ plane.
+19.2.
+4
+ 
+D
+2h
+   ethylene
+The 
+C
+2
+ axes are the x, y, and z axes. The σ planes are the xy, xz and yz planes. Generally, the unique atoms are placed to
+use the z as the primary rotational axis and use the xz or yz planes as the σ plane.
+19.2.
+5
+ 
+T
+d
+   methane
+For ease of use, the primary 
+C
+3
+ axis should be the x=y=z axis. The 3 
+C
+2
+ axes are the x, y, and z.
+19.2.
+6
+ 
+I
+h
+   buckminsterfullerene
+One of the 
+C
+5
+ axes is the z axis and the point of inversion is the origin.
+19.2.
+7
+ 
+S
+4
+   porphyrin
+The 
+S
+4
+ and 
+C
+2
+ rotation axis is the z axis. The reflection plane for the 
+S
+4
+ operation is the xy plane.
+ geometry units au
+   O     0.00000000    0.00000000    0.00000000
+   H     0.00000000    1.43042809   -1.10715266
+   symmetry group c2v
+ end
+ geometry units au
+   symmetry group d2h
+   C      0.000000000    0.000000000   -1.115108538
+   H      0.000000000    0.000000000   -3.106737425
+ end
+ geometry units angstroms
+   C 0 0 0.659250 
+   H 0 0.916366 1.224352 
+   symmetry d2h
+ end
+ geometry units au
+   c   0.0000000      0.0000000      0.0000000
+   h   1.1828637      1.1828637      1.1828637
+   symmetry group Td
+ end
+ geometry units angstroms # Bonds = 1.4445, 1.3945
+   symmetry group Ih
+   c   -1.2287651   0.0   3.3143121
+ end 19.2.
+8
+ 
+D
+3h
+   iron penta-carbonyl
+The 
+C
+3
+ axis is the z axis. The 
+σ
+h
+ plane is the xy plane. One of the perpendicular 
+C
+2
+ axes is the x=y axis. One of the 
+σ
+v
+planes is the plane containing the x=y axis and the z axis. (The other axes and planes are generated by the 
+C
+3
+ operation.)
+19.2.
+9
+ 
+D
+3d
+   sodium crown ether
+The 
+C
+3
+ axis is the z axis. The point of inversion is the origin. One of the perpendicular 
+C
+2
+ axes is the x=y axis. One of the
+σ
+d
+ planes is the plane containing the -x=y axis and the z axis.
+Note that the oxygen atom is rotated in the x-y plane 15 degrees away from the y-axis so that it lies in a mirror plane. There
+is a total of six atoms generated from the unique oxygen, in contrast to twelve from each of the carbon and hydrogen
+atoms.
+19.2.
+10
+ 
+C
+3v
+   ammonia
+The 
+C
+3
+ axis is the z axis. One of the 
+σ
+v
+ planes is the plane containing the x=y axis and the z axis.
+ geometry units angstroms
+    symmetry group s4
+    fe                0.000  0.000  0.000         
+    h                 2.242  6.496 -3.320   
+    h                 1.542  4.304 -2.811
+    c                 1.947  6.284 -2.433
+    c                 1.568  4.987 -2.084
+    h                 2.252  8.213 -1.695
+    c                 1.993  7.278 -1.458
+    h                 5.474 -1.041 -1.143
+    c                 1.234  4.676 -0.765
+    h                 7.738 -1.714 -0.606
+    c                 0.857  3.276 -0.417
+    h                 1.380 -4.889 -0.413
+    c                 1.875  2.341 -0.234
+    h                 3.629  3.659 -0.234
+    c                 0.493 -2.964 -0.229
+    c                 1.551 -3.933 -0.221
+    c                 5.678 -1.273 -0.198
+    c                 1.656  6.974 -0.144
+    c                 3.261  2.696 -0.100
+    n                 1.702  0.990 -0.035
+ end
+ geometry units au
+   symmetry group d3h
+   fe        0.0         0.0         0.0
+   c         0.0         0.0         3.414358
+   o         0.0         0.0         5.591323
+   c         2.4417087   2.4417087   0.0
+   o         3.9810552   3.9810552   0.0
+ end
+ geometry units au
+   symmetry D3d
+  NA     .0000000000    .0000000000   .0000000000
+  O     1.3384771885   4.9952647969   .1544089284
+  H     6.7342048019  -0.6723850379  2.6581562148
+  C     6.7599180056  -0.4844977035   .6136583870
+  H     8.6497577017   0.0709194071   .0345361934
+ end 19.2.
+11
+ 
+D
+6h
+ benzene
+The 
+C
+6
+ axis is the z axis. The point of inversion is the origin. One of the 6 perpendicular 
+C
+2
+'
+ axes is the x=y axis. (-x=y
+works as a 
+C
+2
+''
+ axis.) The 
+σ
+h
+ plane is the xy plane. The 
+σ
+d
+ planes contain the 
+C
+2
+''
+ axis and the z axis. The 
+σ
+v
+ planes
+contain the 
+C
+2
+'
+ axis and the z axis.
+19.2.
+12
+ 
+C
+3h
+   H
+3
+BO
+3
+The 
+C
+3
+ axis is the z axis. The 
+σ
+h
+ plane is the xy plane.
+19.2.
+13
+ 
+D
+5d
+   ferrocene
+The 
+C
+5
+ axis is the z axis. The center of inversion is the origin. One of the perpendicular 
+C
+2
+ axes is the x axis. One of the 
+σ
+d
+planes is the yz plane.
+19.2.
+14
+ 
+C
+4v
+ 
+  SF
+5
+Cl
+The 
+C
+4
+ axis is the z axis. The 
+σ
+v
+ planes are the yz and the xz planes. The 
+σ
+d
+ planes are: 1) the plane containing the x=y
+axis and the z axis and 2) the plane containing the -x=y axis and the z axis.
+19.2.
+15
+ 
+C
+2h
+   trans-dichloroethylene
+The 
+C
+2
+ axis is the z axis. The origin is the inversion center. The 
+σ
+h
+ plane is the xy plane.
+ geometry units angstroms
+   N 0     0     -0.055 
+   H 0.665 0.665 -0.481 
+   symmetry c3v
+ end
+ geometry units au
+   C 1.855 1.855 0 
+   H 3.289 3.289 0 
+   symmetry D6h
+ end
+ geometry units au
+   b 0 0 0 
+   o 2.27238285 1.19464491 0.00000000 
+   h 2.10895420 2.97347707 0.00000000 
+  symmetry C3h
+ end
+ geometry units angstroms
+   symmetry d5d
+   fe 0 0     0 
+   c  0 1.194 1.789 
+   h  0 2.256 1.789 
+ end
+ geometry units au
+   S  0.00000000 0.00000000 -0.14917600 
+   Cl 0.00000000 0.00000000  4.03279700 
+   F  3.13694200 0.00000000 -0.15321800 
+   F  0.00000000 0.00000000 -3.27074500 
+   symmetry C4v
+ end 19.2.
+16
+ 
+D
+2d
+ 
+  
+CH
+2
+CCH
+2
+The 
+C
+2
+ axis is the z axis (z is also the 
+S
+4
+ axis). The x and y axes are the perpendicular 
+C
+2
+'s
+. The 
+σ
+d
+ planes are: 1) the
+plane containing the x=y axis and the z axis and 2) the plane containing the -x=y axis and the z axis.
+19.2.
+17
+ 
+D
+5h
+   cyclopentadiene anion
+The 
+C
+5
+ axis is the z axis (z is also the 
+S
+5
+ axis). The y axis is one of the perpendicular 
+C
+2
+ axes. The 
+σ
+h
+ plane is the xy
+plane and one of the 
+σ
+d
+ planes is the yz plane.
+19.2.
+18
+ 
+D
+4h
+   gold tetrachloride
+The 
+C
+4
+ axis is the z axis (z is also the 
+S
+4
+ axis). The 
+C
+2
+'
+ axes are the x and y axes and the 
+C
+2
+''
+ axes are the x=y axis and
+the x=-y axis. The inversion center is the origin. The 
+σ
+h
+ plane is the xy plane. The 
+σ
+v
+ planes are the xz and yz planes and
+the 
+σ
+d
+ planes are 1) the plane containing the x=-y axis and the z axis and 2) the plane containing the x=y axis and the z
+axis.
+20 
+Benchmarks performed with NWChem
+This page contains a suite of benchmarks performed with NWChem. The benchmarks include a variety of computational
+chemistry methods on a variety of high performance computing platforms. The list of benchmarks available will evolve
+continuously as new data becomes available. If you have benchmark information you would like to add for your computing
+system, please contact one of the developers.
+20 
+Hybrid density functional calculation on the C
+240
+Buckyball
+Performance of the Gaussian basis set DFT module in NWChem. This calculation involved performing a PBE0 calculation
+(in direct mode) on the on C
+240
+ system with the 6-31G* basis set (3600 basis functions) without symmetry. These
+ geometry units angstroms
+   C  0.65051239 -0.08305064 0 
+   Cl 1.75249381  1.30491767 0 
+   H  1.14820954 -1.04789741 0 
+   symmetry C2h
+ end
+ geometry units angstroms
+   symmetry d2d
+   c 0     0     0 
+   c 0     0     1.300 
+   h 0.656 0.656 1.857 
+ end
+ charge -1
+ geometry units angstroms
+   symmetry d5h
+   c 0 1.1853 0 
+   h 0 2.2654 0 
+ end
+ geometry units au
+   Au 0 0     0 
+   Cl 0 4.033 0
+   symmetry D4h
+ end

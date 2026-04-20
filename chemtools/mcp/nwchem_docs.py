@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Standalone NWChem docs MCP server (backward-compat entry point).
+
+The docs tools are now bundled into the main chemtools-nwchem server.
+This module is kept so the `chemtools-nwchem-docs` entry point still works,
+but the preferred setup is a single `chemtools-nwchem` server.
+"""
 from __future__ import annotations
 
 import json
@@ -8,13 +14,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if not any("chemtools" in p for p in sys.path):
     sys.path.insert(0, str(_REPO_ROOT))
 
 from chemtools.nwchem_docs import (  # noqa: E402
-    DEFAULT_DOCS_ROOT,
     find_examples,
     get_topic_guide,
     list_docs,
@@ -25,7 +29,7 @@ from chemtools.nwchem_docs import (  # noqa: E402
 
 
 SERVER_NAME = "nwchem-docs-mcp"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 LOG_PATH = os.environ.get("NWCHEM_DOCS_MCP_LOG")
 
@@ -38,33 +42,24 @@ def log_event(message: str) -> None:
         handle.write(f"[{timestamp}] {message}\n")
 
 
-def docs_path(path: str | None = None) -> str:
-    if path:
-        return path
-    return os.environ.get("NWCHEM_DOCS_ROOT", str(DEFAULT_DOCS_ROOT))
-
-
 def tool_definitions() -> list[dict[str, Any]]:
     return [
         {
             "name": "list_nwchem_docs",
-            "description": "List the available local NWChem documentation files configured for this project.",
+            "description": "List available bundled NWChem documentation files.",
             "inputSchema": {
                 "type": "object",
-                "properties": {
-                    "docs_path": {"type": "string"},
-                },
+                "properties": {},
                 "additionalProperties": False,
             },
         },
         {
             "name": "get_nwchem_topic_guide",
-            "description": "Return a curated local-docs guide for a common NWChem topic such as scf_open_shell, mcscf, fragment_guess, or tce.",
+            "description": "Get a curated documentation guide for a common NWChem topic: scf_open_shell, mcscf, fragment_guess, or tce.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "topic": {"type": "string"},
-                    "docs_path": {"type": "string"},
                 },
                 "required": ["topic"],
                 "additionalProperties": False,
@@ -72,12 +67,11 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "search_nwchem_docs",
-            "description": "Search the local NWChem docs for syntax, keywords, or option details and return ranked excerpts.",
+            "description": "Search bundled NWChem docs for syntax, keywords, or option details. Returns ranked excerpts.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string"},
-                    "docs_path": {"type": "string"},
                     "max_results": {"type": "integer", "default": 8},
                     "context_lines": {"type": "integer", "default": 2},
                 },
@@ -87,12 +81,11 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "lookup_nwchem_block_syntax",
-            "description": "Search the local NWChem docs for block-level syntax such as scf, dft, mcscf, tce, vectors, or geometry.",
+            "description": "Look up NWChem input block syntax from bundled docs.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "block_name": {"type": "string"},
-                    "docs_path": {"type": "string"},
                     "max_results": {"type": "integer", "default": 6},
                 },
                 "required": ["block_name"],
@@ -101,12 +94,11 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "find_nwchem_examples",
-            "description": "Search local NWChem examples/tutorial docs for a topic such as fragment guess, mcscf, scf, tce, or dft.",
+            "description": "Search bundled NWChem example/tutorial docs for a topic.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "topic": {"type": "string"},
-                    "docs_path": {"type": "string"},
                     "max_results": {"type": "integer", "default": 6},
                 },
                 "required": ["topic"],
@@ -115,17 +107,17 @@ def tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "read_nwchem_doc_excerpt",
-            "description": "Read a local NWChem doc excerpt by file path and line range, or around the first match for a query.",
+            "description": "Read an excerpt from a bundled NWChem doc file by filename and line range or query.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string"},
+                    "doc_name": {"type": "string"},
                     "start_line": {"type": "integer"},
                     "end_line": {"type": "integer"},
                     "query": {"type": "string"},
                     "context_lines": {"type": "integer", "default": 8},
                 },
-                "required": ["file_path"],
+                "required": ["doc_name"],
                 "additionalProperties": False,
             },
         },
@@ -134,37 +126,28 @@ def tool_definitions() -> list[dict[str, Any]]:
 
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> Any:
     if name == "list_nwchem_docs":
-        return {
-            "docs_root": docs_path(arguments.get("docs_path")),
-            "files": list_docs(arguments.get("docs_path")),
-        }
+        return {"files": list_docs()}
     if name == "search_nwchem_docs":
         return search_docs(
             arguments["query"],
-            docs_path=docs_path(arguments.get("docs_path")),
             max_results=int(arguments.get("max_results", 8)),
             context_lines=int(arguments.get("context_lines", 2)),
         )
     if name == "get_nwchem_topic_guide":
-        return get_topic_guide(
-            arguments["topic"],
-            docs_path=docs_path(arguments.get("docs_path")),
-        )
+        return get_topic_guide(arguments["topic"])
     if name == "lookup_nwchem_block_syntax":
         return lookup_block_syntax(
             arguments["block_name"],
-            docs_path=docs_path(arguments.get("docs_path")),
             max_results=int(arguments.get("max_results", 6)),
         )
     if name == "find_nwchem_examples":
         return find_examples(
             arguments["topic"],
-            docs_path=docs_path(arguments.get("docs_path")),
             max_results=int(arguments.get("max_results", 6)),
         )
     if name == "read_nwchem_doc_excerpt":
         return read_doc_excerpt(
-            arguments["file_path"],
+            arguments["doc_name"],
             start_line=arguments.get("start_line"),
             end_line=arguments.get("end_line"),
             query=arguments.get("query"),

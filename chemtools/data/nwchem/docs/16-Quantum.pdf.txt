@@ -1,0 +1,757 @@
+This illustrates how to handle signals from terminating child processes and how to generate simple plots on UNIX systems.
+The 
+scanning example
+ is modified so that instead of writing the data to a file for subsequent visualization, it is saved for
+subsequent visualization with Gnuplot (you'll need both Gnuplot and the corresponding package for Python in your
+PYTHONPATH. Look at 
+https://web.archive.org/web/20010717060625/http://monsoon.harvard.edu/~mhagger/download/
+).
+The issue is that NWChem traps various signals from the O/S that usually indicate bad news in order to provide better error
+handling and reliable clean-up of shared, parallel resources. One of these signals is SIGCHLD which is generated
+whenever a child process terminates. If you want to create child processes within Python, then the NWChem handler for
+SIGCHLD must be replaced with the default handler. There seems to be no easy way to restore the NWChem handler after
+the child has completed, but this should have no serious side effect.
+18.
+5
+ 
+Troubleshooting
+Common problems with Python programs inside NWChem.
+1
+. 
+You get the message
+0:python_input: indentation must be >= that of first line: 4
+ 
+This indicates that NWChem thinks that a line is less indented than 
+the first line. If this is not the case then perhaps
+there is a tab 
+in your input which NWChem treats as a single space character but 
+appears to you as more spaces. Try
+running untabify in Emacs. The 
+problem could also be the 
+END
+ directive that terminates the 
+PYTHON
+ 
+compound
+directive, since Python also has an end statement. To 
+avoid confusion the 
+END
+ directive for NWChem must be at the
+start of 
+the line.
+2
+. 
+Your program hangs or deadlocks – most likely you have a piece of 
+code that is restricted to executing on a subset of
+the processors 
+(perhaps just node 0) but is calling (perhaps indirectly) a function 
+that must execute on all nodes.
+16.3 
+Quantum
+The quantum features are routines for printing out one- and two-electron integrals that can be utilized in quantum
+algorithms. The outputs can be interpreted and formatted in 
+YAML
+ files that include the integrals and basic information
+ geometry units au  
+   O 0 0 0; H 0 1.430 -1.107; H 0 -1.430 -1.107  
+ end  
+ print none  
+ python  
+   import Gnuplot, time, signal  
+   def energy_at_exponent(exponent):  
+      input_parse('''  
+         basis noprint  
+            H library 3-21g; O library 3-21g; O d; %f 1.0  
+         end  
+      ''' % (exponent))  
+      return task_energy('scf')  
+   data = []  
+   exponent = 0.5  
+   while exponent <= 0.6:  
+      energy = energy_at_exponent(exponent)  
+      print ' exponent = ', exponent, ' energy = ', energy  
+      data = data + [exponent,energy](exponent,energy.md)  
+      exponent = exponent + 0.02  
+   if (ga_nodeid() == 0):  
+      signal.signal(signal.SIGCHLD, signal.SIG_DFL)  
+      g = Gnuplot.Gnuplot()  
+      g('set data style linespoints')  
+      g.plot(data)  
+      time.sleep(30)  # 30s to look at the plot  
+ end  
+ task python including initial wavefunction guesses for quantum algorithms. There are currently two options for integrals:
+16.3.
+1
+ 
+Bare Hamiltonian
+To print the bare Hamiltonian, you must set up a CCSD calculation with the following parameters: 
+The symmetry must be declared as 'C1' 
+In the TCE block, you must include the following:
+You must set the printing parameters at the end of the input file:
+Notes:
+The two-electron integrals are printed out in compact Mulliken notation (each printed element corresponds to (ij|kl),
+(ij|lk), (ji|kl), (ji|lk), (kl|ij), (kl|ji), (lk|ij), and (lk|ji) )
+The number of alpha and beta electrons that are set in the printing does not need to correspond to the total number of
+alpha and beta electrons. Rather it is the number of electrons included in the printing, starting from the HOMO and
+counting down. This allows you to 'freeze' core orbitals. However, this is not recommended, because unlike freezing
+Fock matrix elements and two-electron integrals in correlated calculations, this procedure is dropping core orbitals of
+the standard one- and two-electron integrals and can lead to an imbalance of the correlation energy.
+If the number of electrons and orbitals do not correspond to the total numbers of electrons and orbitals, then the
+calculation will perform a corresponding frozen core/frozen virtual CC/EOMCC calculation. This is to ensure that
+leading CC/EOMCC excitations do not correspond to orbitals outside of the printed integrals.
+16.3.
+2
+ 
+DUCC Hamiltonian
+The double unitary coupled-cluster (DUCC) Hamiltonian is a way of incorporating correlation effects (mainly dynamical) into
+a reduced dimensionality Hamiltonian based on a defined active space. The procedure currently only reduces the virtual
+space and all occupied orbitals are considered active. Only the ground-state implementation is available in the current
+NWChem release
+.
+To print the DUCC Hamiltonian, you must set up a CCSD calculation with the following parameters:
+The symmetry must be declared as 'C1'
+In the TCE block, you must include the following:
+You must set the printing parameters at the end of the input file:
+Notes:
+Six models for the truncation of the similarity transformed are implemented and numbered 1-6. They correspond to
+        2eorb
+        2emet 13
+        nroots ### (Optional, but will include leading excitations for excited-state quantum calculations)
+        set tce:print_integrals T
+        set tce:qorb ### (Total number of orbitals you wish to be printed)
+        set tce:qela ### (Number of alpha electrons)
+        set tce:qelb ### (number of beta electrons)
+        2eorb
+        2emet 13
+        set tce:qducc T
+        set tce:nactv ### (The number of active virtual orbitals. 
+                           Remember that all occupied orbitals are active as well)
+        set tce:nonhf F/T (If a non-RHF reference is used, set to T. Otherwise, keep as F.)
+        set tce:ducc_model ### (Determines how the similarity transformed Hamiltonian is truncated. See note below.) approximations A(2)-A(7), respectively, that are detailed in 
+arXiv:2110.12077
+. Model 3 corresponds to the earliest
+implementation described in 
+J. Chem. Phys. 151, 014107 (2019)
+ and 
+J. Chem. Phys. 151, 234114 (2019)
+. In contrast
+to these early publications, the full form of the two-electron integral is printed. Model 2 is an aggressive truncation and
+is not recommended for use.
+The entire two-electron integral is printed out since the DUCC Hamiltonian does not have the same symmetry as the
+bare Hamiltonian. Instead of the 8-fold symmetry, it has dual 4-fold symmetries
+When utilizing the 
+YAML interpreter
+, the full two-electron integral will be printed in the YAML file, despite it being
+labeled as 'sparse' in the YAML file.
+Frozen core calculations should not be performed. There is nothing preventing such calculation from being executed,
+but the integrals will be incorrect.
+Since the all-orbital coupled-cluster calculation must be performed, then there is a chance that a leading excitation
+outside of the active-space will be printed and therefore included in the initial wave function description in the YAML
+file. The user ought to be aware of this risk and make changes to the YAML file to exclude these excitations, which
+would include renormalizing the remaining amplitudes of the initial guess.
+16.3.
+3
+ 
+YAML Interpreter
+Once the calculation is completed, the integrals and basic information including initial wavefunction guesses for quantum
+algorithms can be extracted into a YAML file. To generate the YAML file, executed the following command:
+Note:
+ * the 'fci_energy' in the YAML file is taken to be the energy of the correlated method, which, in either case, is the
+CCSD energy.
+16.3.
+4
+ 
+Example input file for Bare Hamiltonian
+        (IJ|KL) = (JI|LK) = (KL|IJ) = (LK|JI)  
+        Separately, (IJ|LK) = (JI|KL) = (KL|JI) = (LK|IJ)  
+        But (IJ|KL) /= (IJ|LK)    
+python $NWCHEM_TOP/contrib/quasar/export_chem_library_yaml.py < {NWChem output file} > {YAML file name} 16.3.
+5
+ 
+Example input file for DUCC
+16.4 
+Vibrational SCF (VSCF)
+16.4.
+1
+ 
+Overview
+echo
+start Lih
+geometry units angstroms
+symmetry C1
+ Li 0 0   0.000
+ H  0 0   1.600
+end
+basis spherical
+ * library sto-3g
+end
+scf
+  singlet
+  rhf
+  thresh 1e-10
+end
+tce
+  2eorb
+  2emet 13
+  ccsd
+  thresh 1.0d-8
+  maxiter 150
+  nroots 2
+end
+set tce:print_integrals T
+set tce:qorb 6
+set tce:qela 2
+set tce:qelb 2
+task tce energy
+echo
+start Lih
+geometry units angstroms
+symmetry C1
+ Li 0 0   0.000
+ H  0 0   1.600
+end
+basis spherical
+ * library sto-3g
+end
+scf
+  singlet
+  rhf
+  thresh 1e-10
+end
+tce
+  2eorb
+  2emet 13
+  ccsd
+  thresh 1.0d-8
+  maxiter 150
+end
+set tce:qducc T
+set tce:nactv 4
+set tce:nonhf F
+set tce:ducc_model 3
+task tce energy The VSCF module
+1
+ can be used to calculate the anharmonic contributions to the vibrational modes of the molecule of
+interest. Energies are calculated on a one-dimensional grid along each normal mode, on a two-dimensional grid along each
+pair of normal modes, and optionally on a three-dimensional grid along each triplet of normal modes. These energies are
+then used to calculate the vibrational nuclear wavefunction at an SCF- (VSCF) and MP2-like (cc-VSCF) level of theory.
+VSCF can be used at all levels of theory, SCF and correlated methods, and DFT. For correlated methods, only the SCF
+level dipole is evaluated and used to calculate the IR intensity values.
+The VSCF module is started when the task directive 
+TASK <theory> vscf
+ is defined in the user input file. The input format has
+the form:
+16.4.
+2
+ 
+Coupling keyword
+The order of coupling of the harmonic normal modes included in the calculation is controlled by the specifying:
+For 
+coupling=diagonal
+ a one-dimensional grid along each normal mode is computed. 
+For 
+coupling=pair
+ a two-dimensional grid along each pair of normal modes is computed. 
+For 
+coupling=triplet
+ a three-dimensional grid along each triplet of normal modes is computed.
+16.4.
+3
+ 
+Ngrid keyword
+The number of grid points along each normal mode, or pair of modes can be defined by specifying:
+16.4.
+4
+ 
+Iexcite keyword
+This VSCF module by default calculates the ground state (ν=0), but can also calculate excited states (such as ν=1). The
+number of excited states calculated is defined by specifying:
+With 
+iexcite=1
+ the fundamental frequencies are calculated.
+With 
+iexcite=2
+ the first overtones are calculated.
+With 
+iexcite=3
+ the second overtones are calculated.
+16.4.
+5
+ 
+Vcfct keyword
+In certain cases the pair coupling potentials can become larger than those for a single normal mode. In this case the pair
+potentials need to be scaled down. The scaling factor used can be defined by specifying:
+16.4.
+6
+ 
+References
+ VSCF
+   [coupling <string couplelevel default "pair">]  
+   [ngrid    <integer default 16 >]  
+   [iexcite  <integer default 1  >]  
+   [vcfct    <real    default 1.0>]  
+ END
+   coupling <string couplelevel default "pair">
+   ngrid <integer default 16>
+   iexcite <integer default 1>
+   vcfct <real default 1.0> 1
+. 
+Chaban, G. M.; Jung, J. O.; Gerber, R. B. Ab Initio Calculation of Anharmonic Vibrational States of Polyatomic Systems: Electronic Structure
+Combined with Vibrational Self-Consistent Field. 
+The Journal of Chemical Physics
+ 
+1999
+, 
+111
+ (5), 1823–1829. 
+https://doi.org/10.1063/1.479452
+. 
+16.5 
+Correlation consistent Composite Approach (ccCA)
+The CCCA module calculates the total energy using the correlation consistent Composite Approach (ccCA). At present the
+ccCA module is designed for the study of main group species only.
+\[E_{ccCA} = \Delta E_{MP2/CBS} \ 
+\ 
++ \Delta E_{CC} + \Delta E_{CV} + \Delta E_{SR} + \Delta E_{ZPE}\]
+where EMP2/CBS is the complete basis set extrapolation of MP2 energies with the aug-cc-pVnZ (n=T,D,Q) series of basis
+sets, 
+\(\Delta E_{CC}\)
+ is the correlation correction,
+\[\Delta E_{CC} = E_{CCSD(T)/cc-pVTZ} \ 
+\ \ 
+- 
+E_{MP2/cc-pVTZ}\]
+\(\Delta E_{CV}\)
+ is the core-valence correction,
+\[\Delta E_{CV} = E_{MP2(FC1)/aug-cc-pCVTZ} \ 
+\ 
+\ 
+\ 
+\ 
+- 
+E_{MP2/aug-cc-pVTZ}\]
+where 
+\(FC1\)
+ symbolizes that all electrons of first-row atoms are correlated, all electrons of second-row atoms are
+correlated except the 1s MOs, and all electrons of atoms K–Kr are correlated except the 1s2s2p MOs.
+\(\Delta E_{SR}\)
+ is the scalar-relativistic correction,
+\[\Delta E_{SR} = E_{MP2/cc-pVTZ-DK} \ 
+\ 
+\ 
+- 
+E_{MP2/cc-pVTZ}\]
+and 
+\(\Delta E_{ZPE}\)
+ is the zero-point energy correction or thermal correction. Geometry optimization and subsequent
+frequency analysis are performed with B3LYP/cc-pVTZ.
+Suggested reference: N.J. DeYonker, B. R. Wilson, A.W. Pierpont, T.R. Cundari, A.K. Wilson, Mol. Phys. 107, 1107 (2009).
+Earlier variants for ccCA algorithms can also be found in: N. J. DeYonker, T. R. Cundari, A. K. Wilson, J. Chem. Phys. 124,
+114104 (2006).
+The ccCA module can be used to calculate the total single point energy for a fixed geometry and the zero-point energy
+correction is not available in this calculation. Alternatively the geometry optimization by B3LYP/cc-pVTZ is performed
+before the single point energy evaluation. For open shell molecules, the number of unpaired electrons must be given
+explicitly.
+One example of input file for single point energy evaluation is given here:
+CCCA
+       [(ENERGY||OPTIMIZE)   default ENERGY] 
+       [(DFT||DIRECT)   default DFT]  
+       [(MP2||MBPT2)   default MP2]  
+       [(RHF||ROHF||UHF)   default RHF]  
+       [(CCSD(T)||TCE)   default CCSD(T)]  
+       [NOPEN   <integer number of unpaired electrons   default   0 >]  
+       [(THERM||NOTHERM)   default  THERM]  
+       [(PRINT||NOPRINT) default NOPRINT]  
+       [BASIS <basis name for orbital projection guess>]  
+       [MOVEC <file name for orbital projection guess>]  
+END
+start h2o_ccca
+title "H2O, ccCA test"
+geometry units au
+ H       0.0000000000   1.4140780900  -1.1031626600  
+ H       0.0000000000  -1.4140780900  -1.1031626600  
+ O       0.0000000000   0.0000000000  -0.0080100000
+end
+task ccca An input file for the ground state of O2 with geometry optimization is given below:
+16.6 
+Interfaces to Other Programs
+NWChem has interfaces to several different packages which are listed below. In general, the NWChem authors work with
+the authors of the other packages to make sure that the interface works. However, any problems with the interface should
+be reported through the github issue page https://github.com/nwchemgit/nwchem/issues
+16.6.
+1
+ 
+DIRDYVTST – DIRect Dynamics for Variational Transition State Theory
+by Bruce C. Garrett, Environmental Molecular Sciences Laboratory, Pacific Northwest Laboratory, Richland, Washington
+Yao-Yuan Chuang and Donald G. Truhlar, Department of Chemistry and Super Computer Institute, University of
+Minnesota, MN 55455-0431
+and interfaced to NWChem by
+Ricky A. Kendall, Scalable Computing Laboratory, Ames Laboratory and Iowa State University, Ames, IA 50011
+Theresa L. Windus, Environmental Molecular Sciences Laboratory, Pacific Northwest Laboratory, Richland, Washington
+If you use the DIRDYVTST portion of NWChem, please use following citation in addition to the usual NWChem citation:
+16.6.
+1
+.
+1
+ 
+Introduction
+By using DIRDYVTST, a user can carry out electronic structure calculations with NWChem and use the resulting energies,
+gradients, and Hessians for direct dynamics calculations with 
+POLYRATE
+. 
+This program prepares the file30 input for
+POLYRATE from NWChem electronic structure calculations of energies, gradients and Hessians at the reactant, product,
+and saddle point geometries and along the minimum energy path. Cartesian geometries for the reactants, products, and
+saddle points need to be input to this program; optimization of geometries is not performed in this program. Note that
+DIRDYVTST is based on the DIRDYGAUSS program and is similar to two other programs: DDUTILITIES and
+GAUSSRATE. Users of this module are encouraged to read the 
+POLYRATE manual
+ since they will need to create the file
+fu5 input to run calculations with POLYRATE.
+Notes about the code:
+start o2_ccca
+title "O2, ccCA test"
+geometry units au
+ O       0.0000000000   0.0000000000  -2.0000  
+ O       0.0000000000   0.0000000000   0.0000
+end
+ccca
+ optimize
+ dft  
+ nopen 2
+end
+task ccca
+   DIRDYVTST, Yao-Yuan Chuang and Donald G. Truhlar, Department of Chemistry and Super Computer Institute,   
+   University of Minnesota; Ricky A. Kendall,Scalable Computing Laboratory, Ames Laboratory and Iowa State   
+   University; Bruce C. Garrett and Theresa L. Windus, Environmental Molecular Sciences Laboratory,  
+   Pacific Northwest Laboratory. ` Input. The code has been written to parallel, as much as possible, the POLYRATE code.
+Output. There is one default output file for each DIRDYVTST run - .file30.
+Integrators for following the reaction path. Currently the Euler and three Page-McIver (PM) methods are implemented. The
+PM methods are the local quadratic approximation (LQA), the corrected LQA (CLQA), and the cubic (CUBE) algorithm. The
+PM methods are implemented so that the Hessian can be reused at intermediate steps at which only the gradient is
+updated.
+16.6.
+1
+.
+2
+ 
+Files
+Test runs are located in directories in $NWCHEM_TOP/QA/tests. Test runs are available for two systems: H + H
+2
+ and OH
++ H
+2
+.
+The H + H
+2
+ test uses the Euler integration method at the SCF/3-21G level of theory to calculate points along the reaction
+path. This test is located in the $NWCHEM_TOP/QA/tests/h3tr1 directory.
+The OH + H
+2
+ test uses the Page-McIver CUBE algorithm to calculate points on the SCF/3-21G surface and does additional
+single point calculations at the SCF/6-31G* level of theory. This test is located in the $NWCHEM_TOP/QA/tests/oh3tr3
+directory.
+Note: These tests are set up with SCF, however, other levels of theory can be used. The initial hessian calculations at the
+reactants, products and saddle point can cause some problems when numerical hessians are required (especially when
+there is symmetry breaking in the wavefunction).
+16.6.
+1
+.
+3
+ 
+Detailed description of the input
+The input consists of keywords for NWChem and keywords related to POLYRATE input. The first set of inputs are for
+NWChem with the general input block of the form:
+16.6.
+1
+.
+3
+.
+1
+ 
+Use of symmetry
+The use of symmetry in the calculation is controlled by the keyword 
+autosym | noautosym
+ which is used as described in the
+geometry
+ directive. 
+Autosym
+ is on by default. A couple words of warning here. The tolerance related to 
+autosym
+ can cause
+problems when taking the initial step off of the transition state. If the tolerance is too large and the initial step relatively
+small, the resulting geometry will be close to a higher symmetry than is really wanted and the molecule will be symmetrized
+into the higher symmetry. To check this, the code prints out the symmetry at each geometry along the path. It is up to the
+user to check the symmetry and make sure that it is the required one. In perverse cases, the user may need to turn
+autosym off (noautosym) if changing the tolerance doesn't produce the desired results. In the case that autosym is used,
+the user does not need to worry about the different alignment of the molecule between NWChem and POLYRATE, this is
+taken care of internally in the DIRDYVTST module.
+16.6.
+1
+.
+3
+.
+2
+ 
+Basis specification
+The basis name on the theory or sptheory directive is that specified on a 
+basis set directive
+ and not the name of a standard
+basis in the library. If not specified, the basis set for the sptheory defaults to the theory basis which defaults to "ao basis".
+16.6.
+1
+.
+3
+.
+3
+ 
+Effective core potentials
+If an 
+effective core potential
+ is specified in the usual fashion outside of the DIRDYVTST input then this will be used in all
+calculations. If an alternative ECP name (the name specified on the ECP directive in the same manner as done for basis
+ DIRDYVTST [autosym [real tol default 1d-2] | noautosym]  
+   [THEORY <string theory> [basis <string basis default "ao basis">] \  
+                        [ecp <string ecp>] [input <string input>]]  
+   [SPTHEORY <string theory> [basis <string basis default "ao basis">]   
+                        [ecp <string ecp>] [input <string input>`]]  
+   ...
+ END sets) is specified on one of the theory directives, then this ECP will be used in preference for that level of theory.
+16.6.
+1
+.
+3
+.
+4
+ 
+General input strings
+For many purposes, the ability to specify the theory, basis and effective core potential is adequate. All of the options for
+each theory are determined from their independent input blocks. However, if the same theory (e.g., DFT) is to be used with
+different options for theory and sptheory, then the general input strings must be used. These strings are processed as
+NWChem input each time the theoretical calculation is invoked. The strings may contain any NWChem input, except for
+options pertaining to DIRDYVTST and the task directive. The intent is that the strings be used just to control the options
+pertaining to the theory being used.
+A word of caution. Be sure to check that the options are producing the desired results. Since the NWChem database is
+persistent, the input strings should fully define the calculation you wish to have happen.
+For instance, if the theory model is DFT/LDA/3-21g and the sptheory model is DFT/B3LYP/6-311g**, the DIRDYVTST input
+might look like this
+The empty XC directive restores the default 
+LDA exchange-correlation functional
+. Note that semi-colons and other
+quotation marks inside the input string must be preceded by a backslash to avoid special interpretation.
+16.6.
+1
+.
+3
+.
+5
+ 
+POLYRATE related options
+These keyword options are simlar to the POLYRATE input format, except there are no ENERGETICS, OPTIMIZATION,
+SECOND, TUNNELING, and RATE sections.
+16.6.
+1
+.
+3
+.
+5
+.
+1
+ 
+GENERAL SECTION
+The GENERAL section has the following format:
+Descriptions
+TITLE is a keyword that allows the user to input a description of the calculation. In this version, the user can only have a
+single-line description.
+For example:
+TITLE Calculation of D + HCl reaction
+ATOMS is a list keyword that is used to input a list of the atoms. It is similar to POLYRATE in that the order of the atom and
+the atomic symbol are required in a single line. If isotope of the element is considered then the atomic mass is required in
+units of amu.
+For example:
+   dirdyvtst  
+     theory  dft basis 3-21g    input "dft\; xc\; end"  
+     sptheory dft basis 6-311g** input "dft\; xc b3lyp\; end"  
+     ....  
+   end
+  * GENERAL
+ [TITLE <string title>]  
+ ATOMS  
+   <integer num> <string tag> [<real mass>]  
+   ...  
+ END  
+ [SINGLEPOINT]  
+ [SAVEFILE (vecs || hess || spc)
+                         ATOMS  
+                           1     H     2.014  
+                           2     H  
+                           3     Cl  
+                         END` SINGLEPOINT is a keyword that specifies that a single point calculation is to be performed at the reactants, products and
+saddle point geometries. The type of single point calculation is specified in the sptheory line.
+SAVEFILE is a keyword that specifies that NWChem files are to be saved. Allowed values of variable input to SAVEFILE
+are vecs, hess, and spc for saving the files base theory movecs, base theory hessian and singlepoint calculation movecs.
+16.6.
+1
+.
+3
+.
+5
+.
+2
+ 
+REACT1, REACT2, PROD1, PROD2, AND START SECTIONS
+These sections have the following format:
+REACT1 and REACT2 are input for each of the reactants and PROD1 and PROD2 are input for each of the products.
+REACT1 and PROD1 are required. START is the input for the transition state if one exists, or starting point to follow
+downhill the MEP.
+Descriptions
+GEOM is a list keyword that indicates the geometry of the molecule in Cartesian coordinates with atomic unit.
+For example:
+SPECIES is a variable keyword that indicates the type of the molecule. Options are: ATOMIC (atomic reactant or product),
+LINRP (linear reactant or product), NONLINRP (nonlinear reactant or product), LINTS (linear transition state), and
+NONLINTS (nonlinear transition state).
+For example:
+SPECIES atomic
+16.6.
+1
+.
+3
+.
+5
+.
+3
+ 
+PATH SECTION
+The Path section has the format:
+Descriptions
+SCALEMASS is a variable keyword that indicates the arbitrary mass (in amu) used for mass-scaled Cartesian coordinates.
+This is the variable called mu in published papers. Normally, this is taken as either 1.0 amu or, for bimolecular reactions, as
+the reduced mass of relative translation of the reactants.
+SSTEP is a variable keyword that indicates the numerical step size (in bohrs) for the gradient grid. This is the step size for
+following the minimum energy path.
+SSAVE is a variable keyword that indicates the numerical step size (in bohrs) for saving the Hessian grid. At each save
+point the potential and its first and second derivatives are recalculated and written to the .file30 file. For example, if
+*(REACT1 || REACT2 || PROD1 || PROD2 || START)  
+  GEOM  
+    <integer num> <real x y z>  
+    ...  
+  END  
+  SPECIES (ATOMIC || LINRP || NONLINRP || LINTS || NONLINTS default NONLINRP)
+                         GEOM  
+                            1      0.0     0.0     0.0  
+                            2      0.0     0.0     1.5  
+                         END
+*PATH  
+ [SCALEMASS <real scalemass default 1.0>]  
+ [SSTEP <real sstep default 0.01>]  
+ [SSAVE <real ssave default 0.1>]  
+ [SHESS <real shess default SSAVE>]  
+ [SLP <real slp default 1.0>]  
+ [SLM <real slm default -1.0>]  
+ [SIGN (REACTANT || PRODUCT default REACTANT)]  
+ [INTEGRA (EULER || LQA || CLQA || CUBE default EULER)] 
+ [PRINTFREQ (on || off default off)] SSTEP=0.01 and SSAVE=0.1, then the potential information is written to .file30 every 10 steps along the gradient grid.
+SHESS is a variable keyword that indicates the numerical step size (in bohrs) for recomputing the Hessian when using a
+Page-McIver integrator (e.g., LQA, CLQA, or CUBE). For Euler integration SHESS = SSAVE. For intermediate points along
+the gradient grid, the Hessian matrix from the last Hessian calculation is reused. For example, if SSTEP=0.01 and
+SHESS=0.05, then the Hessian matrix is recomputed every 5 steps along the gradient grid.
+SLP is a variable keyword that indicates the positive limit of the reaction coordinate (in bohrs).
+SLM is a variable keyword that indicates the negative limit of the reaction coordinate (in bohrs).
+SIGN is a variable keyword used to ensure the conventional definition of the sign of s, s \< 0 for the reactant side and s > 0
+for the product side, is followed. PRODUCT should be used if the eigenvector at the saddle point points toward the product
+side and REACTANT if the eigenvector points toward the reactant side.
+INTEGRA is a variable keyword that indicates the integration method used to follow the reaction path. Options are: EULER,
+LQA, CLQA, and CUBE.
+PRINTFREQ is a variable keyword that indicates that projected frequencies and eigenvectors will be printed along the
+MEP.
+16.6.
+1
+.
+3
+.
+6
+ 
+Restart
+DIRDYVTST calculations should be 
+restarted
+ through the normal NWChem mechanism. The user needs to change the
+start directive to a restart directive and get rid of any information that will overwrite important information in the RTDB. The
+file.db and file.file30 need to be available for the calculation to restart properly.
+16.6.
+1
+.
+3
+.
+7
+ 
+Example
+This is an example that creates the file30 file for POLYRATE for H + H
+2
+. Note that the multiplicity is that of the entire
+supermolecule, a doublet. In this example, the initial energies, gradients, and Hessians are calculated at the UHF/3-21G
+level of theory and the singlepoint calculations are calculated at the MP2/cc-pVDZ level of theory with a tighter
+convergence threshold than the first SCF. 17 
+Molecular Mechanics
+start h3test  
+basis  
+ h library 3-21G  
+end  
+basis singlepoint  
+ h library cc-pVDZ  
+end  
+scf  
+  uhf  
+  doublet  
+  thresh 1.0e-6  
+end  
+dirdyvtst autosym 0.001  
+  theory scf input "scf\; uhf\; doublet\; thresh 1.0e-06\; end"  
+  sptheory mp2 basis singlepoint input \  
+    "scf\; uhf\; doublet\; thresh 1.0e-07\; end"  
+*GENERAL  
+  TITLE  
+    Test run: H+H2 reaction, Page-McIver CLQA algorithm, no restart  
+  ATOMS 
+     1    H 
+     2    H  
+     3    H  
+  END 
+  SINGLEPOINT  
+*REACT1  
+   GEOM  
+     1  0.0   0.0   0.0  
+     2  0.0   0.0   1.3886144 
+   END  
+   SPECIES LINRP  
+*REACT2  
+  GEOM  
+    3    0.0   0.0 190.3612132  
+  END  
+  SPECIES  ATOMIC  
+*PROD2  
+  GEOM  
+    1   0.0   0.0 190.3612132  
+  END  
+  SPECIES   ATOMIC  
+*PROD1  
+  GEOM  
+    2  0.0   0.0   1.3886144 
+    3   0.0   0.0   0.0  
+  END  
+  SPECIES  LINRP  
+*START  
+  GEOM  
+    1  0.0   0.0  -1.76531973  
+    2  0.0   0.0   0.0  
+    3  0.0   0.0   1.76531973  
+  END  
+  SPECIES  LINTS  
+*PATH  
+  SSTEP  0.05  
+  SSAVE  0.05  
+  SLP    0.50  
+  SLM   -0.50  
+  SCALEMASS 0.6718993  
+  INTEGRA   CLQA  
+end  
+task dirdyvtst

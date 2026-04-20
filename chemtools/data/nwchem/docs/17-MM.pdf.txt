@@ -1,0 +1,2668 @@
+17 
+Molecular Mechanics
+start h3test  
+basis  
+ h library 3-21G  
+end  
+basis singlepoint  
+ h library cc-pVDZ  
+end  
+scf  
+  uhf  
+  doublet  
+  thresh 1.0e-6  
+end  
+dirdyvtst autosym 0.001  
+  theory scf input "scf\; uhf\; doublet\; thresh 1.0e-06\; end"  
+  sptheory mp2 basis singlepoint input \  
+    "scf\; uhf\; doublet\; thresh 1.0e-07\; end"  
+*GENERAL  
+  TITLE  
+    Test run: H+H2 reaction, Page-McIver CLQA algorithm, no restart  
+  ATOMS 
+     1    H 
+     2    H  
+     3    H  
+  END 
+  SINGLEPOINT  
+*REACT1  
+   GEOM  
+     1  0.0   0.0   0.0  
+     2  0.0   0.0   1.3886144 
+   END  
+   SPECIES LINRP  
+*REACT2  
+  GEOM  
+    3    0.0   0.0 190.3612132  
+  END  
+  SPECIES  ATOMIC  
+*PROD2  
+  GEOM  
+    1   0.0   0.0 190.3612132  
+  END  
+  SPECIES   ATOMIC  
+*PROD1  
+  GEOM  
+    2  0.0   0.0   1.3886144 
+    3   0.0   0.0   0.0  
+  END  
+  SPECIES  LINRP  
+*START  
+  GEOM  
+    1  0.0   0.0  -1.76531973  
+    2  0.0   0.0   0.0  
+    3  0.0   0.0   1.76531973  
+  END  
+  SPECIES  LINTS  
+*PATH  
+  SSTEP  0.05  
+  SSAVE  0.05  
+  SLP    0.50  
+  SLM   -0.50  
+  SCALEMASS 0.6718993  
+  INTEGRA   CLQA  
+end  
+task dirdyvtst 17.1 
+Prepare
+The prepare module is used to set up the necessary files for a molecular dynamics simulation with NWChem. User
+supplied coordinates can be used to generate topology and restart files. The topology file contains all static information
+about a molecular system, such as lists of atoms, bonded interactions and force field parameters. The restart file contains
+all dynamic information about a molecular system, such as coordinates, velocities and properties.
+Without any input, the prepare module checks the existence of a topology and restart file for the molecular systems. If
+these files exist, the module returns to the main task level without action. The module will generate these files when they
+do not exist. Without any input to the module, the generated system will be for a non-solvated isolated solute system.
+To update existing files, including solvation, the module requires input directives read from an input deck,
+The prepare module performs three sub-tasks:
+sequence generation : 
+This sub-task analyzes the supplied coordinates from a PDB-formatted file or from the input
+geometry, and generates a sequence file, containing the description of the system in terms of basic building blocks
+found as fragment or segment files in the database directories for the force field used. If these files do not exist, they
+are generated based on the supplied coordinates. This process constists of generating a fragment file with the list of
+atoms with their force field dependent atom types, partial atomic charges calculated from a Hartree Fock calculation for
+the fragment, followed by a restrained electrostatic potential fit, and a connectivity list. From the information on this
+fragment file the lists of all bonded interactions are generated, and the complete lists are written to a segment file.
+topology generation : 
+Based on the generated or user-supplied e file and the force field specific segment database
+files, this sub-task compiles the lists of atoms, bonded interactions, excluded pairs, and substitutes the force field
+parameters. Special commands may be given to specify interaction parameters that will be changing in a free energy
+evaluation.
+restart generation : 
+Using the user supplied coordinates and the topology file for the chemical system, this sub-task
+generates a restart file for the system with coordinates, velocities and other dynamic information. This step may include
+solvation of the chemical system and specifying periodic boundary conditions.
+Files involved in the preparation phase exist in the following hierarchy:
+standards : 
+The standard database files contain the original force field information. These files are to reside in a
+directory that is specified in the file 
+$HOME/.nwchemrc
+. There will be such a directory for each supported force field. These
+directories contain fragment files (with extension frg), segment files (with extension sgm) and a parameter file (with the
+name of the force field and with extension par).
+extensions : These database files contain generally accepted extensions to the original force field and are to reside in a
+separate directory that is specified in the file 
+$HOME/.nwchemrc
+. There will be such a directory for each supported force
+field. These directories contain fragment files (with extension frg), segment files (with extension sgm) and a parameter
+file (with the name of the force field and with extension par).
+contributed : 
+These database files contain contributed definitions, also required for the quality assurance tests and are
+to reside in a separate directory that is specified in the file 
+$HOME/.nwchemrc
+. There will be such a directory for each
+supported force field. These directories contain fragment files (with extension frg), segment files (with extension sgm)
+and a parameter file (with the name of the force field and with extension par).
+user preferences : 
+These database files contain user preferred extensions to the original force field and are to reside in
+a separate directory that is specified in the file 
+$HOME/.nwchemrc
+. Separate directories of this type should be defined for
+each supported force field. This directory may contain fragment files (with extension frg), segment files (with extension
+sgm) and a parameter file (with the name of the force field and with extension par).
+prepare
+  ...
+end temporary files : 
+Temporary database files contain user preferred extensions to the original force field and are to reside
+in a separate directory that is specified in the file 
+$HOME/.nwchemrc
+. There may be such a directory for each supported
+force field. This directory may contain fragment files (with extension frg), segment files (with extension sgm) and a
+parameter file (with the name of the force field and with extension par).
+current files : 
+Database files that contain user preferred extensions to the original force field and are to reside in a
+separate directory that is specified in the file 
+$HOME/.nwchemrc
+. Typically this will be the current working directory, although
+it may be defined as a specific directory. This directory may contain fragment files (with extension frg), segment files
+(with extension sgm) and a parameter file (with the name of the force field and with extension par). If not specified, files
+will be taken from the current directory.
+Data is taken from the database files searched in the above order. If data is specified more than once, the last found values
+are used. For example, if some standard segment is redefined in a temporary file, the latter one will be used. This allows
+the user to redefine standards or extensions without having to modify those database files, which may reside in a generally
+available, non-modifyable directory. If a filename is specified rather than a directory, the filename indicates the parameter
+file definition. All other files (frg and sgm files) will be take from the specified directory.
+The most common problems with the prepare module are
+1
+. 
+The format of the pdb file does not conform to the pdb standard. In particular, atom names need to correspond with
+definitions in the fragment and segment database files, and should adhere to IUPAC recommendations as adopted by
+the pdb standard. If this problem occurs, the pdb file will need to be corrected.
+1
+. 
+Non-standard segments may contain atoms that could not be atom typed with the existing typing rules in the force field
+parameter files. When this happens, additional typing rules can be included in the parameter file, or the fragment file
+may be manually typed.
+1
+. 
+Parameters for atom types or bonded interactions do not exist in the force field. When this happens, additional
+parameters may be defined in the parameter files, or the segment file may be edited to include explicit parameters.
+17.1.
+1
+ 
+Default database directories
+The file 
+$HOME/.nwchemrc
+ may contain the following entries that determine which files are used by the prepare module.
+This entry specifies the default force field. Database files supplied with NWChem currently support values for ffname of
+amber, referring to AMBER95, and charmm, referring to the academic CHARMM22 force field.
+Entries of this type specify the directory ffdir in which force field database files can be found. Optionally the parameterfile in
+this directory may be specified as parfile. The prepare module will only use files in directories specified here. One
+exception is that files in the current work directory will be used if no directory with current files is specified. The directories
+are read in the order 1-9 with duplicate parameters taken from the last occurrence found. Note that multiple parameter files
+may be specified that will be read in the order in which they are specified.
+This entry may be used to identify a pure solvent restart file solvfil by a name solvnam
+An example file 
+$HOME/.nwchemrc
+ is:
+ffield <string ffname>
+<string ffname>_(1-9) <string ffdir>[{<string parfile>}]
+<string solvnam> <string solvfil> 17.1.
+2
+ 
+System name and coordinate source
+The system name can be explicitly specified for the prepare module. If not specified, the system name will be taken from a
+specification in a previous md input block, or derived from the run time database name.
+The source of the coordinates can be explicitly specified to be from a PDB formatted file sys.pdb, or from a geometry object
+in the run time database. If not specified, a pdb file will be used when it exists in the current directory or the rtdb geometry
+otherwise.
+If a PDB formatted source file contains different MODELs, the model keyword can be used to specify which MODEL will be
+used to generate the topology and restart file. If not specified, the first MODEL found on the PDB file will be read.
+The altloc keyword may be used to specify the use of alternate location coordinates on a PDB file.
+The chain keyword may be used to specify the chain identifier for coordinates on a PDB file.
+specifies the default protonation state of histidine.
+Keyword sscyx may be used to rename cysteine residues that form sulphur bridges to CYX.
+Keyword hbuild may be used to add hydrogen atoms to the unknown segments of the structure found on the pdb file.
+Placement of hydrogen atoms is based on geometric criteria, and the resulting fragment and segment files should be
+carefully examined for correctness.
+The database directories are used as specified in the file 
+.nwchemrc
+. Specific definitions for the force field used may be
+changed in the input file using
+ffield amber
+amber_1 /soft/nwchem/share/amber/amber_s/amber99.par,spce.par
+amber_2 /soft/nwchem/share/amber/amber_x/
+amber_3 /usr/people/username/data/amber/amber_u/
+spce /soft/nwchem/share/solvents/spce.rst
+charmm_1 /soft/nwchem/share/charmm/charmm_s/
+charmm_2 /soft/nwchem/share/charmm/charmm_x/
+system <string sys_calc>
+source ( pdb | rtdb )
+model <integer modpdb default 0>
+altloc <character locpdb default ' '>
+chain <character chnpdb default ' '>
+histidine ( hid | hie | hip )
+sscyx
+hbuild
+directory_(1-9) <string ffdir> [<string parfile>] 17.1.
+3
+ 
+e file generation
+If no existing e file is present in the current directory, or if the new_seq keyword was specified in the prepare input deck, a
+new sequence file is generated from information from the pdb file, and the following input directives.
+Variable maxscf specifies the maximum number of atoms in a segment for which partial atomic charges will be determined
+from an SCF calculation followed by RESP charge fitting. For larger segments a crude partial charge guestimation will be
+done.
+Variable qscale specifies the factor with which SCF/RESP determined charges will be multiplied.
+This command specifies that segment sgmnam should be used for segment with number sgmnum. This command can be
+used to specify a particular protonation state. For example, the following command specifies that residue 114 is a hystidine
+protonated at the N
+ε
+ site and residue 202 is a hystidine protonated at the N
+δ
+ site:
+Links between atoms can be enforced with
+For example, to link atom SG in segment 20 with atom FE in segment 55, use:
+The format of the sequence file is given in 
+this table
+. In addition to the list of segments this file also includes links between
+non-standard segments or other non-standard links. These links are generated based on distances found between atoms
+on the pdb file. When atoms are involved in such non-standard links that have not been identified in the fragment of
+segment files as a non-chain link atom, the prepare module will ignore these links and report them as skipped. If one or
+more of these links are required, the user has to include them with explicit link directives in the sequence file, making them
+forced links. Alternatively, these links can be made forced-links by changing link into LINK in the sequence file.
+Directive fraction can be used to separate solute molecules into fractions for which energies will be separately reported
+during molecular dynamics simulations. The listed molecules will be the last molecule in a fraction. Up to 10 molecules may
+be specified in this directive.
+Directive counter adds num counter ions of type ion to the sequence file. Up to 10 counter directives may appear in the
+input block.
+This directive scales the counter ion charge by the specified factor in the determination of counter ions positions.
+17.1.
+4
+ 
+Topology file generation
+maxscf <integer maxscf default 20>
+qscale <real qscale default 1.0>
+modify sequence { <integer sgmnum>:<string sgmnam> }
+modify sequence 114:HIE 202:HID
+link <string atomname> <string atomname>
+link 20:_SG 55:FE
+fraction { <integer imol> }
+counter <integer num> <string ion>
+counter <real factor>
+new_top [ new_seq ] Keyword new_top is used to force the generation of a new topology file. An existing topology file for the system in the
+current directory will be overwritten. If keyword new_seq is also specified, an existing sequence file will also be overwritten
+with a newly generated file.
+The prepare module generates force field specific fragment, segment and topology files. The force field may be explicitly
+specified in the prepare input block by specifying its name. Currently AMBER and CHARMM are the supported force fields.
+A default force field may be specified in the file 
+$HOME/.nwchemrc
+.
+The user can explicitly specify the directories where force field specific databases can be found. These include force field
+standards, extensions, quality assurance tests, user preferences, temporary , and current database files. Defaults for the
+directories where database files reside may be specified in the file 
+$HOME/.nwchemrc
+ for each of the supported force fields.
+Fragment, segment and sequence files generated by the prepare module are written in the temporary directory. When not
+specified, the current directory will be used. Topology and restart files are always created in the current directory.
+The following directives control the modifications of a topology file. These directives are executed in the order in which they
+appear in the prepare input deck. The topology modifying commands are not stored on the run-time database and are,
+therefor, not persistent.
+These modify commands change the atom type, partial atomic charge, atomic polarizability, specify a dummy, self-
+interaction and quantum atom, respectively. If mset is specified, the modification will only apply to the specified set, which
+has to be 1, 2 or 3. If not specified, the modification will be applied to all three sets. The quantum region in QM/MM
+simulations is defined by specifying atoms with the quantum or quantum_high label. For atoms defined quantum_high
+basis sets labeled X_H will be used. The atomnam should be specified as 
+:
+, where isgm is the segment number, and name
+is the atom name. A leading blank in an atom name should be substituted with an underscore. The modify commands may
+be combined. For example, the following directive changes for the specified atom the charge and atom type in set 2 and
+specifies the atom to be a dummy in set 3.
+With the following directives modifications can be made for entire segments.
+where protonation specifies a modification of the default protonation state of the segment as specified in the segment file.
+This option only applies to Q-HOP simulations.
+Modifications to bonded interaction parameters can be made with the following modify commands.
+where atomtyp and mset are defined as above, multip is the torsion ultiplicity for which the modification is to be applied,
+amber | charmm
+standard <string dir_s>[<string par_s>]
+extensions <string dir_x>[<string par_x>]
+contributed <string dir_q>[<string par_q>]
+user <string dir_u>[<string par_u>]
+temporary <string dir_t>[<string par_t>]
+current <string dir_c>[<string par_c>]
+modify atom <string atomname> [set <integer mset> | initial | final] \
+   ( type <string atomtyp> |  charge <real atomcharge> |  \
+   polar <real atompolar> | dummy | self | quantum | quantum_high )
+modify atom 12:_C1 set 2 charge 0.12 type CA set 3 dummy
+modify segment <integer isgm> \
+  [protonation <integer iprot> | set <integer mset> | initial | final] \
+  ( dummy | self | uncharged | quantum | quantum_high )
+modify ( bond <string atomtyp> <string atomtyp> |  \
+    angle <string atomtyp> <string atomtyp> <string atomtyp> |        \ 
+    torsion <string atomtyp> <string atomtyp> <string atomtyp>        \
+        <string atomtyp> [ multiplicity <integer multip> ] |      \
+    plane <string atomtyp> <string atomtyp> <string atomtyp>          \
+        <string atomtyp> ) [set <integer mset> | initial | final] \
+    <real value> <real forcon> value is the reference bond, angle, torsion angle of out-of-plane angle value respectively, and forcon is the force constant
+for bond, angle, torsion angle of out-of-plane angle. When multip or mset are not defined the modification will be applied to
+all multiplicities and sets, respectively, for the identified bonded interaction.
+After modifying atoms to quantum atoms the bonded interactions in which only quantum atoms are involved are removed
+from the bonded lists using
+Error messages resulting from parameters not being defined for bonded interaction in which only quantum atoms are
+involved are ignored using
+To specify that a free energy calculation will be carried out using the topology file, the following keyword needs to be
+specified,
+To specify that a Q-HOP simulation will be carried out using the topology file, the following keyword needs to be specified,
+To specify that only the first set of parameters should be used, even if multiple sets have been defined in the fragment or
+segment files, the following keyword needs to be specified,
+Note that keywords free, qhop and qhop are mutually exclusive.
+17.1.
+5
+ 
+Appending to an existing topology file
+This directive specifies a distance restraint potential between atoms 
+atom1
+ and 
+atom2
+, with a harmonic function with force
+constant 
+forc1
+ between 
+dist1
+ and 
+dist2
+, and a harmonic function with force constant 
+forc2
+ between 
+dist2
+ and 
+dist3
+. For
+distances shorter than 
+dist1
+ or larger than 
+dist3
+, a constant force is applied such that force and energy are continuous at
+dist1
+ and 
+dist3
+, respectively. Distances are given in nm, force constants in 
+\(kJ mol^{-1} nm^{-2}\)
+.
+Directive select specifies a group of atoms used in the definition of potential of mean force potentials.
+The selected atoms are specified by the string atoms which takes the form
+For example, all carbon and oxygen atoms in segments 3 and 6 through 12 are selected for group 1 by
+update lists
+ignore
+free
+qhop
+first
+noe <string atom1> <string atom3> \
+ <real dist1> <real dist2>  <real dist3> <real forc1> <real forc2>
+select <integer isel> { <string atoms> }
+[{isgm [ - jsgm ] [,]} [:] [{aname[,]}] Directive pmf specifies a potential of mean force potential in terms of the specified atom selection. Option zalign specifies
+the atoms in the selection to be restrained to a line parallel to the z-axis. Option xyplane specifies the atoms in the
+selection to be restrained to a plane perpendicular to the z-axis. Options distance, angle and torsion, are defined in terms
+of the center of geometry of the specified atom selections. Keyword basepair is used to specify a harmonic potential
+between residues isel and jsel. Keywords zaxis and zaxis-cog can be used to pull atoms toward the z-axis. Option all may
+be specified to apply an equivalent pmf to each of the equivalent solute molecules in the system. Option combine may be
+specified to apply the specified pmf to the atoms in all of the equivalent solute molecules. Option constraint may be
+specified to a distance pmf to treat the distance as a constraint. Option bias may be specified to indicate that this function
+should be treated as a biasing potential. Appropriate corrections to free energy results will be evaluated.
+17.1.
+6
+ 
+Generating a restart file
+Keyword new_rst will cause an existing restart file to be overwritten with a new file.
+The follwing directives control the manipulation of restart files, and are executed in the order in which they appear in the
+prepare input deck.
+The solvent keyword can be used to specify the three letter solvent name as expected on the PDB formatted file, and the
+name of the solvent model for which solvent coordinates will be used.
+Solvation can be specified to be in a cubic box with specified edge, rectangular box with specified edges, or in a sphere
+with specified radius. Solvation in a cube or rectangular box will automatically also set periodic boundary conditions.
+Solvation in a sphere will only allow simulations without periodic boundary conditions. The size of the cubic and rectangular
+boxes will be expanded by a length specified by the expand variable. If no shape is specified, solvation will be done for a
+cubic box with an edge that leaves rshell nm between any solute atom and a periodic image of any solute atom after the
+solute has been centered. An explicit write is not needed to write the restart file. The solvate will write out a file sys_calc.rst.
+If not specified, the dimension of the solvation cell will be as large as to have at least a distance of rshell nm between any
+solute atom and the edge of the cell. The experimental troct directive generates a truncated octrahedral box.
+The variable touch specifies the minimum distance between a solvent and solute atom for which a solvent molecule will be
+accepted for solvation.
+3,6-12:_C????,_O????
+pmf [all] [bias] zalign <integer isel> <real forcon1> <real forcon2>
+pmf [combine] [bias] xyplane <integer isel> <real forcon1> <real forcon2>
+pmf [constraint] [bias] (distance | zdistance) <integer isel> <integer jsel> \
+            <real dist1> <real dist2> <real forcon1> <real forcon2>
+pmf [bias] angle <integer isel> <integer jsel> <integer ksel> \
+            <real angle1> <real angle2> <real forcon1> <real forcon2>
+pmf [bias] torsion <integer isel> <integer jsel> <integer ksel> <integer lsel> \
+            <real angle1> <real angle2> <real forcon1> <real forcon2>
+pmf [bias] basepair <integer isel> <integer jsel> \
+            <real dist1> <real dist2> <real forcon1> <real forcon2>
+pmf [bias] (zaxis | zaxis-cog) <integer isel> <integer jsel> <integer ksel> \
+            <real dist1> <real dist2> <real forcon1> <real forcon2>
+new_rst
+ solvent name <string*3 slvnam default 'HOH'> \  
+         model <string slvmdl default 'spce'>  
+solvate   [ < real rshell default 1.2 > ] \
+        ( [ cube [ <real edge> ]] |  \
+          [ box [ <real xedge> [ <real xedge> [ <real xedge> ]]]] | \
+          [ sphere <real radius> ] |
+          [ troct <real edge> ])
+touch <real touch default 0.23>
+envelope <real xpndw default 0.0> sets the expand vealues to be used in solvate operations.
+The variable xpndw specifies the size in nm with which the simulation volume will be increased after solvation.
+These directives read and write the file filename in the specified format. The solute option instructs to write out the
+coordinates for solute and all, or if specified the first nsolvent, crystal solvent molecules only. If no format is specified, it will
+be derived from the extension of the filename. Recognized extensions are rst, rst_old (read only), pdb, xyz (write only) and
+pov (write only). Reading and then writing the same restart file will cause the sub-block size information to be lost. If this
+information needs to be retained a shell copy command needs to be used. The large keyword allows PDB files to be written
+with more than 9999 residues. Since the PDB file will not conform to the PDB convention, this option should only be used if
+required. NWChem will be able to read the resulting PDB file, but other codes may not.
+This directive scales the volume and coordinates written to povray files. A negative value of scale (default) scales the
+coordinates to lie in [-1:1].
+This directive causes povray files to contain cpk model output. The optional value is used to scale the atomic radii. A
+neagtive value of cpk resets the rendering to stick.
+These directives center the solute center of geometry at the origin, in the y-z plane, in the x-z plane or in the x-y plane,
+respectively.
+This directive orients the solute principal axes.
+This directive translates solute atoms in the indicated range by xtran, without checking for bad contacts in the resulting
+structure.
+This directive rotates solute atoms in the indicated range by angle around the vector given by xrot,, without checking for
+bad contacts in the resulting structure.
+This directive removes solvent molecules inside or outside the specified coordinate range.
+This directive enables periodic boundary conditions.
+expand <real xpndw default 0.1>
+read [rst | rst_old | pdb] <string filename>
+write [rst | [solute [<integer nsolvent>]] ( [large] pdb | xyz)] <string filename>
+scale <real scale default -1.0>
+cpk [<real cpk default 1.0>]
+center | centerx | centery | centerz
+orient
+translate [atom | segment | molecule] \
+    <integer itran> <integer itran> <real xtran(3)>
+rotate [atom | segment | molecule] \
+    <integer itran> <integer itran> <real angle> <real xrot(3)>
+remove solvent [inside | outside] [x <real xmin> <real xmax>] \
+[y <real ymin> <real ymax>] [z <real zmin> <real zmax>]
+periodic
+vacuo This directive disables periodic boundary conditions.
+This directive specifies the grid size of trial counter-ion positions and minimum distance between an atom in the system and
+a counter-ion.
+prints minimum and maximum solute coordinates.
+specifies to redetermine the box size.
+specifies to redetermine the smallest cubic box size.
+The box directive resets the box size.
+The align directive orients the system such that atomi and atomj are on the z-axis, and atomk in the x=y plane.
+The repeat directive causes a subsequent write pdb directive to write out multiple copies of the system, with nx copies in
+the x, ny copies in the y, and nz copies in the z-direction, with a minimum distance of dist between any pair of atoms from
+different copies. If nz is -2, an inverted copy is placed in the z direction, with a separation of zdist nm. If dist is negative, the
+box dimensions will be used. For systems with solvent, this directive should be used with a negative dist. Optional
+keywords chains, molecules and fractions specify to write each repeating solute unit as a chain, to repeat each solute
+molecule, or each solute fraction separately. Optional keywords randomx, randomy, and randomz can be used to apply
+random rotations for each repeat unit around a vector through the center of geometry of the solute in the x, y or z direction.
+The skip directive can be used to skip single repeat unit from the repeat directive. Up to 100 skip directives may be
+specified, and will only apply to the previously specified repeat directive.
+specifies to move all solute molecules toward the z-axis or x=y-plane, respectively, to within a distance of touch nm
+between any pair of atoms from different solute molecules. Parameter nmoves specifies the number of collapse moves that
+will be made. Monatomic ions will move with the nearest multi-atom molecule.
+specifies that molecule jmol will move together with molecule imol in collapse operations.
+specifies to merge the coordinates found on the specified pdb file into the current structure after translation by xtran(3).
+17.2 
+Molecular dynamics
+grid <integer mgrid default 24> <real rgrid default 0.2>
+crop
+boxsize
+cube
+box <real xsize> <real ysize>  <real zsize>
+align <string atomi> <string atomj> <string atomk>
+repeat [randomx | randomy | randomz] [chains | molecules | fractions ] \
+ <integer nx> <integer ny> <integer nz> [<real dist>] [<real zdist>]
+skip <integer ix> <integer iy> <integer iz>
+(collapsexy | collapsez) [ <integer nmoves>]
+collapse_group <integer imol> <integer jmol>
+merge <real xtran(3)> <string pdbfile> 17.2.
+1
+ 
+Introduction
+17.2.
+1
+.
+1
+ 
+Spacial decomposition
+The molecular dynamics module of NWChem uses a distribution of data based on a spacial decomposition of the
+molecular system, offering an efficient parallel implementation in terms of both memory requirements and communication
+costs, especially for simulations of large molecular systems.
+Inter-processor communication using the global array tools and the design of a data structure allowing distribution based on
+spacial decomposition are the key elements in taking advantage of the distribution of memory requirements and
+computational work with minimal communication.
+In the spacial decomposition approach, the physical simulation volume is divided into rectangular cells, each of which is
+assigned to a processor. Depending on the conditions of the calculation and the number of available processors, each
+processor contains one or more of these spacially grouped cells. The most important aspects of this decomposition are the
+dependence of the cell sizes and communication cost on the number of processors and the shape of the cells, the frequent
+reassignment of atoms to cells leading to a fluctuating number of atoms per cell, and the locality of communication which is
+the main reason for the efficiency of this approach for very large molecular systems.
+To improve efficiency, molecular systems are broken up into separately treated solvent and solute parts. Solvent molecules
+are assigned to the domains according to their center of geometry and are always owned by a one node. This avoids
+solvent-solvent bonded interactions crossing node boundaries. Solute molecules are broken up into segments, with each
+segment assigned to a processor based on its center of geometry. This limits the number of solute bonded interactions that
+cross node boundaries. The processor to which a particular cell is assigned is responsible for the calculation of all
+interactions between atoms within that cell. For the calculation of forces and energies in which atoms in cells assigned to
+different processors are involved, data are exchanged between processors. The number of neighboring cells is determined
+by the size and shape of the cells and the range of interaction. The data exchange that takes place every simulation time
+step represents the main communication requirements. Consequently, one of the main efforts is to design algorithms and
+data structures to minimize the cost of this communication. However, for very large molecular systems, memory
+requirements also need to be taken into account.
+To compromise between these requirements exchange of data is performed in successive point to point communications
+rather than using the shift algorithm which reduces the number of communication calls for the same amount of
+communicated data.
+For inhomogeneous systems, the computational load of evaluating atomic interactions will generally differ between cell
+pairs. This will lead to load imbalance between processors. Two algorithms have been implemented that allow for
+dynamically balancing the workload of each processor. One method is the dynamic resizing of cells such that cells
+gradually become smaller on the busiest node, thereby reducing the computational load of that node. Disadvantages of this
+method are that the efficiency depends on the solute distribution in the simulation volume and the redistribution of work
+depends on the number of nodes which could lead to results that depend on the number of nodes used. The second
+method is based on the dynamic redistribution of intra-node cell-cell interactions. This method represents a more coarse
+load balancing scheme, but does not have the disadvantages of the cell resizing algorithm. For most molecular systems
+the cell pair redistribution is the more efficient and preferred method.
+The description of a molecular system consists of static and dynamic information. The static information does not change
+during a simulation and includes items such as connectivity, excluded and third neighbor lists, equilibrium values and force
+constants for all bonded and non-bonded interactions. The static information is called the topology of the molecular system,
+and is kept on a separate topology file. The dynamic information includes coordinates and velocities for all atoms in the
+molecular system, and is kept in a so-called restart file.
+17.2.
+1
+.
+2
+ 
+Topology
+The static information about a molecular system that is needed for a molecular simulation is provided to the simulation
+module in a topology file. Items in this file include, among many other things, a list of atoms, their non-bonded parameters for van der Waals and electrostatic interactions, and the complete connectivity in terms of bonds, angles and dihedrals.
+In molecular systems, a distinction is made between solvent and solute, which are treated separately. A solvent molecule is
+defined only once in the topology file, even though many solvent molecules usually are included in the actual molecular
+system. In the current implementation only one solvent can be defined. Everything that is not solvent in the molecular
+system is solute. Each solute atom in the system must be explicitly defined in the topology.
+Molecules are defined in terms of one or more segments. Typically, repetitive parts of a molecule are each defined as a
+single segment, such as the amino acid residues in a protein. Segments can be quite complicated to define and are,
+therefore, collected in a set of database files. The definition of a molecular system in terms of segments is a sequence.
+Topology files are created using the prepare module.
+17.2.
+1
+.
+3
+ 
+Files
+File names used have the form 
+system
+_
+calc
+.
+ext
+, with exception of the 
+topology file
+, which is named 
+system
+.top. Anything
+that refers to the definition of the chemical system can be used for 
+system
+, as long as no periods or underlines are used.
+The identifier 
+calc
+ can be anything that refers to the type of calculation to be performed for the system with the topology
+defined. This file naming convention allows for the creation of a single topology file 
+system
+.top that can be used for a
+number of different calculations, each identified with a different 
+calc
+. For example, if crown.top is the name of the topology
+file for a crown ether, crown_em, crown_md, crown_ti could be used with appropriate extensions for the filenames for
+energy minimization, molecular dynamics simulation and multi-configuration thermodynamic integration, respectively. All of
+these calculations would use the same topology file crown.top.
+The extensions 
+<ext>
+ identify the kind of information on a file, and are pre-determined. dbg
+debug file
+frg
+fragment file
+gib
+free energy data file
+mri
+free energy multiple run input file
+mro
+free energy multiple run output file
+nw
+NWChem
+ input file
+nwout
+NWChem
+ output file
+out
+molecular dynamics output file
+pdb
+PDB formatted coordinate file
+prp
+property file
+qrs
+quenched restart file, resulting from an energy minimization
+rst
+restart file, used to start or restart a simulation
+seq
+sequence file, describing the system in segments
+sgm
+segment file, describing segments
+syn
+synchronization time file
+tst
+test file
+tim
+timing analysis file
+top
+topology file, contains the static description of a system
+trj
+trajectory file
+17.2.
+1
+.
+4
+ 
+Databases
+Database file supplied with NWChem and used by the prepare module are found in directories with name ffield_
+level
+,
+where 
+ffield
+ is any of the supported 
+force fields
+. The source of the data is identified by 
+level
+, and can be level
+Description
+s
+original published data
+x
+additional published data
+q
+contributed data
+u
+user preferred data
+t
+user defined temporary data
+The user is can replace these directories or add additional database files by specifying them in the 
+.nwchemrc
+ file. or in the
+prepare input file.
+The extension 1-9 defines the priority of database file.
+frg
+fragments
+par
+parameters
+seq
+sequences
+sgm
+segments
+17.2.
+1
+.
+5
+ 
+Force fields
+Force fields recognized are
+Keyword
+Force field
+Status
+amber
+AMBER99
+AMBER95,GLYCAM also available
+charmm
+CHARMM
+17.2.
+2
+ 
+Format of fragment files
+Fragment files contain the basic information needed to specify all interactions that need to be considered in a molecular
+simulation. Normally these files are created by the prepare module. Manual editing is needed when, for example, the
+prepare module could not complete atom typing, or when modified charges are required.
+The formats of files used in NWChem are listed 
+here
+.
+17.2.
+3
+ 
+Creating segment files
+The prepare module is used to generate segment files from corresponding fragment files. A segment file contains all information for the calculation of bonded and non-bonded interactions for a given chemical system using a specific force
+field.
+Which atoms form a fragment is specified in the coordinate file, currently only in PDB format. The segment entries define
+three sets of parameters for each interaction.
+Free energy perturbations can be performed using set 1 for the generation of the ensemble while using sets 2 and/or 3 as
+perturbations. Free energy multiconfiguration thermodynamic integration and multistep thermodynamic perturbation
+calculations are performed by gradually changing the interactions in the system from parameter set 2 to parameter set 3.
+These modifications can be edited into the segment files manually, or introduced directly into the topology file using the
+modify commands in the input for the prepare module.
+17.2.
+4
+ 
+Creating sequence files
+A sequence file describes a molecular system in terms of segments. This file is generated by the prepare module for the
+molecular system provided on a PDB-formatted coordinate file
+17.2.
+5
+ 
+Creating topology files
+The 
+topology
+ describes all static information that describes a molecular system. This includes the connectivity in terms of
+bond-stretching, angle-bending and torsional interactions, as well as the non-bonded van der Waals and Coulombic
+interactions.
+The topology of a molecular system is generated by the prepare module from the sequence in terms of segments as
+specified on the PDB file. For each unique segment specified in this file the segment database directories are searched for
+the segment definition. For segments not found in one of the database directories a segment definition is generated in the
+temporary directory if a fragment file was found. If a fragment file could not be found, it is generated by the prepare module
+base on what is found on the PDB file.
+When all segments are found or created, the parameter substitutions are performed, using force field parameters taken
+from the parameter databases. After all lists have been generated the topology is written to a local topology file 
+<system>
+.top.
+17.2.
+6
+ 
+Creating restart files
+Restart files contain all dynamical information about a molecular system and are created by the prepare module if a
+topology file is available. The prepare module will automatically generate coordinates for hydrogen atoms and monatomic
+counter ions not found on the PDB formatted coordinate file, if no fragment or segment files were generated using that PDB
+file.
+The prepare module has a number of other optional input command, including solvation.
+17.2.
+7
+ 
+Molecular simulations
+The type of molecular dynamics simulation is specified by the NWChem task directive.
+where the theory keyword md specifies use of the molecular dynamics module, and the operation keyword is one of
+energy
+ for single configuration energy evaluation
+optimize
+ for energy minimization
+dynamics
+ for molecular dynamics simulations and single step thermodynamic perturbation free energy molecular
+task md [ energy | optimize | dynamics | thermodynamics ] dynamics simulations
+thermodynamics
+ for combined multi-configuration thermodynamic integration and multiple step thermodynamic
+perturbation free energy molecular dynamics simulations.
+17.2.
+8
+ 
+System specification
+The chemical system for a calculation is specified in the topology and restart files. These files should be created using the
+utilities nwtop and nwrst before a simulation can be performed. The names of these files are determined from the required
+system directive.
+where the strings systemid and calcid are user defined names for the chemical system and the type of calculation to ber
+performed, respectively. These names are used to derive the filenames used for the calculation. The topoly file used will be
+systemid.top, while all other files are named systemid_calcid.ext.
+17.2.
+9
+ 
+Restarting and continuing simulations
+Specifies that the current job will finish a previous, incomplete simulation, using the input data that have been recorded by
+that previous run in the restart file. Most of the input in the current md input block will be ignored.
+Specifies that the current job will be an extension of a previous simulation, using most of the input data that have been
+recorded by that previous run in the restart file. Typically the input in the current md input block defines a larger number of
+steps than the previous job.
+17.2.
+10
+ 
+Parameter set
+Specifies the use of parameter set 
+<iset>
+ for the molecular dynamics simulation. The topology file contains three separate
+parameters sets that can be used. The default for 
+<iset>
+ is 1.
+Specifies the use of parameter set for the ilambda-th of mlambda steps.
+Specifies the parameter sets to be used as perturbation potentials in single step thermodynamic perturbation free energy
+evaluations, where 
+<isetp1>
+ specifies the first perturbation parameter set and 
+<isetp2>
+ specifies the second perturbation
+parameter set. Legal values for 
+<isetp1>
+ are 2 and 3. Legal value for 
+<isetp2>
+ is 3, in which case 
+<isetp1>
+ can only be 2. If
+specified, 
+<iset>
+ is automatically set to 1.
+Specifies that any potential of mean force functions defined in the topology files are to be used. If equilharm is specified,
+the first npmfc dynamics steps will use a harmonic potential in stead of any pmf constraint. If scale is specified, all pmf force
+constants are scaled by a factor facpmf.
+system <string systemid>_<string calcid>
+   finish
+   resume
+set <integer iset>
+lambda <integer ilambda> <integer ilambda>
+pset <integer isetp1> [<integer isetp2>]
+pmf [ equilharm <integer npmfc> | scale <real facpmf>] Specifies that any distance restraint functions defined in the topology files are to be used.
+Specifies that a Q-HOP simulation is to be carried out with attempted proton hops every 
+nfhop
+ steps, a cutoff for the donor-
+acceptor pair distance of 
+rhop
+ nm, and a minimum time before back hopping can occur of 
+thop
+ ps.
+17.2.
+11
+ 
+Energy minimization algorithms
+The energy minimization of the system as found in the restart file is performed with the following directives. If both are
+specified, steepest descent energy minimization precedes conjugate gradient minimization.
+Specifies the variables for steepest descent energy minimizations, where 
+<msdit>
+ is the maximum number of steepest
+descent steps taken, for which the default is 100, 
+<dx0sd>
+ is the initial step size in nm for which the default is 0.001, 
+<dxsdmx>
+is the threshold for the step size in nm for which the default is 0.0001, and 
+<dxmsd>
+ is the maximum allowed step size in nm
+for which the default is 0.05.
+Specifies the variables for conjugate gradient energy minimizations, where 
+<mcgit>
+ is the maximum number of conjugate
+gradient steps taken, for which the default is 100, 
+<dx0cg>
+ is the initial search interval size in nm for which the default is
+0.001, 
+<dxcgmx>
+ is the threshold for the step size in nm for which the default is 0.0001, and 
+<ncgcy>
+ is the number of
+conjugate gradient steps after which the gradient history is discarded for which the default is 10. If conjugate gradient
+energy minimization is preceded by steepest descent energy minimization, the search interval is set to twice the final step
+of the steepest descent energy minimization.
+17.2.
+12
+ 
+Multi-configuration thermodynamic integration
+The following keywords control free energy difference simulations. Multi-configuration thermodynamic integrations are
+always combined with multiple step thermodynamic perturbations.
+Specifies the direction and number of integration steps in free energy evaluations, with forward being the default direction.
+<mrun>
+ is the number of ensembles that will be generated in this calculation, and 
+<maxlam>
+ is the total number of ensembles
+to complete the thermodynamic integration. The default value for 
+<maxlam>
+ is 21. The default value of 
+<mrun>
+ is the value of
+<maxlam>
+.
+Specifies the maximum allowed statistical error in each generated ensemble, where 
+<edacq>
+ is the maximum error allowed
+in the ensemble average derivative of the Hamiltonian with respect to λ with a default of 5.0 kJ mol
+-1
+.
+Specifies the maximum allowed drift in the free energy result, where 
+is the maximum drift allowed in the ensemble average
+derivative of the Hamiltonian with respect to λ with a default of 5.0 kJ mol
+-1
+ ps
+-1
+.
+distar [draver [<integer ndaver default 1>]] 
+  [scale <real drsscl>]
+  [after <integer nfdrss>]
+qhop [<integer nfhop default 10>] 
+  [<real rhop default 0.35>]
+  [<real thop default 0.02>]
+   sd <integer msdit> [init <real dx0sd>] [min <real dxsdmx>] \
+                      [max <real dxmsd>]
+   cg <integer mcgit> [init <real dx0cg>] [min <real dxcgmx>] \
+                      [cy <integer ncgcy>]
+   (forward | reverse) [[<integer mrun> of] <integer maxlam>]
+   error <real edacq>
+   drift <real ddacq> Specifies the maximum allowed change in ensemble size where 
+<fdacq>
+ is the minimum size of an ensemble relative to the
+previous ensemble in the calculation with a default value of 0.75.
+Specifies that a free energy decomposition is to be carried out. Since free energy contributions are path dependent, results
+from a decomposition analysis can no be unambiguously interpreted, and the default is not to perform this decomposition.
+Specifies that atomic non-bonded interactions describe a dummy atom in either the initial or final state of the
+thermodynamic calculation will be calculated using separation-shifted scaling, where 
+<delta>
+ is the separation-shifted scaling
+factor with a default of 0.075 nm
+2
+. This scaling method prevents problems associated with singularities in the interaction
+potentials.
+Specifies the initial conditions for thermodynamic calculations. new indicates that this is an initial mcti calculation, which is
+the default. renew instructs to obtain the initial conditions for each λ from the mro-file from a previous mcti calculation, which
+has to be renamed to an mri-file. The keyword extend will extend a previous mcti calculation from the data read from an
+mri-file.
+17.2.
+13
+ 
+Time and integration algorithm directives
+Following directives control the integration of the equations of motion.
+Specifies the integration algorithm, where leapfrog specifies the default leap frog integration, and leapfrog_bc specifies the
+Brown-Clarke leap frog integrator.
+Specifies the use of the guided molecular dynamics simulation technique. Variable 
+fguide
+ defines the fraction of the
+averaged forces 
+g
+ to be added to the forces 
+f
+f
+ evaluated using the force field functions to obtain the forces 
+f
+ used to
+advance the coordinates.
+\[f_i=f^{f}_i+fguide * g_{i-1}\]
+Variable tguide defines the length of the averaging relative to the timestep Δ 
+t
+.
+\[g_i = {\Delta t\over tguide} f_i + \left(1- {\Delta t\over tguide}\right) g_{i-1}\]
+The current implementation is still under development.
+Specifies the number of equilibration steps 
+<mequi>
+, with a default of 100.
+Specifies the number of data gathering steps 
+<mdacq>
+ with a default of 500. In multi-configuration thermodynamic
+integrations 
+<mequi>
+ and 
+<mdacq>
+ are for each of the ensembles, and variable 
+<ldacq>
+ specifies the minimum number of data
+gathering steps in each ensemble. In regular molecular dynamics simulations 
+<ldacq>
+ is not used. The default value for
+   factor <real fdacq>
+   decomp
+   sss [delta <real delta>]
+   new | renew | extend
+   leapfrog | leapfrog_bc
+   guided [<real fguide default 0.2> [<real tguide default 0.2>]]
+   equil <integer mequi>
+   data <integer mdacq> [over <integer ldacq>]] <ldacq>
+ is the value of 
+<mdacq>
+.
+Specifies the initial time 
+<stime>
+ of a molecular simulation in ps, with a default of 0.0.
+Specifies the time step 
+<tstep>
+ in ps, with 0.001 as the default value.
+17.2.
+14
+ 
+Ensemble selection
+Following directives control the ensemble type.
+Specifies a constant temperature ensemble using Berendsen's thermostat, where 
+<tmpext>
+ is the external temperature with a
+default of 298.15 K, and 
+<tmprlx>
+ and 
+<tmsrlx>
+ are temperature relaxation times in ps with a default of 0.1. If only 
+<tmprlx>
+ is
+given the complete system is coupled to the heat bath with relaxation time 
+<tmprlx>
+. If both relaxation times are supplied,
+solvent and solute are independently coupled to the heat bath with relaxation times 
+<tmprlx>
+ and 
+<tmsrlx>
+, respectively. If
+keyword anneal is specified, the external temperature will change from tmpext to tempext2 between simulation time tann1
+and tann2
+Specifies a constant pressure ensemble using Berendsen's piston, where 
+<prsext>
+ is the external pressure with a default of
+1.025 10
+5
+ Pa, 
+<prsrlx>
+ is the pressure relaxation time in ps with a default of 0.5, and 
+<compr>
+ is the system compressibility in 
+\
+(m{^2}N^{-1}\)
+ with a default of 4.53E-10. Optional keywords xy, z and xy-z may be used to specify that pressure scaling is
+to be applied in the x and y dimension only, the z dimension only, or, in all three dimensions with identical scaling in the x
+and y dimension. The last option requires that anisotropic is also specified.
+17.2.
+15
+ 
+Velocity reassignments
+Velocities can be periodically reassigned to reflect a certain temperature.
+Specifies that velocities will be reassigned every 
+<nfgaus>
+ molecular dynamics steps, reflecting a temperature of 
+<tgauss>
+ K.
+The default is not to reassign velocities, i.e. 
+<nfgaus>
+ is 0. Keyword fraction allows the specification of the fraction of the new
+velocities are random. Keyword once specifies that velocity reassignment only should be done in the first step. Keywords
+first or initial and last or final specify that velocity reassigment should only be applied in the first and last window of multiple
+run simulations.
+17.2.
+16
+ 
+Cutoff radii
+Cutoff radii can be specified for short range and long range interactions.
+Specifies the short range cutoff radius 
+<rshort>
+, and the long range cutoff radius 
+<rlong>
+ in nm. If the long range cutoff radius
+   time <real stime>
+   step <real tstep>
+   isotherm [<real tmpext> [<real tmpext2>]] [trelax <real tmprlx> [<real tmsrlx>]] \
+            [anneal [<real tann1>] <real tann2>]
+   isobar [<real prsext>] [trelax <real prsrlx> ] \
+          [compress <real compr>] [anisotropic] [xy | z | xy-z]
+   vreass <integer nfgaus> <real tgauss>
+          [fraction [<real frgaus default 0.5]]
+          [once]
+          [(first | initial)] [(last | final)]
+   cutoff [short] <real rshort> [long <real rlong>] \
+          [qmmm <real rqmmm>] is larger than the short range cutoff radius the twin range method will be used, in which short range forces and energies are
+evaluated every molecular dynamics step, and long range forces and energies with a frequency of 
+<nflong>
+ molecular
+dynamics steps. Keyword qmmm specifies the radius of the zone around quantum atoms defining the QM/MM bare
+charges. The default value for 
+<rshort>
+, 
+<rlong>
+ and 
+<rqmmm>
+ is 0.9 nm.
+17.2.
+17
+ 
+Polarization
+First order and self consistent electronic polarization models have been implemented.
+Specifies the use of polarization potentials, where the keyword first specifies the first order polarization model, and scf
+specifies the self consistent polarization field model, iteratively determined with a maximum of 
+<mpolit>
+ iterations to within a
+tolerance of 
+<ptol>
+ D in the generated induced dipoles. The default is not to use polarization models.
+17.2.
+18
+ 
+External electrostatic field
+Specifies an external electrostatic field, where 
+<xfield>
+ is the field strength, 
+<xffreq>
+ is the frequency in MHz and 
+<xfvect>
+ is the
+external field vector.
+17.2.
+19
+ 
+Constraints
+Constraints are satisfied using the SHAKE coordinate resetting procedure.
+Specifies the use of SHAKE constraints, where 
+<mshitw>
+ is the maximum number of solvent SHAKE iterations, and 
+<mshits>
+is the maximum number of solute SHAKE iterations. If only 
+<mshitw>
+ is specified, the value will also be used for 
+<mshits>
+. The
+default maximum number of iterations is 100 for both. 
+<tlwsha>
+ is the solvent SHAKE tolerance in nm, and 
+<tlssha>
+ is the
+solute SHAKE tolerance in nm. If only 
+<tlwsha>
+ is specified, the value given will also be used for 
+<tlssha>
+. The default
+tolerance is 0.001 nm for both.
+Disables SHAKE and treats the bonded interaction according to the force field.
+17.2.
+20
+ 
+Long range interaction corrections
+Long range electrostatic interactions are implemented using the smooth particle mesh Ewald technique, for neutral periodic
+cubic systems in the constant volume ensemble, using pair interaction potentials. Particle-mesh Ewald long range
+interactions can only be used in molecular dynamics simulations using effective pair potentials, and not in free energy
+simulations, QMD or QM/MM simulations.
+Specifies the use of smooth particle-mesh Ewald long range interaction treatment, where ng is the number of grid points
+per dimension, ealpha is the Ewald coefficient in 
+\(nm^{-1}\)
+, with a default that leads to a tolerance of 
+\(10^{-4}\)
+ at the short
+range cutoff radius, and morder is order of the Cardinal B-spline interpolation which must be an even number and at least 4
+   polar (first | scf [[<integer mpolit>] <real ptol>])
+   field <real xfield> [freq <real xffreq>] [vector <real xfvect(1:3)>]
+   shake [<integer mshitw> [<integer mshits>]]  \
+         [<real tlwsha> [<real tlssha>]]
+   noshake (solvent | solute)
+   pme [grid <integer ng>] [alpha <real ealpha>] \
+       [order <integer morder>] [fft <integer imfft>]\
+       [procs <integer nprocs>] [solvent] (default value). A platform specific 3D fast Fourier transform is used, if available, when imfft is set to 2. nprocs can be used
+to define a subset of processors to be used to do the FFT calculations. If solvent is specified, the charge grid will be
+calculated from the solvent charges only.
+Specifies that a simple reaction field correction is used with a dielectric constant dielec. This is an experimental option that
+has not been well tested.
+17.2.
+21
+ 
+Fixing coordinates
+Solvent or solute may be fixed using the following keywords.
+For solvent the molecule numbers idfirst and idlastmay be specified to be the first and last molecule to which the directive
+applies. If omitted, the directive applies to all molecules. For solute, the segment numbers idfirst and idlastmay be specified
+to be the first and last segment to which the directive applies. If omitted, the directive applies to all segments. In addition,
+the keyword heavy may be specified to apply to all non hydrogen atoms in the solute, or a set of atom names may be
+specified in which a wildcard character ? may be used. Keyword permanent is used to keep the specification on the restart
+file for subsequent simulations.
+17.2.
+22
+ 
+Special options
+Specifies the import of frames impfr to impto with frequency nftri from a trajectory file with extension tri for which energies
+and forces are to be recalculated. This option only applied to task md energy.
+Specifies that moments of inertia and radii of gyration will be part of the recorded properties.
+Specifies that execution time profiling data will be part of the recorded properties.
+Specifies that all charges will be scaled by the factro scaleq.
+Specifies that additional forces directed to the origin of the simulation cell with strength fcoll will be applied to all solute
+molecules. If z or xy is specified, these forces will only apply in the specified dimension(s).
+Specifies that energies will be evaluated between fixed atoms. Normally these interactions are excluded from the pairlists.
+   react [<real dielec default 80.0>]
+   ( fix | free ) 
+    solvent ( [<integer idfirst> [<integer idlast>]] | 
+               ( within | beyond) <real rfix> <string atomname> ) | \
+    solute  ( [<integer idfirst> [<integer idlast>]] [ heavy | {<string atomname>}] |
+               ( within | beyond) <real rfix> <string atomname> )
+    [permanent]
+   import [<integer impfr default 1> [<integer impto default impfr> \
+          [<integer nftri default 1>]]]
+   detail
+   profile
+   scale <real scaleq>
+   collapse [<real fcoll default 10.0> [ segment | z | xy ]
+   include fixed
+   eqm <real eqm> Specifies the zero point of energy in QMD simulations.
+Specifies that pairlists will be atom based. Normally pairlist are charge group based.
+17.2.
+23
+ 
+Autocorrelation function
+For the evaluation of the statistical error of multi-configuration thermodynamic integration free energy results a correlated
+data analysis is carried out, involving the calculation of the autocorrelation function of the derivative of the Hamiltonian with
+respect to the control variable λ.
+Controls the calculation of the autocorrelation, where 
+<lacf>
+ is the length of the autocorrelation function, with a default of
+1000, 
+<nfit>
+ is the number of functions used in the fit of the autocorrelation function, with a default of 15, and 
+<weight>
+ is the
+weight factor for the autocorrelation function, with a default value of 0.0.
+17.2.
+24
+ 
+Print options
+Keywords that control print to the output file, with extension out. Print directives may be combined to a single directive.
+Keyword topol specifies printing the topology information, where nonbond refers to the non-bonded interaction
+parameters, solvent to the solvent bonded parameters, and solute to the solute bonded parameters. If only topol is
+specified, all topology information will be printed to the output file.
+Keyword step specifies the frequency nfoutp of printing molecular dynamics step information to the output file. If the
+keyword extra is specified additional energetic data are printed for solvent and solute separately. If the keyword energy
+is specified, information is printed for all bonded solute interactions. The default for nfoutp is 0. For molecular dynamics
+simulations this frequency is in time steps, and for multi-configuration thermodynamic integration in λ-steps.
+Keyword stat specifies the frequency 
+<nfstat>
+ of printing statistical information of properties that are calculated during
+the simulation. For molecular dynamics simulation this frequency is in time steps, for multi-configuration
+thermodynamic integration in λ-steps.
+Keyword energies specifies the frequency nfener of printing solute bonded energies the output file for energy/import
+calculations. The default for nfener is 0.
+Keyword forces specifies the frequency nfforc of printing solute forces the output file for energy/import calculations. The
+default for nfforc is 0.
+Keyword matrix specifies that a solute distance matrix is to be printed.
+Keyword expect is obsolete.
+Keyword timing specifies that timing data is printed.
+Keyword pmf specifies that pmf data is printed every iprpmf steps. Keyword out6 specifies that output is written to
+   atomlist
+   auto <integer lacf> [fit <integer nfit>] [weight <real weight>]
+   print [topol [nonbond] [solvent] [solute]]     \
+         [step <integer nfoutp> [extra] [energy]] \
+         [stat <integer nfstat>]                  \
+         [energies [<integer nfener>]]            \
+         [forces [<integer nfforce>]]             \
+         [matrix]                                 \
+         [expect <integer npxpct>]                \
+         [timing]                                 \
+         [pmf [<integer iprpmf>]]                 \
+         [out6]                                   \
+         [dayout] standard out in stead of the output file with extension out.
+Keyword dayout is obsolete.
+17.2.
+25
+ 
+Periodic updates
+Following keywords control periodic events during a molecular dynamics or thermodynamic integration simulation. Update
+directives may be combined to a single directive.
+Keyword pairs specifies the frequency 
+<nfpair>
+ in molecular dynamics steps of updating the pair lists. The default for the
+frequency is 1. In addition, pair lists are also updated after each step in which recording of the restart or trajectory files
+is performed. Updating the pair lists includes the redistribution of atoms that changed domain and load balancing, if
+specified.
+Keyword long specifies the frequency 
+<nflong>
+ in molecular dynamics steps of updating the long range forces. The
+default frequency is 1. The distinction of short range and long range forces is only made if the long range cutoff radius
+was specified to be larger than the short range cutoff radius. Updating the long range forces is also done in every
+molecular dynamics step in which the pair lists are regenerated.
+Keywrod center specifies the frequency 
+<nfcntr>
+ in molecular dynamics steps in which the center of geometry of the
+solute(s) is translated to the center of the simulation volume. Optional keyword zonly or xyonly can be used to specify
+that centering will take place in the z-direction or in the xy-plane only. The solute fractions determining the solutes that
+will be centered are specified by the keyword fraction and the vector 
+<idscb>
+, with a maximum of 5 entries. This
+translation is implemented such that it has no effect on any aspect of the simulation. The default is not to center, i.e.
+nfcntr is 0. The default fraction used to center solute is 1.
+Keyword motion specifies the frequency 
+<nfslow>
+ in molecular dynamics steps of removing the overall rotational and
+center of mass translational motion.
+Keyword analysis specifies the frequency 
+<nfanal>
+ in molecular dynamics steps of invoking the analysis module. This
+option is obsolete.
+Keyword rdf specifies the frequency 
+<nfrdf>
+ in molecular dynamics steps of calculating contributions to the radial
+distribution functions. The default is 0. The range of the radial distribution functions is given by 
+<rrdf>
+ in nm, with a
+default of the short range cutoff radius. Note that radial distribution functions are not evaluated beyond the short range
+cutoff radius. The number of bins in each radial distribution function is given by 
+<ngl>
+, with a default of 1000. This option
+is no longer supported. If radial distribution function are to be calculated, a rdi files needs to be available in which the
+contributions are specified as follows.
+   update [pairs <integer nfpair default 1>]                  \
+          [long <integer nflong default 1>]                   \
+          [center <integer nfcntr default 0> [zonly | xyonly] \
+                  [fraction <integer idscb(1:5)>]             \
+          [motion <integer nfslow default 0>]                 \
+          [analysis <integer nfanal default 0>]               \
+          [rdf <integer nfrdf default 0>                      \
+                  [range <real rrdf>] [bins <integer ngl>]    \ Card
+Format
+Description
+I-1
+i
+Type, 1=solvent-solvent, 2=solvent-solute, 3-solute-solute
+I-2
+i
+Number of the rdf for this contribution
+I-3
+i
+First atom number
+I-4
+i
+Second atom number
+17.2.
+26
+ 
+Recording
+The following keywords control recording data to file. Record directives may be combined to a single directive.
+Keyword rest specifies the frequency 
+<nfrest>
+ in molecular dynamics steps of rewriting the restart file, with extension rst.
+For multi-configuration thermodynamic integration simulations the frequency is in steps in λ. The default is not to
+record. The restart file is used to start or restart simulations. The keyword keep causes all restart files written to be
+kept on disk, rather than to be overwritten.
+Keyword coord specifies the frequency 
+<nfcoor>
+ in molecular dynamics steps of writing coordinates to the trajectory file.
+This directive redefines previous coord, wcoor and scoor directives. The default is not to record.
+Keyword wcoor specifies the frequency 
+<nfcoor>
+ in molecular dynamics steps of writing solvent coordinates to the
+trajectory file. This keyword takes precedent over coord. This directive redefines previous coord, wcoor and scoor
+directives. The default is not to record.
+Keyword scoor specifies the frequency 
+<nfscoo>
+ in molecular dynamics steps of writing solute coordinates to the
+trajectory file. This keyword takes precedent over coord. This directive redefines previous coord, wcoor and scoor
+directives. The default is not to record.
+Keyword veloc specifies the frequency 
+<nfvelo>
+ in molecular dynamics steps of writing velocities to the trajectory file.
+This directive redefines previous veloc, wvelo and svelo directives. The default is not to record.
+   record [rest <integer nfrest> [keep]]     \
+          [coord <integer nfcoor default 0>] \
+          [wcoor <integer nfwcoo default 0>] \
+          [scoor <integer nfscoo default 0>] \
+          [veloc <integer nfvelo default 0>] \
+          [wvelo <integer nfwvel default 0>] \
+          [svelo <integer nfsvel default 0>] \
+          [force <integer nfvelo default 0>] \
+          [wforc <integer nfwvel default 0>] \
+          [sforc <integer nfsvel default 0>] \
+          [(prop | prop_average) <integer nfprop default 0>]  \
+          [free <integer nffree default 1>]  \
+          [sync <integer nfsync default 0>]  \
+          [times <integer nftime default 0>] \
+          [acf] [cnv] [fet]
+          [binary] [ascii] [ecce] [argos] Keyword wvelo specifies the frequency 
+<nfvelo>
+ in molecular dynamics steps of writing solvent velocitiesto the trajectory
+file. This keyword takes precedent over veloc. This directive redefines previous veloc, wvelo and svelo directives. The
+default is not to record.
+Keyword svelo specifies the frequency 
+<nfsvel>
+ in molecular dynamics steps of writing solute velocities to the trajectory
+file. This keyword takes precedent over veloc. This directive redefines previous veloc, wvelo and svelo directives. The
+default is not to record.
+Keyword force specifies the frequency 
+<nfvelo>
+ in molecular dynamics steps of writing forces to the trajectory file. This
+directive redefines previous vforce, wforc and sforc directives. The default is not to record.
+Keyword wforc specifies the frequency 
+<nfvelo>
+ in molecular dynamics steps of writing solvent forcesto the trajectory file.
+This keyword takes precedent over force. This directive redefines previous vforce, wforc and sforc directives. The
+default is not to record.
+Keyword sforc specifies the frequency 
+<nfsvel>
+ in molecular dynamics steps of writing solute forces to the trajectory file.
+This keyword takes precedent over force. This directive redefines previous vforce, wforc and sforc directives. The
+default is not to record.
+Keyword prop specifies the frequency 
+<nfprop>
+ in molecular dynamics steps of writing information to the property file,
+with extension prp. The default is not to record.
+Keyword prop_average specifies the frequency 
+<nfprop>
+ in molecular dynamics steps of writing average information to
+the property file, with extension prp. The default is not to record.
+Keyword free specifies the frequency 
+<nffree>
+ in multi-configuration thermodynamic integration steps to record data to
+the free energy data file, with extension gib. The default is 1, i.e. to record at every λ. This option is obsolete. All data
+are required to do the final analysis.
+Keyword sync specifies the frequency 
+<nfsync>
+ in molecular dynamics steps of writing information to the synchronization
+file, with extension syn. The default is not to record. The information written is the simulation time, the wall clock time of
+the previous MD step, the wall clock time of the previous force evaluation, the total synchronization time, the largest
+synchronization time and the node on which the largest synchronization time was found. The recording of
+synchronization times is part of the load balancing algorithm. Since load balancing is only performed when pair-lists
+are updated, the frequency 
+<nfsync>
+ is correlated with the frequency of pair-list updates 
+<nfpair>
+. This directive is only
+needed for analysis of the load balancing performance. For normal use this directive is not used.
+Keyword times specifies the frequency 
+<nfsync>
+ in molecular dynamics steps of writing information to the timings file,
+with extension tim. The default is not to record. The information written is wall clock time used by each of the
+processors for the different components in the force evaluation. This directive is only needed for analysis of the wall
+clock time distribution. For normal use this directive is not used.
+Keywords acf, cnv and fet are obsolete.
+Keywords binary, ascii, ecce and argos are obsolete.
+17.2.
+27
+ 
+Program control options
+   load [reset] 
+        ( none | 
+          size [<real factld>] |
+          sizez [<real factld>] | pairs | 
+         (pairs [<integer ldpair>] size [<real factld>]) )
+        [last]
+        [minimum]
+        [average]
+        [combination]
+        [iotime]
+        [experimental] Determines the type of dynamic load balancing performed, where the default is none. Load balancing option size is resizing
+cells on a node, and pairs redistributes the cell-cell interactions over nodes. Keyword reset will reset the load balancing
+read from the restart file. The level of cell resizing can be influenced with 
+factld
+. The cells on the busiest node are resized
+with a factor
+\(\left( 1 - factld * { {T_{sync} \over n_p} - t^{min}_{sync} \over t_{wall}} \right)^{1\over 3}\)
+Where 
+\(T_{sync}\)
+ is the accumulated synchronization time of all nodes, 
+\(n_p\)
+ is the total number of nodes, 
+\
+(t^{min}_{sync}\)
+ is the synchronization time of the busiest node, and 
+\(t_{wall}\)
+ is the wall clock time of the molecular
+dynamics step. For the combined load balancing, ldpair is the number of successive pair redistribution load balancing steps
+in which the accumulated synchronization time increases, before a resizing load balancing step will be attempted. Load
+balancing is only performed in molecular dynamics steps in which the pair-list is updated. The default load balancing is
+equivalent to specifying
+Keyword last specifies that the load balancing is based on the synchronization times of the last step. This is the default.
+Keyword average specifies that the load balancing is based on the average synchronization times since the last load
+balancing step. Keyword minimum specifies that the load balancing is based on the minimum synchronization times since
+the last load balancing step. Keywords combination, iotime and experimental are experimental load balancing options that
+should not be used in production runs.
+Specifies if data are communicated in packed or unpacked form. The default is pack.
+Specifies the distribution of the available processors over the three Cartesian dimensions. The default distribution is
+chosen such that, 
+<npx>
+*
+<npy>
+*
+<npz>
+=
+<np>
+ and 
+<npx>
+ 
+<=
+ 
+<npy>
+ 
+<= <npz>
+, where 
+<npx>
+, 
+<npy>
+ and 
+<npz>
+ are the processors in
+the x, y and z dimension respectively, and 
+<np>
+ is the number of processors allocated for the calculation. Where more than
+one combination of 
+<npx>
+, 
+<npy>
+ and 
+<npz>
+ are possible, the combination is chosen with the minimum value of 
+<npx>+<npy>+
+<npz>
+. To change the default setting the following optional input option is provided.
+Specifies the distribution of cells, where 
+<nbx>
+, 
+<nby>
+ and 
+<nbz>
+ are the number of cells in x, y and z direction, respectively.
+The molecular system is decomposed into cells that form the smallest unit for communication of atomic data between
+nodes. The size of the cells is per default set to the short-range cutoff radius. If long-range cutoff radii are used the cell size
+is set to half the long-range cutoff radius if it is larger than the short-range cutoff. If the number of cells in a dimension is
+less than the number of processors in that dimension, the number of cells is set to the number of processors.
+Sets the number of additional cells for which memory is allocated. In rare events the amount of memory set aside per node
+is insufficient to hold all atomic coordinates assigned to that node. This leads to execution which aborts with the message
+that mwm or msa is too small. Jobs may be restarted with additional space allocated by where 
+<madbox>
+ is the number of
+additional cells that are allocated on each node. The default for 
+<madbox>
+ is 6. In some cases 
+<madbox>
+ can be reduced to 4 if
+memory usage is a concern. Values of 2 or less will almost certainly result in memory shortage.
+Sets the maximum number of solvent molecules 
+<mwmreq>
+ per node, allowing increased memory to be allocated for solvent
+molecules. This option can be used if execution aborted because mwm was too small.
+   load pairs 10 size 0.75
+   (pack | nopack)
+   procs <integer npx> <integer npy> <integer npz>
+   cells <integer nbx> <integer nby> <integer nbz>
+   extra <integer madbox>
+   mwm <integer mwmreq>
+   msa <integer msareq> Sets the maximum number of solute atoms 
+<msareq>
+ per node, allowing increased memory to be allocated for solute atoms.
+This option can be used if execution aborted because msa was too small.
+Sets the maximum number of cell pairs 
+<mbbreq>
+ per node, allowing increased memory to be allocated for the cell pair lists.
+This option can be used if execution aborted because mbbl was too small.
+Sets the minimum size of a cell. This directive is obsolete. The use of mcells is preferred.
+Sets the maximum size of a segment. This value is used to determine which segments at the boundary of the cutoff radius
+should be considered in the generation of the pairlists. This value is also determined by the prepare module and written to
+the restart file. Use of this directive is not needed for simulations that use the current prepare module to generate the
+restart file.
+Sets a limit 
+<memlim>
+ in kB on the allocated amount of memory used by the molecular dynamics module. Per default all
+available memory is allocated. Use of this command is required for QM/MM simulations only.
+Enables the use of certain combinations of features that are considered unsafe. This directive should not be used for
+production runs.
+Enables the use of certain development options specified by the integer idevel. This option is for development purposes
+only, and should not be used for production runs.
+Enables the use of certain development options specified by the integer icntrl. This option is for development purposes
+only, and should not be used for production runs.
+Writes out analytical and finite difference forces for test purposes.
+Allows monitoring over a socket connection to the specified port on the named server of basic data as a simulation is
+running.
+For development purposes debug information can be written to the debug file with extension dbg with
+where 
+idebug
+ specifies the type of debug information being written.
+For testing purposes test information can be written to the test file with extension tst with
+   mcells <integer mbbreq>
+   boxmin <real rbox>
+   segmentsize <real rsgm>
+   memory <integer memlim>
+   expert
+   develop <integer idevel>
+   control <integer icntrl>
+   numerical
+   server <string servername> <integer serverport>
+   debug <integer idebug>
+   test <integer itest> where 
+itest
+ specifies the number of steps test information is written.
+On some platforms prefetching of data can improve the efficiency. This feature can be turned on using
+where 
+nbget
+ is the number of outstanding communication operations.
+Application of periodic boundary conditions for the evaluation of forces can be controlled with
+This option rarely needs to be used.
+Autocorrelation functions for error analysis are controlled using
+This option is disabled in the current release.
+Membrane system equilibration can be made more efficient using
+Constraining the center of mass of solute molecules in the xy plane is accomplished using
+where 
+icmopt
+ determines if the constraint is mass weighted (2).
+Radius of gyration calculations are enabled using
+Calculations of diffusion coefficients is enabled using
+This option is disabled in the current release.
+is disabled
+To limit the size of recoding files, new files are opened every 
+nfnewf
+ md steps using
+17.3 
+Analysis
+The analysis module is used to analyze molecular trajectories generated by the NWChem molecular dynamics module, or
+partial charges generated by the NWChem electrostatic potential fit module. This module should not de run in parallel
+mode.
+Directives for the analysis module are read from an input deck,
+   prefetch [<integer nbget>]
+   pbc ( atom | residue | molecule )
+   auto [ fit <integer iapprx> | weight <real weight> ]
+   membrane [ rotations ]
+   scmxy [<integer icmopt default 1>]
+   radius_gyration
+   diffusion
+   comlim ( on | off )
+   batch <integer nfnewf>
+analysis
+ ...
+end The analysis is performed as post-analysis of trajectory files through using the task directive
+or
+17.3.
+1
+ 
+System specification
+where the strings systemid and calcid are user defined names for the chemical system and the type of calculation to ber
+performed, respectively. These names are used to derive the filenames used for the calculation. The topoly file used will be
+systemid.top, while all other files are named systemid_calcid.ext.
+17.3.
+2
+ 
+Reference coordinates
+Most analyses require a set of reference coordinates. These coordinates are read from a NWChem restart file by the
+directive,
+where filename is the name of an existing restart file. This input directive is required.
+17.3.
+3
+ 
+File specification
+The trajectory file(s) to be analyzed are specified with
+where filename is an existing trj trajectory file. If firstfile and lastfile are specified, the specified filename needs to have a 
+?
+wildcard character that will be substituted by the 3-character integer number from firstfile to lastfile, and the analysis will be
+performed on the series of files. For example,
+will instruct the analysis to be performed on files tr_md003.trj, tr_md004.trj, tr_md005.trj and tr_md006.trj.
+From the specified files the subset of frames to be analyzed is specified by
+For example, to analyze the first 100 frames from the specified trajectory files, use
+To analyze every 10-th frame between frames 200 and 400 recorded on the specified trajectory files, use
+A time offset can be specified with
+task analysis
+task analyze
+system <string systemid>_<string calcid>
+reference <string filename>
+file  <string filename>  [ <integer firstfile>   <integer lastfile> ]
+file tr_md?.trj 3 6
+frames [ <integer firstframe default 1> ]  <integer lastframe>  \
+       [ <integer frequency default 1> ]
+frames 100
+frames 200 400 10 Solute coordinates of the reference set and ech subsequent frame read from a trajectory file are translated to have the
+center of geometry of the specified solute molecule at the center of the simulation box. After this translation all molecules
+are folded back into the box according to the periodic boundary conditions. The directive for this operation is
+Coordinates of each frame read from a trajectory file can be rotated using
+If center was defined, rotation takes place after the system has been centered. The rotate directives only apply to frames
+read from the trajectory files, and not to the reference coordinates. Up to 100 rotate directives can be specified, which will
+be carried out in the order in which they appear in the input deck. rotate off cancels all previously defined rotate directives.
+To perform a hydrogen bond analysis:
+17.3.
+4
+ 
+Selection
+Analyses can be applied to a selection of solute atoms and solvent molecules. The selection is determined by
+where {atomlist} is the set of atom names selected from the specified residues. By default all solute atoms are selected.
+When keyword 
+super
+ is specified the selecion applies to the superimposition option.
+The selected atoms are specified by the string atomlist which takes the form
+where isgm and jsgm are the first and last residue numbers, and aname is an atom name. In the atomname a question
+mark may be used as a wildcard character.
+For example, all protein backbone atoms are selected by
+To select the backbone atoms in residues 20 to 80 and 90 to 100 only, use
+This selection is reset to apply to all atoms after each file directive.
+Solvent molecules within range nm from any selected solute atom are selected by
+After solvent selection, the solute atom selection is reset to being all selected.
+The current selection can be saved to, or read from a file using the save and read keywords, respectively.
+Some analysis are performed on groups of atoms. These groups of atoms are defined by
+time <real timoff>
+center  <integer imol>  [ <integer jmol default imol> ]
+rotate ( off | x | y | z ) <real angle units degrees>
+hbond [distance [[<real rhbmin default 0.0>] <real rhbmin>]] \
+      [angle [<real hbdmin> [ <real hbdmax default pi>]]] \
+      [solvent [<integer numwhb>]]
+select ( [ super ] [ { <string atomlist> } ] |
+   solvent <real range> | save <string filename> | read <string filename> )
+[{isgm [ - jsgm ] [,]} [:] [{aname[,]}]
+select _N,_CA,_C
+select 20-80,90-100:_N,_CA,_C
+select solvent <real range> The string atom in this definitions again takes the form
+where isgm and jsgm are the first and last residue numbers, and aname is an atom name. In the atomname a question
+mark may be used as a wildcard character.
+Multiple define directive can be used to define a single set of atoms.
+17.3.
+5
+ 
+Coordinate analysis
+To analyze the root mean square deviation from the specified reference coordinates:
+To analyze protein φ-ψ and backbone hydrogen bonding:
+To define a distance:
+To define an angle:
+To define a torsion:
+To define a vector:
+The atom string in these definitions takes the form
+for solute and solvent atom specification, respectively.
+To define charge distribution in z-direction:
+Analyses on atoms in a predefined group are specified by
+where igroup specifies the group of atoms defined with a define directive. Keyword 
+periodic
+ can be used to specify the
+periodicity, ipbc=1 for periodicity in z, ipbc=2 for periodicity in x and y, and ipbc=3 for periodicity in x, y and z. Currently the
+only option is local which prints all selected solute atom with a distance between rsel and rval from the atoms defined in
+igroup. The actual analysis is done by the scan deirective. A formatted report is printed from group analyses using
+define <integer igroup> [<real rsel>] [solvent] { <string atomlist> }
+[{isgm [ - jsgm ] [,]} [:] [{aname[,]}]
+rmsd
+ramachandran
+distance <integer ibond> <string atomi> <string atomj>
+angle <integer iangle> <string atomi> <string atomj> <string atomk>
+torsion <integer itorsion> <string atomi> <string atomj> \
+                      <string atomk> <string atoml>
+vector <integer ivector> <string atomi> <string atomj>
+<integer segment>:<string atomname> | w<integer molecule>:<string atomname>
+charge_distribution <integer bins>
+group [<integer igroup> [periodic <integer ipbc>] \
+      ( local [<real rsel default 0.0>] [<real rval default rsel>]
+        <string function> ) Analyses on pairs of atoms in predefined groups are specified by
+where 
+igroup
+ and 
+jgroup
+ are groups of atoms defined with a define directive. Keyword 
+periodic
+ specifies that periodic
+boundary conditions need to be applied in 
+ipbc
+ dimensions. The type of analysis is define by 
+function
+, 
+value1
+ and 
+value2
+. If
+filename
+ is specified, the analysis is applied to the reference coordinates and written to the specified file. If no filename is
+given, the analysis is applied to the specified trajectory and performed as part of the scan directive. Implemented analyses
+defined by 
+<string function> [<real value1> [<real value2>]]
+ include
+distance to calculate the distance between the centers of geometry of the two specified groups of atoms, and
+distances to calculate all atomic distances between atoms in the specified groups that lie between 
+value1
+ and 
+value2
+.
+Coordinate histograms are specified by
+where 
+idef
+ is the atom group definition number, 
+length
+ is the size of the histogram, zcoordinate is the currently only
+histogram option, and 
+filename
+ is the filname to which the histogram is written.
+Order parameters are evalated using
+This is an experimental feature.
+To write the average coordinates of a trajectory
+To perform the coordinate analysis:
+which will create, depending on the specified analysis options files filename.rms and filename.ana. After the scan directive
+previously defined coordinate analysis options are all reset. Optional keyword 
+super
+ specifies that frames read from the
+trajectory file(s) are superimposed to the reference structure before the analysis is performed.
+17.3.
+6
+ 
+Essential dynamics analysis
+Essential dynamics analysis is performed by
+This can be followed by one or more
+to project the trajectory onto the specified vector. This will create files filename with extensions frm or trj, val, vec, _min.pdb
+and _max.pdb, with the projected trajectory, the projection value, the eigenvector, and the minimum and maximum
+projection structure.
+For example, an essential dynamics analysis with projection onto the first vector generating files firstvec.{trj, val, vec,
+_min.pdb, _max.pdb} is generated by
+report <string filename> local
+groups [<integer igroup> [<integer jgroup>]] [periodic [<integer ipbc default 3>]] \ 
+       <string function> [<real value1> [<real value2>]] [<string filename>]
+histogram <integer idef> [<integer length>] zcoordinate <string filename>
+order <integer isel> <integer jsel> <string atomi> <string atomj>
+average [super] <string filename>
+scan [ super ] <string filename>
+essential
+project <integer vector> <string filename> 17.3.
+7
+ 
+Trajectory format conversion
+To write a single frame in PDB or XYZ format, use
+To copy the selected frames from the specified trejctory file(s), onto a new file, use
+To superimpose the selected atoms for each specified frame to the reference coordinates before copying onto a new file,
+use
+The rotate directive specifies that the structure will make a full ratation every tangle ps. This directive only has effect when
+writing povray files.
+The format of the new file is determined from the extension, which can be one of
+amb
+ 
+AMBER formatted trajectory file (obsolete)
+arc
+ 
+DISCOVER archive file
+bam
+ 
+AMBER unformatted trajectory file
+crd
+ 
+AMBER formatted trajectory file
+dcd
+ 
+CHARMM formatted trajectory file
+esp
+ 
+gOpenMol formatted electrostatic potential files
+frm
+ 
+ecce frames file (obsolete)
+pov
+ 
+povray input files
+trj
+ 
+NWChem trajectory file
+xyz
+ 
+NWChem trajectory in xyz format
+If no extension is specified, a trj formatted file will be written.
+A special tag can be added to frm and pov formatted files using
+where tag number 
+itag
+ is set to the string 
+tag
+ for all atoms anam within a distance 
+rtag
+ from segments 
+iatag
+ through 
+jatag
+. A
+question mark can be used in anam as a wild card character.
+Atom rendering is specified using
+for all atoms anam within a distance 
+rtag
+ from segments 
+iatag
+ through 
+jatag
+, and a scaling factor of 
+rval
+. A question mark
+can be used in anam as a wild card character.
+Atom color is specified using
+essential
+project 1 firstvec
+write [<integer number default 1>] [super] [solute] <string filename>
+copy  [solute] [rotate <real tangle>] <string filename>
+super [solute] [rotate <real tangle>] <string filename>
+label <integer itag> <string tag>  [ <real rval default 1.0> ] \\
+      [ <integer iatag> [ <integer jatag default iatag> ] [ <real rtag default 0.0> ] ]
+      [ <string anam> ]
+render ( cpk | stick )  [ <real rval default 1.0> ] \\
+       [ <integer iatag> [ <integer jatag default iatag> ] [ <real rtag default 0.0> ] ]
+       [ <string anam> ] for all atoms anam within a distance 
+rtag
+ from segments 
+iatag
+ through 
+jatag
+. A question mark can be used in anam as a
+wildcard character.
+For example, to display all carbon atoms in segments 34 through 45 in green and rendered cpk in povray files can be
+specified with
+Coordinates written to a pov file can be scaled using
+A zero or negative scaling factor will scale the coordinates to lie within [-1,1] in all dimensions.
+The cpk rendering in povray files can be scaled by
+The stick rendering in povray files can be scaled by
+The initial sequence number of esp related files is defined by
+A sequence of trajectory files with unequal lengths can be converted to files with all 
+nclean
+ frames using
+17.3.
+8
+ 
+Electrostatic potentials
+A file in plt format of the electrostatic potential resulting from partial charges generated by the ESP module is generated by
+the command
+The input coordinates are taken from the xyzq file that can be generated from a rst by the prepare module. Parameter
+spacing specifies the number of gridpoints per nm, rcut specifies extent of the charge grid beyond the molecule. Periodic
+boundaries will be used if periodic is specified. If iper is set to 2, periodic boundary conditions are applied in x and y
+dimensions only. If periodic is specified, a negative value of rcut will extend the grid in the periodic dimensions by abs(rcut),
+otherwise this value will be ignored in the periodic dimensions. The resulting plt formatted file pltfile can be viewed with the
+gOpenMol program. The resulting electrostatic potential grid is in units of 
+\(kJ mol^{-1} e^{-1}\)
+. If no files are specified, only
+the parameters are set. This analysis applies to solute(s) only.
+The electrostatic potential at specific point are evaluated using
+17.4 
+Format of MD files
+color ( <string color> | atom ) \\
+      [ <integer iatag> [ <integer jatag default iatag> ] [ <real rtag default 0.0> ] ]
+      [ <string anam> ]
+render cpk 34 45 _C??
+color green 34 45 _C??
+scale <real factor>
+cpk <real factor default 1.0>
+stick <real factor default 1.0>
+index <integer index default 1>
+clean <integer nclean>
+esp  [ <integer spacing default 10> ] \
+     [ <real rcut default 1.0> ] [periodic [<integer iper default 3>]] \
+     [ <string xfile> [ <string pltfile> ] ]
+esp_points [<string filpin> [<string filhol> [<string filpou> [<string filavg>]]]] 17.4.
+1
+ 
+Format of fragment file
+Card
+Format
+Description
+I-1-1
+a1
+$ or # comments to describe fragment
+I-2-1
+i5
+number of atoms in the fragment
+I-2-2
+i5
+number of parameter sets
+I-2-3
+i5
+default parameter set
+I-2-4
+i5
+number of z-matrix definition
+For each parameter
+set one card I-3
+I-3-1
+a
+residue name for parameter set
+For each atom one deck II
+II-1-1
+i5
+atom sequence number
+II-1-2
+a6
+atom name
+II-1-3
+a5
+atom type
+II-1-4
+a1
+dynamics type
+blank : normal
+D : dummy atom
+S: solute interactions only
+Q : quantum atom
+other : intramolecular solute interactions only
+II-1-5
+i5
+link number
+0: no link
+1: first atom in chain
+2: second atom in chain
+3 and up: other links
+II-1-6
+i5
+environment type
+0: no special identifier
+1: planar, using improper torsion
+2: tetrahedral, using improper torsion
+3: tetrahedral, using improper torsion 4: atom in aromatic ring
+II-1-7
+i5
+II-1-8
+i5
+charge group
+II-1-9
+i5
+polarization group
+II-1-10
+f12.6
+atomic partial charge
+II-1-11
+f12.6
+atomic polarizability
+For each additional
+parameter set on card II-2
+II-2-1
+11x,a6
+atom type
+II-2-2
+a1
+dynamics type
+blank : normal
+D : dummy atom
+S : solute interactions only
+Q : quantum atom
+other : intramolecular solute interactions only
+II-2-7
+25x,f12.6
+atomic partial charge
+II-2-8
+f12.6
+atomic polarizability
+Any number of cards in deck III to
+specify complete connectivity
+III-1-1
+16i5
+connectivity, duplication allowed
+One blank card to signal
+the end of the connectivity list
+For each z-matrix definition one card IV
+IV-1-1
+i5
+atom i
+IV-1-2
+i5
+atom j
+IV-1-3
+i5
+atom k
+IV-1-4
+i5
+atom l
+IV-1-5
+f12.6
+bond length i-j
+IV-1-6
+f12.6
+angle i-j-k
+IV-1-7
+f12.6
+torson i-j-k-l
+Card
+Format
+Description Card
+Format
+Description
+17.4.
+2
+ 
+Format of segment file (1 of 7)
+Card
+Format
+Description
+I-0-1
+# lines at top are comments
+I-1-1
+a1
+$ to identify the start of a segment
+I-1-2
+a10
+name of the segment, the tenth character
+N: identifies beginning of a chain
+C: identifies end of a chain
+blank: identifies chain fragment
+M: identifies an integral molecule
+I-2-1
+f12.6
+version number
+I-3-1
+i5
+number of atoms in the segment
+I-3-2
+i5
+number of bonds in the segment
+I-3-3
+i5
+number of angles in the segment
+I-3-4
+i5
+number of proper dihedrals in the segment
+I-3-5
+i5
+number of improper dihedrals in the segment
+I-3-6
+i5
+number of z-matrix definitions
+I-3-7
+i5
+number of parameter sets
+1-3-8
+i5
+default parameter set
+For each parameter set one card I-4
+I-4-1
+f12.6
+dipole correction energy
+17.4.
+3
+ 
+Format of segment file (2 of 7) Card
+Format
+Description
+For each atom one deck II
+II-1-1
+i5
+atom sequence number
+II-1-2
+a6
+atom name
+II-1-3
+i5
+link number
+II-1-4
+i5
+environment type
+0: no special identifier
+1: planar, using improper torsion
+2: tetrahedral, using improper torsion
+3: tetrahedral, using improper torsion
+4: atom in aromatic ring
+II-1-5
+i5
+II-1-6
+i5
+charge group
+II-1-7
+i5
+polarization group
+For each parameter set one card II-2
+II-2-1
+5x,a5
+atom type
+II-2-2
+a1
+dynamics type
+blank : normal
+D : dummy atom
+S : solute interactions only
+Q : quantum atom
+other : intramolecular solute interactions only
+II-2-3
+f12.6
+atomic partial charge in e
+II-2-4
+f12.6
+atomic polarizability (4 π ε
+o
+ in nm
+3
+)
+17.4.
+4
+ 
+Format of segment file (3 of 7) Card
+Format
+Description
+For each bond a deck III
+III-1-1
+i5
+bond sequence number
+III-1-2
+i5
+bond atom i
+III-1-3
+i5
+bond atom j
+III-1-4
+i5
+bond type
+0: harmonic
+1: constrained bond
+III-1-5
+i5
+bond parameter origin
+0: from database, next card ignored
+1: from next card
+For each parameter set one card III-2
+III-2-1
+f12.6
+bond length in nm
+III-2-2
+e12.5
+bond force constant in (kJ nm
+2
+ mol
+-1
+)
+17.4.
+5
+ 
+Format of segment file (4 of 7) Card
+Format
+Description
+For each angle a deck IV
+IV-1-1
+i5
+angle sequence number
+IV-1-2
+i5
+angle atom i
+IV-1-3
+i5
+angle atom j
+IV-1-4
+i5
+angle atom k
+IV-1-5
+i5
+angle type
+0: harmonic
+IV-1-6
+i5
+angle parameter origin
+0: from database, next card ignored
+1: from next card
+For each parameter set one card IV-2
+IV-2-1
+f10.6
+angle in radians
+IV-2-2
+e12.5
+angle force constant in (kJ mol
+-1
+)
+17.4.
+6
+ 
+Format of segment file (5 of 7) Card
+Format
+Description
+For each proper dihedral a deck V
+V-1-1
+i5
+proper dihedral sequence number
+V-1-2
+i5
+proper dihedral atom i
+V-1-3
+i5
+proper dihedral atom j
+V-1-4
+i5
+proper dihedral atom k
+V-1-5
+i5
+proper dihedral atom l
+V-1-6
+i5
+proper dihedral type
+0: (
+C
+cos(mφ-δ)
+V-1-7
+i5
+proper dihedral parameter origin
+0: from database, next card ignored
+1: from next card
+For each parameter set one card V-2
+V-2-1
+i3
+multiplicity
+V-2-2
+f10.6
+proper dihedral in radians
+V-2-3
+e12.5
+proper dihedral force constant in (kJ mol
+-1
+)
+17.4.
+7
+ 
+Format of segment file (6 of 7) Card
+Format
+Description
+For each improper dihedral a deck VI
+VI-1-1
+i5
+improper dihedral sequence number
+VI-1-2
+i5
+improper dihedral atom i
+VI-1-3
+i5
+improper dihedral atom j
+VI-1-4
+i5
+improper dihedral atom k
+VI-1-5
+i5
+improper dihedral atom l
+VI-1-6
+i5
+improper dihedral type
+0: harmonic
+VI-1-7
+i5
+improper dihedral parameter origin
+0: from database, next card ignored
+1: from next card
+For each parameter set one card VI-2
+VI-2-1
+3x,f10.6
+improper dihedral in radians
+VI-2-2
+e12.5
+improper dihedral force constant in (kJ mol
+-1
+)
+17.4.
+8
+ 
+Format of segment file (7 of 7)
+Card
+Format
+Description
+For each z-matrix definition one card VII
+VII-1-1
+i5
+atom i
+VII-1-2
+i5
+atom j
+VII-1-3
+i5
+atom k
+VII-1-4
+i5
+atom l
+VII-1-5
+f12.6
+bond length i-j
+VII-1-6
+f12.6
+angle i-j-k
+VII-1-7
+f12.6
+torson i-j-k-l
+17.4.
+9
+ 
+Format of sequence file Card
+Format
+Description
+I-1-1
+a1
+$ to identify the start of a sequence
+I-1-2
+a10
+name of the sequence
+Any number of cards 1 and 2 in deck II
+to specify the system
+II-1-1
+i5
+segment number
+II-1-2
+a10
+segment name, last character will be determined from chain
+II-2-1
+a
+break to identify a break in the molecule chain
+II-2-1
+a
+molecule to identify the end of a solute molecule
+II-2-1
+a
+fraction to identify the end of a solute fraction
+II-2-1
+a5
+link to specify a link
+II-2-2
+i5
+segment number of first link atom
+II-2-3
+a4
+name of first link atom
+II-2-4
+i5
+segment number of second link atom
+II-2-5
+a4
+name of second link atom
+II-2-1
+a
+solvent to identify solvent definition on next card
+II-2-1
+a
+stop to identify the end of the sequence
+II-2-1
+a6
+repeat to repeat next ncard cards ncount times
+II-2-2
+i5
+number of cards to repeat (ncards)
+II-2-3
+i5
+number of times to repeat cards (ncount)
+Any number of cards in deck II
+to specify the system
+17.4.
+10
+ 
+Format of trajectory file
+Card
+Format
+Description
+I-1-1
+a6
+keyword header
+I-2-1
+i10
+number of atoms per solvent molecule
+I-2-2
+i10
+number of solute atoms
+I-2-3
+i10
+number of solute bonds
+I-2-4
+i10
+number of solvent bonds I-2-5
+i10
+number of solvent molecules
+I-2-6
+i10
+precision of the coordinates. 0=standard, 1=high
+For each atom per solvent molecule one card I-3
+I-3-1
+a5
+solvent name
+I-3-2
+a5
+atom name
+For each solute atom one card I-4
+I-4-1
+a5
+segment name
+I-4-2
+a5
+atom name
+I-4-3
+i6
+segment number
+I-4-4
+i10
+solute atom counter
+I-4-5
+i5
+integer 1
+For each solvent bond one card I-5
+I-5-1
+i8
+atom index i for bond between i and j
+I-5-2
+i8
+atom index j for bond between i and j
+For each solute bond one card I-6
+I-6-1
+i8
+atom index i for bond between i and j
+I-6-2
+i8
+atom index j for bond between i and j
+For each frame one deck II
+II-1-1
+a5
+keyword frame
+II-2-1
+f12.6
+time of frame in ps
+II-2-2
+12.6
+temperature of frame in K
+II-2-3
+e12.5
+pressure of frame in Pa
+II-2-4
+a10
+date
+II-2-5
+a10
+time
+II-3-1
+f12.6
+box dimension x
+II-3-2
+12x,f12.6
+box dimension y
+II-3-3
+24x,f12.6
+box dimension z
+II-4-1
+l1
+logical lxw for solvent coordinates
+II-4-2
+l1
+logical lvw for solvent velocities
+II-4-3
+l1
+logical lfw for solvent forces
+Card
+Format
+Description I-4-4
+l1
+II-4-5
+l1
+logical lxs for solute coordinates
+II-4-6
+l1
+logical lvs for solute velocities
+II-4-7
+l1
+logical lfs for solute forces
+II-4-8
+l1
+logical lps for solute induced dipoles
+II-4-5
+i10
+number of solvent molecules
+II-4-6
+i10
+number of solvent atoms
+II-4-7
+i10
+number of solute atoms
+For each solvent molecule one card II-5
+for each atom, if standard precision
+II-5-1
+3f8.3
+solvent atom coordinates, if lxw or lvw
+II-5-4
+3f8.3
+solvent atom velocities, if lvw
+II-5-7
+3f8.1
+solvent atom forces, if lfw
+For each solute atom one card II-6
+for each atom, if standard precision
+II-6-1
+3f8.3
+solute atom coordinates, if lxs or lvs
+II-6-4
+3f8.3
+solute atom velocities, if lvs
+II-6-7
+3f8.1
+solute atom forces, if lfs
+For each solvent molecule one card II-5
+for each atom, if high precision
+II-5-1
+3e12.6
+solvent atom coordinates, if lxw or lvw
+II-5-4
+3e12.6
+solvent atom velocities, if lvw
+II-5-7
+3e12.6
+solvent atom forces, if lfw (on new card if both lxw and lvw)
+For each solute atom one card II-6
+for each atom, if high precision
+II-6-1
+3e12.6
+solute atom coordinates, if lxs or lvs
+II-6-4
+3e12.6
+solute atom velocities, if lvs
+II-6-7
+3e12.6
+solute atom forces, if lfs (on new card if both lxs and lvs)
+Card
+Format
+Description 17.4.
+11
+ 
+Format of free energy file
+Card
+Format
+Description
+For each step in λ one deck I
+I-1-1
+i7
+number nderiv of data summed in derivative decomposition array deriv
+I-1-2
+i7
+length ndata of total derivative array drf
+I-1-3
+f12.6
+current value of λ
+I-1-4
+f12.6
+step size of λ
+I-2-1
+4e12.12
+derivative decomposition array deriv(1:24)
+I-3-1
+4e12.12
+total derivative array dfr(1:nda)
+I-4-1
+i10
+size of ensemble at current λ
+I-4-2
+e20.12
+average temperature at current λ
+I-4-3
+e20.12
+average exponent reverse perturbation energy at current λ
+I-4-4
+e20.12
+average exponent forward perturbation energy at current λ
+17.4.
+12
+ 
+Format of root mean square deviation file Card
+Format
+Description
+For each analyzed time step one card I-1
+I-1-1
+f12.6
+time in ps
+I-1-2
+f12.6
+total rms deviation of the selected atoms before superimposition
+I-1-3
+f12.6
+total rms deviation of the selected atoms after superimposition
+II-1-1
+a8
+keyword analysis
+For each solute atom one card II-2
+II-2-1
+a5
+segment name
+II-2-2
+a5
+atom name
+II-2-3
+i6
+segment number
+II-2-4
+i10
+atom number
+II-2-5
+i5
+selected if 1
+II-2-6
+f12.6
+average atom rms deviation after superimposition
+III-1-1
+a8
+keyword analysis
+For each solute segment one card III-2
+III-2-1
+a5
+segment name
+III-2-2
+i6
+segment number
+III-2-3
+f12.6
+average segment rms deviation after superimposition
+17.4.
+13
+ 
+Format of property file
+Card
+Format
+Description
+1
+i7
+number nprop of recorded properties
+I-1-2
+1x,2a10
+date and time
+For each of the nprop properties one card I-2
+I-2-1
+a50
+description of recorded property
+For each recorded step one deck II
+II-1-1
+4(1pe12.5)
+value of property
+18 
+Controlling NWChem with Python
+18.
+1
+ 
+Overview

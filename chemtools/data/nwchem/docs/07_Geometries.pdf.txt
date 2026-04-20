@@ -1,0 +1,218 @@
+The classical force field includes the following elements:
+effective pair potentials
+first-order polarization
+self-consistent polarization
+smooth particle mesh Ewald
+twin-range energy and force evaluation
+periodic boundary conditions
+SHAKE constraints
+constant temperature and/or pressure ensembles
+dynamic proton hopping using the Q-HOP methodology
+advanced system setup capabilities for biomolecular membranes.
+6 
+Top-level Directives
+6.
+1
+ 
+Overview
+Top-level directives are directives that can affect all modules in the code. Some specify molecular properties or other data
+that should apply to all subsequent calculations with the current database. However, most top-level directives provide the
+user with the means to manage the resources for a calculation and to start computations. As the first step in the execution
+of a job, NWChem scans the entire input file looking for start-up directives, which NWChem must process before all other
+input. The input file is then rewound and processed sequentially, and each directive is processed in the order in which it is
+encountered. In this second pass, start-up directives are ignored.
+The following sections describe each of the top-level directives in detail, noting all keywords, options, required input, and
+defaults.
+START/RESTART
+PERMANENT_DIR
+SCRATCH_DIR
+MEMORY
+ECHO
+TITLE
+PRINT / NOPRINT
+SET
+UNSET
+STOP
+TASK
+ECCE_PRINT
+7 
+Geometries
+7.
+1
+ 
+Overview
+The GEOMETRY directive is a compound directive that allows the user to define the geometry to be used for a given calculation. The directive allows the user to specify the geometry with a relatively small amount of input, but there are a
+large number of optional keywords and additional subordinate directives that the user can specify, if needed. The directive
+therefore appears to be rather long and complicated when presented in its general form, as follows:
+The three main parts of the GEOMETRY directive are:
+keywords on the first line of the directive (to specify such 
+optional input as the geometry name, input units, and print
+level 
+for the output)
+symmetry information
+Cartesian coordinates or Z-matrix input to specify the locations of 
+the atoms and centers
+lattice parameters (needed only for periodic systems)
+The following sections present the input for this compound directive in detail, describing the options available and the
+usages of the various keywords in each of the three main parts.
+Keywords for the GEOMETRY directive
+SYMMETRY: Symmetry Group Input
+Names of 3-dimensional space groups
+Cartesian coordinate input
+ZMATRIX: Z-matrix input
+ GEOMETRY [<string name default geometry>] \  
+          [units <string units default angstroms>] \  
+          [(angstrom_to_au || ang2au) \  
+                 <real angstrom_to_au default 1.8897265>] \  
+          [print [xyz] || noprint] \  
+          [center || nocenter] \  
+          [bqbq] \  
+          [autosym [real tol default 1d-2] || noautosym] \  
+          [autoz || noautoz] \  
+          [adjust] \  
+          [(nuc || nucl || nucleus) <string nucmodel>]  
+   [SYMMETRY [group] <string group_name> [print] \  
+          [tol <real tol default 1d-2>]]  
+   [ [LOAD] [format xyz||pdb]  [frame <int frame>] \  
+          [select [not] \  
+               [name <string atomname>] \  
+               [rname <string residue-name>]  
+               [id  <int atom-id>|<int range atom-id1:atom-id2> ... ]  
+               [resi <int residue-id>|<int range residue-id1:residue-id2> ... ]  
+         ]  
+   <string filename> ]  
+   <string tag> <real x y z> [vx vy vz] [charge <real charge>] \  
+          [mass <real mass>] \  
+          [(nuc || nucl || nucleus) <string nucmodel>]  
+   ... ]  
+   [ZMATRIX || ZMT || ZMAT  
+        <string tagn> <list_of_zmatrix_variables>  
+        ...   
+        [VARIABLES  
+             <string symbol> <real value>  
+             ... ]  
+        [CONSTANTS  
+             <string symbol> <real value>  
+             ... ]  
+    (END || ZEND)]  
+    [ZCOORD  
+         CVR_SCALING <real value>  
+         BOND    <integer i> <integer j> \  
+                 [<real value>] [<string name>] [constant]  
+         ANGLE   <integer i> <integer j> \  
+                     [<real value>] [<string name>] [constant]  
+         TORSION <integer i> <integer j> <integer k> <integer l> \  
+                 [<real value>] [<string name>] [constant]  
+     END]  
+     [SYSTEM surface  <molecule polymer surface crystal default molecule>  
+          lat_a <real lat_a> lat_b <real lat_b> lat_c <real lat_c>  
+          alpha <real alpha> beta <real beta> gamma <real gamma>  
+     END]  
+  END ZCOORD: Forcing internal coordinates
+SYSTEM: Lattice parameters for periodic systems
+LOAD: Load geometry from XYZ file
+8 
+Basis sets
+8.
+1
+ 
+Overview
+NWChem currently supports basis sets consisting of generally contracted Cartesian Gaussian functions up to a maximum
+angular momentum of six (
+h
+ functions), and also 
+sp
+ (or L) functions. The BASIS directive is used to define these, and also
+to specify use of an 
+Effective Core Potential
+ that is associated with a basis set.
+The basis functions to be used for a given calculation can be drawn from a standard set in the 
+Basis set library
+ that is
+included in the release of NWChem. Alternatively, the user can specify particular functions explicitly in the input, to define a
+particular basis set.
+8.
+2
+ 
+BASIS directive
+The general form of the BASIS directive is as follows:
+The following sections examine the keywords on the first line of the 
+BASIS
+ directive:
+8.
+2
+.
+1
+ 
+Basis set NAME
+NAME
+ : 
+By default, the basis set is stored in the database with the name 
+"ao basis". Another name may be specified in the BASIS
+directive, 
+thus, multiple basis sets may be stored simultaneously in the 
+database. Also, the 
+DFT
+ 
+and 
+RI-MP2
+ modules and
+the 
+Dyall-modified-Dirac
+ 
+relativistic method require multiple basis sets with specific names. 
+The user can associate the "ao
+basis" with another named basis using 
+the SET directive (see 
+SET
+).
+8.
+2
+.
+2
+ 
+SPHERICAL or CARTESIAN
+SPHERICAL
+ || 
+CARTESIAN
+ : 
+The keywords 
+spherical
+ and 
+cartesian
+ offer the option of using 
+either spherical-harmonic (5 
+d
+, 7 
+f
+, 9 
+g
+, …) or Cartesian (6 
+d
+, 10
+f
+, 15 
+g
+, …) angular functions. The default is Cartesian. Note that 
+the correlation-consistent basis sets were designed using
+spherical 
+harmonics and to use these, the 
+spherical
+ keyword should be present 
+in the 
+BASIS
+ directive. The use of spherical
+functions also helps 
+eliminate problems with linear dependence.
+ BASIS [<string name default "ao basis">] \  
+       [(spherical || cartesian) default cartesian] \  
+       [(print || noprint) default print]  \
+       [rel] [bse] 
+    <string tag> library [<string tag_in_lib>] \  
+                 <string standard_set> [file <filename>] \  
+                 [except <string tag list>] [rel]  
+       ...  
+    <string tag> <string shell_type> [rel]  
+       <real exponent> <real list_of_coefficients>  
+       ...  
+ END

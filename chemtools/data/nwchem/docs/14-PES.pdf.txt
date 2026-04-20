@@ -1,0 +1,1755 @@
+solute2.data file
+vdw.par file
+14 
+Potential Energy Surface Analysis
+14.1 
+Geometry Optimization
+14.1.
+1
+ 
+Geometry Optimization with DRIVER
+The DRIVER module is one of two drivers (also see documentation on 
+STEPPER
+) to perform a geometry optimization
+function on the molecule defined by input using the 
+GEOMETRY
+ directive. Geometry optimization is either an energy
+minimization or a transition state optimization. The algorithm programmed in DRIVER is a quasi-newton optimization with
+line searches and approximate energy Hessian updates.
+DRIVER is selected by default out of the two available modules to perform geometry optimization. In order to force use of
+DRIVER (e.g., because a previous optimization used STEPPER) provide a DRIVER input block (below) – even an empty
+block will force use of DRIVER.
+Optional input for this module is specified within the compound directive,
+echo
+start rism
+memory global 40 mb stack 23 mb heap 5 mb
+rism
+  closure kh
+  temp 298
+  vdw rule arithmetic parameters vdw.par
+  solute configuration solute2.data
+end
+task energy rism
+ 8
+ 
+ O1         0.15566663    -0.86069508     1.9256322   -0.7323104568123959 O1
+ O2         2.31302544    -0.61550520     1.32869265  -0.7721248369124809 O2
+ C1         0.69252260    -1.26942616    -0.34814880  -0.4444201659837397 C1
+ C2         1.15967680    -0.88531805     1.02642840   1.004561861052242  C2
+ H1         0.22862001    -2.26160688    -0.31011132   0.1303963270585546 H
+ H2        -0.08170478    -0.56654621    -0.67834692   0.1513209389506027 H
+ H3         1.53138139    -1.28351200    -1.04644134   0.1454517042730594 H
+ H4         0.48680931    -0.66362820     2.83551288   0.5171246283741536 H4
+O1  3.0660  0.8809
+O2  2.9600  0.8792
+C1  3.4000  0.4580
+C2  3.4000  0.3601
+H   2.1150  0.0657
+H4  0.8000  0.1926 On each optimization step a line search is performed. To speed up calculations (up to two times), it may be beneficial to
+turn off the line search using following directive:
+14.1.
+1
+.
+1
+ 
+Convergence criteria
+The defaults may be used, or the directives LOOSE, DEFAULT, or TIGHT specified to use standard sets of values, or the
+individual criteria adjusted. All criteria are in atomic units. GMAX and GRMS control the maximum and root mean square
+gradient in the coordinates being used (Z-matrix, redundant internals, or Cartesian). XMAX and XRMS control the
+maximum and root mean square of the Cartesian step.
+LOOSE
+DEFAULT
+TIGHT
+GMAX
+0.00450
+0.00045
+0.000015
+GRMS
+0.00300
+0.00030
+0.00001
+XMAX
+0.01800
+0.00180
+0.00006
+XRMS
+0.01200
+0.00120
+0.00004
+Note that GMAX and GRMS used for convergence of geometry may significantly vary in different coordinate systems such
+as Z-matrix, redundant internals, or Cartesian. The coordinate system is defined in the input file (default is Z-matrix).
+Therefore the choice of coordinate system may slightly affect converged energy. Although in most cases XMAX and XRMS
+are last to converge which are always done in Cartesian coordinates, which insures convergence to the same geometry in
+different coordinate systems.
+The old criterion may be recovered with the input
+14.1.
+1
+.
+2
+ 
+Available precision
+ DRIVER   
+   (LOOSE || DEFAULT || TIGHT)  
+   GMAX <real value>  
+   GRMS <real value>  
+   XMAX <real value>  
+   XRMS <real value>  
+   EPREC <real eprec default 1e-7>  
+   TRUST <real trust default 0.3>  
+   SADSTP <real sadstp default 0.1>  
+   CLEAR  
+   REDOAUTOZ  
+   INHESS <integer inhess default 0>  
+   (MODDIR || VARDIR) <integer dir default 0> 
+   (FIRSTNEG || NOFIRSTNEG)  
+   MAXITER <integer maxiter default 20>  
+   BSCALE <real BSCALE default 1.0>` 
+   ASCALE <real ASCALE default 0.25>  
+   TSCALE <real TSCALE default 0.1> 
+   HSCALE <real HSCALE default 1.0> 
+      PRINT ... 
+   XYZ <string xyz default *file_prefix*>]  
+   NOXYZ  
+   SOCKET (UNIX || IPI_CLIENT) <string socketname default (see input description)>  
+ END
+ set driver:linopt 0
+   (LOOSE || DEFAULT || TIGHT)  
+   GMAX <real value>  
+   GRMS <real value>  
+   XMAX <real value>  
+   XRMS <real value>
+  gmax 0.0008; grms 1; xrms 1; xmax 1 In performing a line search the optimizer must know the precision of the energy (this has nothing to do with convergence
+criteria). The default value of 1e-7 should be adjusted if less, or more, precision is available. Note that the default EPREC
+for DFT calculations is 5e-6 instead of 1e-7.
+14.1.
+1
+.
+3
+ 
+Controlling the step length
+A fixed trust radius (trust) is used to control the step during minimizations, and is also used for modes being minimized
+during saddle-point searches. It defaults to 0.3 for minimizations and 0.1 for saddle-point searches. The parameter sadstp
+is the trust radius used for the mode being maximized during a saddle-point search and defaults to 0.1.
+14.1.
+1
+.
+4
+ 
+Maximum number of steps
+By default at most 40 geometry optimization steps will be taken, but this may be modified with this directive.
+14.1.
+1
+.
+5
+ 
+Discard restart information
+By default Driver reuses Hessian information from a previous optimization, and, to facilitate a restart also stores which
+mode is being followed for a saddle-point search. This option deletes all restart data.
+14.1.
+1
+.
+6
+ 
+Regenerate internal coordinates
+Deletes Hessian data and regenerates internal coordinates at the current geometry. Useful if there has been a large
+change in the geometry that has rendered the current set of coordinates invalid or non-optimal.
+14.1.
+1
+.
+7
+ 
+Initial Hessian
+0
+ = Default … use restart data if available, otherwise use 
+diagonal guess.
+1
+ = Use diagonal initial guess.
+2
+ = Use restart data if available, otherwise transform Cartesian 
+Hessian from previous frequency calculation.
+In addition, the diagonal elements of the initial Hessian for internal coordinates may be scaled using separate factors for
+bonds, angles and torsions with the following
+These values typically give a two-fold speedup over unit values, based on about 100 test cases up to 15 atoms using 3-21g
+and 6-31g* SCF. However, if doing many optimizations on physically similar systems it may be worth fine tuning these
+parameters.
+   EPREC <real eprec default 1e-7>
+   TRUST <real trust default 0.3>
+   SADSTP <real sadstp default 0.1>
+   MAXITER <integer maxiter default 40>
+   CLEAR
+   REDOAUTOZ
+   INHESS <integer inhess default 0>
+   BSCALE <real bscale default 1.0>  
+   ASCALE <real ascale default 0.25>  
+   TSCALE <real tscale default 0.1> Finally, the entire Hessian from any source may be scaled by a factor using the directive
+It might be of utility, for instance, when computing an initial Hessian using SCF to start a large MP2 optimization. The SCF
+vibrational modes are expected to be stiffer than the MP2, so scaling the initial Hessian by a number less than one might
+be beneficial.
+14.1.
+1
+.
+8
+ 
+Mode or variable to follow to saddle point
+When searching for a transition state the program, by default, will take an initial step uphill and then do mode following
+using a fuzzy maximum overlap (the lowest eigen-mode with an overlap with the previous search direction of 0.7 times the
+maximum overlap is selected). Once a negative eigen-value is found, that mode is followed regardless of overlap.
+The initial uphill step is appropriate if the gradient points roughly in the direction of the saddle point, such as might be the
+case if a constrained optimization was performed at the starting geometry. Alternatively, the initial search direction may be
+chosen to be along a specific internal variable (using the directive 
+VARDIR
+) or along a specific eigen-mode (using 
+MODDIR
+).
+Following a variable might be valuable if the initial gradient is either very small or very large. Note that the eigen-modes in
+the optimizer have next-to-nothing to do with the output from a frequency calculation. You can examine the eigen-modes
+used by the optimizer with
+The selection of the first negative mode is usually a good choice if the search is started in the vicinity of the transition state
+and the initial search direction is satisfactory. However, sometimes the first negative mode might not be the one of interest
+(e.g., transverse to the reaction direction). If 
+NOFIRSTNEG
+ is specified, the code will not take the first negative direction and
+will continue doing mode-following until that mode goes negative.
+14.1.
+1
+.
+9
+ 
+Optimization history as XYZ files
+The XYZ directive causes the geometry at each step (but not intermediate points of a line search) to be output into
+separate files in the permanent directory in XYZ format. The optional string will prefix the filename. The NOXYZ directive
+turns this off.
+For example, the input
+will cause files test-000.xyz, test-001.xyz, … to be created in the permanent directory.
+The script rasmolmovie in the NWChem contrib directory can be used to turn these into an animated GIF movie.
+14.1.
+1
+.
+10
+ 
+i-PI Socket communication
+The 
+SOCKET
+ directive enables NWChem to communicate with other software packages – such as 
+i-PI
+ or 
+ASE
+ or 
+EON
+ – via
+the i-PI socket protocol.
+Communication is done either over Unix sockets (
+SOCKET UNIX
+) or IP sockets (
+SOCKET IPI_CLIENT
+):
+   HSCALE <real hscale default 1.0>
+   (MODDIR || VARDIR) <integer dir default 0>  
+   (FIRSTNEG || NOFIRSTNEG)
+  driver; print hvecs; end
+   XYZ [<string xyz default $fileprefix>] 
+   NOXYZ
+   driver; xyz test; end
+   SOCKET (UNIX | IPI_CLIENT) <socketname> [RETRIES <integer>] [DELAY <float>] Unix sockets - NWChem will create and bind to a UNIX socket 
+file located at 
+/tmp/ipi_<socketname>
+. If not specified,
+<socketname>
+ will default to 
+nwchem
+.
+IP sockets - NWChem will bind to the IP address and port 
+specified by 
+<socketname>
+. If not specified, 
+<socketname>
+ 
+will
+default to 
+127.0.0.1:31415
+.
+The behavior of the client when first attempting to connect to the server can be controlled with two optional keywords:
+RETRIES <integer>
+: Specifies the maximum number of times the client will try 
+to connect to the server socket before exiting
+with an error. If not provided, 
+this defaults to 30 tries.
+DELAY <integer>
+: Specifies the time in seconds to wait between failed 
+connection attempts. If not provided, this defaults to
+2 seconds.
+The 
+SOCKET
+ directive is only useful when used in conjunction with other software packages that support communication via
+the i-PI socket protocol. For more information, see the 
+i-PI documentation
+.
+14.1.
+1
+.
+11
+ 
+Print options
+The UNIX command
+will extract a pretty table summarizing the optimization.
+If you specify the NWChem input
+you'll obtain a pleasantly terse output.
+For more control, these options for the standard print directive are recognized
+debug
+ - prints a large amount of data. Don't use in parallel.
+high
+ - print the search direction in internals
+default
+ - prints geometry for each major step (not during the line 
+search), gradient in internals (before and after
+application of 
+constraints)
+low
+ - prints convergence and energy information. At convergence 
+prints final geometry, change in internals from initial
+geometry
+and these specific print options
+finish
+ (low) - print geometry data at end of calculation
+bonds
+ (default) - print bonds at end of calculation
+angles
+ (default) - print angles at end of calculation
+hvecs
+ (never) - print eigen-values/vectors of the Hessian
+searchdir
+ (high) - print the search direction in internals
+"internal gradient"
+ (default) - print the gradient in internals
+sadmode
+ (default) - print the mode being followed to the saddle point
+14.1.
+2
+ 
+Geometry Optimization with STEPPER
+The STEPPER module performs a search for critical points on the potential energy surface of the molecule defined by input
+grep '^@' \< output
+     scf; print none; end  
+     driver; print low; end  
+     task scf optimize using the 
+GEOMETRY
+ directive. Since STEPPER is not the primary geometry optimization module in NWChem the
+compound directive is required; the 
+DRIVER
+ module is the default. Input for this module is specified within the compound
+directive,
+The presence of the 
+STEPPER
+ compound directive automatically turns off the default geometry optimization tool 
+DRIVER
+. Input
+specified for the 
+STEPPER
+ module must appear in the input file after the 
+GEOMETRY
+ directive, since it must know the number
+of atoms that are to be used in the geometry optimization. In the current version of NWChem, STEPPER can be used only
+with geometries that are defined in Cartesian coordinates. 
+STEPPER
+ removes translational and rotational components before
+determining the step direction (5 components for linear systems and 6 for others) using a standard Eckart algorithm. The
+default initial guess nuclear Hessian is the identity matrix.
+The default in 
+STEPPER
+ is to minimize the energy as a function of the geometry with a maximum of 20 geometry optimization
+iterations. When this is the desired calculation, no input is required other than the 
+STEPPER
+ compound directive. However,
+the user also has the option of defining different tasks for the 
+STEPPER
+ module, and can vary the number of iterations and
+the convergence criteria from the default values. The input for these options is described in the following sections.
+14.1.
+2
+.
+1
+ 
+MIN and TS: Minimum or transition state search
+The default is for STEPPER to minimize the energy with respect to the geometry of the system. This default behavior may
+be forced with the directive
+STEPPER can also be used to find the transition state by following the lowest eigenvector of the nuclear Hessian. This is
+usually invoked by using the saddle keyword on the 
+TASK directive
+, but it may also be selected by specifying the directive
+in the STEPPER input.
+14.1.
+2
+.
+2
+ 
+TRACK: Mode selection
+STEPPER
+ has the ability to 
+track
+ a specific mode during an optimization for a transition state search, the user can also have
+the module track the eigenvector corresponding to a specific mode. This is done by specifying the directive
+The keyword 
+TRACK
+ tells 
+STEPPER
+ to track the eigenvector corresponding to the integer value of 
+during a transition state
+walk. (Note: this input is invalid for a minimization walk since following a specific eigenvector will not necessarily give the
+desired local minimum.) The step is constructed to go up in energy along the nmode eigenvector and down in all other
+degrees of freedom.
+14.1.
+2
+.
+3
+ 
+MAXITER: Maximum number of steps
+In most applications, 20 stepper iterations will be sufficient to obtain the energy minimization. However, the user has the
+option of specifying the maximum number of iterations allowed, using the input line,
+The value specified for the integer 
+defines the maximum number of geometry optimization steps. The geometry
+optimization will restart automatically.
+ STEPPER  
+   ...  
+ END
+ MIN
+ TS
+ TRACK [nmode <integer nmode default 1>]
+ MAXITER <integer maxiter default 20> 14.1.
+2
+.
+4
+ 
+TRUST: Trust radius
+The size of steps that can be taken in STEPPER is controlled by the trust radius which has a default value of 0.1. Steps are
+constrained to be no larger than the trust radius. The user has the option of overriding this default using the keyword
+TRUST, with the following input line,
+The larger the value specified for the variable radius, the larger the steps that can be taken by 
+STEPPER
+. Experience has
+shown that for larger systems (i.e., those with 20 or more atoms), a value of 0.5, or greater, usually should be entered for 
+.
+14.1.
+2
+.
+5
+ 
+CONVGGM, CONVGG and CONVGE: Convergence criteria
+Three convergence criteria can be specified explicitly for the STEPPER calculations. The keyword 
+CONVGGM
+ allows the user
+to specify the convergence tolerance for the largest component of the gradient. This is the primary convergence criterion,
+as per the default settings, although all three criteria are in effect. this default setting is consistent with the other optimizer
+module 
+DRIVER
+. The input line for 
+CONVGGM
+ has the following form,
+The keyword 
+CONVGG
+ allows the user to specify the convergence tolerance for the gradient norm for all degrees of freedom.
+The input line is of the following form,
+The entry for the real variable 
+<convgg>
+ should be approximately equal to the square root of the energy convergence
+tolerance.
+The energy convergence tolerance is the convergence criterion for the energy difference in the geometry optimization in
+STEPPER
+. It can be specified by input using a line of the following form,
+14.1.
+2
+.
+6
+ 
+Backstepping in STEPPER
+If a step taken during the optimization is too large (e.g., the step causes the energy to go up for a minimization or down for
+a transition state search), the 
+STEPPER
+ optimizer will automatically "backstep" and correct the step based on information
+prior to the faulty step. If you have an optimization that "backsteps" frequently then the initial trust radius should most likely
+be decreased.
+14.1.
+2
+.
+7
+ 
+Initial Nuclear Hessian Options
+Stepper uses a modified Fletcher-Powell algorithm to find the transition state or energy minimum on the potential energy
+hypersurface.
+There are two files left in the user's permanent directory that are used to provide an initial hessian to the critical point
+search algorithm. If these files do not exist then the default is to use a unit matrix as the initial hessian.
+Once Stepper executes it generates a binary dump file by the name of 
+name.stpr41
+ which will be used on all subsequent
+stepper runs and modified with the current updated hessian. The default file prefix is the "name" that is used (see 
+START
+).
+It also stores the information for the last valid step in case the algorithm must take a 
+"backstep"
+. This file is the working
+data store for all stepper-based optimizations. This file is never deleted by default and is the first source of an initial
+hessian.
+The second source of an initial hessian is an ASCII file that contains the lower triangular values of the initial hessian. This
+is stored in file 
+name.hess
+, where "name" is again the default file prefix. This is the second source of an initial hessian and is
+the method used to incorporate an initial hessian from any other source (e.g., another ab initio code, a molecular
+ TRUST <real radius default 0.1>
+  CONVGGM <real convggm default 8.0d-04>
+  CONVGG <real convgg default 1.0d-02>
+  CONVGE <real convge default 1.0d-04> mechanics code, etc.,). To get a decent starting hessian at a given point you can use the task specification task scf
+hessian, with a smaller basis set, which will by default generate the 
+name.hess
+ file. Then you may define your basis set of
+choice and proceed with the optimization you desire.
+14.2 
+Hessians
+14.2.
+1
+ 
+Overview
+This section relates to the computation of analytic hessians which are available for open and closed shell SCF, except
+ROHF and for closed shell and unrestricted open shell DFT 
+1
+. Analytic hessians are not currently available for SCF or DFT
+calculations relativistic all-electron methodologies or for charge fitting with DFT. The current algorithm is fully in-core and
+does not use symmetry.
+There is no required input for the Hessian module. This module only impacts the hessian calculation. For options for
+calculating the frequencies, please see the 
+Vibrational
+ module.
+14.2.
+2
+ 
+Hessian Module Input
+All input for the Hessian Module is optional since the default definitions are usually correct for most purposes. The generic
+module input begins with hessian and has the form:
+14.2.
+2
+.
+1
+ 
+Defining the wavefunction threshold
+You may modify the default threshold for the wavefunction. This keyword is identical to 
+THRESH
+ in the SCF, and the
+CONVERGENCE
+ gradient in the DFT. The usual defaults for the convergence of the wavefunction for single point and
+gradient calculations is generally not tight enough for analytic hessians. Therefore, the hessian, by default, tightens these
+up to 1d-6 and runs an additional energy point if needed. If, during an analytic hessian calculation, you encounter an error:
+the convergence criteria of the wavefunction generally needs to be tightened.
+14.2.
+2
+.
+2
+ 
+Profile
+The PROFILE keyword provides additional information concerning the computation times of different sections of the
+hessian code. Summary information is given about the maximum, minimum and average times that a particular section of
+the code took to complete. This is normally only useful for developers.
+14.2.
+2
+.
+3
+ 
+Print Control
+Known controllable print options are shown in the table below:
+ hessian  
+   thresh <real tol default 1d-6>
+   print ... 
+   profile  
+ end
+ cphf_solve:the available MOs do not satisfy the SCF equations Name
+Print Level
+Description
+hess_follow
+high
+more information about where the calculation is
+cphf_cont
+debug
+detailed CPHF information
+nucdd_cont
+debug
+detailed nuclear contribution information
+onedd_cont
+debug
+detailed one electron contribution information
+twodd_cont
+debug
+detailed two electron contribution information
+fock_xc
+debug
+detailed XC information during the fock builds
+14.2 
+Vibrational frequencies
+The nuclear hessian which is used to compute the vibrational frequencies can be computed by finite difference for any ab
+initio wave-function that has analytic gradients or by analytic methods for SCF and DFT (see 
+Hessians
+ for details). The
+appropriate nuclear hessian generation algorithm is chosen based on the user input when TASK 
+frequencies is the task
+directive.
+The vibrational package was integrated from the Utah Messkit and can use any nuclear hessian generated from the driver
+routines, finite difference routines or any analytic hessian modules. There is no required input for the "VIB" package. VIB
+computes the Infra Red frequencies and intensities for the computed nuclear hessian and the "projected" nuclear hessian.
+The VIB module projects out the translations and rotations of the nuclear hessian using the standard Eckart projection
+algorithm. It also computes the zero point energy for the molecular system based on the frequencies obtained from the
+projected hessian.
+The default mass of each atom is used unless an alternative mass is provided via the 
+geometry
+ input or redefined using the
+vibrational module input. The default mass is the mass of the most abundant isotope of each element. If the abundance
+was roughly equal, the mass of the isotope with the longest half life was used.
+In addition, the vibrational analysis is given at the default standard temperature of 298.15 degrees.
+14.2.
+3
+ 
+Vibrational Module Input
+All input for the Vibrational Module is optional since the default definitions will compute the frequencies and IR intensities.
+The generic module input can begin with vib, freq, frequency and has the form:
+14.2.
+3
+.
+1
+ 
+Hessian File Reuse
+By default the task 
+frequencies directive will recompute the hessian. To reuse the previously computed hessian you need
+only specify reuse in the module input block. If you have stored the hessian in an alternate place you may redirect the
+reuse directive to that file by specifying the path to that file.
+ {freq || vib || frequency}` 
+   [reuse [<string hessian_filename>]]  
+   [mass <integer lexical_index> <real new_mass>]  
+   [mass <string tag_identifier> <real new_mass>]  
+   [{temp || temperature} <integer number_of_temperatures>\ 
+         <real temperature1 temperature2 ...>] 
+   [animate [<real step_size_for_animation>]]  
+   [fd_delta [<real step_size_for_fd_hessian>]]  
+   [filename <string file_set_name> [overwrite]]  
+ end This will reuse your saved Hessian data but one caveat is that the geometry specification at the point where the hessian is
+computed must be the default "geometry" on the current run-time-data-base for the projection to work properly.
+14.2.
+3
+.
+2
+ 
+Redefining Masses of Elements
+You may also modify the mass of a specific center or a group of centers via the input.
+To modify the mass of a specific center you can simply use:
+which will set the mass of center 3 to 4.00260324 AMUs. The lexical index of centers is determined by the geometry object.
+To modify all Hydrogen atoms in a molecule you may use the tag based mechanism:
+The mass redefinitions always start with the default masses and change the masses in the order given in the input. Care
+must be taken to change the masses properly. For example, if you want all hydrogens to have the mass of Deuterium and
+the third hydrogen (which is the 6th atomic center) to have the mass of Tritium you must set the Deuterium masses first
+with the tag based mechanism and then set the 6th center's mass to that of Tritium using the lexical center index
+mechanism.
+The mass redefinitions are not fully persistent on the run-time-data-base. Each input block that redefines masses will
+invalidate the mass definitions of the previous input block. For example,
+will use the new mass for all hydrogens in the first frequency analysis. The mass of the oxygen atoms will be redefined in
+the second frequency analysis but the hydrogen atoms will use the default mass. To get a modified oxygen and hydrogen
+analysis you would have to use:
+14.2.
+3
+.
+3
+ 
+Temp or Temperature
+The "VIB" module can generate the vibrational analysis at various temperatures other than at standard room temperature.
+Either temp or temperature can be used to initiate this command.
+To modify the temperature of the computation you can simply use:
+ reuse /path_to_hessian_file
+ mass 3 4.00260324
+ mass hydrogen 2.014101779
+freq
+  reuse
+  mass hydrogen 2.014101779
+end
+task scf frequencies
+freq
+  reuse
+  mass oxygen 17.9991603
+end
+task scf frequencies
+freq
+  reuse
+  mass hydrogen 2.014101779
+end
+task scf frequencies
+freq
+  reuse
+  mass hydrogen 2.014101779
+  mass oxygen 17.9991603
+end
+task scf frequencies
+ temp 4 298.15 300.0 350.0 400.0 At this point, the temperatures are persistant and so the user must "reset" the temperature if the standard behavior is
+required after setting the temperatures in a previous "VIB" command, i.e.
+14.2.
+3
+.
+4
+ 
+Animation
+The "VIB" module also can generate mode animation input files in the standard xyz file format for graphics packages like
+RasMol or XMol There are scripts to automate this for RasMol in 
+$NWCHEM_TOP/contrib/rasmolmovie
+. Each mode will have 20 xyz
+files generated that cycle from the equilibrium geometry to 5 steps in the positive direction of the mode vector, back to 5
+steps in the negative direction of the mode vector, and finally back to the equilibrium geometry. By default these files are
+not generated. To activate this mechanism simply use the following input directive
+anywhere in the frequency/vib input block.
+Given an ordered list of files containing molecular coordinates in XYZ format, the rasmolmovie shell script generates an
+animated gif for each of the six possible views down a Cartesian axis.
+It uses the free utilities
+rasmol 
+https://www.umass.edu/microbio/rasmol/
+ 
+to manipulate the molecule and generate the individual frames
+convert from ImageMagick 
+https://www.imagemagick.org
+ 
+to combine the frames into an animated gif
+It should be easy to modify the script to other file formats or animation tools.
+14.2.
+3
+.
+4
+.
+1
+ 
+Controlling the Step Size Along the Mode Vector
+By default, the step size used is 0.15 a.u. which will give reliable animations for most systems. This can be changed via the
+animate input directive, e.g.
+where 
+is the real number that is the magnitude of each step along the eigenvector of each nuclear hessian mode in atomic
+units.
+14.2.
+3
+.
+5
+ 
+Specifying filenames for animated normal modes
+By default, normal modes will be stored in files that start with "freq.m-
+". This is inconvenient if more than vibrational analysis
+is run in a single input file. To specify different filename for a particular vibrational analysis use the directive
+where 
+is the name that will be prepended to the usual filenames. In addition the code by default requires all files to be new
+files. When the option "overwrite" is provided any pre-existing files will simply be overwritten.
+14.2.
+3
+.
+6
+ 
+Controlling the Step Size of the Finite difference Hessian
+By default, the step size used for calculating the finite difference Hessian is 0.010 a.u. for DFT and NWPW modules, and
+0.001 a.u. otherwise This can be changed via the fd_delta input directive, e.g.
+ temp 1 298.15
+ animate
+vib
+   animate 0.20
+end
+filename <file_set_name> [overwrite]
+vib
+   fd_delta 0.005
+end where 
+is the real number that is the magnitude of each displacement in atomic units for the calculation of the finite
+difference Hessian. For older versions of NWChem without the fd_delta option just set the "stpr_gen:delta" value on the
+runtime database, e.g.
+14.2.
+3
+.
+7
+ 
+An Example Input Deck
+This example input deck will optimize the geometry for the given basis 
+set, compute the frequencies for H
+2
+O, H
+2
+O at
+different temperatures, D
+2
+O, HDO, and TDO.
+14.2.
+4
+ 
+References
+1
+. 
+Johnson, B. G.; Frisch, M. J. An Implementation of Analytic Second Derivatives of the Gradient-Corrected Density Functional Energy. 
+The Journal of
+Chemical Physics
+ 
+1994
+, 
+100
+ (10), 7429–7442. 
+https://doi.org/10.1063/1.466887
+. 
+14.3 
+Constraints
+The constraints directive allows the user to specify which constraints should be imposed on the system during the analysis
+of potential energy surface. Currently such constraints are limited to fixed atom positions and harmonic restraints (springs)
+on the distance between the two atoms. The general form of constraints block is presented below:
+set stpr_gen:delta 0.005
+start  h2o
+title Water 
+geometry units au autosym
+  O      0.00000000    0.00000000    0.00000000
+  H      0.00000000    1.93042809   -1.10715266
+  H      0.00000000   -1.93042809   -1.10715266
+end
+basis noprint
+  H library sto-3g 
+  O library sto-3g
+end
+scf; thresh 1e-6; end
+driver; tight; end
+task scf optimize
+scf; thresh 1e-8; print none; end
+task scf freq 
+freq
+ reuse; temp 4 298.15 300.0 350.0 400.0
+end
+task scf freq
+freq 
+ reuse; mass H 2.014101779
+ temp 1 298.15
+end
+task scf freq
+freq
+ reuse; mass 2 2.014101779
+end
+task scf freq
+freq
+ reuse; mass 2 2.014101779 ; mass 3 3.01604927
+end
+task scf freq The keywords are described below
+name
+ - optional keyword that associates a name with a given set of 
+constraints. Any unnamed set of constraints will be
+given a name 
+default
+ and will be automatically loaded prior to a calculation. 
+Any constraints with the name other than
+default
+ will have to be 
+loaded manually using the 
+SET
+ directive. For example,
+the above constraints can be loaded using the following set directive that assigns the name 
+one
+ as the current constraint
+clear
+ - destroys any prior constraint information. This may be 
+useful when the same constraints have to be redefined or
+completely 
+removed from the runtime database.
+enable||disable
+ - enables or disables 
+without actually removing the information from the runtime database.
+fix atom
+ - fixes atom positions during geometry optimization. This 
+directive requires an integer list that specifies which
+atoms are to 
+be fixed. This directive can be repeated within a given constraints 
+block. To illustrate the use 
+fix atom
+directive let us consider a 
+situation where we would like to fix atoms 1, 3, 4, 5, 6 while 
+performing an optimization on
+some hypothetical system. There are 
+actually several ways to enter this particular constraint.
+There is a straightforward option which requires the most 
+typing:
+Second method uses list input:
+Third approach illustrates the use of multiple 
+fix atom
+ directives:
+the 
+spring bond
+ 
+< i j k r
+0
+ >
+ - places a spring with a spring constant 
+k
+ and equilibrium length 
+r
+0
+ between atoms 
+i
+ and 
+j
+ (all in
+atomic units). Please note that this type of constraint adds an 
+additional term to the total energy expression
+E = E
+total
+ + ½ k (r
+ij
+ - r
+0
+)
+2
+This additional term forces the distance between atoms 
+i
+ and 
+j
+ to be in the vicinity of 
+r
+0
+ but never exactly that. In general the
+spring energy term will always have some nonzero residual value, and this has to be accounted for when comparing total
+CONSTRAINTS [string name ] \  
+          [clear] \  
+          [enable||disable] \  
+          [fix atom <integer list>] \  
+          [spring bond <integer atom1> <integer atom2> <real k> <real r0> ]  
+          [spring dihedral <integer atom1> <integer atom2> <integer atom3> <integer atom4> <real k> <real phi0 in degrees> ] 
+          [spring bondings <real K0> <real gamma0> [<real ca> <integer atom1a> <integer atom2a> 
+                                             <real cb> <integer atom1b> <integer atom2b>
+                                             ...]]
+          [penalty pbondings <real K0> <real gcut0> <real gamma0> [<real ca> <integer atom1a> <integer atom2a> 
+                                                           <real cb> <integer atom1b> <integer atom2b>
+                                                           ...]]
+ END
+ CONSTRAINTS one  
+   spring bond 1 3 5.0 1.3
+   fix atom 1  
+ END 
+ set constraints one  
+ ....  
+ task ....
+       constraints  
+         fix atom 1 3 4 5 6 
+       end
+       constraints  
+         fix atom 1 3:6  
+       end
+       constraints 
+         fix atom 1 
+         fix atom 3:6 
+       end energies. The 
+spring bond
+ directive can be repeated within a given constraints block. If the spring between the same pair of
+atoms is defined more than once, it will be replaced by the latest specification in the order it appears in the input block.
+14.4 
+Nudged Elastic Band (NEB) method
+14.4.
+1
+ 
+Overview
+The NEB module is an implementation of the nudged elastic band (NEB) method of Jonsson et al., and it is one of two
+drivers in NWChem that can be used to perform minimum energy path optimizations. NEB can be used at all levels of
+theory, including SCF, HF, DFT, PSPW, BAND, MP2, RIMP2, CCSD, TCE.
+Input to the NEB modules is contained with the NEB block
+To run a NEB calculation the following the following task directives is used
+where 
+<theory>
+ is SCF, HF, DFT, PSPW, BAND, MP2, CCSD, TCE, etc.. The Task directive with the ignore option is
+recommended, otherwise NWChem will crash if the path is not optimized in the allowed maximum number of iterations.
+Optional input for this module is specified within the compound directive,
+The following list describes the input for the NEB block
+nbeads
+ - number of beads (or images) used to represent the path
+kbeads
+ - value for the NEB spring constant
+maxiter
+ - maximum number of NEB path optimizations to be performed
+stepsize
+ - value for the stepsize used in the optimization. 
+Typically less than 1.
+nhist
+ - number of histories to use for quasi-Newton optimization 
+(algorithm =0)
+LOOSE|DEFAULT|TIGHT
+ - options specifying thresholds for convergence
+gmax
+ - value for the maximum gradient used to determine 
+convergence
+grms
+ - value for the root mean square gradient used to determine 
+convergence
+xmax
+ - value for the maximum cartesian step used to determine 
+convergence
+xrmx
+ - value for the root mean square cartesian step used to 
+determine convergence
+ NEB  
+  ...  
+ END
+TASK <theory> NEB  
+TASK <theory> NEB ignore
+ NEB 
+    NBEADS <integer nbeads default 5>  
+    KBEADS <float kbeads default 0.1> 
+    MAXITER <integer maxiter default 5>  
+    STEPSIZE <integer stepsize default 1.0>  
+    NHIST <integer nhist default 5> 
+    ALGORITHM <integer algorithm default 0>  
+    [loose | default | tight]  
+    GMAX <float gmax default 0.00045>  
+    GRMS <float grms default 0.00030>  
+    XMAX <float xmax default 0.00018>  
+    XMRS <float xmrs default 0.00012>  
+    [IMPOSE]  
+    [HASMIDDLE]  
+    [XYZ_PATH <string xyzfilename>]  
+    [RESET]  
+    [PRINT_SHIFT <integer print_shift default 0>]  
+ END algorithm
+ - 0: quasi-Newton Fixed Point optimization, 1: dampled 
+Verlet optimization, 2: refining conjugate gradient
+optimization
+IMPOSE
+ - if specified causes the initial geometries used to specify 
+the path to be aligned with one another
+HASMIDDLE
+ - if specified causes the initial path to use the the 
+"midgeom" geometry to be used as the midpoint, i.e.
+the initial path 
+is defined as a linear morphing from "geometry" –> "midgeom" –> 
+"endgeom"
+XYZ_PATH
+ - if specified the initial path is defined from the 
+sequence of geometries contained in 
+xyzfilename
+RESET
+ - if specified causes the NEB optimization and path to be 
+started from scratch
+print_shift
+ - setting the 
+PRINT_SHIFT
+ directive causes the path 
+energies and geometries to be outputed every 
+<print_shift>
+steps. 
+The current path energies are appended to the file 
+jobname.neb_epath
+ and the current geometries are appended to
+the 
+file 
+jobname.nebpath_"current iteration".xyz
+.
+14.4.
+2
+ 
+Setting up initial path
+There are three different ways to define the initial path for NEB optimization.
+Linear interpolation between two geometries
+The geometries in the path are defined by
+\[\vec{R}^i_{xyz} = \vec{R}^1_{xyz} + \frac{i-1}{nbeads-1} (\vec{R}^{nbeads}_{xyz}-\vec{R}^{1}_{xyz}), \ for \ i=1,nbeads\]
+where the starting geometry 
+\(\vec{R}^1_{xyz}\)
+ is entered in the geometry block labeled 
+geometry
+, e.g.
+and the last geometry in the path 
+\(\vec{R}^{nbeads}_{xyz}\)
+ is entered in the geometry block label 
+endgeom
+, e.g.
+Linear interpolation between three geometries
+The geometries for this path are defined by
+\[\vec{R}^i_{xyz} = \vec{R}^1_{xyz} + \frac{i-1}{nbeads/2-1} (\vec{R}^{nbeads/2}_{xyz}-\vec{R}^{1}_{xyz}), \ for \ 
+i=1,nbeads/2\]
+and
+\[\vec{R}^i_{xyz} = \vec{R}^{nbeads/2}_{xyz} + \frac{i-nbeads/2}{nbeads/2-1} (\vec{R}^{nbeads}_{xyz}-
+\vec{R}^{nbeads/2}_{xyz}), \ for \ 
+i=nbeads/2+1,nbeads\]
+where the starting 
+\(\vec{R}^1_{xyz}\)
+ , middle 
+\(\vec{R}_{xyz}^{nbeads/2}\)
+ 
+and last 
+\(\vec{R}^{nbeads}_{xyz}\)
+ geometries
+are entered in the geometry blocks 
+geometry
+, 
+midgeom
+ and 
+endgeom
+ respectively, e.g.
+geometry nocenter noautosym noautoz  
+O  0.00000000    -0.02293938     0.00000000  
+H  0.00000000     0.55046969     0.75406534  
+H  0.00000000     0.55046969    -0.75406534  
+end
+geometry endgeom nocenter noautosym noautoz  
+O  0.00000000     0.02293938     0.00000000  
+H  0.00000000    -0.55046969     0.75406534  
+H  0.00000000    -0.55046969    -0.75406534  
+end Using 
+xyz_path
+ to explicitly input a path of geometries
+The 
+xyz_path
+ option can also be used to define the initial path.
+where path.xyz contains a list of geometries in xyz format, e.g.
+14.4.
+3
+ 
+Convergence criteria
+The defaults may be used, or the directives LOOSE, DEFAULT, or TIGHT specified to use standard sets of values, or the
+individual criteria adjusted. All criteria are in atomic units. GMAX and GRMS control the maximum and root mean square
+gradient in the coordinates. XMAX and XRMS control the maximum and root mean square of the Cartesian step.
+geometry nocenter noautosym noautoz  
+O  0.00000000    -0.02293938     0.00000000  
+H  0.00000000     0.55046969     0.75406534  
+H  0.00000000     0.55046969    -0.75406534  
+end
+geometry midgeom nocenter noautosym noautoz  
+O  0.00000000     0.00000000     0.00000000  
+H  0.00000000     0.00000000     1.00000000  
+H  0.00000000     0.00000000    -1.00000000  
+end
+geometry endgeom nocenter noautosym noautoz  
+O  0.00000000     0.02293938     0.00000000  
+H  0.00000000    -0.55046969     0.75406534  
+H  0.00000000    -0.55046969    -0.75406534  
+end
+...  
+NEB  
+   ...  
+  XYZ_PATH path.xyz
+END  
+...
+--------------- path.xyz ------------------  
+                   3  
+energy=  -17.107207699285738       
+O           0.000000   -0.022939    0.000000  
+H           0.000000    0.550469    0.754065  
+H           0.000000    0.550469   -0.754065  
+                   3  
+energy=  -17.094903833074170       
+O          -0.000003   -0.110080   -0.000000  
+H          -0.000000    0.273180    0.847029  
+H          -0.000000    0.273180   -0.847029  
+                   3  
+energy=  -17.063823686395292       
+O          -0.000000   -0.000080   -0.000000  
+H           0.000000   -0.000002    0.941236  
+H           0.000000   -0.000002   -0.941236  
+                   3  
+energy=  -17.094944036147005       
+O          -0.000000    0.110472   -0.000000  
+H          -0.000000   -0.273172    0.846957  
+H          -0.000000   -0.273172   -0.846957  
+                   3  
+energy=  -17.107208157343706       
+O           0.000000    0.022939    0.000000  
+H           0.000000   -0.550469    0.754065  
+H           0.000000   -0.550469   -0.754065  
+--------------- path.xyz ------------------ LOOSE
+DEFAULT
+TIGHT
+GMAX
+0.0045d0
+0.00045
+0.000015
+GRMS
+0.0030d0
+0.00030
+0.00001
+XMAX
+0.0054d0
+0.00180
+0.00006
+XRMS
+0.0036d0
+0.00120
+0.00004
+14.4.
+4
+ 
+NEB Tutorial 1: H2O Inversion
+(input:
+h2o-neb.nw
+, output:
+h2o-neb.nwout
+, datafiles: 
+h2o-neb.neb_epath.dat
+ 
+h2o-neb.neb_final_epath.dat
+ )
+(xyzfiles: 
+h2o-neb.nebpath_000001.xyz
+ 
+h2o-neb.nebpath_000005.xyz
+ 
+h2o-neb.nebpath_000010.xyz
+ 
+h2o-
+neb.nebpath_000020.xyz
+ 
+h2o-neb.nebpath_final.xyz
+ )
+After each optimization step the path energies are outputed as follows
+Title "H2O inversion calculation"
+echo
+start h2o-neb
+geometry nocenter noautosym noautoz  
+O  0.00000000    -0.02293938     0.00000000  
+H  0.00000000     0.55046969     0.75406534  
+H  0.00000000     0.55046969    -0.75406534  
+end  
+geometry endgeom nocenter noautosym noautoz  
+O  0.00000000     0.02293938     0.00000000  
+H  0.00000000    -0.55046969     0.75406534  
+H  0.00000000    -0.55046969    -0.75406534  
+end  
+### Gaussian DFT ###
+basis  
+* library 3-21G  
+end  
+dft  
+  xc b3lyp  
+  maxiter 5001  
+  cgmin  
+end  
+neb  
+  nbeads 10  
+  kbeads 1.0  
+  maxiter 10  
+  stepsize 0.10  
+  print_shift 1  
+end  
+task dft neb ignore
+neb  
+  # increase the number of images  
+  nbeads 20  
+  kbeads 1.0  
+  stepsize 1.0  
+  maxiter 30  
+  loose  
+end 
+task dft neb ignore Another way to keep track of the optimization process is to run the following grep command on the output file.
+neb: Path Energy #                    9  
+neb:                     1  -75.970000166349976       
+neb:                     2  -75.973958450556779       
+neb:                     3  -75.973964391052448       
+neb:                     4  -75.973965560274110       
+neb:                     5  -75.973961077512683       
+neb:                     6  -75.973087554095144       
+neb:                     7  -75.965847261117744       
+neb:                     8  -75.950292780255126       
+neb:                     9  -75.932932759963109       
+neb:                    10  -75.921912278179292       
+neb:                    11  -75.921834552460439       
+neb:                    12  -75.932680002200939       
+neb:                    13  -75.949868818688529       
+neb:                    14  -75.965372754426866       
+neb:                    15  -75.972788885848303       
+neb:                    16  -75.973958649400714       
+neb:                    17  -75.973965255113598       
+neb:                    18  -75.973964962774133       
+neb:                    19  -75.973959526041568       
+neb:                    20  -75.970000163960066     
+[WE24397:NWChem/NEB/Example2] bylaska% grep @ h2o-neb.nwout  
+@neb    
+@neb NEB Method  
+@neb algorithm      =         0  
+@neb maxiter        =        10  
+@neb nbeads         =        10  
+@neb nhist          =         5  
+@neb natoms         =         3  
+@neb stepsize       = 0.100E+01  
+@neb trust          = 0.100E+00  
+@neb kbeads         = 0.100E+00  
+@neb Gmax tolerance = 0.450E-03  
+@neb Grms tolerance = 0.300E-03  
+@neb Xmax tolerance = 0.180E-03  
+@neb Xrms tolerance = 0.120E-03  
+@neb    
+@neb Step    Intrinsic E    Mid-Point E      Minimum E      Maximum E   Gmax     Grms     Xrms     Xmax   Walltime  
+@neb ---- -------------- -------------- -------------- -------------- -------- -------- -------- -------- --------  
+@neb    1     -75.951572     -75.921109     -75.970632     -75.921109  0.55875  0.01606  0.14221  1.54029    454.9  
+@neb    2     -75.953755     -75.923180     -75.972590     -75.923177  0.38930  0.01116  0.01588  0.45644    624.4  
+@neb    3     -75.956726     -75.924391     -75.972861     -75.924387  0.25587  0.00961  0.03673  0.83118    805.2  
+@neb    4     -75.957861     -75.924279     -75.973059     -75.924275  0.23572  0.00894  0.01793  0.24399    971.8  
+@neb    5     -75.959613     -75.925045     -75.973869     -75.925036  0.10257  0.00464  0.03197  0.20350   1152.8  
+@neb    6     -75.959964     -75.925503     -75.973957     -75.925486  0.04762  0.00196  0.00905  0.10433   1316.4  
+@neb    7     -75.960068     -75.925822     -75.973956     -75.925791  0.03897  0.00141  0.00308  0.04432   1519.9  
+@neb    8     -75.960091     -75.925914     -75.973959     -75.925877  0.03707  0.00127  0.00070  0.01691   2055.8  
+@neb    9     -75.960129     -75.926078     -75.973962     -75.926028  0.03353  0.00108  0.00127  0.03707   2297.2  
+@neb   10     -75.960142     -75.926142     -75.973963     -75.926085  0.03199  0.00101  0.00054  0.00420   2756.6  
+@neb   NEB calculation not converged  
+@neb    
+@neb NEB Method  
+@neb algorithm      =         0  
+@neb maxiter        =        30  
+@neb nbeads         =        20  
+@neb nhist          =         5  
+@neb natoms         =         3  
+@neb stepsize       = 0.100E+01  
+@neb trust          = 0.100E+00  
+@neb kbeads         = 0.100E+01  
+@neb Gmax tolerance = 0.450E-02  
+@neb Grms tolerance = 0.300E-02  
+@neb Xmax tolerance = 0.540E-02  
+@neb Xrms tolerance = 0.360E-02  
+@neb    
+@neb Step    Intrinsic E    Mid-Point E      Minimum E      Maximum E   Gmax     Grms     Xrms     Xmax   Walltime  
+@neb ---- -------------- -------------- -------------- -------------- -------- -------- -------- -------- --------  
+@neb    1     -75.960225     -75.921704     -75.973965     -75.921669  0.24799  0.00398  0.00272  0.08741   3966.5  
+@neb    2     -75.960339     -75.921782     -75.973965     -75.921745  0.24794  0.00328  0.00199  0.12148   5023.2  
+@neb    3     -75.960424     -75.921742     -75.973965     -75.921701  0.19390  0.00286  0.00164  0.08342   5741.4  
+@neb    4     -75.960494     -75.921849     -75.973965     -75.921804  0.19681  0.00266  0.00143  0.09030   6079.7  
+@neb    5     -75.960646     -75.921874     -75.973965     -75.921820  0.17459  0.00240  0.00241  0.22047   6751.5  
+@neb    6     -75.960674     -75.921856     -75.973965     -75.921797  0.14246  0.00165  0.00060  0.00256   7572.3  
+@neb    7     -75.960724     -75.921884     -75.973966     -75.921817  0.13004  0.00153  0.00082  0.05401   7893.3  
+@neb    8     -75.960747     -75.921892     -75.973966     -75.921822  0.12809  0.00149  0.00038  0.00237   8631.2  
+@neb    9     -75.960792     -75.921912     -75.973966     -75.921835  0.12267  0.00142  0.00075  0.05081   9222.0  
+@neb   10     -75.960813     -75.921923     -75.973966     -75.921841  0.11902  0.00138  0.00035  0.00212  10163.2  
+@neb   11     -75.960834     -75.921934     -75.973966     -75.921846  0.11569  0.00135  0.00035  0.00203  10478.3  
+@neb   12     -75.961060     -75.922060     -75.973966     -75.921889  0.07709  0.00104  0.00365  0.30944  10863.8  
+@neb   13     -75.961255     -75.922186     -75.973966     -75.921919  0.04600  0.00087  0.00309  0.19999  11357.0  
+@neb   14     -75.961405     -75.922286     -75.973966     -75.921927  0.03549  0.00079  0.00244  0.03857  11860.0  
+@neb  NEB calculation converged 14.4 
+Zero Temperature String Method
+14.4.
+5
+ 
+Overview
+The STRING module is an implementation of the zero temperature string method of vanden Eijden et al., and it is one of
+two drivers in NWChem that can be used to perform minimum energy path optimizations. STRING can be used at all levels
+of theory, including SCF, HF, DFT, PSPW, BAND, MP2, RIMP2, CCSD, TCE.
+Input to the STRING module is contained with the STRING block
+To run a STRING calculation the following the following task directives is used
+where 
+<theory>
+ is SCF, HF, DFT, PSPW, BAND, MP2, CCSD, TCE, etc.. The Task directive with the ignore option is
+recommended, otherwise NWChem will crash if the path is not optimized in the allowed maximum number of iterations.
+Optional input for this module is specified within the compound directive,
+The following list describes the input for the STRING block
+nbeads
+ - number of beads (or images) used to represent the path
+maxiter
+ - maximum number of NEB path optimizations to be performed
+stepsize
+ - value for the stepsize used in the optimization. 
+Typically less than 1.
+nhist
+ - number of histories to use for quasi-Newton optimization 
+(algorithm =0)
+tol
+ - value for the maximum gradient used to determine convergence
+freeze1
+ - 
+.true.
+: first bead of simulation frozen, 
+.false.
+:first 
+bead of simulation not frozen.
+freezeN
+ - 
+.true.
+:last bead of simulation frozen, 
+.false.
+:last bead 
+of simulation not frozen
+interpol
+ - 1: linear, 2: spline, 3: Akima spline
+IMPOSE - if specified causes the initial geometries used to specify 
+the path to be aligned with one another
+HASMIDDLE - if specified causes the initial path to use the the 
+"midgeom" geometry to be used as the midpoint, i.e.
+the initial path 
+is defined as a linear morphing from "geometry" –> "midgeom" –> 
+"endgeom"
+XYZ_PATH - if specified the initial path is defined from the 
+sequence of geometries contained in 
+xyzfilename
+RESET - if specified causes the NEB optimization and path to be 
+started from scratch
+ STRING
+  ...
+ END
+TASK <theory> STRING
+TASK <theory> STRING ignore
+ STRING 
+    NBEADS <integer nbeads default 5> 
+    MAXITER <integer maxiter default 5> 
+    STEPSIZE <integer stepsize default 1.0> 
+    NHIST <integer nhist default 5>  
+    INTERPOL <integer algorithm default 1>  
+    FREEZE1 <logical freeze1 default .false.>  
+    FREEZEN <logical freezen default .false.>  
+    TOL <float tol default 0.00045>  
+    [IMPOSE]  
+    [HASMIDDLE]  
+    [XYZ_PATH <string xyzfilename>]  
+    [RESET]  
+    PRINT_SHIFT <integer print_shift default 0>  
+ END print_shift
+ - setting the PRINT_SHIFT directive causes the path 
+energies and geometries to be outputed every
+<print_shift>
+ steps. 
+The current path energies are appended to the file 
+jobname.neb_epath
+ and the current geometries are
+appended to the 
+file 
+jobname.nebpath _"current iteration".xyz
+14.4.
+6
+ 
+Setting up the initial path
+There are three different ways to define the initial path for NEB optimization.
+Linear interpolation between two geometries
+The geometries in the path are defined by
+\[\vec{R}^i_{xyz} = \vec{R}^1_{xyz} + \frac{i-1}{nbeads-1} (\vec{R}^{nbeads}_{xyz}-\vec{R}^{1}_{xyz}), \ 
+for \ 
+i=1,nbeads\]
+where the starting geometry 
+\(\vec{R}^1_{xyz}\)
+ 
+is entered in the geometry block labeled 
+geometry
+, e.g.
+and the last geometry in the path 
+\(\vec{R}^{nbeads}_{xyz}\)
+ 
+is entered in the geometry block label 
+endgeom
+, e.g.
+Linear interpolation between three geometries
+The geometries for this path are defined by
+\[\vec{R}^i_{xyz} = \vec{R}^1_{xyz} + \frac{i-1}{nbeads/2-1} (\vec{R}^{nbeads/2}_{xyz}-\vec{R}^{1}_{xyz}), \ 
+for \ 
+i=1,nbeads/2\]
+and
+\[\vec{R}^i_{xyz} = \vec{R}^{nbeads/2}_{xyz} + \frac{i-nbeads/2}{nbeads/2-1} (\vec{R}^{nbeads}_{xyz}-
+\vec{R}^{nbeads/2}_{xyz}), \ 
+for \ 
+i=nbeads/2+1,nbeads\]
+where the starting 
+\(\vec{R}^{1}_{xyz}\)
+ , middle 
+\(\vec{R}^{nbeads/2}_{xyz}\)
+ 
+and last 
+\(\vec{R}^{nbeads}_{xyz}\)
+" 
+geometries
+are entered in the geometry blocks 
+geometry
+, 
+midgeom
+ and 
+endgeom
+ respectively, e.g.
+Using 
+xyz_path
+ to explicitly input a path of geometries
+The 
+xyz_path
+ option can also be used to define the initial path, e.g.
+geometry nocenter noautosym noautoz  
+O  0.00000000    -0.02293938     0.00000000  
+H  0.00000000     0.55046969     0.75406534  
+H  0.00000000     0.55046969    -0.75406534  
+end
+geometry endgeom nocenter noautosym noautoz  
+O  0.00000000     0.02293938     0.00000000  
+H  0.00000000    -0.55046969     0.75406534  
+H  0.00000000    -0.55046969    -0.75406534  
+end
+geometry nocenter noautosym noautoz  
+O  0.00000000    -0.02293938     0.00000000  
+H  0.00000000     0.55046969     0.75406534  
+H  0.00000000     0.55046969    -0.75406534  
+end
+geometry midgeom nocenter noautosym noautoz  
+O  0.00000000     0.00000000     0.00000000  
+H  0.00000000     0.00000000     1.00000000  
+H  0.00000000     0.00000000    -1.00000000  
+end
+geometry endgeom nocenter noautosym noautoz  
+O  0.00000000     0.02293938     0.00000000  
+H  0.00000000    -0.55046969     0.75406534  
+H  0.00000000    -0.55046969    -0.75406534  
+end 14.4.
+7
+ 
+String Tutorial 1:HCN –> HNC path optimization
+(input:
+HCN-string1.nw
+, output:
+HCN-string1.nwout
+, datafiles: 
+HCN-string1.string_epath.dat
+ 
+HCN-
+string1.string_final_epath.dat
+ )
+(xyzfiles: 
+HCN-string1.stringpath_000001.xyz
+ 
+HCN-string1.stringpath_000005.xyz
+ 
+HCN-string1.stringpath_000010.xyz
+HCN-string1.stringpath_000020.xyz
+ 
+HCN-string1.stringpath_000030.xyz
+ 
+HCN-string1.stringpath_final.xyz
+ )
+![HCN--\>HNC Reaction Pathway](hcn-hnc-dft.gif)
+![400px](hcn-hnc-dft.png)
+In this example, the path energy for the reaction HCN –> HNC is calculated.
+...
+STRING
+   ...
+  XYZ_PATH path.xyz
+END
+...
+#    
+# The initial path has the Carbon moving through the Nitrogen.  
+# So for this simulation to work that atom avoidance code needs to work.  
+# Because the initial path is so stiff the wavefunction optimizer needs to requires  
+# lots of iterations during the early stages of the path optimization.  
+#  
+#  
+Title "HCN --> HNC Zero-Temperature String Simulation"  
+echo  
+start hcn-hnc-dft  
+geometry noautoz noautosym  
+C         0.00000000     0.00000000    -0.49484657  
+N         0.00000000     0.00000000     0.64616359  
+H         0.00000000     0.00000000    -1.56151539  
+end  
+geometry endgeom  noautoz noautosym  
+C         0.00000000     0.00000000     0.73225318   
+N         0.00000000     0.00000000    -0.42552059  
+H         0.00000000     0.00000000    -1.42351006  
+end  
+### Gaussian DFT ###
+basis  
+* library 3-21G  
+end  
+dft  
+  xc b3lyp  
+  maxiter 501  
+end  
+string  
+  nhist 10  
+  nbeads 10  
+  maxiter 10  
+  stepsize 0.10  
+  print_shift 1  
+  # don't allow the end points of the path to move  
+  freeze1 .true.  
+  freezeN .true.  
+end  
+task dft string ignore
+string  
+  # increase the number of images  
+  nbeads 20  
+  maxiter 20  
+  # allow the end points of the path to move  
+  freeze1 .false.  
+  freezeN .false.  
+end  
+task dft string ignore After each optimization step the path energies are outputed as follows
+Another way to keep track of the optimization process is to run the following grep command on the output file.
+ string: Path Energy #                    2  
+ string:                     1  -92.906682492969779  
+ string:                     2  -92.743446565848473  
+ string:                     3  -92.751945829987775  
+ string:                     4  -92.756507971834026  
+ string:                     5  -92.726984154346979  
+ string:                     6  -92.701651474021503  
+ string:                     7  -92.672613497521183  
+ string:                     8  -92.825096796032099  
+ string:                     9  -92.716422030970662  
+ string:                    10  -92.881713271394148
+[WE24397:NWChem/NEB/Example2] bylaska% grep @ HCN-dft.out  
+@zts  
+@zts String method.  
+@zts Temperature          =   0.00000  
+@zts Covergence Tolerance =   0.00010  
+@zts Step Size            =   0.10000  
+@zts Maximum Time Steps   =        10  
+@zts Number of replicas   =        10  
+@zts Number of histories  =        10  
+@zts String Interpolator  =         1  
+@zts First Replica        = frozen  
+@zts Last Replica         = frozen  
+@zts  
+@zts  Step     xrms     xmax        E start       E middle          E end          E max      E average  
+@zts     1 0.460700 2.602234    -92.9066825    -83.4767173    -92.8817133    -83.4767173    -91.6169775  
+@zts     2 0.862226 5.405612    -92.9066825    -92.3028437    -92.8817133    -92.3028437    -92.6631831  
+@zts     3 0.105285 0.530157    -92.9066825    -92.3289676    -92.8817133    -92.3289676    -92.6702949  
+@zts     4 0.134687 0.740991    -92.9066825    -92.3512584    -92.8817133    -92.3512584    -92.6821949  
+@zts     5 0.117113 0.916210    -92.9066825    -92.3767826    -92.8817133    -92.3767826    -92.6899234  
+@zts     6 0.124464 0.844439    -92.9066825    -92.4195957    -92.8817133    -92.4195957    -92.7045117  
+@zts     7 0.092105 0.731434    -92.9066825    -92.4510785    -92.8817133    -92.4510785    -92.7156403  
+@zts     8 0.049227 0.330651    -92.9066825    -92.4690983    -92.8817133    -92.4690983    -92.7288274  
+@zts     9 0.032819 0.177356    -92.9066825    -92.4827444    -92.8817133    -92.4827444    -92.7344806  
+@zts    10 0.076249 0.444246    -92.9066825    -92.4930430    -92.8817133    -92.4930430    -92.7381477  
+@zts The string calculation failed to converge  
+@zts Bead number    1  Potential Energy =     -92.906682487840  
+@zts Bead number    2  Potential Energy =     -92.850640135623  
+@zts Bead number    3  Potential Energy =     -92.819370566454  
+@zts Bead number    4  Potential Energy =     -92.680821335407  
+@zts Bead number    5  Potential Energy =     -92.505231918657  
+@zts Bead number    6  Potential Energy =     -92.493042984646  
+@zts Bead number    7  Potential Energy =     -92.637367419044  
+@zts Bead number    8  Potential Energy =     -92.775376312982  
+@zts Bead number    9  Potential Energy =     -92.831230727986  
+@zts Bead number   10  Potential Energy =     -92.881713271394  
+@zts  
+@zts String method.  
+@zts Temperature          =   0.00000  
+@zts Covergence Tolerance =   0.00010  
+@zts Step Size            =   0.10000  
+@zts Maximum Time Steps   =        20  
+@zts Number of replicas   =        20  
+@zts Number of histories  =        10  
+@zts String Interpolator  =         1  
+@zts First Replica        = moves  
+@zts Last Replica         = moves  
+@zts  
+@zts  Step     xrms     xmax        E start       E middle          E end          E max      E average  
+@zts     1 1.039809 5.039486    -92.9071472    -92.4998400    -92.8820628    -92.4998400    -92.7500136  
+@zts     2 0.192562 0.999019    -92.9073958    -92.5259828    -92.8821500    -92.5259828    -92.7624061  
+@zts     3 0.244943 1.236459    -92.9075306    -92.5735140    -92.8821223    -92.5735140    -92.7816692  
+@zts     4 0.207031 1.093667    -92.9075888    -92.6229190    -92.8821177    -92.6154678    -92.7979112  
+@zts     5 0.056648 0.293829    -92.9075975    -92.6672565    -92.8821033    -92.6507897    -92.8101666  
+@zts     6 0.078950 0.555245    -92.9076044    -92.7245122    -92.8822536    -92.7014407    -92.8241914  
+@zts     7 0.065564 0.521110    -92.9076101    -92.7539982    -92.8822915    -92.7376310    -92.8326007  
+@zts     8 0.050188 0.319477    -92.9076113    -92.7695725    -92.8824219    -92.7612604    -92.8378464  
+@zts     9 0.055301 0.322130    -92.9076168    -92.7754581    -92.8825732    -92.7740099    -92.8408900  
+@zts    10 0.038769 0.195102    -92.9076177    -92.7775695    -92.8826652    -92.7775695    -92.8425440  
+@zts    11 0.064900 0.273480    -92.9076215    -92.7800330    -92.8827175    -92.7800330    -92.8443574  
+@zts    12 0.062593 0.266337    -92.9076224    -92.7823972    -92.8826993    -92.7823972    -92.8458976  
+@zts    13 0.205437 0.948190    -92.9076243    -92.7842034    -92.8826408    -92.7842034    -92.8469810  
+@zts    14 0.015025 0.068924    -92.9076247    -92.7844362    -92.8826536    -92.7844362    -92.8472227  
+@zts    15 0.129208 0.602636    -92.9076254    -92.7849856    -92.8826676    -92.7849856    -92.8477169  
+@zts    16 0.013479 0.056561    -92.9076260    -92.7855201    -92.8826783    -92.7855201    -92.8481626  
+@zts    17 0.472858 2.220715    -92.9076271    -92.7878088    -92.8826913    -92.7878088    -92.8497919  
+@zts    18 0.162617 0.766201    -92.9076273    -92.7879912    -92.8826934    -92.7879912    -92.8499197  
+@zts    19 0.013204 0.060562    -92.9076276    -92.7885097    -92.8826994    -92.7885097    -92.8502675  
+@zts    20 0.718205 3.423813    -92.9076278    -92.7905066    -92.8827009    -92.7895258    -92.8514863  
+@zts The string calculation failed to converge A plotting program (e.g. gnuplot, xmgrace) can be used to look at final path as well as the the convergence of the path i.e.,
+400px
+14.4.
+8
+ 
+String Tutorial 2:
+@zts Bead number    1  Potential Energy =     -92.907627751439  
+@zts Bead number    2  Potential Energy =     -92.905047596626  
+@zts Bead number    3  Potential Energy =     -92.897944354806  
+@zts Bead number    4  Potential Energy =     -92.887494117302  
+@zts Bead number    5  Potential Energy =     -92.874059841858  
+@zts Bead number    6  Potential Energy =     -92.857382758537  
+@zts Bead number    7  Potential Energy =     -92.837207959079  
+@zts Bead number    8  Potential Energy =     -92.815902497386  
+@zts Bead number    9  Potential Energy =     -92.798474907121  
+@zts Bead number   10  Potential Energy =     -92.789525765222  
+@zts Bead number   11  Potential Energy =     -92.790506632257  
+@zts Bead number   12  Potential Energy =     -92.799861168980  
+@zts Bead number   13  Potential Energy =     -92.814252430183  
+@zts Bead number   14  Potential Energy =     -92.830704548760  
+@zts Bead number   15  Potential Energy =     -92.847248091296  
+@zts Bead number   16  Potential Energy =     -92.861557132126  
+@zts Bead number   17  Potential Energy =     -92.871838446832  
+@zts Bead number   18  Potential Energy =     -92.878543965696  
+@zts Bead number   19  Potential Energy =     -92.881844751735  
+@zts Bead number   20  Potential Energy =     -92.882700859222
+[WE24397:NEB/Example2/perm] bylaska% gnuplot  
+   G N U P L O T  
+   Version 4.6 patchlevel 0    last modified 2012-03-04   
+   Build System: Darwin x86_64  
+   Copyright (C) 1986-1993, 1998, 2004, 2007-2012  
+   Thomas Williams, Colin Kelley and many others  
+   gnuplot home:     <http://www.gnuplot.info>  
+   faq, bugs, etc:   type "help FAQ"  
+   immediate help:   type "help"  (plot window: hit 'h')  
+Terminal type set to 'aqua'  
+gnuplot> set xlabel "Reaction Coordinate"  
+gnuplot> set ylabel "Energy (kcal/mol)"  
+gnuplot> set yrange [0:100]  
+gnuplot> set grid  
+gnuplot> set style data linespoints  
+gnuplot> plot "hcn-hnc-dft.string_epath" using 1:($2+92.908)*27.2116*23.06,"hcn-hnc-dft.string_final_epath" using 1:($2+92.908)*27.2116*23.06  
+gnuplot> 14.4.
+9
+ 
+String Tutorial 3: Combining NEB and String path optimizations
+15 
+Electronic Structure Analysis
+Title "2SiO4H4 --> H3O3Si-O-SiO3H3 + H2O"  
+echo  
+start sio4h4-dimer  
+geometry noautoz noautosym  
+Si        -3.90592       -0.11789        0.03791   
+O         -2.32450       -0.24327       -0.05259  
+O         -4.45956       -1.13247        1.13159  
+O         -4.53584       -0.45118       -1.38472  
+O         -4.28179        1.37363        0.44838  
+Si         1.27960        0.06912        0.14555  
+O          2.85122        0.23514        0.32761  
+O          0.54278        0.38513        1.52092  
+O          0.94484       -1.42248       -0.29913  
+O          0.75605        1.07390       -0.97272  
+H         -1.66762       -0.74425       -0.29362  
+H         -4.05734        2.06481        0.90983  
+H         -4.30983       -1.85807        1.57116  
+H         -4.43621       -0.88060       -2.12508  
+H          3.59374       -0.16315        0.50572  
+H          0.36896        0.10990        2.31839  
+H          0.53993       -2.15495       -0.09488  
+H          0.43207        1.85525       -1.13531  
+end  
+geometry endgeom  noautoz noautosym  
+Si        -3.07373        0.18232       -0.24945  
+O         -1.50797        0.23823       -0.53062  
+O         -3.36758       -0.93058        0.85023  
+O         -3.83958       -0.20093       -1.59101  
+O         -3.57993        1.59735        0.27471  
+Si        -0.05186        0.25441        0.11277  
+O          0.94679       -0.58168       -0.80206  
+O         -0.10091       -0.40972        1.55838  
+O          1.41035       -3.75872        1.22931  
+O          0.47135        1.75206        0.24209  
+H          1.03624       -4.62405        0.92620  
+H         -3.81554        2.06192        0.96069  
+H         -3.97094       -1.38510        1.26383  
+H         -4.39754       -0.73964       -1.96563  
+H          1.45990       -0.57144       -1.49361  
+H         -0.44444       -0.37536        2.34765  
+H          2.15751       -4.00850        1.82933  
+H          0.77180        2.44229       -0.17616  
+end  
+nwpw  
+  simulation_cell  
+     SC 18.0  
+  end  
+  cutoff 30.0  
+  lmbfgs  
+end  
+string  
+  nhist 10  
+  nbeads 10  
+  maxiter 10  
+  stepsize 0.10  
+  print_shift 1  
+  # don't allow the end points of the path to move  
+  freeze1 .true.  
+  freezeN .true.  
+end  
+task pspw string ignore
+string  
+  # increase the number of images  
+  nbeads 20  
+  maxiter 20  
+  # allow the end points of the path to move  
+  freeze1 .false.  
+  freezeN .false.  
+end  
+task pspw string ignore

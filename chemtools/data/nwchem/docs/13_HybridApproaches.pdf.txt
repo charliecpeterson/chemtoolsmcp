@@ -1,0 +1,4097 @@
+https://doi.org/10.1103/PhysRevE.75.056707
+. 
+4
+. 
+Song, H.; Fischer, S. A.; Zhang, Y.; Cramer, C. J.; Mukamel, S.; Govind, N.; Tretiak, S. First Principles Nonadiabatic Excited-State Molecular
+Dynamics in NWChem. 
+Journal of Chemical Theory and Computation
+ 
+2020
+, 
+16
+ (10), 6418–6427. 
+https://doi.org/10.1021/acs.jctc.0c00295
+. 
+5
+. 
+Granucci, G.; Persico, M. Critical Appraisal of the Fewest Switches Algorithm for Surface Hopping. 
+The Journal of Chemical Physics
+ 
+2007
+, 
+126
+ (13),
+134114. 
+https://doi.org/10.1063/1.2715585
+. 
+13 
+Hybrid Approaches
+13.1 
+Solvation Models
+13.1.
+1
+ 
+Overview
+Two solvation models are available in NWChem: 
+COSMO
+ and 
+SMD
+. Since some of the COSMO parameters are used for
+SMD, we suggest to read the COSMO section before the SMD one.
+13.1.
+2
+ 
+COSMO
+13.1.
+2
+.
+1
+ 
+Overview
+COSMO is the continuum solvation 'COnductor-like Screening MOdel' of A. Klamt and G. Schüürmann to describe
+dielectric screening effects in solvents
+1
+. This model has been enhanced by D.M. York and M. Karplus
+2
+ to create a smooth
+potential energy surface. The latter facilitates geometry optimization and dynamics and the implementation has been
+adapted to take advantage of those ideas.
+The NWChem COSMO module implements algorithm for calculation of the energy for the following methods:
+1
+. 
+Restricted Hartree-Fock (RHF),
+2
+. 
+Restricted open-shell Hartree-Fock (ROHF),
+3
+. 
+Restricted Kohn-Sham DFT (DFT),
+4
+. 
+Unrestricted Kohn-Sham DFT (ODFT),
+by determining the solvent reaction field self-consistently with the solute charge distribution from the respective methods.
+Note that COSMO for unrestricted Hartree-Fock (UHF) method can also be performed by invoking the DFT module with
+appropriate keywords.
+Correlation energy of solvent molecules may also be evaluated at
+1
+. 
+MP2,
+2
+. 
+CCSD,
+3
+. 
+CCSD+T(CCSD),
+4
+. 
+CCSD(T),
+levels of theory. It is cautioned, however, that these correlated COSMO calculations determine the solvent reaction field
+using the HF charge distribution of the solute rather than the charge distribution of the correlation theory and are not
+entirely self consistent in that respect. In other words, these calculations assume that the correlation effect and solvation
+effect are largely additive, and the combination effect thereof is neglected. COSMO for MCSCF has not been implemented
+yet.
+In the current implementation the code calculates the gas-phase energy of the system followed by the solution-phase
+energy, and returns the electrostatic contribution to the solvation free energy. At the present gradients are calculated
+analytically, but frequencies are calculated by finite difference of the gradients. The non-electrostatic contributions can be calculated by turning on the 
+SMD model
+. It should be noted that one must in
+general take into account the standard state correction besides the electrostatic and cavitation/dispersion contribution to
+the solvation free energy, when a comparison to experimental data is made.
+13.1.
+2
+.
+2
+ 
+COSMO Input Parameters
+Invoking the COSMO solvation model is done by specifying the input COSMO input block with the input options as:
+followed by the task directive specifying the wavefunction and type of calculation, e.g., 
+task scf energy
+, 
+task mp2 energy
+, 
+task dft
+optimize
+, etc.
+13.1.
+2
+.
+2
+.
+1
+ 
+COSMO: OFF keyword
+off
+ can be used to turn off COSMO in a compound (multiple task) run. By default, once the COSMO solvation model has
+been defined it will be used in subsequent calculations. Add the keyword 
+off
+ if COSMO is not needed in subsequent
+calculations.
+13.1.
+2
+.
+2
+.
+2
+ 
+COSMO: DIELEC keyword
+dielec
+ is the value of the dielectric constant 
+\( \epsilon \)
+ of the medium, with a default value of 78.4 (the dielectric constant
+for water). This value is used to scale the dielectric screening energy, as detailed in the 
+SCREEN section
+.
+13.1.
+2
+.
+2
+.
+3
+ 
+COSMO: PARAMETERS keyword
+parameters
+ specifies COSMO radii parameters file that stores custom setting for COSMO parameters. The format for such file
+consists of the atom or element name followed by the radii. The program will first attempt to match based on atom name
+and only then the element name. Otherwise radius will be set based on default parameters. The file has to present in one
+of the three location ( in the order of preference) - directory specified by the environmental variable 
+NWCHEM_COSMO_LIBRARY
+,
+permanent directory, and run directory.
+13.1.
+2
+.
+2
+.
+4
+ 
+COSMO: RADIUS keyword
+radius
+ is an array that specifies the radius of the spheres associated with each atom and that make up the molecule-shaped
+cavity. These values will override default radii setting including those specified in the COSMO parameter file (if any) Default
+values are Van der Waals radii. Values are in units of angstroms. The codes uses the following Van der Waals radii by
+default:
+Default radii provided by Andreas Klamt (Cosmologic)
+vdw radii: 1.17 (± 0.02) * Bondi radius
+3
+cosmo  
+  [off]  
+  [dielec  <real dielec default 78.4>]  
+  [parameters <filename>]  
+  [radius  <real atom1>  
+           <real atom2>  
+      . . .  
+           <real atomN>]
+  [rsolv <real rsolv default 0.5>]  
+  [screen  <ideal||ks||st>]
+  [iscren  <integer iscren default 0, deprecated>]  
+  [minbem  <integer minbem default 2>]
+  [maxbem  <integer maxbem default 4, deprecated>]
+  [ificos  <integer ificos default 0>]  
+  [lineq   <integer lineq default 1>]  
+  [zeta <real zeta default 0.98>]  
+  [gamma_s <real gammas default 1.0>]  
+  [sw_tol <real swtol default 1.0e-4>]
+  [charge_correction <no||scale||lagrangian default lagrangian>]  
+  [do_gasphase  <logical do_gasphase default True>] 
+  [do_cosmo_ks]
+  [do_cosmo_yk]
+  [do_cosmo_smd]
+end optimal vdw radii for H, C, N, O, F, S, Cl, Br, I
+4
+for heavy elements: 1.17*1.9
+For examples see Stefanovich et al.
+5
+ and Barone et al.
+6
+13.1.
+2
+.
+2
+.
+5
+ 
+COSMO: RSOLV keyword
+rsolv
+ is a parameter used to define the solvent accessible surface. See the original reference of Klamt and Schüürmann 
+1
+ for
+a description. 
+The default value is 0.5 (in angstroms). It is not used in the York and Karplus model (used by default in
+NWChem).
+13.1.
+2
+.
+2
+.
+6
+ 
+COSMO: SCREEN keyword
+The 
+screen
+ parameter defines the dielectric screening scaling.
+screen ideal
+ applies no scaling, meaning 
+\( f(\epsilon) = 1 \)
+. In this case, the 
+dielectric constant
+ 
+\( \epsilon \)
+ is irrelevant,
+as the solvent is treated as a perfect conductor with 
+\( \epsilon = \infty \)
+.
+screen ks
+ uses the original scaling by Klamt and Schüürmann
+1
+, given by 
+\( f(\epsilon) = \frac{\epsilon - 1}{\epsilon + 1/2}
+\)
+.
+screen st
+ applies the modified scaling proposed by Stefanovich and Truong
+5
+, defined as 
+\( f(\epsilon) = \frac{\epsilon - 1}
+{\epsilon} \)
+.
+By default, the modified scaling is used. For high dielectric values, the differences between these scaling methods become
+negligible.
+13.1.
+2
+.
+2
+.
+7
+ 
+COSMO: ISCREEN keyword (deprecated, see 
+SCREEN
+)
+iscren
+ is a flag to define the dielectric charge scaling option. 
+iscren 1
+ implies the original scaling from Klamt and Schüürmann,
+mainly "(ε-1)/(ε+1/2)", where ε is the dielectric constant. 
+iscren 0
+ implies the modified scaling suggested by Stefanovich and
+Truong
+5
+, mainly "(ε-1)/ε". Default is to use the modified scaling. For high dielectric the difference between the scaling is not
+significant.
+13.1.
+2
+.
+2
+.
+8
+ 
+COSMO: MINBEM and IFICOS keywords
+The 
+minbem
+ and 
+ificos
+ parameters define the tesselation of the unit sphere. The approach still follows the original proposal by
+Klamt and Schüürmann to some degree. Basically a tesselation is generated from 
+minbem
+ refining passes starting from
+either an octahedron or an icosahedron. Each level of refinement partitions the triangles of the current tesselation into four
+triangles. This procedure is repeated recursively until the desired granularity of the tesselation is reached. The induced
+point charges from the polarization of the medium are assigned to the centers of the tesselation. The default value is 
+minbem
+2
+. The flag 
+ificos
+ serves to select the original tesselation, 
+ificos 0
+ for an octahedron (default) and 
+ificos 1
+ for an icosahedron.
+Starting from an icosahedron yields a somewhat finer tesselation that converges somewhat faster. Solvation energies are
+not really sensitive to this choice for sufficiently fine tesselations. The old 
+maxbem
+ directive is no longer used for the York-
+Karplus model, while it was used in the 
+Klamt-Schüürmann model
+ .
+     data (vander(i),i=1,102)  
+    1 / 1.300,1.638,1.404,1.053,2.0475,2.00,  
+    2   1.830,1.720,1.720,1.8018,1.755,1.638,  
+    3   1.404,2.457,2.106,2.160,2.05,2.223,  
+    4   2.223,2.223,2.223,2.223,2.223,2.223,  
+    5   2.223,2.223,2.223,2.223,2.223,2.223,  
+    6   2.223,2.223,2.223,2.223,2.160,2.223,  
+    7   2.223,2.223,2.223,2.223,2.223,2.223,  
+    8   2.223,2.223,2.223,2.223,2.223,2.223,  
+    9   2.223,2.223,2.223,2.223,2.320,2.223,  
+    1   2.223,2.223,2.223,2.223,2.223,2.223,  
+    2   2.223,2.223,2.223,2.223,2.223,2.223,  
+    3   2.223,2.223,2.223,2.223,2.223,2.223,  
+    4   2.223,2.223,2.223,2.223,2.223,2.223,  
+    5   2.223,2.223,2.223,2.223,2.223,2.223,  
+    6   2.223,2.223,2.223,2.223,2.223,2.223,  
+    7   2.223,2.223,2.223,2.223,2.223,2.223,  
+    7   2.223,2.223,2.223,2.223,2.223,2.223/ 13.1.
+2
+.
+2
+.
+9
+ 
+COSMO: LINEQ keyword
+The 
+lineq
+ parameter serves to select the numerical algorithm to solve the linear equations yielding the effective charges that
+represent the polarization of the medium. 
+lineq 0
+ selects a dense matrix linear equation solver (default), 
+lineq 1
+ selects an
+iterative method. For large molecules where the number of effective charges is large, the code selects the iterative method.
+13.1.
+2
+.
+2
+.
+10
+ 
+COSMO: ZETA keyword
+zeta
+ sets the width of the Gaussian charge distributions that were suggested by York and Karplus to avoid singularities
+when two surface charges coincide. The default value is 
+zeta 0.98
+ this value was chosen to ensure that the results of the
+current implementation are as close as possible to those of the original Klamt and Schüürmann based implementation.
+13.1.
+2
+.
+2
+.
+11
+ 
+COSMO: GAMMA_S keyword
+gamma_s
+ modifies the width of the smooth switching function that eliminates surface charges when their positions move into
+the sphere of a neighboring atom. 
+gamma_s 0.0
+ leads to a heavyside or abrupt switching function, whereas 
+gamma_s 1.0
+maximizes the width of the switching function. The default value is 
+gamma_s 1.0
+.
+13.1.
+2
+.
+2
+.
+12
+ 
+COSMO: SW_TOL keyword
+sw_tol
+ specifies the cutoff of the switching function below which a surface charge at a particular point is eliminated. The
+values of the switching function lie in the domain from 0 to 1. This value should not be set too small as that leads to
+instabilities in the linear system solvers. The default value is 
+sw_tol 1.0e-4
+.
+13.1.
+2
+.
+2
+.
+13
+ 
+COSMO: CHARGE_CORRECTION keyword
+The 
+charge_correction
+ input option defines the surface charge correction to use.
+With the input line 
+charge_correction no
+, no surface charge corrections are used.
+With the input line 
+charge_correction scale
+, both the the electron surface charges and the nuclear surface charges are scaled.
+With the default input line 
+charge_correction lagrangian
+, a lagrangian constraint is used to variationally correct the charges.
+The default is 
+charge_correction lagrangian
+ 
+unless the Klamt-Schuurmann COSMO model is used when the default becomes
+charge_correction scale
+.
+13.1.
+2
+.
+2
+.
+14
+ 
+COSMO: DO_GASPHASE keyword
+do_gasphase
+ is a flag to control whether the calculation of the solvation energy is preceded by a gas phase calculation. The
+default is to always perform a gas phase calculation first and then calculate the solvation starting from the converged gas
+phase electron density. However, in geometry optimizations this approach can double the cost. In such a case setting
+do_gasphase false
+ suppresses the gas phase calculations and only the solvated system calculations are performed. This option
+needs to be used with care as in some cases starting the COSMO solvation from an unconverged electron density can
+generate unphysical charges that lock the calculation into strange electron distributions.
+13.1.
+2
+.
+2
+.
+15
+ 
+COSMO: DO_COSMO_KS keyword
+do_cosmo_ks
+ is a flag to turn on the Klamt-Schüürmann model
+13.1.
+2
+.
+2
+.
+16
+ 
+COSMO: DO_COSMO_YK keyword
+do_cosmo_yk
+ is a flag to turn on the York-Karplus model (default)
+13.1.
+2
+.
+2
+.
+17
+ 
+COSMO: DO_COSMO_SMD keyword
+do_cosmo_smd
+ is a flag to turn on the SMD model. More details can be found at the 
+SMD Model documentation
+13.1.
+2
+.
+2
+.
+18
+ 
+COSMO: CAVITY keyword
+(New since August 31st 2025 in master branch)
+cavity [vdw|ses]
+The 
+vdw
+ dewfault option uses the York Karplus
+2
+ prescription for creating the cavity. Instead, the 
+ses
+ cavity construction approach creates a solvent-excluding surface (SES), using the GEPOL93 algorithm
+7
+8
+.
+13.1.
+2
+.
+2
+.
+19
+ 
+COSMO: NDIV keyword
+(New since August 31st 2025 in master branch)
+ 
+ndiv [coarse|fine|xfine|huge|xxl]
+The 
+ndiv
+ keyword define the size of the 
+SES
+ cavity.
+13.1.
+2
+.
+2
+.
+20
+ 
+COSMO: POTCORR keyword
+(New since August 31st 2025 in master branch)
+ 
+potcorr [true| false]
+Apply the 
+outlying charge correction to the electrostatic potential as described 
+in 
+8
+13.1.
+2
+.
+3
+ 
+Examples
+The following example is for a water molecule in 'water', using the HF/6-31G** level of theory:
+Alternatively, instead of listing COSMO radii parameters in the input, the former can be loaded using an external file
+through the 
+parameters
+ directive
+where the 
+water.par
+ file has the following form:
+This will set radii of all oxygen atoms to 1.4 and all hydrogen atoms to 1.16. More fine grained control may be achieved
+using specific atom names. For example, the following parameter file
+start  
+geometry  
+ o                  .0000000000         .0000000000        -.0486020332  
+ h                  .7545655371         .0000000000         .5243010666  
+ h                 -.7545655371         .0000000000         .5243010666  
+end  
+basis
+ o library 6-31g**  
+ h library 6-31g**  
+end  
+cosmo  
+ dielec 78.0  
+ radius 1.40  
+        1.16  
+        1.16  
+ lineq  0  
+end  
+task scf energy
+start  
+geometry  
+ ow                  .0000000000         .0000000000        -.0486020332  
+ hw                  .7545655371         .0000000000         .5243010666  
+ h                  -.7545655371         .0000000000         .5243010666  
+end  
+basis
+ * library 6-31g**  
+end
+cosmo  
+ dielec 78.0  
+ lineq  0  
+ parameters water.par  
+end
+task scf energy
+O 1.40
+H 1.16
+O    1.40
+H    1.16
+HW  1.06 will set a different radii of 1.06 to hydrogen atoms named HW. Note that, as per general rule in NWChem, all names are
+case insensitive.
+and placed in one of the these locations - directory specified by the environmental variable 
+NWCHEM_COSMO_LIBRARY
+,
+permanent directory, or run directory.
+13.1.
+3
+ 
+SMD
+13.1.
+3
+.
+1
+ 
+Overview
+SMD denotes "solvation model based on density" and it is described in detail in the 2009 paper by Marenich, Cramer and
+Truhlar
+9
+.
+The SMD model is a universal continuum solvation model where "universal" denotes its applicability to any charged or
+uncharged solute in any solvent or liquid medium for which a few key descriptors are known. The word "continuum" denotes
+that the solvent is not represented explicitly as a collection of discrete solvent molecules but rather as a dielectric medium
+with surface tensions at the solute-solvent interface.
+SMD directly calculates the free energy of solvation of an ideal solvation process that occurs at fixed concentration (for
+example, from an ideal gas at a concentration of 1 mol/L to an ideal solution at a liquid-phase concentration of 1 mol/L) at
+298 K, but this may converted by standard thermodynamic formulas to a standard-state free energy of solvation, which is
+defined as the transfer of molecules from an ideal gas at 1 bar to an ideal 1 molar solution.
+The SMD model separates the fixed-concentration free energy of solvation into two components. The first component is the
+bulk-electrostatic contribution arising from a self-consistent reaction field (SCRF) treatment. The SCRF treatment involves
+an integration of the nonhomogeneous-dielectric Poisson equation for bulk electrostatics in terms of the 
+COSMO model
+ of
+Klamt and Schüürmann with the modified 
+COSMO scaling factor
+ 
+suggested by Stefanovich and Truong and by using the
+SMD intrinsic atomic Coulomb radii. These radii have been optimized for H, C, N, O, F, Si, P, S, Cl, and Br. For any other
+atom the current implementation of the SMD model uses scaled values of the van der Waals radii of Mantina et al
+10
+.
+The scaling factor equals 1.52 for group 17 elements heavier than Br (i.e., for I and At) and 1.18 for all other elements for
+which there are no optimized SMD radii.
+The second contribution to the fixed-concentration free energy of solvation is the contribution arising from short-range
+interactions between the solute and solvent molecules in the first solvation shell. This contribution is called the cavity–
+dispersion–solvent-structure (CDS) term, and it is a sum of terms that are proportional (with geometry-dependent
+proportionality constants called atomic surface tensions) to the solvent-accessible surface areas (SASAs) of the individual
+atoms of the solute.
+13.1.
+3
+.
+2
+ 
+SMD Input Parameters
+The SMD model requires additional parameters in the 
+COSMO input block
+At the moment the SMD model is available in NWChem only with the DFT block
+The SMD input options are as follows:
+cosmo  
+  [do_cosmo_smd <logical>]
+  [solvent (keyword)]
+  [icds <integer>]
+  [sola <real>]
+  [solb <real>]
+  [solc <real>]
+  [solg <real>]
+  [solh <real>]
+  [soln <real>]
+end The 
+do_cosmo_smd
+ keyword instructs NWChem to perform a ground-state SMD calculation when set to a 
+true
+ value.
+13.1.
+3
+.
+2
+.
+1
+ 
+SMD: SOLVENT keyword
+a 
+solvent
+ keyword from the short name entry in the 
+list of available SMD solvent names
+.
+When a solvent is specified by name, the descriptors for the solvent are based on the Minnesota Solvent Descriptor
+Database
+11
+.
+The user can specify a solvent (by using a string using up to eight characters) that is not on the list by using a new solvent
+keyword and introducing user-provided values for the following solvent descriptors:
+13.1.
+3
+.
+2
+.
+2
+ 
+SMD: DIELEC keyword
+dielectric constant at 298 K
+13.1.
+3
+.
+2
+.
+3
+ 
+SMD: SOLA keyword
+Abraham's hydrogen bond acidity
+13.1.
+3
+.
+2
+.
+4
+ 
+SMD: SOLB keyword
+Abraham's hydrogen bond basicity
+13.1.
+3
+.
+2
+.
+5
+ 
+SMD: SOLC keyword
+aromaticity as a fraction of non-hydrogenic solvent atoms that are aromatic carbon atoms
+13.1.
+3
+.
+2
+.
+6
+ 
+SMD: SOLG keyword
+macroscopic surface tension of the solvent at an air/solvent interface at 298 K in units of cal mol
+–1
+ Å
+–2
+(note that 1 dyne/cm = 1.43932 cal mol
+–1
+ Å
+–2
+)
+13.1.
+3
+.
+2
+.
+7
+ 
+SMD: SOLH keyword
+electronegative halogenicity as the fraction of non-hydrogenic solvent atoms that are F, Cl, or Br
+13.1.
+3
+.
+2
+.
+8
+ 
+SMD: SOLN keyword
+index of refraction at optical frequencies at 293 K
+13.1.
+3
+.
+2
+.
+9
+ 
+SMD: ICDS keyword
+do_cosmo_smd <logical>
+solvent (keyword)
+dielec (real input)
+sola (real input) 
+solb (real input) 
+solc (real input)
+solg (real input)
+solh (real input)
+soln (real input) icds
+ should have a value of 1 for water. 
+icds
+ should have a value of 2 
+for any nonaqueous solvent.
+If 
+icds
+ is set equal to 2, then you need to provide the following solvent descriptors (see the 
+MN solvent descriptor database
+):
+sola
+solb
+solc
+solg
+solh
+soln
+13.1.
+3
+.
+3
+ 
+SMD Examples
+13.1.
+3
+.
+4
+ 
+SMD Example: water solvent
+13.1.
+3
+.
+5
+ 
+SMD Example: new solvent
+Example using a user defined solvent, not present in the SMD list of solvents
+icds (integer input)
+echo 
+title "SMD/M06-2X/6-31G(d) solvation free energy for CF3COO- in water"
+start
+charge -1
+geometry nocenter
+C    0.512211   0.000000  -0.012117
+C   -1.061796   0.000000  -0.036672
+O   -1.547400   1.150225  -0.006609
+O   -1.547182  -1.150320  -0.006608
+F    1.061911   1.087605  -0.610341
+F    1.061963  -1.086426  -0.612313
+F    0.993255  -0.001122   1.266928
+symmetry c1
+end
+basis
+* library 6-31G*
+end
+dft
+ XC m06-2x
+end
+cosmo
+ do_cosmo_smd true
+ solvent water
+end
+task dft energy 13.1.
+4
+ 
+Solvents List - Solvent keyword
+The short name for the solvent from the table can be used 
+with the 
+solvent
+ keyword to define the solvent.
+Example with acetonitrile.
+Long name
+short name
+dielec
+acetic acid
+acetacid
+6.2528
+acetone
+acetone
+20.493
+acetonitrile
+acetntrl
+35.688
+acetophenone
+acetphen
+17.440
+aniline
+aniline
+6.8882
+anisole
+anisole
+4.2247
+benzaldehyde
+benzaldh
+18.220
+benzene
+benzene
+2.2706
+benzonitrile
+benzntrl
+25.592
+benzyl chloride
+benzylcl
+6.7175
+1-bromo-2-methylpropane
+brisobut
+7.7792
+bromobenzene
+brbenzen
+5.3954
+bromoethane
+brethane
+9.01
+echo 
+title "SMD/M06-2X/6-31G(d) solvation free energy for CF3COO- in my solvent"
+start
+charge -1
+geometry nocenter
+C    0.512211   0.000000  -0.012117
+C   -1.061796   0.000000  -0.036672
+O   -1.547400   1.150225  -0.006609
+O   -1.547182  -1.150320  -0.006608
+F    1.061911   1.087605  -0.610341
+F    1.061963  -1.086426  -0.612313
+F    0.993255  -0.001122   1.266928
+symmetry c1
+end
+basis
+* library 6-31G*
+end
+dft
+ XC m06-2x
+end
+cosmo
+ do_cosmo_smd true
+ solvent mysolv 
+ dielec 11.4
+ sola 1.887
+ solb 0.0
+ soln 0.98
+ icds 2
+end
+task dft energy
+cosmo
+  solvent acetntrl
+end bromoform
+bromform
+4.2488
+1-bromooctane
+broctane
+5.0244
+1-bromopentane
+brpentan
+6.269
+2-bromopropane
+brpropa2
+9.3610
+1-bromopropane
+brpropan
+8.0496
+butanal
+butanal
+13.450
+butanoic acid
+butacid
+2.9931
+1-butanol
+butanol
+17.332
+2-butanol
+butanol2
+15.944
+butanone
+butanone
+18.246
+butanonitrile
+butantrl
+24.291
+butyl acetate
+butile
+4.9941
+butylamine
+nba
+4.6178
+n-butylbenzene
+nbutbenz
+2.360
+sec-butylbenzene
+sbutbenz
+2.3446
+tert-butylbenzene
+tbutbenz
+2.3447
+carbon disulfide
+cs2
+2.6105
+carbon tetrachloride
+carbntet
+2.2280
+chlorobenzene
+clbenzen
+5.6968
+sec-butyl chloride
+secbutcl
+8.3930
+chloroform
+chcl3
+4.7113
+1-chlorohexane
+clhexane
+5.9491
+1-chloropentane
+clpentan
+6.5022
+1-chloropropane
+clpropan
+8.3548
+o-chlorotoluene
+ocltolue
+4.6331
+m-cresol
+m-cresol
+12.440
+o-cresol
+o-cresol
+6.760
+cyclohexane
+cychexan
+2.0165
+cyclohexanone
+cychexon
+15.619
+cyclopentane
+cycpentn
+1.9608
+Long name
+short name
+dielec cyclopentanol
+cycpntol
+16.989
+cyclopentanone
+cycpnton
+13.58
+cis-decalin
+declncis
+2.2139
+trans-decalin
+declntra
+2.1781
+decalin (cis/trans mixture)
+declnmix
+2.196
+n-decane
+decane
+1.9846
+1-decanol
+decanol
+7.5305
+1,2-dibromoethane
+edb12
+4.9313
+dibromomethane
+dibrmetn
+7.2273
+dibutyl ether
+butyleth
+3.0473
+o-dichlorobenzene
+odiclbnz
+9.9949
+1,2-dichloroethane
+edc12
+10.125
+cis-dichloroethylene
+c12dce
+9.200
+trans-dichloroethylene
+t12dce
+2.140
+dichloromethane
+dcm
+8.930
+diethyl ether
+ether
+4.2400
+diethyl sulfide
+et2s
+5.723
+diethylamine
+dietamin
+3.5766
+diiodomethane
+mi
+5.320
+diisopropyl ether
+dipe
+3.380
+dimethyl disulfide
+dmds
+9.600
+dimethylsulfoxide
+dmso
+46.826
+N,N-dimethylacetamide
+dma
+37.781
+cis-1,2-dimethylcyclohexane
+cisdmchx
+2.060
+N,N-dimethylformamide
+dmf
+37.219
+2,4-dimethylpentane
+dmepen24
+1.8939
+2,4-dimethylpyridine
+dmepyr24
+9.4176
+2,6-dimethylpyridine
+dmepyr26
+7.1735
+1,4-dioxane
+dioxane
+2.2099
+diphenyl ether
+phoph
+3.730
+Long name
+short name
+dielec dipropylamine
+dproamin
+2.9112
+n-dodecane
+dodecan
+2.0060
+1,2-ethanediol
+meg
+40.245
+ethanethiol
+etsh
+6.667
+ethanol
+ethanol
+24.852
+ethyl acetate
+etoac
+5.9867
+ethyl formate
+etome
+8.3310
+ethylbenzene
+eb
+2.4339
+ethylphenyl ether
+phenetol
+4.1797
+fluorobenzene
+c6h5f
+5.420
+1-fluorooctane
+foctane
+3.890
+formamide
+formamid
+108.94
+formic acid
+formacid
+51.100
+n-heptane
+heptane
+1.9113
+1-heptanol
+heptanol
+11.321
+2-heptanone
+heptnon2
+11.658
+4-heptanone
+heptnon4
+12.257
+n-hexadecane
+hexadecn
+2.0402
+n-hexane
+hexane
+1.8819
+hexanoic acid
+hexnacid
+2.600
+1-hexanol
+hexanol
+12.51
+2-hexanone
+hexanon2
+14.136
+1-hexene
+hexene
+2.0717
+1-hexyne
+hexyne
+2.615
+iodobenzene
+c6h5i
+4.5470
+1-iodobutane
+iobutane
+6.173
+iodoethane
+c2h5i
+7.6177
+1-iodohexadecane
+iohexdec
+3.5338
+iodomethane
+ch3i
+6.8650
+1-iodopentane
+iopentan
+5.6973
+Long name
+short name
+dielec 1-iodopropane
+iopropan
+6.9626
+isopropylbenzene
+cumene
+2.3712
+p-isopropyltoluene
+p-cymene
+2.2322
+mesitylene
+mesityln
+2.2650
+methanol
+methanol
+32.613
+2-methoxyethanol
+egme
+17.200
+methyl acetate
+meacetat
+6.8615
+methyl benzoate
+mebnzate
+6.7367
+methyl butanoate
+mebutate
+5.5607
+methyl formate
+meformat
+8.8377
+4-methyl-2-pentanone
+mibk
+12.887
+methyl propanoate
+mepropyl
+6.0777
+2-methyl-1-propanol
+isobutol
+16.777
+2-methyl-2-propanol
+terbutol
+12.470
+N-methylaniline
+nmeaniln
+5.9600
+methylcyclohexane
+mecychex
+2.024
+N-methylformamide (E/Z mixture)
+nmfmixtr
+181.56
+2-methylpentane
+isohexan
+1.890
+2-methylpyridine
+mepyrid2
+9.9533
+3-methylpyridine
+mepyrid3
+11.645
+4-methylpyridine
+mepyrid4
+11.957
+nitrobenzene
+c6h5no2
+34.809
+nitroethane
+c2h5no2
+28.290
+nitromethane
+ch3no2
+36.562
+1-nitropropane
+ntrprop1
+23.730
+2-nitropropane
+ntrprop2
+25.654
+o-nitrotoluene
+ontrtolu
+25.669
+n-nonane
+nonane
+1.9605
+1-nonanol
+nonanol
+8.5991
+5-nonanone
+nonanone
+10.600
+Long name
+short name
+dielec n-octane
+octane
+1.9406
+1-octanol
+octanol
+9.8629
+2-octanone
+octanon2
+9.4678
+n-pentadecane
+pentdecn
+2.0333
+pentanal
+pentanal
+10.000
+n-pentane
+npentane
+1.8371
+pentanoic acid
+pentacid
+2.6924
+1-pentanol
+pentanol
+15.130
+2-pentanone
+pentnon2
+15.200
+3-pentanone
+pentnon3
+16.780
+1-pentene
+pentene
+1.9905
+E-2-pentene
+e2penten
+2.051
+pentyl acetate
+pentacet
+4.7297
+pentylamine
+pentamin
+4.2010
+perfluorobenzene
+pfb
+2.029
+phenylmethanol
+benzalcl
+12.457
+propanal
+propanal
+18.500
+propanoic acid
+propacid
+3.440
+1-propanol
+propanol
+20.524
+2-propanol
+propnol2
+19.264
+propanonitrile
+propntrl
+29.324
+2-propen-1-ol
+propenol
+19.011
+propyl acetate
+propacet
+5.5205
+propylamine
+propamin
+4.9912
+pyridine
+pyridine
+12.978
+tetrachloroethene
+c2cl4
+2.268
+tetrahydrofuran
+thf
+7.4257
+tetrahydrothiophene-S,S-dioxide
+sulfolan
+43.962
+tetralin
+tetralin
+2.771
+thiophene
+thiophen
+2.7270
+Long name
+short name
+dielec thiophenol
+phsh
+4.2728
+toluene
+toluene
+2.3741
+tributyl phosphate
+tbp
+8.1781
+1,1,1-trichloroethane
+tca111
+7.0826
+1,1,2-trichloroethane
+tca112
+7.1937
+trichloroethene
+tce
+3.422
+triethylamine
+et3n
+2.3832
+2,2,2-trifluoroethanol
+tfe222
+26.726
+1,2,4-trimethylbenzene
+tmben124
+2.3653
+2,2,4-trimethylpentane
+isoctane
+1.9358
+n-undecane
+undecane
+1.9910
+m-xylene
+m-xylene
+2.3478
+o-xylene
+o-xylene
+2.5454
+p-xylene
+p-xylene
+2.2705
+xylene (mixture)
+xylenemx
+2.3879
+water
+h2o
+78.400
+Long name
+short name
+dielec
+13.1.
+5
+ 
+Usage Tips
+Authors of paper 
+9
+ report that
+" … 
+the SMD/COSMO/NWChem calculations we employed finer grids (options minbem=3, maxbem=4, ificos=1) because
+the default NWChem tessellation parameters (options: minbem=2, maxbem=3, ificos=0) produced very large errors in
+solvation free energies
+."
+Since the 
+maxbem
+ keyword is no longer in use, this paper's recommended input translate into
+13.1.
+6
+ 
+References
+1
+. 
+Klamt, A.; Schüürmann, G. COSMO: A New Approach to Dielectric Screening in Solvents with Explicit Expressions for the Screening Energy and Its
+Gradient. 
+J. Chem. Soc., Perkin Trans. 2
+ 
+1993
+, No. 5, 799–805. 
+https://doi.org/10.1039/p29930000799
+. 
+2
+. 
+York, D. M.; Karplus, M. A Smooth Solvation Potential Based on the Conductor-Like Screening Model. 
+The Journal of Physical Chemistry A
+ 
+1999
+,
+103
+ (50), 11060–11079. 
+https://doi.org/10.1021/jp992097l
+. 
+3
+. 
+Bondi, A. Van Der Waals Volumes and Radii. 
+The Journal of Physical Chemistry
+ 
+1964
+, 
+68
+ (3), 441–451. 
+https://doi.org/10.1021/j100785a001
+. 
+4
+. 
+Klamt, A.; Jonas, V.; Bürger, T.; Lohrenz, J. C. W. Refinement and Parametrization of COSMO-RS. 
+The Journal of Physical Chemistry A
+ 
+1998
+, 
+102
+(26), 5074–5085. 
+https://doi.org/10.1021/jp980017s
+. 
+5
+. 
+Stefanovich, E. V.; Truong, T. N. Optimized Atomic Radii for Quantum Dielectric Continuum Solvation Models. 
+Chemical Physics Letters
+ 
+1995
+, 
+244
+(1-2), 65–74. 
+https://doi.org/10.1016/0009-2614(95)00898-e
+. 
+cosmo
+ minbem 3
+ ificos 1
+end 6
+. 
+Barone, V.; Cossi, M.; Tomasi, J. A New Definition of Cavities for the Computation of Solvation Free Energies by the Polarizable Continuum Model.
+The Journal of Chemical Physics
+ 
+1997
+, 
+107
+ (8), 3210–3221. 
+https://doi.org/10.1063/1.474671
+. 
+7
+. 
+Pascual-Ahuir, J. L.; Silla, E.; Tuñon, I. GEPOL: An Improved Description of Molecular Surfaces. III. A New Algorithm for the Computation of a
+Solvent-Excluding Surface. 
+Journal of Computational Chemistry
+ 
+1994
+, 
+15
+ (10), 1127–1138. 
+https://doi.org/10.1002/jcc.540151009
+. 
+8
+. 
+Soares, R. de P.; Mejía-Rodriguez, D.; Aprà, E. Recent Improvements to the NWChem COSMO Module. 
+Journal of Chemical Theory and
+Computation
+ 
+2025
+, 
+21
+ (22), 11573–11584. 
+https://doi.org/10.1021/acs.jctc.5c01368
+. 
+9
+. 
+Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. Universal Solvation Model Based on Solute Electron Density and on a Continuum Model of the Solvent
+Defined by the Bulk Dielectric Constant and Atomic Surface Tensions. 
+The Journal of Physical Chemistry B
+ 
+2009
+, 
+113
+ (18), 6378–6396.
+https://doi.org/10.1021/jp810292n
+. 
+10
+. 
+Haynes, W. M. CRC Handbook of Chemistry and Physics; Mantina, M., Valero, R., Cramer, C. J., Truhlar, D. G., Eds.; Taylor & Francis Group, 2013;
+pp 9–49. 
+11
+. 
+Winget, P.; Dolney, D. M.; Giesen, D. J.; Cramer, C. J.; Truhlar, D. G. Minnesota Solvent Descriptor Database. 
+Minneapolis, MN: Department of
+Chemistry and Supercomputer Institute
+ 
+1999
+. 
+13.2 
+VEM (Vertical Excitation or Emission) Model
+13.2.
+1
+ 
+Overview
+The VEM is a model for calculating the vertical excitation (absorption) or vertical emission (fluorescence) energy in solution
+according to a two-time-scale model of solvent polarization. The model is described in reference
+1
+.
+The current implementation is based on the VEM(d,RD) algorithm as described in the above paper. The method is
+available only at the 
+TDDFT
+ level of theory, including both full-linear response TDDFT (sometimes called LR-TDDFT or
+regular TDDFT) and the Tamm–Dancoff approximation, 
+TDDFT-TDA
+ (sometimes just called TDA). The configuration
+interaction singles (CIS) wave function method can also be used along with VEM by considering CIS to be a special case of
+TDDFT-TDA.
+The abbreviation VEM originally referred to the vertical excitation model of reference
+2
+, but the current implementation of
+VEM extends to both excitation and emission calculations in solution, and the E in VEM now stands for excitation/emission.
+Furthermore, the current version of VEM (based on the Marenich et al. paper
+1
+) does not reduce to the original VEM of Li et
+al., but is improved as described in reference
+1
+.
+The VEM model is based on a nonequilibrium dielectric-continuum approach in terms of two-time-scale solvent response.
+The solvent's bulk-electrostatic polarization is described by using the reaction field partitioned into slow and fast
+components, and only the fast component is self-consistently (iteratively) equilibrated with the charge density of the solute
+molecule in its final state. During the VEM calculation, the slow component is kept in equilibrium with the initial state's
+solute charge density but not with the final state's one. In the case of vertical absorption the initial state is the ground
+electronic state of the solute molecule in solution and the final state is an excited electronic state in solution (and vice versa
+in the case of an emission spectrum). Both the ground- and excited-state calculations involve an integration of the
+nonhomogeneous-dielectric Poisson equation for bulk electrostatics in terms of the COSMO model as implemented in
+NWChem with the modified COSMO scaling factor (
+iscren 0
+) and by using the SMD intrinsic atomic Coulomb radii (by
+default; see the section of the manual describing SMD). The excited-state electron density is calculated using the Z-Vector
+"relaxed density" approach.
+The VEM excitation or emission energy includes only a bulk-electrostatic contribution without any cavity–dispersion–
+solvent-structure (CDS) contributions (such contributions are used in SMD ground-state calculations as described in the
+SMD section of this manual, but are not used in VEM calculations). When one considers solvatochromic shifts, the main
+contributions beyond bulk electrostatics are solute–solvent dispersion interactions, hydrogen bonding (the latter is most
+important in protic solvents), and perhaps charge transfer between the solute and the solvent. To explicitly account for
+solute–solvent charge transfer and hydrogen bonding, the user can run a VEM calculation on a supersolute that involves a
+solute–solvent molecular cluster with one or a few solvent molecules added explicitly to a bare solute. The solute–solvent
+dispersion contribution to the solvatochromic shift, if desired, can be estimated by the solvation model with state-specific
+polarizability (SMSSP) described in reference
+3
+.
+In this case, the user needs to provide values of ground- and excited-state spherically averaged molecular polarizabilities of the solvent.
+13.2.
+2
+ 
+Syntax
+The VEM-specific input options are as follows:
+13.2.
+2
+.
+1
+ 
+DO_COSMO_VEM:
+The 
+do_cosmo_vem
+ can be set to the following values:
+- 
+0
+ (do not do any VEM calculation even if the task tddft gradient line is present; default).
+- 
+1
+ (do a nonequilibrium VEM excitation energy calculation;
+in this case the 
+task tddft gradient
+ line should be present, too) 
+- 
+2
+ (do an equilibrium VEM excitation energy calculation followed by
+a nonequilibrium emission energy calculation;
+task tddft gradient
+ line should be present)
+13.2.
+2
+.
+2
+ 
+VEM Solvent
+The VEM solvent (which is water by default) can be specified by using the solvent keyword described in the 
+SMD section of
+this manual
+ or by specifying the VEM solvent descriptors such as
+dielec (real input)
+static dielectric constant
+dielecinf (real input)
+ 
+optical dielectric constant which is set (by default) to the squared value of the solvent's index of refraction 
+(see the keyword 
+soln
+, but note 
+that if the solvent is specified with the solvent keyword,
+the refractive index is set by the program without needing the user to supply it.)
+Solvent descriptors set by the program are based on the Minnesota Solvent Descriptor Database
+4
+:
+If the option 
+do_cosmo_vem 1
+ or 
+do_cosmo_vem 2
+ is specified the program will run VEM ground- and excited-state bulk-
+electrostatic calculations using the COSMO algorithm with the SMD Coulomb radii by default. If the user wants to use the
+default COSMO radii in such calculations (this is not recommended) the option 
+do_cosmo_smd .false.
+ should be specified.
+13.2.
+3
+ 
+SMSSP estimate of the solute–solvent dispersion contribution
+If the SMSSP estimate of a solute–solvent dispersion contribution to the solvatochromic shift is desired, the following
+options should be used:
+polgs_cosmo_vem (real input)
+user-provided value of the spherically-averaged molecular polarizability of the solute in the ground state (in Å
+3
+)
+poles_cosmo_vem (real input)
+user-provided value of the spherically-averaged molecular polarizability of the solute in an exited state of interest (in Å
+3
+)
+13.2.
+4
+ 
+Examples
+An example of the VEM input file is provided below.
+ do_cosmo_vem <integer do_cosmo_vem default 0> 13.2.
+5
+ 
+References
+1
+. 
+Marenich, A. V.; Cramer, C. J.; Truhlar, D. G.; Guido, C. A.; Mennucci, B.; Scalmani, G.; Frisch, M. J. Practical Computation of Electronic Excitation
+in Solution: Vertical Excitation Model. 
+Chemical Science
+ 
+2011
+, 
+2
+ (11), 2143. 
+https://doi.org/10.1039/c1sc00313e
+. 
+2
+. 
+Li, J.; Cramer, C. J.; Truhlar, D. G. Two-Response-Time Model Based on CM2/INDO/S2 Electrostatic Potentials for the Dielectric Polarization
+Component of Solvatochromic Shifts on Vertical Excitation Energies. 
+International Journal of Quantum Chemistry
+ 
+2000
+, 
+77
+ (1), 264–280.
+https://doi.org/10.1002/(sici)1097-461x(2000)77:1<264::aid-qua24>3.0.co;2-j
+. 
+3
+. 
+Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. Uniform Treatment of Solute-Solvent Dispersion in the Ground and Excited Electronic States of the
+Solute Based on a Solvation Model with State-Specific Polarizability. 
+Journal of Chemical Theory and Computation
+ 
+2013
+, 
+9
+ (8), 3649–3659.
+https://doi.org/10.1021/ct400329u
+. 
+4
+. 
+Winget, P.; Dolney, D. M.; Giesen, D. J.; Cramer, C. J.; Truhlar, D. G. Minnesota Solvent Descriptor Database. 
+Minneapolis, MN: Department of
+Chemistry and Supercomputer Institute
+ 
+1999
+. 
+13.3 
+Hybrid Calculations with ONIOM
+13.3.
+1
+ 
+Overview
+ONIOM is the hybrid method of Morokuma and co-workers that enables different levels of theory to be applied to different
+parts of a molecule/system and combined to produce a consistent energy expression. The objective is to perform a high-
+level calculation on just a small part of the system and to include the effects of the remainder at lower levels of theory, with
+the end result being of similar accuracy to a high-level calculation on the full system.
+1
+. 
+M. Svensson, S. Humbel, R.D.J. Froese, T. Mastubara, S. Sieber, and 
+K. Morokuma, J. Phys. Chem., 100, 19357
+(1996).
+2
+. 
+S. Dapprich, I. Komaromi, K.S. Byun, K. Morokuma, and M.J. Frisch, 
+J. Mol. Struct. (Theochem), 461-462, 1 (1999).
+3
+. 
+R.D.J. Froese and K. Morokuma in "Encylopedia of Computational 
+Chemistry", volume 2, pp.1244-1257, (ed. P. von
+Rague Schleyer, 
+John Wiley and Sons, Chichester, Sussex, 1998).
+echo  
+title  'VEM/TDDFT-B3LYP/6-311+G(d) vertical excitation energy + SMSSP for formaldehyde in methanol'  
+start  
+geometry nocenter  
+ O    0.0000000000    0.0000000000    0.6743110000  
+ C    0.0000000000    0.0000000000   -0.5278530000  
+ H    0.0000000000    0.9370330000   -1.1136860000  
+ H    0.0000000000   -0.9370330000   -1.1136860000  
+symmetry c1  
+end  
+basis  
+* library 6-311+G*  
+end  
+dft  
+ XC b3lyp  
+end  
+cosmo  
+ do_cosmo_smd true  
+ do_cosmo_vem 1  
+ solvent methanol  
+ polgs_cosmo_vem 2.429  
+ poles_cosmo_vem 3.208  
+end  
+tddft  
+ nroots 10  
+ target 1  
+ singlet  
+ notriplet  
+ algorithm 1  
+ civecs  
+end  
+grad  
+  root 1  
+  solve_thresh 1d-05  
+end  
+task tddft gradient The NWChem ONIOM module implements two- and three-layer ONIOM models for use in energy, gradient, geometry
+optimization, and vibrational frequency calculations with any of the pure quantum mechanical methods within NWChem. At
+the present time, it is not possible to perform ONIOM calculations with either solvation models or classical force fields. Nor
+is it yet possible to compute properties except as derivatives of the total energy.
+Using the terminology of Morokuma et al., the full molecular geometry including all atoms is referred to as the "real"
+geometry and it is treated using a "low"-level of theory. A subset of these atoms (referred to as the "model" geometry) are
+treated using both the "low"-level and a "high"-level of theory. A three-layer model also introduces an "intermediate" model
+geometry and a "medium" level of theory.
+The two-layer model requires a high and low level of theory and a real and model molecular geometry. The energy at the
+high-level of theory for the real geometry is estimated as
+The three-layer model requires high, medium and low levels of theory, and real, intermediate and model geometries and
+the corresponding energy estimate is
+When does ONIOM work well? The approximation for a two-layer model will be good if
+the model system includes the interactions that dominate the energy 
+difference being computed and the high-level of
+theory describes 
+these to the required precision, and
+the interactions between the model and the rest of the real system 
+(substitution effects) are described to sufficient
+accuracy at the 
+lower level of theory.
+ONIOM is used to compute energy differences and the absolute energies are not all that meaningful even though they are
+well defined. Due to cancellation of errors, ONIOM actually works better than you might expect, but a poorly designed
+calculation can yield very bad results. Please read and heed the caution at the end of the article by Dapprich et al.
+The input options are as follows
+which are described in detail below.
+For better validation of user input, the 
+HIGH
+, 
+LOW
+ and 
+MODEL
+ directives must always be specified. If the one of the 
+MEDIUM
+ or
+INTER
+ directives are specified, then so must the other.
+13.3.
+2
+ 
+Real, model and intermediate geometries
+The geometry and total charge of the full or real system should be specified as normal using the 
+geometry
+ directive. If
+N
+model
+ of the atoms are to be included in the model system, then these should be specified first in the geometry. Similarly,
+in a three-layer calculation, if there are N
+inter
+ atoms to be included in the intermediate system, then these should also be
+     E(High,Real) = E(Low,Real) + [E(High,Model) - E(Low,Model)].
+     E(High,Real) = E(Low,Real) + [E(High,Model) - E(Medium,Model)]
+                    +  [E(Medium,Inter) - E(Low,Inter)].
+ONIOM  
+  HIGH   <string theory> [basis <string basis default "ao basis">] \  
+                         [ecp <string ecp>] [input <string input>]  
+ [MEDIUM <string theory> [basis <string basis default "ao basis">] \  
+                         [ecp <string ecp>] [input <string input>]]  
+  LOW    <string theory> [basis <string basis default "ao basis">] \  
+                         [ecp <string ecp>] [input <string input>]  
+  MODEL <integer natoms> [charge <double charge>] \  
+                         [<integer i1 j1> <real g1> [<string tag1>] ...]  
+ [INTER <integer natoms> [charge <double charge>] \  
+                         [<integer i1 j1> <real g1> [<string tag1>] ...]]  
+ [VECTORS [low-real <string mofile>] [low-model <string mofile>] \  
+          [high-model <string mofile>] [medium-model <string mofile]\  
+          [medium-inter <string mofile>] [low-inter <string mofile>]]  
+ [PRINT ...]  
+ [NOPRINT ...]  
+END arranged together at the beginning of the geometry. The implict assumption is that the model system is a subset of the
+intermediate system which is a subset of the real system. The number of atoms to be included in the model and
+intemediate systems are specified using the 
+MODEL
+ and 
+INTER
+ directives. Optionally, the total charge of the model and
+intermediate systems may be adjusted. The default is that all three systems have the same total charge.
+Example 1. A two-layer calculation on K
++
+(H
+2
+O) taking the potassium ion as the model system. Note that no bonds are
+broken so no link atoms are introduced. The real geometry would be specified with potassium (the model) first.
+and the following directive in the ONIOM input block indicates that one atom (implicitly the first in the geometry) is in the
+model system
+13.3.
+2
+.
+1
+ 
+Link atoms
+Link atoms for bonds spanning two regions are automatically generated from the bond information. The additional
+parameters on the 
+MODEL
+ and 
+INTER
+ directives describe the broken bonds including scale factors for placement of the link
+atom and, optionally, the type of link atom. The type of link atom defaults to hydrogen, but any type may be specified
+(actually here you are specifying a geometry tag which is used to associate a 
+geometrical center
+ with an atom type and
+basis sets, etc. For each broken bond specify the numbers of the two atoms (i and j), the scale factor (g) and optionally the
+tag of the link atom. Link atoms are placed along the vector connecting the the first to the second atom of the bond
+according to the equation
+\[\underline{R}_{link} = (1-g)\underline{R}_{1} + g*\underline{R}_{2}\]
+where 
+g
+ is the scale factor. If the scale factor is one, then the link atom is placed where the second atom was. More
+usually, the scale factor is less than one, in which case the link atom is placed between the original two atoms. The scale
+factor should be chosen so that the link atom (usually hydrogen) is placed near its equilibrium bond length from the model
+atom. E.g., when breaking a single carbon-carbon bond (typical length 1.528 Angstrøms) using a hydrogen link atom we
+will want a carbon-hydrogen bond length of about 1.084 Angstrøms, so the scale factor should be chosen as 1.084/1.528 ~
+0.709.
+Example 2. A calculation on acetaldehyde (H
+3
+C-CHO) using aldehyde (H-CHO) as the model system. The covalent bond
+between the two carbon atoms is broken and a link atom must be introduced to replace the methyl group. The link atom is
+automatically generated – all you need to do is specify the atoms in the model system that are also in the real system (here
+CHO) and the broken bonds. Here is the geometry of acetaldehyde with the CHO of aldehyde first
+There are three atoms (the first three) of the real geometry included in the model geometry, and we are breaking the bond
+between atoms 1 and 7, replacing atom 7 with a hydrogen link atom. This is all accomplished by the directive
+Since the default link atom is hydrogen there is actually no need to specify the "H".
+   geometry autosym  
+     K  0    0.00    1.37  
+     O  0    0.00   -1.07  
+     H  0   -0.76   -1.68  
+     H  0    0.76   -1.68  
+   end
+   model 1
+   geometry  
+     C    -0.383    0.288    0.021  
+     H    -1.425    0.381    0.376  
+     O     0.259    1.263   -0.321  
+     H     0.115   -1.570    1.007  
+     H    -0.465   -1.768   -0.642  
+     H     1.176   -1.171   -0.352  
+     C     0.152   -1.150    0.005  
+   end
+   model 3   1 7 0.709 H See also the 
+ONIOM three layer example
+ for a more complex example.
+13.3.
+2
+.
+2
+ 
+Numbering of the link atoms
+The link atoms are appended to the atoms of the model or intermediate systems in the order that the broken bonds are
+specified in the input. This is of importance only if manually constructing an initial guess.
+13.3.
+3
+ 
+High, medium and low theories
+The two-layer model requires both the high-level and low-level theories be specified. The three-layer model also requires
+the medium-level theory. Each of these includes a theory (such as SCF, MP2, DFT, CCSD, CCSD(T), etc.), an optional
+basis set, an optional ECP, and an optional string containing general NWChem input.
+13.3.
+3
+.
+1
+ 
+Basis specification
+The basis name on the theory directive (high, medium, or low) is that specified on a basis set directive (see Section 7) and
+not the name of a standard basis in the library. If not specified, the basis set for the high-level theory defaults to the
+standard "ao basis". That for the medium level defaults to the high-level basis, and the low-level basis defaults to the
+medium-level basis. Other wavefunction parameters are obtained from the standard wavefunction input blocks. See
+Effective core potentials
+ for an example.
+13.3.
+3
+.
+2
+ 
+Effective core potentials
+If an 
+effective core potential
+ is specified in the usual fashion outside of the ONIOM input then this will be used in all
+calculations. If an alternative ECP name (the name specified on the ECP directive in the same manner as done for basis
+sets) is specified on one of the theory directives, then this ECP will be used in preference for that level of theory. See the
+ONIOM three layer example
+ for sample input.
+13.3.
+3
+.
+3
+ 
+General input strings
+For many purposes, the ability to specify the theory, basis and effective core potential is adequate. All of the options for
+each theory are determined from their independent input blocks. However, if the same theory (e.g., DFT) is to be used with
+different options for the ONIOM theoretical models, then the general input strings must be used. These strings are
+processed as NWChem input each time the theoretical model is invoked. The strings may contain any NWChem input,
+except for options pertaining to ONIOM and the 
+task
+ directive. The intent that the strings be used just to control the options
+pertaining to the theory being used.
+A word of caution. Be sure to check that the options are producing the desired results. Since the NWChem database is
+persistent and the ONIOM calculations happen in an undefined order, the input strings should fully define the calculation
+you wish to have happen.
+For instance, if the high model is DFT/B3LYP/6-311g** and the low model is DFT/LDA/3-21g, the ONIOM input might look
+like this
+The empty XC directive restores the default LDA exchange-correlation option (see Section 11.3). Note that semi-colons
+and other quotation marks inside the input string must be preceded by a backslash to avoid special interpretation.
+See 
+|DFT with and without charge fitting
+ for another example.
+   oniom  
+     model 3  
+     low  dft basis 3-21g    input "dft; xc; end"  
+     high dft basis 6-311g** input "dft; xc b3lyp; end"  
+   end 13.3.
+4
+ 
+Use of symmetry
+Symmetry should work just fine as long as the model and intermediate regions respect the symmetry – i.e., symmetry
+equivalent atoms need to be treated equivalently. If symmetry equivalent atoms must be treated in separate regions then
+the symmetry must be lowered (or completely switched off).
+13.3.
+5
+ 
+Molecular orbital files
+The VECTORS directive in the ONIOM block is different to that elsewhere in NWChem. For each of the necessary
+combinations of theory and geometry you can specify a different file for the molecular orbitals. By default each combination
+will store the MO vectors in the permanent directory using a file name created by appending to the name of the calculation
+the following string
+low-real – ".lrmos"
+low-inter – ".limos"
+low-model – ".lmmos"
+medium-inter – ".mimos"
+medium-model – ".mmmos"
+high-model – ".hmmos"
+Each calculation will utilize the appropriate vectors which is more efficient during geometry optimizations and frequency
+calculations, and is also useful for the initial calculation. In the absence of existing MO vectors files, the default atomic
+guess is used (see 
+|Input/output of MO vectors
+).
+If special measures must be taken to converge the initial SCF, DFT or MCSCF calculation for one or more of the systems,
+then initial vectors may be saved in a file with the default name, or another name may be specified using the VECTORS
+directive. Note that subsequent vectors (e.g., from a geometry optimization) will be written back to this file, so take a copy if
+you wish to preserve it. To generate the initial guess for the model or intermediate systems it is necessary to generate the
+geometries which is most readily done, if there are link atoms, by just running NWChem on the input for the ONIOM
+calculation on your workstation. It will print these geometries before starting any calculations which you can then terminate.
+E.g., in a calculation on Fe(III) surrounded by some ligands, it is hard to converge the full (real) system from the atomic
+guess so as to obtain a d
+5
+ configuration for the iron atom since the 
+d
+ orbitals are often nominally lower in energy than some
+of the ligand orbitals. The most effective mechanism is to converge the isolated Fe(III) and then to use the 
+fragment guess
+as a starting guess for the real system. The resulting converged molecular orbitals can be saved either with the default
+name (as described above in this section), in which case no additional input is necessary. If an alternative name is desired,
+then the 
+VECTORS
+ directive may be used as follows
+13.3.
+6
+ 
+Restarting
+Restart of ONIOM calculations does not currently work as smoothly as we would like. For geometry optimizations that
+terminated gracefully by running out of iterations, the restart will work as normal. Otherwise, specify in the input of the
+restart job the last geometry of the optimization. The Hessian information will be reused and the calculation should proceed
+losing at most the cost of one ONIOM gradient evaluation. For energy or frequency calculations, restart may not currently
+be possible.
+13.3.
+7
+ 
+Examples
+   vectors low-real /u/rjh/jobs/fe_ether_water.mos 13.3.
+7
+.
+1
+ 
+Hydrocarbon bond energy
+A simple two-layer model changing just the wavefunction with one link atom.
+This reproduces the two-layer ONIOM (MP2:HF) result from Dapprich et al. for the reaction R-CH
+3
+ 
+➔
+ R-CH
+2
+ + H 
+with
+R=CH
+3
+ using CH
+4
+ as the model. The geometries of R-CH
+3
+ and R-CH
+2
+ are optimized at the DFT-B3LYP/6-311++G** level
+of theory, and then ONIOM is used to compute the binding energy using UMP2 for the model system and HF for the real
+system. The results, including MP2 calculations on the full system for comparison, are as given in the table below.
+Theory
+Me-CH2
+Me-Me
+H
+De(Hartree)
+De(kcal/mol)
+B3LYP
+-79.185062
+-79.856575
+-0.502256
+0.169257
+106.2
+HF
+-78.620141
+-79.251701
+-0.499817
+0.131741
+82.7
+MP2
+-78.904716
+-79.571654
+-0.499817
+0.167120
+104.9
+MP2:HF
+-78.755223
+-79.422559
+-0.499817
+0.167518
+105.1
+Energies for ONIOM example 1, hydrocarbon bond energy using MP2:HF two-layer model.
+The following input first performs a calculation on CH
+2
+-CH
+2
+, and then on 
+CH
+3
+-CH
+3
+. Note that in the second calculation we
+cannot use the full symmetry since we are breaking the C-C bond in forming the model system (the non-equivalence of the
+methyl groups is perhaps more apparent if we write R-CH
+3
+). 13.3.
+7
+.
+2
+ 
+Optimization and frequencies
+A two-layer model including modification of theory, basis, ECP and total charge and no link atoms.
+This input reproduces the ONIOM optimization and vibrational frequency calculation of Rh(CO)
+2
+Cp of Dapprich et al. The
+model system is Rh(CO)
+2
++
+. The low theory is the Gaussian LANL2MB model (Hay-Wadt n+1 ECP with minimal basis on
+Rh, STO-3G on others) with SCF. The high theory is the Gaussian LANL2DZ model (another Hay-Wadt ECP with a DZ
+basis set on Rh, Dunning split valence on the other atoms) with DFT/B3LYP. Note that different names should be used for
+the basis set and ECP since the same mechanism is used to store them in the database.
+   start  
+   basis spherical  
+     H library 6-311++G**; C library 6-311++G**  
+   end  
+   title "ONIOM Me-CH2"  
+   geometry autosym  
+     H    -0.23429328     1.32498565     0.92634814  
+     H    -0.23429328     1.32498565    -0.92634814  
+     C    -0.13064265     0.77330370     0.00000000  
+     H    -1.01618703    -1.19260361     0.00000000  
+     H     0.49856072    -1.08196901    -0.88665533  
+     H     0.49856072    -1.08196901     0.88665533  
+     C    -0.02434414    -0.71063687     0.00000000  
+   end  
+   scf; uhf; doublet; thresh 1e-6; end  
+   mp2; freeze atomic; end  
+   oniom  
+     high mp2  
+     low  scf  
+     model 3   3 7 0.724  
+   end  
+   task oniom  
+   title "ONIOM Me-Me"  
+   geometry   # Note cannot use full D3D symmetry here, either specify noautosym, or change an atom tag (here C -> C1)  
+     H   -0.72023641     0.72023641    -1.16373235  
+     H    0.98386124     0.26362482    -1.16373235  
+     H   -0.26362482    -0.98386124    -1.16373235  
+     C    0.00000000     0.00000000    -0.76537515  
+     H    0.72023641    -0.72023641     1.16373235  
+     H   -0.98386124    -0.26362482     1.16373235  
+     H    0.26362482     0.98386124     1.16373235  
+     C1   0.00000000     0.00000000     0.76537515  
+   end  
+   scf; rhf; singlet; end  
+   oniom  
+     high mp2  
+     low  scf  
+     model 4   4 8 0.724  
+   end  
+   task oniom 13.3.
+7
+.
+3
+ 
+A three-layer example
+A three layer example combining CCSD(T), and MP2 with two different quality basis sets, and using multiple link atoms.
+The full system is tetra-dimethyl-amino-ethylene (TAME) or (N(Me)
+2
+)
+2
+-C=C-(N(Me)
+2
+)
+2
+. The intermediate system is (NH
+2
+)
+2
+-
+C=C-(NH
+2
+)
+2
+ and H2C=CH2 is the model system. CCSD(T)+aug-cc-pvtz is used for the model region, MP2+aug-cc-pvtz for
+the intermediate region, and MP2+aug-cc-pvdz for everything.
+In the real geometry the first two atoms (C, C) are the model system (link atoms will be added automatically). The first six
+atoms (C, C, N, N, N, N) describe the intermediate system (again with link atoms to be added automatically). The atoms
+have been numbered using comments to make the bonding input easier to generate.
+To make the model system, four C-N bonds are broken between the ethylene fragment and the dimethyl-amino groups and
+replaced with C-H bonds. To make the intermediate system, eight C-N bonds are broken between the nitrogens and the
+methyl groups and replaced with N-H bonds. The scaling factor could be chosen differently for each of the bonds.
+   start  
+   ecp LANL2DZ_ECP  
+     rh library LANL2DZ_ECP  
+   end  
+   basis LANL2DZ spherical  
+     rh library LANL2DZ_ECP  
+     o library SV_(Dunning-Hay); c library SV_(Dunning-Hay); h library SV_(Dunning-Hay)  
+   end  
+   ecp Hay-Wadt_MB_(n+1)_ECP  
+     rh library Hay-Wadt_MB_(n+1)_ECP  
+   end  
+   # This is the minimal basis used by Gaussian.  It is not the same   
+   # as the one in the EMSL basis set library for this ECP.  
+   basis Hay-Wadt_MB_(n+1) spherical   
+     Rh s; .264600D+01 -.135541D+01; .175100D+01  .161122D+01; .571300D+00  .589381D+00  
+     Rh s; .264600D+01  .456934D+00; .175100D+01 -.595199D+00; .571300D+00 -.342127D+00  
+           .143800D+00  .410138D+00; .428000D-01  .780486D+00  
+     Rh p; .544000D+01 -.987699D-01; .132900D+01  .743359D+00; .484500D+00  .366846D+00  
+     Rh p; .659500D+00 -.370046D-01; .869000D-01  .452364D+00; .257000D-01  .653822D+00  
+     Rh d; .366900D+01  .670480D-01; .142300D+01  .455084D+00; .509100D+00  .479584D+00  
+           .161000D+00  .233826D+00  
+     o  library sto-3g; c  library sto-3g; h  library sto-3g  
+   end  
+   charge 0  
+   geometry autosym  
+     rh       0.00445705    -0.15119674     0.00000000  
+     c       -0.01380554    -1.45254070     1.35171818  
+     c       -0.01380554    -1.45254070    -1.35171818  
+     o       -0.01805883    -2.26420212     2.20818932  
+     o       -0.01805883    -2.26420212    -2.20818932  
+     c        1.23209566     1.89314720     0.00000000  
+     c        0.37739392     1.84262319    -1.15286640  
+     c       -1.01479160     1.93086461    -0.70666350  
+     c       -1.01479160     1.93086461     0.70666350  
+     c        0.37739392     1.84262319     1.15286640  
+     h        2.31251453     1.89903673     0.00000000  
+     h        0.70378132     1.86131979    -2.18414218  
+     h       -1.88154273     1.96919306    -1.35203550  
+     h       -1.88154273     1.96919306     1.35203550  
+     h        0.70378132     1.86131979     2.18414218  
+   end  
+   dft; grid fine; convergence gradient 1e-6 density 1e-6; xc b3lyp; end  
+   scf; thresh 1e-6; end  
+   oniom  
+     low scf basis Hay-Wadt_MB_(n+1) ecp  Hay-Wadt_MB_(n+1)_ECP  
+     high dft basis LANL2DZ ecp LANL2DZ_ECP  
+     model 5 charge 1  
+     print low  
+   end  
+   task oniom optimize  
+   task oniom freq 13.3.
+7
+.
+4
+ 
+DFT with and without charge fitting
+Demonstrates use of general input strings.
+A two-layer model for anthracene (a linear chain of three fused benzene rings) using benzene as the model system. The
+high-level theory is DFT/B3LYP/TZVP with exact Coulomb. The low level is DFT/LDA/DZVP2 with charge fitting.
+Note the following.
+1
+. 
+The semi-colons and quotation marks inside the input string must be 
+quoted with backslash.
+2
+. 
+The low level of theory sets the fitting basis set and the high 
+level of theory unsets it.
+   start   
+   geometry   
+     C  0.40337795 -0.17516305 -0.51505208  # 1  
+     C -0.40328664  0.17555927  0.51466084  # 2  
+     N  1.87154979 -0.17516305 -0.51505208  # 3  
+     N -0.18694782 -0.60488524 -1.79258692  # 4  
+     N  0.18692927  0.60488318  1.79247594  # 5  
+     N -1.87148219  0.17564718  0.51496494  # 6  
+     C  2.46636552  1.18039452 -0.51505208  # 7  
+     C  2.48067731 -1.10425355  0.46161675  # 8  
+     C -2.46642715 -1.17982091  0.51473105  # 9  
+     C -2.48054940  1.10495864 -0.46156202  # 10  
+     C  0.30027136  0.14582197 -2.97072148  # 11  
+     C -0.14245927 -2.07576980 -1.96730852  # 12  
+     C -0.29948109 -0.14689874  2.97021079  # 13  
+     C  0.14140463  2.07558249  1.96815181  # 14  
+     H  0.78955302  2.52533887  1.19760764  
+     H -0.86543435  2.50958894  1.88075113  
+     ... and 22 other hydrogen atoms on the methyl groups  
+   end  
+   basis aug-cc-pvtz spherical  
+     C library aug-cc-pvtz; H library aug-cc-pvtz  
+   end  
+   basis aug-cc-pvdz spherical  
+     C library aug-cc-pvtz; H library aug-cc-pvtz  
+   end  
+   oniom        
+     high ccsd(t) basis aug-cc-pvtz  
+     medium mp2 basis aug-cc-pvtz  
+     low mp2 basis aug-cc-pvdz  
+     model 2   1 3  0.87   1 4  0.87   2 5  0.87   2 6  0.87  
+     inter 6   3 7  0.69   3 8  0.69   4 11 0.69   4 12 0.69 \  
+               5 13 0.69   5 14 0.69   6 9  0.69   6 10 0.69  
+   end  
+   task oniom 13.4 
+QMMM
+13.4.1 
+QMMM Introduction
+The combined quantum mechanical molecular mechanics (QM/MM) approach provides a simple and effective tool to study
+localized molecular transformations in large scale systems such as those encountered in solution chemistry or enzyme
+catalysis. In this method an accurate but computationally intensive quantum mechanical (QM) description is only used for
+the regions where electronic structure transformations are occurring (e.g. bond making and breaking). The rest of the
+system, whose chemical identity remains essentially the same, is treated at the approximate classical molecular mechanics
+(MM) level.
+The QM/MM module in NWChem is built as a top level interface between the classical MD module and various QM
+modules,managing initialization, data transfer, and various high level operations. The size of the system (10^3 - 10^5
+atoms) and the need for classical force field parameters precludes description of the system through just the geometry
+input block as would be done in pure QM simulations.
+Instead a separate 
+preparation stage
+ is required. 
+In a typical setting this 
+preparation run
+ will be done separately from the
+main QM/MM simulations resulting in the generation of topology and restart files. The topology file contains a list of all
+relevant force field interactions encountered in the system but has no information about the actual atom positions. Typically
+the topology file will be generated once and reused throughout the entire simulation. The actual structural information about
+   start  
+   geometry   
+     symmetry d2h  
+     C    0.71237329    -1.21458940     0.0  
+     C   -0.71237329    -1.21458940     0.0  
+     C    0.71237329     1.21458940     0.0  
+     C   -0.71237329     1.21458940     0.0  
+     C   -1.39414269     0.00000000     0.0  
+     C    1.39414269     0.00000000     0.0  
+     H   -2.47680865     0.00000000     0.0  
+     H    2.47680865     0.00000000     0.0  
+     C    1.40340535    -2.48997027     0.0  
+     C   -1.40340535    -2.48997027     0.0  
+     C    1.40340535     2.48997027     0.0  
+     C   -1.40340535     2.48997027     0.0  
+     C    0.72211503     3.64518615     0.0  
+     C   -0.72211503     3.64518615     0.0  
+     C    0.72211503    -3.64518615     0.0  
+     C   -0.72211503    -3.64518615     0.0  
+     H    2.48612947     2.48094825     0.0  
+     H    1.24157357     4.59507342     0.0  
+     H   -1.24157357     4.59507342     0.0  
+     H   -2.48612947     2.48094825     0.0  
+     H    2.48612947    -2.48094825     0.0  
+     H    1.24157357    -4.59507342     0.0  
+     H   -1.24157357    -4.59507342     0.0  
+     H   -2.48612947    -2.48094825     0.0  
+   end  
+   basis small  
+     h library DZVP_(DFT_Orbital)  
+     c library DZVP_(DFT_Orbital)  
+   end  
+   basis fitting  
+     h library DGauss_A1_DFT_Coulomb_Fitting  
+     c library DGauss_A1_DFT_Coulomb_Fitting  
+   end  
+   basis big  
+     h library TZVP_(DFT_Orbital)  
+     c library TZVP_(DFT_Orbital)  
+   end  
+   oniom  
+     model 8   1 9 0.75   2 10 0.75   3 11 0.75   4 12 0.75  
+     high dft basis big   input "unset "cd basis"; dft; xc b3lyp; end"  
+     low  dft basis small input "set "cd basis" fitting; dft; xc; end"  
+   end  
+   task oniom the system is contained in the restart file, which will be changing as the system coordinates are updated during the course
+of the simulation.
+Once restart and topology files are generated, the QM/MM simulation can be initiated by defining the specifics of the 
+QM
+and 
+MM
+ descriptions, and if necessary 
+QM/MM
+ interface parameters.
+The actual QM/MM calculation is invoked with the following task directive.
+where qmtheory specifies quantum method for the calculation of the quantum region. It is expected that most of QM/MM
+simulations will be performed with with HF, DFT. or 
+CC
+ theories, but any other QM theory supported by NWChem should
+also work. NWChem supports wide range of QM/MM tasks including
+single point energy/gradient 
+calculations
+properties
+ESP charge analysis
+optimization and transition states
+hessians and frequency
+reaction pathway calculations
+dynamics
+free energy calculations
+13.4.2 
+QMMM Simulations
+Introduction
+Topology and Restart 
+Files
+Prerequisites
+QM region definition
+Solvation
+Permanent Constraints
+Input File
+QM Parameters
+MM Parameters
+QM/MM Parameters
+Single Point Calculations
+Ground State Energy and Gradient
+Excited State Energy
+Properties
+ESP Charge Analysis
+Potential Energy Surface Analysis
+Optimization
+Transition States
+Hessians and Frequency
+Reaction Pathway Calculations with 
+NEB
+ task qmmm <string qmtheory> <string operation> [numerical] [ignore] Dynamics
+Free Energy Calculations
+Appendix
+Format of NWChem parameter 
+file
+Conversion from AMBER program parameter files to 
+NWChem
+References
+13.4.3 
+QMMM Restart and Topology Files
+The structure of the system in QM/MM calculations is provided by the restart file (extension 
+.rst
+) and not by the geometry
+block as it would be for pure QM calculations. The parameters of classical interaction are given by the topology file
+(extension 
+.top
+). These two files are 
+REQUIRED
+ for QM/MM calculations and can be generated by the 
+prepare module
+. In a
+typical setting this "preparation stage" is performed separately from the main QM/MM simulation.
+Prerequisites
+QM region definition
+Solvation
+Permanent Constraints
+The necessary prerequisites for the preparation of topology and restart files for QM/MM simulations are: * Properly
+formatted 
+PDB
+ 
+file for the system. * Fragment Files (extension .frg) * Parameter Files (extension .par)
+A number of fragment files as well as standard Amber type force parameter files are provided with the NWChem
+distribution. However, user should be prepared to generate additional fragment and 
+parameter files
+ for nonstandard cases
+One of major required pieces of information that has to be provided in the prepare block for QM/MM simulations is the
+definition of the QM region. This can be accomplished using 
+modify
+ directive used either per atom
+or per segment/residue basis
+Here 
+isgm
+ and 
+atomname
+ refer to the residue number and atom name record as given in the PDB file. It is important to
+note that that the leading blanks in atom name record should be indicated with underscores. Per PDB format guidelines the
+atom name record starts at column 13. If, for example, the atom name record "OW" starts in the 14th column in PDB file, it
+will appear as "_OW" in the modify atom directive in the prepare block.
+In the current implementation only solute atoms can be declared as quantum. If part of the solvent has to be treated
+quantum mechanically then it has to redeclared to be solute. The definition of QM region should be accompanied by 
+update
+lists
+ and 
+ignore
+ directives. 
+Here is an example input file that will generate QM/MM restart and topology files for the ethanol
+molecule:
+modify atom <integer isgm>:<string atomname> quantum
+modify segment <integer isgm> quantum Running the input shown above will produce (among other things) the topology file (etl.top), the restart file (etl_ref.rst), and
+the pdb file 
+etl_ref.pdb
+. The prefix for the topology file follows after the rtdb name specified in the start directive in the input
+(i.e. "start etl"), while the names for the restart and pdb files were specified explicitly in the input file. In the absence of the
+explicit write statement for the restart file, it would be generated under the name "etl_md.rst". The pdb file would only be
+written in the presence of the explicit write statement.
+Tip
+: 
+It is strongly recommended to check the correctness of the generated pdb file versus the original "source" pdb file to
+catch possible errors in the formatting of the pdb and fragment files.
+During the preparation stage of QM/MM calculations the system may also be solvated using 
+solvate
+ directive of the prepare
+module. It is recommended that solvation is performed in conjunction with 
+center
+ and 
+orient
+ directives.
+Here is an example where the ethanol molecule is declared quantum and solvated in a box of spce waters:
+Fixing atoms outside a certain distance from the QM region can also be accomplished using prepare module. These
+constraints will then be permanently embedded in the resulting restart file, which may be advantageous for certain types of
+QM/MM simulations. The actual format for the constraint directive to fix whole residues is
+or to fix on atom basis
+This example illustrates the use of permanent fix directives during preparation stage
+title "Prepare QM/MM calculation of ethanol"  
+start etl  
+[prepare](Prepare)  
+#--*name of the pdbfile*  
+   source [etl0.pdb](etl0.pdb)                      
+#--*generate new topology and sequence file*  
+   new_top new_seq                      
+#--*generate new restart file*  
+   new_rst                              
+#--*define quantum region (note the use of underscore)*  
+   modify atom 1:_C1  quantum           
+   modify atom 1:2H1  quantum           
+   modify atom 1:3H1  quantum            
+   modify atom 1:4H1  quantum           
+   update lists  
+   ignore  
+#--*save restart file*     
+   write etl_ref.rst  
+#--*generate pdb file*  
+   write [etl_ref.pdb](etl_ref.pdb)  
+end   
+task prepare
+title "Prepare QM/MM calculation of solvated ethanol"
+start etl
+prepare
+source etl0.pdb
+new_top new_seq
+new_rst
+#center and orient prior to solvation
+center
+orient
+#solvation in 1 nm by 2 nm by 3 nm box
+solvate box 1.0 2.0 3.0
+#the whole ethanol is declared quantum now
+modify segment 1 quantum
+update lists
+ignore
+write etl_ref.rst
+write etl_ref.pdb
+end
+task prepare
+fix segments beyond  <real radius>  <integer residue number>:<string atom name>
+fix atoms beyond  <real radius>  <integer residue number>:<string atom name> 13.4.4 
+QMMM Input File
+13.4.4.1 
+QM/MM Input file
+The input file for QM/MM calculations contains definition of molecular mechanics parameters, quantum mechanical
+parameters, and QM/MM interface parameters.
+QM/MM QM Parameters
+QM/MM MM Parameters
+QM/MM QM/MM Parameters
+13.4.4.2 
+QM_Parameters
+The parameters defining calculation of the QM region (including basis sets) must 
+be present in the traditional NWChem
+input format except for the geometry block.
+The geometrical information will be constructed automatically using information 
+contained in the restart file.
+The molecular mechanics parameters are given in the form of standard MD input block as used by the 
+MD module
+. At the
+basic level the molecular mechanics input block specifies the restart and topology file that were generated during QM/MM
+preparation stage
+. It also contains information relevant to the calculation of the classical region (e.g. cutoff distances,
+constraints, optimization and dynamics parameters, etc) in the system. In this input block one can also set fixed atom
+constraints on classical atoms. Continuing with our 
+prepare example for ethanol molecule
+ here is a simple input block that
+may be used for this system.
+The 
+noshake solute
+, shown in the above example is a recommended directive for QM/MM simulations that involve
+optimizations
+. Otherwise user has to ensure that the 
+optimization method
+ for classical solute atoms is a steepest descent
+13.4.4.4 
+QM/MM parameters
+The QM/MM interface parameters define the interaction between classical and quantum regions.
+start etl
+prepare
+source etl0.pdb
+new_top new_seq
+new_rst
+center
+orient
+#solvation in 40 A cubic box
+solvate cube 4.0
+modify segment 1 quantum
+#fix residues more than 20 A away from ethanol oxygen atom
+fix segments beyond 2.0 1:_O
+update lists
+ignore
+write etl_ref.rst
+write etl_ref.pdb
+end
+task prepare
+ md  
+# this specifies that etl_md.rst will be used as a restart file  
+#  and etl.top will be a topology file  
+  system etl_md  
+# if we ever wanted to fix C1 atom   
+  fix solute 1 _C1  
+  noshake solute  
+ end Detailed explanation of the subdirectives in the QM/MM input block is given below:
+13.4.4.4.
+0
+.
+1
+ 
+QM/MM eref
+This directive sets the relative zero of energy for the QM component of the system. The need for this directive arises from
+different definitions of zero energy for QM and MM methods. In QM methods the zero of energy for the system is typically
+vacuum. The zero of energy for the MM system is by definition of most parameterized force fields the separated atom
+energy. Therefore in many cases the energetics of the QM system will likely overshadow the MM component of the
+system. This imbalance can be corrected by suitably chosen value of 
+eref
+. In most cases 
+IT IS OK
+ to leave 
+eref
+ at its default
+value of zero.
+13.4.4.4.
+0
+.
+2
+ 
+QM/MM bqzone
+This directive defines the radius of the zone (in angstroms) around the quantum region where classical residues/segments
+will be allowed to interact with quantum region both electrostatically and through Van der Waals interactions. It should be
+noted that classical atoms interacting with quantum region via bonded interactions are always included (this is true even if
+bqzone is set to 0). In addition, even if one atom of a given charged group is in the bqzone (residues are typically treated as
+one charged group) then the whole group will be included.
+13.4.4.4.
+0
+.
+3
+ 
+QM/MM mm_charges
+This directive controls treatment of classical point (MM) charges that are interacting with QM region. For most QM/MM
+applications the use of directive will be not be necessary. Its absence would be simply mean that all MM charges within the
+cuttof distance ( as specified by cutoff ) as well those belonging to the charges groups directly bonded to QM region will be
+allowed to interact with QM region.
+Keyword 
+exclude
+ specifies the subset MM charges that will be specifically excluded from interacting with QM region.
+none
+ default value reverts to the original set of MM charges as 
+described above.
+all
+ excludes all MM charges from interacting with QM region ("gas 
+phase" calculation).
+linkbond
+ excludes MM charges that are connected to a quantum region 
+by at most two bonds,
+linkbond_H
+ similar to 
+linkbond
+ but excludes only hydrogen atoms.
+ qmmm  
+ [ [eref] <double precision default 0.0d0>]  
+ [ [bqzone] <double precision default 9.0d0>]  
+ [ [mm_charges] [exclude <(none||all||linkbond||linkbond_H) default none>]  
+          [ expand  <none||all||solute||solvent> default none]  
+          [ update  <integer default 0>]   
+ [ [link_atoms] <(hydrogen||halogen) default hydrogen>]  
+ [ [link_ecp]  <(auto||user) default auto>]  
+ [ [region]   < [region1]  [region2]  [region3] > ]  
+ [ [method]   [method1]  [method2]  [method3]  ]  
+ [ [maxiter]  [maxiter1] [maxiter2] [maxiter3] ]  
+ [ [ncycles]  < [number] default 1 > ]  
+ [ [density]  [espfit] [static] [dynamical] ]  
+ [ [xyz]  ]  
+ [ [convergence] <double precision default 1.0d-4>] ]  
+ [ [load] ]  
+ [ [nsamples] ]  
+ end
+eref <double precision default 0.0d0>
+bqzone <double precision default 9.0d0>
+mm_charges [exclude <(none||all||linkbond||linkbond_H) default none>]
+           [expand  <none||all||solute||solvent> default none]
+           [update  <integer default 0>] Keyword 
+expand
+ expands the set MM charges interacting with QM region beyond the limits imposed by cutoff value.
+none
+ default value reverts to the original set of MM charges
+solute
+ expands electrostatic interaction to all solute MM charges
+solvent
+ expands electrostatic interaction to all solvent MM charges
+all
+ expands electrostatic interaction to all MM charges
+Keyword 
+update
+ specifies how often list of MM charges will be updated in the course of the calculation. Default behavior is
+not to update.
+13.4.4.4.
+0
+.
+4
+ 
+QM/MM link_atoms
+This directive controls the treatment of bonds crossing the boundary between quantum and classical regions. The use of
+hydrogen keyword will trigger truncation of such bonds with hydrogen link atoms. The position of the hydrogen atom will be
+calculated from the coordinates of the quantum and classical atom of the truncated bond using the following expression
+\[R_{hlink} = (1-g)R_{quant} + g*R_{class}\]
+where 
+g
+ is the scale factor set at 0.709
+Setting 
+link_atoms
+ to 
+halogen
+ will result in the modification of the quantum atom of the truncated bond to the fluoride atom.
+This fluoride atom will typically carry an effective core potential (ECP) basis set as specified in 
+link_ecp
+ directive.
+13.4.4.4.
+0
+.
+5
+ 
+QM/MM link_ecp
+This directive specifies ECP basis set on fluoride link atoms. If set to 
+auto
+ the ECP basis set given by Zhang, Lee, Yang
+1
+ for
+6-31G
+ basis will be used. Strictly speaking, this implies the use of 6-31G
+ spherical basis as the main basis set. If other
+choices are desired then keyword user should be used and ECP basis set should be entered separatelly following the
+format given in section dealing with 
+ECPs
+ . The name tag for fluoride link atoms is 
+F_L
+.
+13.4.4.4.
+0
+.
+6
+ 
+QM/MM region
+This directive specifies active region(s) for optimization, dynamics, frequency, and free energy calculations. Up to three
+regions can be specified, those are limited to
+qm
+ - all quantum atoms
+qmlink
+ - quantum and link atoms
+mm_solute
+ - all classical solute atoms excluding link atoms
+solute
+ - all solute atoms including quantum
+solvent
+ all solvent atoms
+mm
+ all classical solute and solvent atoms, excluding link atoms
+all
+ all atoms
+Only the first region will be used in dynamics, frequency, and free energy calculations. In the geometry optimizations, all
+three regions will be optimized using the following optimization methods
+link_atoms <(hydrogen||halogen) default halogen>
+link_ecp <(auto||user)default auto> 
+region  < [region1]  [region2]  [region3] > where "bfgs" stands for Broyden–Fletcher–Goldfarb–Shanno (BFGS) optimization method, "lbfgs" limited memory version
+of quasi-newton, and "sd" simple steepest descent algorithm. These assignments can be potentially altered using 
+method
+directive.
+13.4.4.4.
+0
+.
+7
+ 
+QM/MM method
+This directive controls which optimization algorithm will be used for the regions as defined by
+[[qmmm_region|Qmmm_region]] directive. The allowed values are 
+bfgs
+ aka 
+DRIVER
+, 
+lbfgs
+ limited memory version of quasi-
+newton, and 
+sd
+ simple steepest descent algorithm. The use of this directive is not recommended in all but special cases. In
+particular, 
+bfgs
+ should be used for QM region if there are any constraints, 
+sd
+ method should always be used for classical
+solute and solvent atoms with shake constraints.
+13.4.4.4.
+0
+.
+8
+ 
+QM/MM maxiter
+This directive controls maximum number of iterations for the optimizations of regions as defined by by regions directive.
+User is strongly encouraged to set this directive explicitly as the default value shown below may not be appropriate in all
+the cases:
+13.4.4.4.
+0
+.
+9
+ 
+QM/MM ncycles
+This directive controls the number of optimization cycles where the defined regions will be optimized in succession, or
+number of sampling cycles in free energy calculations.
+13.4.4.4.
+0
+.
+10
+ 
+QM/MM density
+This directive controls the electrostatic representation of 
+fixed
+ QM region during optimization/dynamics of classical regions.
+    if (region.eq."qm") then  
+       method = "bfgs"  
+     else if (region.eq."qmlink") then  
+       method = "bfgs"  
+     else if (region.eq."mm_solute") then  
+       method = "lbfgs"  
+     else if (region.eq."mm") then  
+       method = "sd"  
+     else if (region.eq."solute") then  
+       method = "sd"  
+     else if (region.eq."solvent") then  
+       method = "sd"  
+     else if (region.eq."all") then  
+       method = "sd"  
+     end if
+  method   [method1]  [method2]  [method3]
+ maxiter  [maxiter1] [maxiter2] [maxiter3]
+      if(region.eq."qm") then
+        maxiter = 20
+      else if (region.eq."qmlink") then
+        maxiter = 20
+      else if (region.eq."mm") then
+        maxiter = 100
+      else if (region.eq."solvent") then
+        maxiter = 100
+      else
+        maxiter = 50
+      end if
+ ncycles  < [number] default 1 >
+density  [espfit] [static] [dynamical] default dynamical It has no effect when position of QM atoms are changing.
+dynamical
+ is an option where QM region is treated the standard 
+way, through the recalculation of the wavefunction
+calculated and 
+the resulting electron density is used to compute electrostatic 
+interactions with classical atoms. This
+option is the most expensive 
+one and becomes impractical for large scale optimizations.
+static
+ option will not recalculate QM wavefunction but will 
+still use full electron density in the computations of
+electrostatic 
+interactions.
+espfit
+ option will not recalculate QM wavefunction nor it will 
+use full electron density. Instead, a set of ESP charges for
+QM 
+region will be calculated and used to compute electrostatic 
+interactions with the MM regions. This option is the
+most efficient 
+and is strongly recommended for large systems.
+Note that both "static" and "espfit" options do require the presence of the movecs file. It is typically available as part as part
+of calculation process. Otherwise it can be generated by running qmmm energy calculation.
+In most calculations default value for 
+density
+ would 
+dynamical
+, with the exception of free energy calculations where
+default setting 
+espfit
+ will be used.
+13.4.4.4.
+0
+.
+11
+ 
+QM/MM load
+This directive instructs to load external file (located in permanent directory) containing esp charges for QM region. If
+filename is not provided it will be constructed from the name of the restart file by replacing ".rst" suffix with ".esp". Note that
+file containing esp charges is always generated whenever esp charge calculation is performed
+13.4.4.4.
+0
+.
+12
+ 
+QM/MM convergence
+This directive controls convergence of geometry optimization. The optimization is deemed converged if absolute difference
+in total energies between consecutive optimization cycles becomes less than 
+etol
+.
+13.4.4.4.
+0
+.
+13
+ 
+QM/MM nsamples
+This directive is required for 
+free energy calculations
+ and defines number of samples for averaging during single cycle.
+13.4.4.4.
+1
+ 
+References
+1
+. 
+Zhang, Y.; Lee, T.-S.; Yang, W. A Pseudobond Approach to Combining Quantum Mechanical and Molecular Mechanical Methods. 
+The Journal of
+Chemical Physics
+ 
+1999
+, 
+110
+ (1), 46–54. 
+https://doi.org/10.1063/1.478083
+. 
+13.4.5 
+QMMMM Single Point Calculations
+13.4.5.1 
+QMMM Single Point Calculations
+The task directive for QM/MM single point energy and gradient calculations is given by
+load < esp > [<filename>]
+convergence  < double precision etol default 1.0d-4>
+nsamples
+task qmmm <qmtheory> energy or
+where 
+qmtheory
+ refers to the level of QM theory (e.g. dft, tce, mp2, …).
+The ground state QM/MM energy calculations should be possible with all QM descriptions available in NWChem, however
+most of testing was performed using core QM methods (scf,dft,mp2,tce). The ground state QM/MM gradient calculations
+can be performed analytically with scf,dft,mp2 levels of theory and numerically for all the others.
+The relevant settings for QM/MM interface block for energy and gradient calculations include
+bqzone
+mm_charges
+link_atoms
+link_ecp
+.
+qmmm_example3
+The excited state QM/MM energy calculations can be performed with 
+TCE
+task qmmm tce energy
+or 
+TDDFT
+task qmmm tddft energy
+levels of theory. The excited state QM/MM gradient energy calculations can be performed only numerically.
+13.4.5.3 
+QM/MM properties
+A number of electronic structure properties can be calculated with QM/MM using capabilities provided by 
+property
+, 
+esp
+, and
+dplot modules
+.
+The example below illustrates dipole property QM/MM DFT/B3LYP calculation for quantum water molecule embedded into
+20 angstrom box of classical SPCE/E water molecules.
+The preparation stage that involves definition of the QM region and solvation is performed as part of the calculation. Note
+that water fragment file 
+wtr.frg
+ is required in this calculation. Prepare run will generate restart file (
+wtr_ref.rst
+) and topology
+file (
+wtr.top
+)
+In the QM/MM interface block the use of 
+bq_zone
+ value of 3.0 Angstrom is specified.
+task qmmm <qmtheory> gradient [numerical] Example QM/MM ESP Calculation:
+The example below illustrates dipole property QM/MM DFT/B3LYP calculation for quantum water molecule embedded into
+20 angstrom box of classical SPCE/E water molecules.
+The preparation stage that involves definition of the QM region and solvation is performed as part of the calculation. Note
+that water fragment file 
+wtr.frg
+ is required in this calculation. Prepare run will generate restart file (
+wtr_ref.rst
+) and topology
+file (
+wtr.top
+)
+In the QM/MM interface block the use of bq_zone value of 3.0 Angstrom is specified.
+  start wtr
+  permanent_dir ./perm  
+  scratch_dir ./data
+  prepare  
+  source wtr0.pdb  
+  new_top new_seq  
+  new_rst  
+  modify segment 1  quantum  
+  center  
+  orient  
+  solvate box 3.0  
+  update lists  
+  ignore  
+  write wtr_ref.rst  
+  write wtr_ref.pdb  
+  end
+  task prepare
+  md  
+  system wtr_ref  
+  end
+  basis  
+  * library "6-31G"  
+  end
+  dft  
+  xc b3lyp  
+  end
+  qmmm  
+  bq_zone 3.0  
+  end
+  property  
+   dipole  
+  end
+  task qmmm dft property 13.4.6 
+QMMM Potential Energy Surface Analysis
+QM/MM optimization is based on multi-region optimization methodology and is invoked by
+The overall algorithm involves alternating optimizations of QM and MM regions until convergence is achieved. This type of
+approach offers substantial savings compared to direct optimization of the entire system as a whole. In the simplest case of
+two regions (QM and MM) the algorithm is comprised of the following steps:
+1
+. 
+Optimization of the QM region keeping MM region fixed
+2
+. 
+Calculation of reduced electrostatic representation for the QM 
+region (e.g. ESP charges)
+3
+. 
+Optimization of MM region keeping QM region fixed
+4
+. 
+Repeat from Step 1 until converged
+The optimization process is controlled by the following keywords:
+region
+ - 
+required
+ 
+keyword which specifies which regions will optimized and in which 
+order.
+maxiter
+ - number of 
+optimizations steps for each region within single optimization pass
+ncycles
+ - number of 
+optimization cycles
+density
+ - electrostatic 
+representation of the QM region during MM optimization
+xyz
+ - output of xyz structure 
+files
+convergence
+ - 
+convergence criteria
+  start wtr
+  permanent_dir ./perm  
+  scratch_dir ./data
+  prepare  
+  source wtr0.pdb  
+  new_top new_seq  
+  new_rst  
+  modify segment 1  quantum  
+  center  
+  orient  
+  solvate box 3.0  
+  update lists  
+  ignore  
+  write wtr_ref.rst  
+  write wtr_ref.pdb  
+  end
+  task prepare
+  md  
+  system wtr_ref  
+  end
+  basis  
+  * library "6-31G"  
+  end
+  dft  
+  xc b3lyp  
+  end
+  qmmm  
+  bq_zone 3.0  
+  end
+  property  
+   dipole  
+  end
+  task qmmm dft property
+task qmmm <qmtheory> optimize Here is an example QM/MM block that provides practical illustration of all these keywords for a generic optimization case
+where QM molecule(s) are embedded in the solvent
+We have two regions in the system "qm" and "solvent" and we would like to optimize them both, thus the line
+Our QM region is presumably small and the maximum number of iterations (within a single optimization pass) is set to 10.
+The solvent region is typically much larger (thousands of atoms) and the maximum number of iterations is set to a much
+large number 3000:
+We would like to perform a total of 5 optimization passes, giving us a total of 5*10=50 optimization steps for QM region and
+5*3000=15000 optimization steps for solvent region:
+We are requesting QM region to be represented by point ESP charges during the solvent optimization:
+Finally we are requesting that the coordinates of the first region to be saved in the form of numbered xyz files:
+QM/MM transition states calculations for qm or qmlink regions can be performed using
+task qmmm
+saddle
+The overall algorithm is very similar to QM/MM optimization calculations, but instead of optimization, transition state search
+will be performed for 
+qm
+ or 
+qmlink
+ region for specified number of steps ( as defined by 
+maxiter
+ keyword). The remaining
+classical regions (if any) will be optimized following the standard optimization protocol, which may involve, if specified, ESP
+charge representation of the QM atoms (a recommended option).
+The success transition state calculations is strongly dependent on the initial guess. User may consider generation of the
+latter using QM/MM reaction pathway calculation. Another useful strategy involves precalculation of the Hessian. Following
+the example presented above one could have precalculated numerical Hessian for the qm region
+...
+qmmm
+region qm
+end
+freq
+animate
+end
+task qmmm dft freq
+and then used this information in the TS calculation
+...
+qmmm
+  [region] qm   solvent
+  [maxiter] 10   3000
+  [ncycles] 5
+  [density] espfit
+  [xyz] foo
+end
+ [region] qm   solvent
+[maxiter] 10   3000
+ [ncycles] 5
+[density] espfit
+[xyz] foo driver
+clear
+inhess 2  #read in hessian from perm directory
+moddir 1  #follow 1st mode
+end
+qmmm
+bqzone 15.0
+region  qm solvent
+xyz  ts
+maxiter 10 1000
+ncycles 2
+density espfit
+end
+task qmmm dft saddle
+13.4.6.3 
+QM/MM hessian and frequency calculations
+13.4.6.3.
+0
+.
+1
+ 
+Setup
+QM/MM hessian and frequency calculations are invoked though the following task directives
+or
+Only numerical implementation are supported at this point and will be used even in the absence of "numerical" keyword.
+Other than standard QM/MM directives no additional QM/MM input is required for default hessian/frequency for all the QM
+atoms. Using 
+region
+ keyword(first region only), hessian/frequency calculations can also be performed for classical solute
+atoms. If only classical atoms are involved 
+density
+ keyword can be utilized to enable frozen density or ESP charge
+representation for fixed QM region. Hessian/frequency calculations for solvent are not possible.
+13.4.6.3.
+0
+.
+2
+ 
+Examples
+Example of QM/MM frequency calculation for classical region
+This example illustrates QM/MM frequency calculation for Ala-Ser-Ala system. In this case instead of default QM region
+(see prepare block), the calculation is performed on classical solute part of the system as defined by region directive in
+QM/MM block. The electrostatic field from fixed QM region is represented by point ESP charges (see density directive).
+These ESP charges are calculated from wavefunction generated as a result of energy calculation.
+task qmmm `<qmtheory>` hessian
+task qmmm `<qmtheory>` freq Experimental implementation of Nudged Elastic Band (NEB) method is available for reaction pathway calculations with
+QM/MM. The actual pathway/beads construction involves (by default) only the region containing QM and link atoms
+(referred to as qmlink). The rest of the system plays a passive role and is quenched/optimized each time a gradient on a
+bead is calculated.
+The initial guess for NEB pathway can be generated using geometries of the starting and ending point provided by the .rst
+files. These are set in the input using the following directive
+where xxx_start.rst xxx_end.rst refers to starting and ending point of the NEB pathway. Both rst files have to be present at
+the 
+top level
+ directory. It should be noted that only coordinates of qmlink region will be used from these two files. The initial
+coordinates for the rest of the system come from reference rst file provided in the MD block
+Typically this reference restart file ( xxx_ref.rst ) would be a copy of a restart file for starting or ending point.
+The number of beads in the NEB pathway, initial optimization step size, and number of optimization steps are set using the
+following directives
+ memory total 800 Mb  
+ start asa  
+ permanent_dir ./perm  
+ scratch_dir ./data  
+ #this will generate topology file ([asa.top](asa.top)), restart ([asa_ref.rst](asa_ref.rst)), and pdb ([asa_ref.pdb](asa_ref.pdb)) files.  
+ prepare  
+   source [asa.pdb](asa.pdb)  
+   new_top new_seq  
+   new_rst  
+   modify atom 2:_CB quantum  
+   modify atom 2:2HB quantum  
+   modify atom 2:3HB quantum  
+   modify atom 2:_OG quantum  
+   modify atom 2:_HG quantum  
+   center  
+   orient  
+   solvate  
+   update lists  
+   ignore  
+   write [asa_ref.rst](asa_ref.rst)  
+   write [asa_ref.pdb](asa_ref.pdb)   # Write out PDB file to check structure  
+ end  
+ task prepare
+ md  
+   system asa_ref  
+ end  
+ basis "ao basis"  
+   * library "6-31G*"  
+ end  
+ dft  
+  print low  
+  iterations 500  
+ end  
+ qmmm  
+ region mm_solute  
+ density espfit  
+ end  
+ # run energy calculation to generate wavefunction file for subsequent ESP charge generation  
+ task qmmm dft energy  
+ task qmmm dft freq
+set qmmm:neb_path_limits xxx_start.rst xxx_end.rst
+md
+  system xxx_ref
+  ...
+end The calculation starts by constructing initial guess for the pathway (consisting of a sequence of numbered rst files) by
+combining linearly interpolated coordinates of the qmlink regions from starting and ending rst files and classical coordinates
+from the reference file. Next phase involves calculation of the gradients on qmlink region atoms for each of the beads. This
+involves two steps. First classical region around the qmlink region is relaxed following standard QM/MM optimization
+protocol. Aside the fact that optimization region cannot be qmlink, all other optimization directives apply and should be set
+in the QM/MM block following standard convention, e.g.
+or
+In both examples presented above we utilized espfit option for density to speed up calculations. 
+Note that optimization
+region cannot be qmlink!
+After the optimization has been performed the gradient on qmlink region is calculated. The procedure is repeated for all the
+beads. After that the bead coordinates will be advanced following NEB protocol and the entire cycle will be repeated again.
+In addition to interpolated initial guess, one can also specify custom initial path represented by numbered sequence of
+restart files stored in the 
+perm
+ directory. This behavior will be triggered automatically in the absence of
+qmmm:neb_path_limits
+ directive. The default naming of the custom initial path is of the form 
+XXX.rst, where 
+is the prefix of
+reference restart file as defined in MD block and XXX is the 3-digit integer counter with zero blanks (001,002, …, 010, 011,
+..). If needed the prefix for the custom initial path can be adjusted using
+set qmmm:neb_path
+The progress of NEB calculation can be monitored by
+Experience shows that the value of gnorm less or around O(10^-2) indicates converged pathway. The current pathway in
+the XYZ format can be found in the output file (look for XYZ FILE string) and viewed as animation in some of the molecular
+viewers (e.g. 
+JMOL
+)
+The entire example directory including the output file can be downloaded from 
+here
+.
+Dynamical simulations within QM/MM framework can be initiated using
+directive. User has to specify the 
+region
+ for which simulation will performed. If dynamics is performed only for the classical
+parts of the system (QM region is fixed) then ESP point charge representation (
+density espfit
+) is recommended to speed up
+simulations. If this option is utilized then wavefunction file (
+.movecs) has to be available and present in the permanent
+directory (this can be most easily achieved by running energy calculation prior to dynamics).
+13.4.8 
+QMMM Free Energy
+set neb:nbeads 10
+set neb:stepsize 10
+set neb:steps 20
+qmmm
+ region  solvent
+ maxiter 1000
+ ncycles 1
+ density espfit
+end
+qmmm
+ region  mm_solute solvent
+ maxiter 300          1000
+ ncycles 3
+ density espfit
+end
+grep gnorm <output file>
+task qmmm  <qmtheory>  dynamics 13.4.8.
+1
+ 
+Overview
+Free energy capabilities of QM/MM module are at this point restricted to calculations of free energy differences between
+two fixed configurations of the QM region.
+Users must be warned that this the least automated QM/MM functionality containing several calculation stages.
+Solid understanding of free energy calculations is required to achieve a meaningful calculation.
+Description of the implemented methodology can be found in 
+the following paper
+. In this approach the free energy
+difference between the two configurations of the QM region (e.g. A and B):
+\(\Delta W_{A\to B}=-1/\beta \ln \langle (e^{-\beta (E_B-E_A)}) 
+\rangle_{A}\)
+is approximated as a sum of internal QM contribution and solvation:
+\(\Delta W_{A\to B}\approx\Delta W_{A\to B}^{int}+\Delta W_{A\to B}^{solv}\)
+It is presumed that structures of A and B configurations are available as restart files sharing 
+common
+ topology file.
+13.4.8.
+2
+ 
+Internal contribution
+The internal QM contribution is given by the differences in the internal QM energies evaluated at the 
+optimized
+ MM
+environment:
+\(\Delta W_{A\to B}^{int}=E_{B}^{int}-E_{A}^{int}\)
+The internal QM energy is nothing more but a gas phase expression total energy but evaluated with the wavefunction
+obtained in the presence of the environment. To calculate internal QM contribution to free energy difference one has to
+1
+. 
+Optimize MM environment for each configuration
+2
+. 
+Perform total energy calculation for each configuration
+3
+. 
+Calculate internal energy difference
+Note that internal QM energy can be found in the QM/MM output file under "quantum energy internal" name.
+13.4.8.
+3
+ 
+Solvation contribution
+The solvation contribution is evaluated by averaging energy difference between A and B configurations of the QM system
+represented by a set of ESP charges.
+\(\Delta W_{A\to B}^{solv}=-1/\beta \ln \langle (e^{-\beta (E_B^{ESP}-E_A^{ESP})}) 
+\rangle_{A}\)
+where 
+\(E_A^{ESP}\)
+ is the total energy of the system where QM region is replaced by a set of fixed point ESP charges.
+In majority of cases the A and B configuration are "too far apart" and one step free energy calculation as shown above will
+not lead to meaningful results. One solution is to introduce intermediate points that bridge A and B configurations by linear
+interpolation
+\(R_{\lambda_i} = (1-\lambda_i)R_A + \lambda_i R_B\)
+\(Q_{\lambda_i} = (1-\lambda_i)Q_A + \lambda_i Q_B\)
+where
+\(\lambda_i = \frac {i}{n}, \quad i=0,..,n\,\!\)
+The solvation free energy difference can be then written as sum of differences for the subintervals 
+\(\,\! [\lambda_i\to\lambda_{i+1}]\)
+ 
+:
+\( \Delta W_{A\to B}^{\rm esp} = \sum_{i=0}^{n}\Delta W_{\lambda_i\to\lambda_{i+1}}^{\rm esp} \)
+To expedite the calculation it is convenient to use a double wide sampling strategy where the free energy differences for the
+intervals 
+\(\,\! [\lambda_{i-1}\to\lambda_{i}]\)
+ 
+and 
+\(\,\! [\lambda_i\to\lambda_{i+1}]\)
+ 
+are calculated simultaneously by
+sampling around 
+\(\,\!\lambda_{i}\)
+ 
+point. In the simplest case where we use two subintervals (n=2)
+\(\Delta W_{A\to B}^{solv} \equiv \Delta W_{0\to 1}= \Delta W_{0\to 0.5}^{solv}+\Delta W_{0.5\to 1}^{solv}\)
+or
+\(\Delta W_{A\to B}^{\rm solv} = -\Delta W_{0.5\to 0}^{\rm solv}+\Delta W_{0.5 \to 1}^{\rm solv}\)
+The following items are necessary:
+1
+. 
+Restart file corresponding to either A or B configuration of the QM 
+region (sharing the same topology file)
+2
+. 
+ESP charges for QM region in .esp format for both configurations
+3
+. 
+Coordinates for QM regions in .xyzi format for both configurations
+Both .esp and .xyzi files would be typically obtained during the calculation of internal free energy (see above). ESP charges
+would be generated in the perm directory during optimization of the MM region. The xyzi is basically xyz structure file with
+an extra column that allows to map coordinates of QM atoms to the overall system. The xyzi file can also be obtained as
+part of calculation of internal free energy by inserting
+anywhere in the input file during energy calculation. 
+Both xyzi and esp files should be placed into the perm directory!!!
+In the input file the restart file is specified in the MD block following the standard notation
+while coordinates of QM region (xyzi files) and ESP charges (esp files) are set using the following directives (at the top
+level outside of any input blocks)
+The current interpolation interval 
+\(\,\! [\lambda_i\to\lambda_{i+1}]\)
+for which free energy difference is calculated is defined as
+To enable double wide sampling use the following directive
+If set, the above directive will perform both 
+\(\,\! [\lambda_i\to\lambda_{i+1}]\)
+ 
+and 
+\(\,\! [\lambda_i\to\lambda_{i-1}]\)
+calculations, where
+\(\,\! \lambda_{i-1}=\lambda_i - (\lambda_{i+1}-\lambda_i)\)
+The calculation proceeds in cycles, each cycle consisting of two phases. First phase is generation of classical MD trajectory
+around 
+\(\,\! \lambda_i\)
+ point. Second phase is processing of the generated trajectory to calculate averages of relevant
+energy differences. The number of MD steps in the first phase is controlled by the QM/MM directive
+set qmmm:region_print .true.
+md
+ system < name of rst file without extension>
+ ...
+end
+set qmmm:fep_geom xxx_A.xyzi xxx_B.xyzi
+set qmmm:fep_esp  xxx_A.esp xxx_B.esp
+set qmmm:fep_lambda lambda_i lambda_i+1
+set qmmm:fep_deriv .true. nsamples
+This is a 
+required
+ directive for QM/MM free energy calculations.
+Number of overall cycles is defined by the QM/MM directive
+ncycles
+In most cases explicit definition of QM/MM 
+density
+ and 
+region
+ should not be required. The QM/MM 
+density
+ will
+automatically default to 
+espfit
+ and 
+region
+ to 
+mm
+.
+Prior to data collection for free energy calculations user may want to prequilibrate the system, which can be achieved by
+equil
+ keyword in the MD block:
+Other parameters (e.g. temperature and pressure can be also set in the MD block.
+The actual QM/MM solvation free energy calculation is invoked through the following task directive
+The current value of solvation free energy differences may be tracked though
+The first number is a forward (
+\(\,\! [\lambda_i\to\lambda_{i+1}]\)
+) free energy difference and second number is backward (
+\
+(\,\! [\lambda_i\to\lambda_{i-1}]\)
+) free energy difference, both in kcal/mol. The same numbers can also be found in the 4th
+and 6th columns of 
+.thm file but this time in 
+atomic units
+.
+The same 
+.thm file can also be used to continue from the prior calculation. This will require the presence of
+directive, the 
+.thm file, and the appropriate rst file.
+Here is an 
+example of the input file for QM/MM solvation free energy calculation
+.
+13.4.9 
+QMMM Apppendix
+13.4.9.
+1
+ 
+Preparing QM/MM calculations from scratch
+Setting up QM/MM calculations for a new system for which classical force analog is not readily available would typically
+involve the following steps
+1
+. 
+Generation of the proper PDB file
+2
+. 
+Construction the fragment file(s)
+3
+. 
+Creation of parameter file if new atom types were defined
+13.4.9.
+2
+ 
+Generation of the proper PDB file
+It is often the case that the input structure for the system comes in the form of the xyz file. Let us take a concrete example
+of N3O3- molecule, which we would like to embed in classical solvent and perform QM/MM calculations. Here is the
+structure of just N3O3- in xyz format (generated in course of gas phase optimizations)
+ md
+  ... 
+  equil <number of equilibration steps>
+ end
+task qmmm fep
+grep free <name of the output file>
+ set qmmm:extend .true. We cannot use this file as is in the QM/MM simulations, and it has to be converted into PDB format. This is needed even if
+we plan to treat this molecule quantum mechanically. There is more than way to do it. For example, we could use Babel
+https://openbabel.org
+, which will generate the PDB file as
+which after stripping nonessential information becomes
+This is not yet the format we want. So what we need to do is
+1
+. 
+replace HETATM field by ATOM preserving the format (column locations) of the rest of the file
+:
+I would typically use sed for this purpose
+where 
+n3o3-bad.pdb
+ is the original pdb file from Babel and 
+n3o3-step1.pdb
+ is the converted one as shown below
+1
+. 
+define residues (aka molecules):
+In our case Babel did this for us and the entire system is defined as one residue with the name LIG (see columns 4 and 5).
+We can leave it as, but I will redefine residue name to NN3 (keep it to 3 characters !). Again running 
+sed 's/LIG/NN3/' n3o3-step1.pdb
+> n3o3-step2.pdb
+   6      
+  geometry   
+  N                     1.31562667     0.93574165    -0.42424728  
+  O                     1.56161766     0.18015298    -1.36827899  
+  N                     2.36373381     1.02559495     0.48834956  
+  O                     3.47240000     0.42852552     0.42137570  
+  N                     1.95804013     1.90608355     1.48799418  
+  O                     2.81393172     2.06788134     2.36142683
+COMPND    geometry   
+AUTHOR    GENERATED BY OPEN BABEL 2.3.0  
+HETATM    1  O   LIG     1       1.562   0.180  -1.368  1.00  0.00           O    
+HETATM    2  N   LIG     1       1.316   0.936  -0.424  1.00  0.00           N    
+HETATM    3  N   LIG     1       2.364   1.026   0.488  1.00  0.00           N    
+HETATM    4  O   LIG     1       3.472   0.429   0.421  1.00  0.00           O    
+HETATM    5  N   LIG     1       1.958   1.906   1.488  1.00  0.00           N    
+HETATM    6  O   LIG     1       2.814   2.068   2.361  1.00  0.00           O    
+CONECT    1    2                                                        
+CONECT    2    1    3                                                   
+CONECT    3    2    4    5                                              
+CONECT    4    3                                                        
+CONECT    5    3    6                                                   
+CONECT    6    5                                                        
+MASTER        0    0    0    0    0    0    0    0    6    0    6    0  
+END
+ HETATM    1  O   LIG     1       1.562   0.180  -1.368  1.00  0.00           O    
+ HETATM    2  N   LIG     1       1.316   0.936  -0.424  1.00  0.00           N    
+ HETATM    3  N   LIG     1       2.364   1.026   0.488  1.00  0.00           N    
+ HETATM    4  O   LIG     1       3.472   0.429   0.421  1.00  0.00           O    
+ HETATM    5  N   LIG     1       1.958   1.906   1.488  1.00  0.00           N    
+ HETATM    6  O   LIG     1       2.814   2.068   2.361  1.00  0.00           O    
+ END
+ sed 's/HETATM/ATOM  /' n3o3-bad.pdb > n3o3-step1.pdb
+ATOM      1  O   LIG     1       1.562   0.180  -1.368  1.00  0.00           O  
+ATOM      2  N   LIG     1       1.316   0.936  -0.424  1.00  0.00           N  
+ATOM      3  N   LIG     1       2.364   1.026   0.488  1.00  0.00           N  
+ATOM      4  O   LIG     1       3.472   0.429   0.421  1.00  0.00           O  
+ATOM      5  N   LIG     1       1.958   1.906   1.488  1.00  0.00           N  
+ATOM      6  O   LIG     1       2.814   2.068   2.361  1.00  0.00           O  
+END
+ATOM      1  O   NN3     1       1.562   0.180  -1.368  1.00  0.00           O  
+ATOM      2  N   NN3     1       1.316   0.936  -0.424  1.00  0.00           N  
+ATOM      3  N   NN3     1       2.364   1.026   0.488  1.00  0.00           N  
+ATOM      4  O   NN3     1       3.472   0.429   0.421  1.00  0.00           O  
+ATOM      5  N   NN3     1       1.958   1.906   1.488  1.00  0.00           N  
+ATOM      6  O   NN3     1       2.814   2.068   2.361  1.00  0.00           O  
+END You could have also broken it up into several residues as
+where I defined two residues NN2 and NN1 (note changes in columns 4 and 5). To keep things simple I will stay with one
+residue version for now
+1
+. 
+make unique atom names
+:
+This has to do with the requirement that all atoms names have to be unique within a given residue. So if we take our one
+residue version it could be modified as (notice column 3)
+Now we have a PDB file for our system in "proper" PDB format. Before we move to next step, I should mention that the last
+3 columns are not necessary and could have been removed at any point leading to 
+n3o3.pdb
+13.4.9.
+3
+ 
+Generation of new fragment files
+While setting up QM/MM calculations is often necessary to generate new fragment files for the molecules that are not
+available as part of standard set. The IMPORTANT assumption here is that these new molecules/residues will be part of
+OQM region, and as a result only minimum information needs to be provided to include them in QM/MM calculations.
+First we must ensure that we have a proper PDB format for our as discussed in the 
+Generation of the proper PDB file
+section. As a concrete example we will start with N3O3 example that was discussed there as well
+We have residue named NN3 and therefore looking to construct fragment file 
+NN3.frg
+. The best way to do it is to run a simple
+prepare job
+ATOM      1  O   NN2     1       1.562   0.180  -1.368  1.00  0.00           O  
+ATOM      2  N   NN2     1       1.316   0.936  -0.424  1.00  0.00           N  
+ATOM      3  N   NN2     1       2.364   1.026   0.488  1.00  0.00           N  
+ATOM      4  O   NN2     1       3.472   0.429   0.421  1.00  0.00           O  
+ATOM      5  N   NN1     2       1.958   1.906   1.488  1.00  0.00           N  
+ATOM      6  O   NN1     2       2.814   2.068   2.361  1.00  0.00           O  
+END
+ATOM      1  O1  NN3     1       1.562   0.180  -1.368  1.00  0.00           O  
+ATOM      2  N1  NN3     1       1.316   0.936  -0.424  1.00  0.00           N  
+ATOM      3  N2  NN3     1       2.364   1.026   0.488  1.00  0.00           N  
+ATOM      4  O2  NN3     1       3.472   0.429   0.421  1.00  0.00           O  
+ATOM      5  N3  NN3     2       1.958   1.906   1.488  1.00  0.00           N  
+ATOM      6  O3  NN3     2       2.814   2.068   2.361  1.00  0.00           O  
+END
+ATOM      1  O1  NN3     1       1.562   0.180  -1.368      
+ATOM      2  N1  NN3     1       1.316   0.936  -0.424      
+ATOM      3  N2  NN3     1       2.364   1.026   0.488      
+ATOM      4  O2  NN3     1       3.472   0.429   0.421      
+ATOM      5  N3  NN3     2       1.958   1.906   1.488      
+ATOM      6  O3  NN3     2       2.814   2.068   2.361      
+END
+ATOM      1  O1  NN3     1       1.562   0.180  -1.368      
+ATOM      2  N1  NN3     1       1.316   0.936  -0.424      
+ATOM      3  N2  NN3     1       2.364   1.026   0.488      
+ATOM      4  O2  NN3     1       3.472   0.429   0.421      
+ATOM      5  N3  NN3     1       1.958   1.906   1.488      
+ATOM      6  O3  NN3     1       2.814   2.068   2.361      
+END This prepare job will necessarily fail because NN3.frg is not yet available:
+As part of this process skeleton fragment file (
+NN3.frg_TMP
+) will be generated that can be modified into the final correct form.
+Let us take a look at 
+NN3.frg_TMP
+The main problem with this fragment file is that there are no atom types to be found in column 12. What atom type does is
+to identify what classical parameters should be assigned to it. Since, as mentioned in the beginning, we are planing to treat
+this residue/molecule as part of QM region, the only classical information needed is VDW parameters. We will assume that
+all nitrogens atoms in our molecule can use the same set of parameters, and the same for oxygens. Therefore we will
+define two atom types NX and OX
+and rename resulting file as 
+NN3.frg
+. Please note that the overall format of the fragment file was preserved and atom types
+were entered starting at column 12. Rerunning the same prepare job moves as a bit further this time
+start n3o3  
+prepare  
+source n3o3.pdb  
+new_top new_seq  
+new_rst  
+modify segment 1 quantum   
+update lists  
+ignore  
+write n3o3_ref.pdb  
+write n3o3_ref.rst  
+end  
+task prepare
+Created fragment                      ./NN3.frg_TMP  
+Unresolved atom types in fragment NN3  
+ **********  
+ *   0: pre_mkfrg failed 9999  
+ **********
+# This is an automatically generated fragment file  
+# Atom types and connectivity were derived from coordinates  
+# Atomic partial charges are crude estimates  
+# 00/00/00  00:00:00    
+#  
+$NN3  
+    6    1    1    0  
+NN3  
+    1 O1             0    0    0    1    1    0.000000    0.000000  
+    2 N1             0    0    0    1    1    0.000000    0.000000  
+    3 N2             0    0    0    1    1    0.000000    0.000000  
+    4 O2             0    0    0    1    1    0.000000    0.000000  
+    5 N3             0    0    0    1    1    0.000000    0.000000  
+    6 O3             0    0    0    1    1    0.000000    0.000000  
+    1    2  
+    2    3  
+    3    4  
+    3    5  
+    5    6
+$NN3  
+    6    1    1    0  
+NN3  
+    1 O1   OX        0    0    0    1    1    0.000000    0.000000  
+    2 N1   NX        0    0    0    1    1    0.000000    0.000000  
+    3 N2   NX        0    0    0    1    1    0.000000    0.000000  
+    4 O2   OX        0    0    0    1    1    0.000000    0.000000  
+    5 N3   NX        0    0    0    1    1    0.000000    0.000000  
+    6 O3   OX        0    0    0    1    1    0.000000    0.000000  
+    1    2  
+    2    3  
+    3    4  
+    3    5  
+    5    6 complaining now that atom types OX and NX are not defined. This brings us to the next step of defining new parameter file
+for our calculation.
+13.4.9.
+4
+ 
+Generation of new parameter files
+Continuing with our fragment construction in 
+Generation of new fragment files
+ section, we now need to define VDW
+parameters for our new atom types NX and OX. The best way to do it is to create 
+amber.par
+ file in the directory where you
+plan to rerun final prepare
+The format of this file is documented in 
+Format of NWChem parameter file
+. How to actually choose the appropriate values
+for VDW parameters is a whole new subject, which I do not think anybody yet fully addressed. The practical strategy is to
+copy from known atom types, which are chemically similar to the ones in your system. In the case above I copied
+parameters from standard AMBER atom types N and OW.
+13.4.9.
+5
+ 
+Format of NWChem parameter file
+The format of NWChem parameter is illustrated on the figure below and also available as 
+pdf file
+.
+ modify segment     1 set 0 quantum  
+ Parameter file                        /Users/marat/opt/codes/nwchem-new/src/data/amber_s/amber.par  
+ Parameter file                        /Users/marat/opt/codes/nwchem-new/src/data/amber_q/amber.par  
+ Parameter file                        /Users/marat/opt/codes/nwchem-new/src/data/amber_x/amber.par  
+ Parameter file                        /Users/marat/opt/codes/nwchem-new/src/data/amber_u/amber.par
+ Undetermined force field parameters
+ Parameters could not be found for atom type     OX   Q  
+ Parameters could not be found for atom type     NX   Q
+ **********  
+ *   0: pre_check failed 9999  
+ **********
+Electrostatic 1-4 scaling factor     0.833333  
+Relative dielectric constant     1.000000  
+Parameters epsilon R*  
+#  
+Atoms  
+NX     14.01000 7.11280E-01 1.82400E-01                            1 1111111111  
+      Q       7 3.55640E-01 1.82400E-01  
+OX     16.00000 6.35968E-01 1.76830E-01                            1 1111111111  
+      Q       8 3.17984E-01 1.76830E-01  
+End 13.4.9.
+6
+ 
+Conversion of standard AMBER program parameter files
+Fortran code that performs conversion from AMBER program parameter file format to NWChem can be found 
+here
+. It works
+by parsing out free format AMBER style parameter file contained in 
+amber.in
+to 
+fixed format
+ NWChem style amber.par file
+MASS  
+C  12.01  
+CA    12.01  
+BOND  
+#this is a comment  
+C -CA  469.0    1.409           this is also a comment  
+C  -   CB     447.0      1.419    
+ANGLE  
+C -CA-CA    63.0      120.00 another comment  
+C -CB-NB    70.0      130.00  
+DIHEDRAL  
+X -C -CA-X    4   14.50        180.0             2.         intrpol.bsd.on C6H6  
+ X - C -  CB -X    4   12.00        180.0             2.         intrpol.bsd.on C6H6  
+IMPROPER  
+X -CT-N -CT         1.0          180.          2.           JCC,7,(1986),230  
+CT -O  - C -OH         10.5         180.           2.  
+NONBOND  
+ CA 1.9080  0.0860  
+C 1.9080  0.0860 13.5 
+Point charges
+13.5.
+1
+ 
+Overview
+The Bq module provides a way to perform QM calculations in the presence of point charges or Bq's, 
+(as typically referred to
+in quantum chemistry community). 
+Using Bq module versus 
+geometry block is a recommended way to include point
+charges in your calculations, in particular if number of charges are big.
+13.5.
+2
+ 
+BQ Input Parameters
+The format for including external point charges using the Bq module is shown below, supporting both explicit charge
+definition in the body of the block and/or loading from external files.
+13.5.
+2
+.
+1
+ 
+BQ: UNITS keyword
+units
+ - specify the global units for the coordinates of point charges. Allowed values are au, bohr, nanometers, nm, pm,
+picometers, angstrom (note that only first 3 characters are important). The default units are angstrom
+13.5.
+2
+.
+2
+ 
+BQ: NAMESPACE keyword
+namespace
+ - an optional name that can be used to distinguish between potentially several point charge sets. The
+default value for namespace is "default", and only the set that has this namespace value will be actually used in the
+calculation. If for example different namespace is used, this point charge set will be processed into the run time
+database but not actually used unless the following set directive is encountered
+Here is an example that illustrates this
+#Generated amber.par file  
+Electrostatic 1-4 scaling factor     0.833333  
+Relative dielectric constant     1.000000  
+Parameters epsilon R*  
+#  
+Atoms  
+CA     12.01000 3.59824E-01 1.90800E-01                            1 1111111111  
+              6 1.79912E-01 1.90800E-01  
+C      12.01000 3.59824E-01 1.90800E-01                            1 1111111111  
+              6 1.79912E-01 1.90800E-01  
+Bonds  
+C    -CA      0.14090 3.92459E+05  
+C    -CB      0.14190 3.74050E+05  
+Angles  
+C    -CA   -CA      2.09440 5.27184E+02  
+C    -CB   -NB      2.26893 5.85760E+02  
+Proper dihedrals  
+     -C    -CA   -        3.14159 1.51670E+01    2  
+     -C    -CB   -        3.14159 1.25520E+01    2  
+Improper dihedrals  
+     -CT   -N    -CT      3.14159 4.18400E+00    2  
+CT   -O    -C    -OH      3.14159 4.39320E+01    2  
+End
+ bq [units au|nm|pm|ang...] [namespace]  
+   [clear] 
+   [force|noforce]  
+   [load <file> [charges <chargefile>] [format ix iy iz iq] [units au|nm|pm|ang|...] [ scale <factor> ]]  
+   x  y  z  q
+   ...  
+end  
+set bq <namespace> 13.5.
+2
+.
+3
+ 
+BQ: CLEAR keyword
+clear
+ - this directive erases all the previously specified point charges in a given namespace, prior to new setup (if any).
+13.5.
+2
+.
+4
+ 
+BQ: FORCE|NOFORCE keyword
+force
+ 
+| 
+noforce
+ this directive triggers|disables calculation of forces on Bq charges. Default value is 
+noforce
+, which
+disables force calculation. The forces will be written to 
+if provided or to 
+.bqforce.dat file. The format of the file is
+13.5.
+2
+.
+5
+ 
+BQ: LOAD keyword
+load
+ 
+[charges 
+] [format ix iy iz iq] [units au|nm|pm|
+ang
+|…] [ scale 
+] - this directive allows to load point charges from
+external file(s). You can load charges and their coordinates from a single file, or from separate files. The files do not
+have to follow any specific format, but blank lines and comments (starting with #) will be ignored. The actual
+specification of how the coordinates/charges are laid out in in the file is given by format keyword. Multiple load
+directives are a supported.
+- the name of the file where Bq coordinates and charges are stored. 
+charges 
+- this optional keyword allows to load charges (NOT the coordinates) from a separate 
+. In this case, only
+coordinates would be loaded from
+13.5.
+2
+.
+5
+.
+1
+ 
+BQ: LOAD/FORMAT keyword
+** format ix iy iz iq - this optional keyword allows to set the fields (separated by blanks) where x,y,z coordinates and
+respective charge values are to be found. If a specified field doe nor exist or contains no numerical value, the processing
+will skip to the next line. The default value for format is '''2 3 4 5''', which will work for the following example (note that the
+second line will not be processed here)
+13.5.
+2
+.
+5
+.
+2
+ 
+BQ: LOAD/UNITS keyword
+** units au|nm|pm|ang|… - this optional keyword sets the local coordinate units valid only for this particular load directive.
+Otherwise global unit definition will apply (see above)
+13.5.
+2
+.
+5
+.
+3
+ 
+BQ: LOAD/SCALE keyword
+** scale 
+- this optional keyword allows to scale loaded charge values by some factor
+x y z q 
+- explicit definition of coordinates and charge values of point charges. These can be mixed in with load directive
+at will.
+ ...  
+ #store point charge in namespace "foo"  
+ bq "foo"
+  ...  
+ end  
+ #perform calculation without actually loading charges in foo  
+ task dft energy  
+ #activate charges in foo  
+ set bq foo  
+ # now DFT calculation will performed in the presence of charges in foo  
+ task dft energy
+ #comment line
+ fx fy fz
+ ...
+ #this is a comment
+ coordinates are in fields 2,3,4 and charge is field 5
+ O  2.384   1.738   1.380  -0.9
+ H  2.448   1.608   0.416   0.45
+ H  1.560   1.268   1.608   0.45 13.5.
+3
+ 
+How to increasing the limit on the number of bq 
+charges
+There is an internal limit of 25000 bq charges. To increase this use the following set directive in the input file
+1-D RISM
+  start w1  
+  BASIS "ao basis" PRINT  
+  * library "3-21G"  
+  END  
+  dft  
+   mult 1  
+   XC b3lyp  
+   iterations 5000  
+  end  
+  geometry nocenter noautosym units angstrom noautoz print  
+  O          2.045   1.011  -1.505  
+  H1         1.912   0.062  -1.314  
+  H2         1.119   1.318  -1.544  
+  end  
+  #example of explicit Bq input
+  bq  
+  2.384   1.738   1.380  -0.9  
+  2.448   1.608   0.416   0.45  
+  1.560   1.268   1.608   0.45  
+  end  
+  task dft energy  
+  #example of implicit Bq input using load directive  
+  bq  
+  load bq.xyz format 1 2 3 4  
+  end  
+  task dft energy  
+  #example of loading coordinates and charges separately  
+  bq  
+  load   bq.xyz charges bq.xyz format 1 2 3 4  
+  end  
+  task dft energy  
+  #example of loading Bq's with default format (1 2 3 4) and scaling charges (to zero)  
+  bq  
+  load bq.xyz scale 0.0  
+  end  
+  task dft energy  
+  #example of mixed Bq input  
+  bq  
+  load bqO.xyz format 2 3 4 6  
+  2.448   1.608   0.416   0.45  
+  1.560   1.268   1.608   0.45  
+  end  
+  task dft energy  
+  #example of erasing Bq's  
+  bq  
+  clear  
+  end  
+  task dft energy  
+  #example of storing Bq's in custom namespace (not activated)  
+  bq marat  
+  load bq.xyz format 1 2 3 4  
+  end  
+  task dft energy  
+  #example of activating Bq's stored in custom namespace  
+  set bq marat  
+  task dft energy  
+set bq:max_nbq 30000 Overview
+The 1D-RISM module in NWChem provides description of solvated systems following one-dimensional reference
+interaction site of model of Chandler and Anderson. Similar to ab-initio density-functional theory, 1D-RISM can be thought
+of as an approach where discrete particle representation of solvent degrees of freedom is replaced by average density field.
+Unlike traditional continuum solvation model, this density based representation is inherently inhomogenous and
+incorporates specific molecular features of the solvent. In the current implementation, 1D-RISM is not directly coupled to
+QM calculations but presumed to be used as a post processing step after QM calculations which provide ESP point
+charges for a given solute geometry.
+Then parameters for 1D-RISM calculations are defined in the rism input block
+At this point energy task is supported, which is invoked using standard directive
+solute configuration
+ - points to the file that contains 
+information about the solute geometry. charges, and atom type
+mapping. The format is similar to xyz style with additional fields 
+that specify charge and atom type. The atom type
+maps back to the 
+vdw parameter file (see below). The example file is shown below
+vdw
+ - defines van der waals parameters
+rule
+ - optional setting that specifies combination rule, 
+defaults to "arithmetic"
+parameters
+ - points to the file that contains vdw parameters 
+for the system. Example file is shown below (note
+comments in 
+the file)
+temp
+ - defines temperature of the system with default value of 
+298.15
+closure
+ - specifies choice of closure
+Upon completion of the run, the resulting radial distribution functions are saved into rdf_out.data file.
+The computed chemical potentials in both HNC and gaussian approximations are written in the output file.
+Here is the complete example input file for solvated calculation of acetic acid.
+rism
+  solute configuration <filename>
+  vdw [rule <arithmetic|geometric> ] parameters <filename>
+  [temp <float default 298.15>]
+  [closure <hnc|kh>]
+end
+task rism energy
+7
+O1         -1.092111    0.733461    1.237573  -1.104415 O
+O2          0.758765   -0.201687    0.473908  -1.043019 O
+C1         -0.212954    1.568653   -0.833617  -0.474263 C1
+C2         -0.174205    0.630432    0.357135   1.276672 C2
+H1          0.360636    1.160405   -1.668859   0.102898 H
+H2          0.242419    2.521128   -0.531952   0.118979 H
+H3         -1.243967    1.772778   -1.139547   0.123148 H
+#Van der Waals parameters file for RISM 
+# type   sigma(Angstrom) epsilon (kj/mol)
+C        0.3400E+01  0.3601E+00
+H        0.2600E+01  0.0628E-00 solute2.data file
+vdw.par file
+14 
+Potential Energy Surface Analysis
+14.1 
+Geometry Optimization
+14.1.
+1
+ 
+Geometry Optimization with DRIVER
+The DRIVER module is one of two drivers (also see documentation on 
+STEPPER
+) to perform a geometry optimization
+function on the molecule defined by input using the 
+GEOMETRY
+ directive. Geometry optimization is either an energy
+minimization or a transition state optimization. The algorithm programmed in DRIVER is a quasi-newton optimization with
+line searches and approximate energy Hessian updates.
+DRIVER is selected by default out of the two available modules to perform geometry optimization. In order to force use of
+DRIVER (e.g., because a previous optimization used STEPPER) provide a DRIVER input block (below) – even an empty
+block will force use of DRIVER.
+Optional input for this module is specified within the compound directive,
+echo
+start rism
+memory global 40 mb stack 23 mb heap 5 mb
+rism
+  closure kh
+  temp 298
+  vdw rule arithmetic parameters vdw.par
+  solute configuration solute2.data
+end
+task energy rism
+ 8
+ 
+ O1         0.15566663    -0.86069508     1.9256322   -0.7323104568123959 O1
+ O2         2.31302544    -0.61550520     1.32869265  -0.7721248369124809 O2
+ C1         0.69252260    -1.26942616    -0.34814880  -0.4444201659837397 C1
+ C2         1.15967680    -0.88531805     1.02642840   1.004561861052242  C2
+ H1         0.22862001    -2.26160688    -0.31011132   0.1303963270585546 H
+ H2        -0.08170478    -0.56654621    -0.67834692   0.1513209389506027 H
+ H3         1.53138139    -1.28351200    -1.04644134   0.1454517042730594 H
+ H4         0.48680931    -0.66362820     2.83551288   0.5171246283741536 H4
+O1  3.0660  0.8809
+O2  2.9600  0.8792
+C1  3.4000  0.4580
+C2  3.4000  0.3601
+H   2.1150  0.0657
+H4  0.8000  0.1926

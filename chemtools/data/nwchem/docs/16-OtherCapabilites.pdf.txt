@@ -1,0 +1,271 @@
+16 
+Other-Capabilities
+16.1 
+Electron Transfer
+The NWChem electron transfer (ET) module calculates the electronic coupling energy (also called the electron transfer
+matrix element) between ET reactant and product states. The electronic coupling (
+V
+RP
+), and nuclear reorganization energy
+(λ) are all components of the electron transfer rate defined by Marcus' theory, which also depends on the temperature (see
+Reference 1 below):
+\[{k_{ET}}= \frac{2\pi}{\hbar} V_{RP}^{2} \frac{1}{\sqrt{4\pi \lambda k_{B}T}} \exp \left( \frac{- \Delta G^{*}}{k_{B} T} \right)\]
+The ET module utilizes the method of 
+Corresponding Orbital Transformation
+ to calculate 
+V
+RP
+. The only input required are
+the names of the files containing the open-shell (UHF) MO vectors for the ET reactant and product states (
+R
+ and 
+P
+).
+The basis set used in the calculation of 
+V
+RP
+ must be the same as the basis set used to calculate the MO vectors of 
+R
+ and
+P
+. The magnitude of 
+V
+RP
+ depends on the amount of overlap between 
+R
+ and 
+P
+, which is important to consider when
+choosing the basis set. Diffuse functions may be necessary to fill in the overlap, particularly when the ET distance is long.
+The MO's of 
+R
+ and 
+P
+ must correspond to localized states. for instance, in the reaction A
+-
+ + B → A + B
+-
+ 
+the transferring
+electron is localized on A in the reactant state and is localized on B in the product state. To verify the localization of the
+electron in the calculation of the vectors, carefully examine the Mulliken population analysis. In order to determine which
+orbitals are involved in the electron transfer, use the print keyword "mulliken ao" which prints the Mulliken population of
+each basis function.
+An effective core potential (ECP) basis can be used to replace core electrons. However, there is one caveat: the orbitals
+involved in electron transfer must not be replaced with ECP's. Since the ET orbitals are valence orbitals, this is not usually
+a problem, but the user should use ECP's with care.
+Suggested references are listed below. The first two references gives a good description of Marcus' two-state ET model,
+and the appendix of the third reference details the method used in the ET module.
+echo  
+start tddftgrad_co_exden  
+geometry  
+ C     0.00000000     0.00000000    -0.64628342  
+ O     0.00000000     0.00000000     0.48264375  
+ symmetry c1  
+end  
+basis spherical  
+ * library "3-21G"  
+end  
+dft  
+ xc pbe0  
+ direct  
+end  
+tddft  
+ nroots 3  
+ notriplet  
+ target 1  
+ civecs  
+ grad  
+  root 1  
+ end  
+end  
+task tddft gradient  
+dplot  
+ densmat tddftgrad_co_exden.dmat  
+ LimitXYZ  
+-4.0 4.0 50  
+-4.0 4.0 50  
+-4.0 4.0 50  
+ gaussian  
+ output co_exden.cube  
+end  
+task dplot 1
+. 
+R.A. Marcus, N. Sutin, Biochimica Biophysica Acta 35, 437, (1985).
+2
+. 
+J.R. Bolton, N. Mataga, and G. McLendon in "Electron Transfer in 
+Inorganic, Organic and Biological Systems"
+(American Chemical 
+Society, Washington, D.C., 1991)
+3
+. 
+A. Farazdel, M. Dupuis, E. Clementi, and A. Aviram, J. Am. Chem. 
+Soc., 112, 4206 (1990).
+16.1.
+1
+ 
+VECTORS: input of MO vectors for ET reactant and product states
+In the VECTORS directive the user specifies the source of the molecular orbital vectors for the ET reactant and product
+states. This is required input, as no default filename will be set by the program. In fact, this is the only required input in the
+ET module, although there are other optional keywords described below.
+16.1.
+2
+ 
+FOCK/NOFOCK: method for calculating the two-electron contribution to
+V
+RP
+This directive enables/disables the use of the NWChem's Fock matrix routine in the calculation of the two-electron portion
+of the ET Hamiltonian. Since the Fock matrix routine has been optimized for speed, accuracy and parallel performance, it is
+the most efficient choice.
+Alternatively, the user can calculate the two-electron contribution to the ET Hamiltonian with another subroutine which may
+be more accurate for systems with a small number of basis functions, although it is slower.
+16.1.
+3
+ 
+TOL2E: integral screening threshold
+The variable tol2e is used in determining the integral screening threshold for the evaluation of the two-electron contribution
+to the Hamiltonian between the electron transfer reactant and product states. As a default, tol2e is set depending on the
+magnitude of the overlap between the ET reactant and product states (
+S
+RP
+), and is not less than 1.0d-12 or greater than
+1.0d-7.
+The input to specify the threshold explicitly within the ET directive is, for example:
+16.1.
+4
+ 
+Example
+The following example is for a simple electron transfer reaction, He → He
++
+. The ET calculation is easy to execute, but it is
+crucial that ET reactant and product wavefunctions reflect localized states. This can be accomplished using either a
+fragment guess
+, or a 
+charged atomic density guess
+. For self-exchange ET reactions such as this one, you can use the
+REORDER
+ keyword to move the electron from the first helium to the second.
+Example input :
+ VECTORS [reactants] <string reactants_filename>  
+ VECTORS [products ] <string products_filename>
+  <string (FOCK||NOFOCK) default FOCK>
+ TOL2E <real tol2e default max(10e-12,min(10e-7, S(RP)*10e-7 )>
+ tol2e 1e-9 Here is what the output looks like for this example:
+The overlap between the ET reactant and product states (
+S
+RP
+) is small, so the magnitude of the coupling between the
+states is also small. If the fragment guess or charged atomic density guess were not used, the Mulliken spin population
+would be 0.5 on both He atoms, the overlap between the ET reactant and product states would be 100% and an infinite
+basis "ao basis" 
+ * library aug-cc-pvtz
+end
+geometry
+ He 0 0 0
+end
+charge 1
+scf
+ tol2e 1d-9
+ uhf
+ doublet
+ vectors output HeP.movecs
+end
+task scf
+charge 0
+scf
+ uhf
+ singlet
+ vectors output He.movecs
+end
+task scf
+geometry noautosym noautoz
+  He 0.0   0.0   0.0
+  He 5.0   0.0   0.0
+end
+charge 1
+#ET reactants:
+scf
+  doublet; uhf; vectors input fragment HeP.movecs He.movecs output HeA.movecs
+end
+task scf
+#ET products:
+scf
+  doublet; uhf; vectors input HeA.movecs reorder 2 1 output HeB.movecs
+end
+task scf
+et
+ vectors reactants HeA.movecs
+ vectors products HeB.movecs
+end
+task scf et
+                           Electron Transfer Calculation
+                           -----------------------------
+ MO vectors for reactants: HeA.movecs
+ MO vectors for products : HeB.movecs
+ Electronic energy of reactants     H(RR)      -5.2836825646
+ Electronic energy of products      H(PP)      -5.2836825646
+ Reactants/Products overlap S(RP) : -4.20D-04
+ Reactants/Products interaction energy:    
+ -------------------------------------           
+ One-electron contribution         H1(RP)       0.0027017960
+ Beginning calculation of 2e contribution
+ Two-electron integral screening (tol2e) : 4.20D-11
+ Two-electron contribution         H2(RP)      -0.0004625156
+ Total interaction energy           H(RP)       0.0022392804
+ Electron Transfer Coupling Energy |V(RP)|      0.0000220152
+                                                       4.832 cm-1
+                                                    0.000599 eV
+                                                       0.014 kcal/mol V
+RP
+ would result.
+18 
+Controlling NWChem with Python
+18.
+1
+ 
+Overview
+Python programs may be embedded into the NWChem input and used to control the execution of NWChem. Python is a
+very powerful and widely used scripting language that provides useful things such as variables, conditional branches and
+loops, and is also readily extended. Example applications include scanning potential energy surfaces, computing properties
+in a variety of basis sets, optimizing the energy w.r.t. parameters in the basis set, computing polarizabilities with finite field,
+and simple molecular dynamics.
+Look in the NWChem contrib directory for useful scripts and examples. Visit the Python web-site 
+https://www.python.org
+ for
+a full manual and lots of useful code and resources.
+18.
+2
+ 
+How to input and run a Python program inside NWChem
+A Python program is input into NWChem inside a Python compound directive.
+The END directive must be flush against the left margin (see the Troubleshooting section for the reason why).
+The program is by default printed to standard output when read, but this may be disabled with the noprint keyword. Python
+uses indentation to indicate scope (and the initial level of indentation must be zero), whereas NWChem uses optional
+indentation only to make the input more readable. For example, in Python, the contents of a loop, or conditionally-executed
+block of code must be indented further than the surrounding code. Also, Python attaches special meaning to several
+symbols also used by NWChem. For these reasons, the input inside a PYTHON compound directive is read verbatim
+except that if the first line of the Python program is indented, the same amount of indentation is removed from all
+subsequent lines. This is so that a program may be indented inside the PYTHON input block for improved readability of the
+NWChem input, while satisfying the constraint that when given to Python the first line has zero indentation.
+E.g., the following two sets of input specify the same Python program.
+whereas this program is in error since the indentation of the second line is less than that of the first.
+The Python program is not executed until the following directive is encountered
+which is to maintain consistency with the behavior of NWChem in general. The program is executed by all nodes. This
+enables the full functionality and speed of NWChem to be accessible from Python, but there are some gotchas
+ python [print|noprint]
+   ...
+ end
+python  
+  print ("Hello")
+  print ("Goodbye")
+end
+python  
+print ("Hello")
+print ("Goodbye")
+end
+python  
+  print ("Hello")
+print ("Goodbye")
+end
+ task python

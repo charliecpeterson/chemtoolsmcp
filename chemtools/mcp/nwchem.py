@@ -122,6 +122,14 @@ from chemtools import (  # noqa: E402
     detect_hpc_accounts,
 )
 from chemtools.eval import evaluate_case, evaluate_cases
+from chemtools.nwchem_docs import (
+    find_examples as docs_find_examples,
+    get_topic_guide as docs_get_topic_guide,
+    list_docs as docs_list_docs,
+    lookup_block_syntax as docs_lookup_block_syntax,
+    read_doc_excerpt as docs_read_doc_excerpt,
+    search_docs as docs_search_docs,
+)
 
 
 SERVER_NAME = "chemtools-nwchem"
@@ -2641,6 +2649,84 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # ----- NWChem documentation tools (bundled docs) --------------------
+        {
+            "name": "list_nwchem_docs",
+            "description": "List available bundled NWChem documentation files.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "search_nwchem_docs",
+            "description": "Search the bundled NWChem documentation for syntax, keywords, or option details. Returns ranked excerpts.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query (keywords, directives, options)."},
+                    "max_results": {"type": "integer", "default": 8, "description": "Maximum results to return."},
+                    "context_lines": {"type": "integer", "default": 2, "description": "Lines of context around each match."},
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "lookup_nwchem_block_syntax",
+            "description": "Look up NWChem input block syntax (e.g. scf, dft, mcscf, tce, vectors, geometry) from bundled docs.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "block_name": {"type": "string", "description": "Block name to look up (e.g. 'scf', 'dft', 'tce')."},
+                    "max_results": {"type": "integer", "default": 6},
+                },
+                "required": ["block_name"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "find_nwchem_examples",
+            "description": "Search bundled NWChem example/tutorial documentation for a topic (e.g. fragment guess, mcscf, tce, dft).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "Topic to find examples for."},
+                    "max_results": {"type": "integer", "default": 6},
+                },
+                "required": ["topic"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "read_nwchem_doc_excerpt",
+            "description": "Read an excerpt from a bundled NWChem doc file by filename and line range, or around the first match for a query.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "doc_name": {"type": "string", "description": "Doc filename (e.g. '11_QuantumMechanicalMethods.pdf.txt')."},
+                    "start_line": {"type": "integer"},
+                    "end_line": {"type": "integer"},
+                    "query": {"type": "string", "description": "Find first occurrence of this text and show context around it."},
+                    "context_lines": {"type": "integer", "default": 8},
+                },
+                "required": ["doc_name"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_nwchem_topic_guide",
+            "description": "Get a curated documentation guide for a common NWChem topic: scf_open_shell, mcscf, fragment_guess, or tce.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "Topic name (scf_open_shell, mcscf, fragment_guess, tce)."},
+                },
+                "required": ["topic"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -4429,6 +4515,56 @@ def _handle_detect_hpc_accounts(arguments: dict[str, Any]) -> dict[str, Any]:
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Handlers — NWChem documentation (bundled)
+# ---------------------------------------------------------------------------
+
+@_tool("list_nwchem_docs")
+def _handle_list_nwchem_docs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {"files": docs_list_docs()}
+
+
+@_tool("search_nwchem_docs")
+def _handle_search_nwchem_docs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return docs_search_docs(
+        arguments["query"],
+        max_results=int(arguments.get("max_results", 8)),
+        context_lines=int(arguments.get("context_lines", 2)),
+    )
+
+
+@_tool("lookup_nwchem_block_syntax")
+def _handle_lookup_nwchem_block_syntax(arguments: dict[str, Any]) -> dict[str, Any]:
+    return docs_lookup_block_syntax(
+        arguments["block_name"],
+        max_results=int(arguments.get("max_results", 6)),
+    )
+
+
+@_tool("find_nwchem_examples")
+def _handle_find_nwchem_examples(arguments: dict[str, Any]) -> dict[str, Any]:
+    return docs_find_examples(
+        arguments["topic"],
+        max_results=int(arguments.get("max_results", 6)),
+    )
+
+
+@_tool("read_nwchem_doc_excerpt")
+def _handle_read_nwchem_doc_excerpt(arguments: dict[str, Any]) -> dict[str, Any]:
+    return docs_read_doc_excerpt(
+        arguments["doc_name"],
+        start_line=arguments.get("start_line"),
+        end_line=arguments.get("end_line"),
+        query=arguments.get("query"),
+        context_lines=int(arguments.get("context_lines", 8)),
+    )
+
+
+@_tool("get_nwchem_topic_guide")
+def _handle_get_nwchem_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
+    return docs_get_topic_guide(arguments["topic"])
 
 
 # Backward-compat aliases: old tool names → (current name, arg translator).

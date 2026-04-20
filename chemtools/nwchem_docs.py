@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DOCS_ROOT = ROOT / "nwchem-docs"
+_DATA_DIR = Path(__file__).resolve().parent / "data" / "nwchem"
+DOCS_ROOT = _DATA_DIR / "docs"
 
 
 @dataclass(frozen=True)
@@ -18,17 +18,10 @@ class _DocMatch:
     score: float
 
 
-def docs_root(path: str | None = None) -> Path:
-    root = Path(path) if path else DEFAULT_DOCS_ROOT
-    return root.expanduser().resolve()
-
-
-def list_docs(path: str | None = None) -> list[dict[str, Any]]:
-    root = docs_root(path)
-    files = sorted(item for item in root.iterdir() if item.is_file())
+def list_docs() -> list[dict[str, Any]]:
+    files = sorted(item for item in DOCS_ROOT.iterdir() if item.is_file())
     return [
         {
-            "path": str(file_path),
             "name": file_path.name,
             "size_bytes": file_path.stat().st_size,
         }
@@ -39,11 +32,9 @@ def list_docs(path: str | None = None) -> list[dict[str, Any]]:
 def search_docs(
     query: str,
     *,
-    docs_path: str | None = None,
     max_results: int = 8,
     context_lines: int = 2,
 ) -> dict[str, Any]:
-    root = docs_root(docs_path)
     query = query.strip()
     if not query:
         raise ValueError("query must be non-empty")
@@ -51,7 +42,7 @@ def search_docs(
     phrase = query.casefold()
     matches: list[_DocMatch] = []
 
-    for file_path in sorted(root.iterdir()):
+    for file_path in sorted(DOCS_ROOT.iterdir()):
         if not file_path.is_file():
             continue
         try:
@@ -98,7 +89,6 @@ def search_docs(
     ]
     return {
         "query": query,
-        "docs_root": str(root),
         "result_count": len(results),
         "results": results,
     }
@@ -107,14 +97,13 @@ def search_docs(
 def lookup_block_syntax(
     block_name: str,
     *,
-    docs_path: str | None = None,
     max_results: int = 6,
 ) -> dict[str, Any]:
     block = block_name.strip()
     if not block:
         raise ValueError("block_name must be non-empty")
     query = f"{block} end {block}"
-    result = search_docs(query, docs_path=docs_path, max_results=max_results, context_lines=3)
+    result = search_docs(query, max_results=max_results, context_lines=3)
     result["block_name"] = block
     return result
 
@@ -122,21 +111,20 @@ def lookup_block_syntax(
 def find_examples(
     topic: str,
     *,
-    docs_path: str | None = None,
     max_results: int = 6,
 ) -> dict[str, Any]:
-    root = docs_root(docs_path)
     topic = topic.strip()
     if not topic:
         raise ValueError("topic must be non-empty")
     tokens = _tokenize(topic)
     candidates: list[_DocMatch] = []
-    preferred_names = ("19-examples", "23-tutorials", "11_quantummechanicalmethods", "11_quantummethods-2")
-    for file_path in sorted(root.iterdir()):
+    # These stems match the actual bundled doc filenames (case-insensitive)
+    _EXAMPLE_DOC_STEMS = ("19-examples", "23-tutorials", "11_quantummechanicalmethods", "11_quantummethods-2")
+    for file_path in sorted(DOCS_ROOT.iterdir()):
         if not file_path.is_file():
             continue
         name_lc = file_path.name.casefold()
-        if not any(label in name_lc for label in preferred_names):
+        if not any(label in name_lc for label in _EXAMPLE_DOC_STEMS):
             continue
         try:
             lines = file_path.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -162,21 +150,24 @@ def find_examples(
     results = [_format_search_match(match, context_lines=4) for match in ranked[:max_results]]
     return {
         "topic": topic,
-        "docs_root": str(root),
         "result_count": len(results),
         "results": results,
     }
 
 
 def read_doc_excerpt(
-    file_path: str,
+    doc_name: str,
     *,
     start_line: int | None = None,
     end_line: int | None = None,
     query: str | None = None,
     context_lines: int = 8,
 ) -> dict[str, Any]:
-    path = Path(file_path).expanduser().resolve()
+    # Accept either a bare filename or a full path (for internal use)
+    path = Path(doc_name)
+    if not path.is_absolute():
+        path = DOCS_ROOT / doc_name
+    path = path.resolve()
     lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
     if query:
         query_lc = query.casefold()
@@ -185,19 +176,17 @@ def read_doc_excerpt(
                 start = max(1, idx - context_lines)
                 end = min(len(lines), idx + context_lines)
                 return _excerpt_payload(path, lines, start, end, matched_line=idx)
-        raise ValueError(f"query not found in {path}")
+        raise ValueError(f"query not found in {path.name}")
     start = max(1, start_line or 1)
     end = min(len(lines), end_line or min(len(lines), start + context_lines * 2))
     return _excerpt_payload(path, lines, start, end, matched_line=None)
 
 
-def get_topic_guide(topic: str, *, docs_path: str | None = None) -> dict[str, Any]:
+def get_topic_guide(topic: str) -> dict[str, Any]:
     normalized = _normalize_topic(topic)
-    root = docs_root(docs_path)
     if normalized == "scf_open_shell":
         return {
             "topic": normalized,
-            "docs_root": str(root),
             "summary": "Use the SCF documentation for open-shell forms such as ROHF/UHF with NOPEN or multiplicity keywords; do not guess syntax from memory.",
             "recommended_tools": [
                 "lookup_nwchem_block_syntax(scf)",
@@ -205,7 +194,6 @@ def get_topic_guide(topic: str, *, docs_path: str | None = None) -> dict[str, An
             ],
             "results": search_docs(
                 "NOPEN rohf uhf singlet sextet scf",
-                docs_path=str(root),
                 max_results=6,
                 context_lines=3,
             )["results"],
@@ -213,7 +201,6 @@ def get_topic_guide(topic: str, *, docs_path: str | None = None) -> dict[str, An
     if normalized == "mcscf":
         return {
             "topic": normalized,
-            "docs_root": str(root),
             "summary": "For MCSCF, verify ACTIVE, ACTELEC, MULTIPLICITY, STATE, VECTORS, HESSIAN, and LEVEL directly from docs before drafting.",
             "recommended_tools": [
                 "lookup_nwchem_block_syntax(mcscf)",
@@ -221,7 +208,6 @@ def get_topic_guide(topic: str, *, docs_path: str | None = None) -> dict[str, An
             ],
             "results": search_docs(
                 "MCSCF STATE ACTIVE ACTELEC MULTIPLICITY VECTORS LEVEL HESSIAN",
-                docs_path=str(root),
                 max_results=8,
                 context_lines=3,
             )["results"],
@@ -229,21 +215,19 @@ def get_topic_guide(topic: str, *, docs_path: str | None = None) -> dict[str, An
     if normalized == "fragment_guess":
         return {
             "topic": normalized,
-            "docs_root": str(root),
             "summary": "Fragment guess workflows should be based on documented examples that use vectors input fragment and separate fragment wavefunctions.",
             "recommended_tools": [
                 "find_nwchem_examples(fragment guess)",
                 "search_nwchem_docs('vectors input fragment')",
             ],
             "results": (
-                find_examples("fragment guess", docs_path=str(root), max_results=4)["results"]
-                + search_docs("vectors input fragment", docs_path=str(root), max_results=4, context_lines=3)["results"]
+                find_examples("fragment guess", max_results=4)["results"]
+                + search_docs("vectors input fragment", max_results=4, context_lines=3)["results"]
             )[:8],
         }
     if normalized == "tce":
         return {
             "topic": normalized,
-            "docs_root": str(root),
             "summary": "TCE inputs should be drafted from the documented TCE block and task forms such as TASK TCE ENERGY/OPTIMIZE/FREQUENCIES.",
             "recommended_tools": [
                 "lookup_nwchem_block_syntax(tce)",
@@ -251,7 +235,6 @@ def get_topic_guide(topic: str, *, docs_path: str | None = None) -> dict[str, An
             ],
             "results": search_docs(
                 "TASK TCE ENERGY OPTIMIZE FREQUENCIES ACTIVE_OA ACTIVE_OB",
-                docs_path=str(root),
                 max_results=8,
                 context_lines=3,
             )["results"],
@@ -269,7 +252,6 @@ def _excerpt_payload(path: Path, lines: list[str], start: int, end: int, matched
         for idx in range(start, end + 1)
     ]
     return {
-        "path": str(path),
         "file_name": path.name,
         "start_line": start,
         "end_line": end,
@@ -299,7 +281,6 @@ def _format_search_match(match: _DocMatch, *, context_lines: int) -> dict[str, A
         end_line=match.line_number + context_lines,
     )
     return {
-        "path": str(match.file_path),
         "file_name": match.file_path.name,
         "line_number": match.line_number,
         "line_text": match.line_text,
