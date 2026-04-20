@@ -24,7 +24,7 @@ pip install -e .
 
 ## MCP Server
 
-### `chemtools-nwchem` — 106 tools
+### `chemtools-nwchem` — 107 tools
 
 Single server for all NWChem capabilities:
 - DFT/SCF geometry optimization and frequency workflows
@@ -33,6 +33,7 @@ Single server for all NWChem capabilities:
 - Geometry and frequency plausibility checks
 - Basis set library (bundled — 608 files, no extra download)
 - NWChem documentation search and lookup (bundled — 29 doc files, always available)
+- NWChem community forum search (archived threads, fetched at runtime)
 - HPC job management (SLURM/PBS/LSF) with auto resource selection
 - Run registry, campaigns, and workflow DAGs
 
@@ -116,6 +117,6 @@ chemtools/              Python library — all parsing, analysis, input generati
   common.py             Shared utilities (element tables, covalent radii, etc.)
   data/nwchem/          Bundled NWChem data (basis library + docs)
   mcp/
-    nwchem.py           NWChem MCP server — 106 tools (chemtools-nwchem entry point)
+    nwchem.py           NWChem MCP server — 107 tools (chemtools-nwchem entry point)
     nwchem_docs.py      Standalone docs server (backward-compat entry point)
 ```

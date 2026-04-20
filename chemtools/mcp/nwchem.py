@@ -130,6 +130,7 @@ from chemtools.nwchem_docs import (
     read_doc_excerpt as docs_read_doc_excerpt,
     search_docs as docs_search_docs,
 )
+from chemtools.nwchem_forum import search_forum as forum_search
 
 
 SERVER_NAME = "chemtools-nwchem"
@@ -2727,6 +2728,43 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # ----- NWChem community forum search --------------------------------
+        {
+            "name": "search_nwchem_forum",
+            "description": (
+                "Search the archived NWChem community forums for threads matching a query. "
+                "Use this when encountering unusual NWChem errors, edge-case behavior, or "
+                "issues that may have been discussed by the community. Fetches forum pages "
+                "at runtime (requires internet). Returns matching thread titles, URLs, and "
+                "optionally the thread content."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search terms (e.g. 'CCSD convergence', 'DFT grid error', 'segfault GA').",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Maximum threads to return (default 5).",
+                    },
+                    "fetch_content": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "If true, fetch and include thread content (slower but more useful). If false, return titles and URLs only.",
+                    },
+                    "subforums": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Restrict search to specific subforums. Options: 'Running NWChem', 'NWChem functionality', 'General Topics', 'Compiling NWChem', 'QM/MM'. Default: all.",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -4565,6 +4603,20 @@ def _handle_read_nwchem_doc_excerpt(arguments: dict[str, Any]) -> dict[str, Any]
 @_tool("get_nwchem_topic_guide")
 def _handle_get_nwchem_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
     return docs_get_topic_guide(arguments["topic"])
+
+
+# ---------------------------------------------------------------------------
+# Handlers — NWChem community forum search
+# ---------------------------------------------------------------------------
+
+@_tool("search_nwchem_forum")
+def _handle_search_nwchem_forum(arguments: dict[str, Any]) -> dict[str, Any]:
+    return forum_search(
+        arguments["query"],
+        max_results=int(arguments.get("max_results", 5)),
+        fetch_content=arguments.get("fetch_content", True),
+        subforums=arguments.get("subforums"),
+    )
 
 
 # Backward-compat aliases: old tool names → (current name, arg translator).

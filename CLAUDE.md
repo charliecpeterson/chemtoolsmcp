@@ -23,7 +23,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
   eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 106 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 107 tools, thin wrappers over chemtools/
     nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
     # Future: molpro.py, orca.py
 
@@ -36,9 +36,9 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 106
+- Current tool count: 107
 
-### Tool categories (106 tools)
+### Tool categories (107 tools)
 
 | Category | Count | Examples |
 |----------|-------|---------|
@@ -54,7 +54,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | Geometry | 5 | `extract_nwchem_geometry`, `inspect_nwchem_geometry`, `displace_nwchem_geometry_along_mode` |
 | Session & versioning | 3 | `init_session_log`, `append_session_log`, `next_versioned_path` |
 | TCE (correlated methods) | 6 | `parse_nwchem_movecs`, `swap_nwchem_movecs`, `validate_nwchem_tce_setup` |
-| Documentation | 6 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs` |
+| Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
 ## How to Add a New Tool
