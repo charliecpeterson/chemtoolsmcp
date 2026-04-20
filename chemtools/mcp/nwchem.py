@@ -293,15 +293,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "compute_reaction_energy",
             "description": (
-                "Compute a reaction energy ΔE from a set of NWChem output files. "
-                "Collects the best available energy per species (CCSD(T) > CCSD > MP2 > DFT > SCF) "
-                "and returns ΔE in Hartree, kcal/mol, and eV. "
-                "Use for atomization energies (FeO2⁻ → Fe + 2O), binding energies, "
-                "reaction enthalpies, or isomerization energies. "
-                "Set include_thermochem=true to also compute ΔE+ZPE, ΔH(T), ΔG(T) "
-                "from frequency outputs (requires all species to have thermochemistry data). "
-                "Example: species={'mol': 'mol.out', 'A': 'a.out', 'B': 'b.out'}, "
-                "reactants={'mol': 1}, products={'A': 1, 'B': 1}."
+                "Compute reaction energy ΔE from NWChem output files. "
+                "Uses best energy per species (CCSD(T)>CCSD>MP2>DFT>SCF). "
+                "Returns ΔE in Hartree/kcal/eV. Set include_thermochem=true for ZPE/ΔH/ΔG."
             ),
             "inputSchema": {
                 "type": "object",
@@ -337,13 +331,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "parse_nwchem_thermochem",
             "description": (
-                "Extract complete thermochemistry from an NWChem frequency output: "
-                "electronic energy (E_scf), zero-point energy (ZPE), enthalpy H(T), "
-                "Gibbs free energy G(T), entropy S, and heat capacity Cv. "
-                "Combines the SCF/DFT energy with frequency-derived corrections. "
-                "Returns all quantities in both Hartree and kcal/mol. "
-                "Warns if imaginary modes are present (saddle point, not a minimum). "
-                "Call this after check_nwchem_freq_plausibility confirms no significant imaginary modes."
+                "Extract thermochemistry from frequency output: ZPE, H(T), G(T), S, Cv "
+                "in Hartree and kcal/mol. Call after check_nwchem_freq_plausibility."
             ),
             "inputSchema": {
                 "type": "object",
@@ -519,13 +508,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "suggest_relativistic_correction",
             "description": (
-                "Advise on relativistic corrections for a calculation given the elements present. "
-                "Returns the recommended method (X2C, DKH2, or none), the NWChem 'relativistic...end' "
-                "block to add, and warnings about incompatibilities. "
-                "KEY RULES: (1) X2C/DKH are ALL-ELECTRON methods — do NOT use with ECPs on the same element. "
-                "(2) Use DK-family basis sets (cc-pVDZ-DK, cc-pVTZ-DK, x2c-SVPall) with X2C/DKH. "
-                "(3) X2C SAD guess for heavy transition metals can take 30–120+ min with no output — this is normal. "
-                "Call before drafting any input that contains 4d/5d transition metals or Z > 36 elements."
+                "Advise on relativistic corrections (X2C/DKH2/none) for given elements. "
+                "Returns the relativistic block and basis compatibility warnings. "
+                "Call before drafting inputs with 4d/5d metals or Z > 36."
             ),
             "inputSchema": {
                 "type": "object",
@@ -929,13 +914,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "launch_nwchem_run",
             "description": (
-                "Launch a NWChem input through a named runner profile. For scheduler (HPC) profiles "
-                "the job is submitted via sbatch/qsub and the scheduler job ID is written to "
-                "{job_name}.jobid. With auto_watch=true (default) the tool immediately transitions "
-                "into polling mode and blocks until the job reaches a terminal state — the agent does "
-                "not need to call watch_nwchem_run separately. Set auto_watch=false to return "
-                "immediately after submission (use when you want to submit multiple jobs in parallel). "
-                "Use dry_run=true for a preview without executing."
+                "Launch NWChem via a runner profile. auto_watch=true (default) blocks until "
+                "completion. Set auto_watch=false for parallel submissions. dry_run=true to preview."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1022,17 +1002,10 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "watch_nwchem_run",
             "description": (
-                "Poll NWChem status until the run reaches a terminal state or a timeout/max-poll limit. "
-                "For HPC scheduler jobs omit timeout_seconds (or set to null) so the tool blocks until "
-                "the job reaches a terminal scheduler state — the job's own walltime governs the limit. "
-                "For local jobs the default 3600 s timeout applies. "
-                "Detects known output-silent phases and reports them as 'expected slow' rather than 'hung': "
-                "SAD guess (always silent), X2C/DKH SAD atomic solves (30–120+ min for heavy TMs), "
-                "DFT grid generation, frequency Hessian displacements, TCE AO→MO transformation. "
-                "When slow_phase is set in final_status, do NOT interpret output silence as a crash. "
-                "NOTE: launch_nwchem_run already calls this automatically for scheduler jobs unless "
-                "auto_watch=false was set — only call this directly for local processes or for jobs "
-                "launched with auto_watch=false."
+                "Poll NWChem status until terminal state or timeout. "
+                "For HPC jobs, omit timeout_seconds to block until scheduler completion. "
+                "Detects output-silent phases (SAD, X2C, freq displacements) as expected. "
+                "Only call directly for local runs or jobs launched with auto_watch=false."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1452,13 +1425,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "check_nwchem_geometry_plausibility",
             "description": (
-                "Check whether an optimised NWChem geometry is chemically plausible. "
-                "Run this after any optimisation — even a 'successful' one — to catch "
-                "wrong minima, clashes, broken bonds, and coordination errors that NWChem "
-                "itself does not report. Checks: bond lengths (clashes, unusually long bonds), "
-                "coordination numbers per element, extreme bond angles (<55° or >175°), "
-                "ring planarity for 5–7-membered rings, and metal coordination. "
-                "Returns plausible=True/False, red_flags, warnings, and full bond/coord detail."
+                "Check whether an optimized geometry is chemically plausible. "
+                "Catches clashes, broken bonds, bad angles, and coordination errors. "
+                "Run after any optimization."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1478,13 +1447,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "check_nwchem_freq_plausibility",
             "description": (
-                "Check whether NWChem frequency results are chemically plausible. "
-                "Run after a successful frequency job to catch: wrong number of imaginary modes "
-                "(TS vs. minimum), very large imaginary modes indicating a bad structure, "
-                "extra near-zero modes suggesting flat PES or incomplete optimisation, "
-                "missing expected X-H stretch bands given the elements present, abnormal ZPE, "
-                "and suspiciously high frequencies. Returns plausible=True/False, red_flags, "
-                "warnings, mode band distribution, and ZPE check."
+                "Check frequency results for plausibility: imaginary mode count, "
+                "missing X-H stretches, abnormal ZPE, suspicious frequencies. Run after freq jobs."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1611,14 +1575,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "parse_nwchem_tce_output",
             "description": (
-                "Parse a NWChem output file for TCE (Tensor Contraction Engine) results. "
-                "Extracts: method (MP2/CCSD/CCSD(T)), correlation energy, total energy, "
-                "frozen core count, convergence status, and per-section details. "
-                "Also automatically attempts to read saved amplitude files (*.t1_copy.*, *.t2_copy.*) "
-                "and includes multireference diagnostics: T1, D1, T2 norm, mr_assessment, and mr_flags. "
-                "T1 > 0.02 = moderate MR; > 0.05 = strong MR / CCSD unreliable. "
-                "Amplitude files are written when draft_nwchem_tce_input includes 'set tce:save_t T T' (default). "
-                "Works for any TCE method run via 'task tce energy'."
+                "Parse TCE output: method, correlation/total energy, frozen core count, "
+                "convergence, and MR diagnostics (T1/D1/T2 from amplitude files if available)."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1632,15 +1590,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "parse_nwchem_tce_amplitudes",
             "description": (
-                "Compute multireference diagnostics from saved TCE amplitude files "
-                "(*.t1_copy.*, *.t2_copy.*). Requires the TCE input to have included "
-                "'set tce:save_t T T' — draft_nwchem_tce_input adds this by default. "
-                "Returns: T1 diagnostic, D1 (nosym runs only), T2 Frobenius norm, "
-                "max|t2|, top-10 T2 amplitudes, T2 dominance fraction, singles/doubles "
-                "balance, triples fraction (for CCSD(T)), and a combined MR verdict "
-                "('single_reference_ok', 'moderate_mr_character', 'strong_mr_character', "
-                "or 'unreliable_ccsd'). Call after parse_nwchem_tce_output when you need "
-                "to assess whether the single-reference wavefunction is adequate."
+                "Compute multireference diagnostics (T1, D1, T2 norm, MR verdict) from "
+                "saved TCE amplitude files. Requires 'set tce:save_t T T' in input "
+                "(added by draft_nwchem_tce_input). Call after parse_nwchem_tce_output."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1657,14 +1609,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "draft_nwchem_tce_input",
             "description": (
-                "Design a NWChem TCE correlated wavefunction input (MP2, CCSD, or CCSD(T)). "
-                "ALWAYS call this AFTER an SCF calculation: it reads the SCF orbital output to "
-                "determine the correct number of frozen core orbitals, auto-detects ECP nelec "
-                "from the input file (no need to pass ecp_core_electrons manually), checks "
-                "orbital ordering for anomalies (e.g. ligand 1s lower than metal 3s/3p), and "
-                "warns if swap_nwchem_movecs must be run first. Never uses 'freeze atomic' — "
-                "always emits an explicit 'freeze N' count. Returns n_electrons, n_correlated, "
-                "and consistency warnings if the freeze/ECP setup looks wrong."
+                "Draft NWChem TCE input (MP2/CCSD/CCSD(T)). Call AFTER SCF: reads orbitals "
+                "to set explicit freeze count, auto-detects ECP, checks orbital ordering. "
+                "Never uses 'freeze atomic'. Warns if movecs swap is needed first."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1981,13 +1928,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "create_nwchem_input_variant",
             "description": (
-                "Create a versioned copy of an NWChem input file with specified changes, "
-                "recording a structured diff of what changed and why. The original file is "
-                "never overwritten — output goes to _v2.nw, _v3.nw, etc. "
-                "Use this when resubmitting a failed job with modifications (e.g. reducing "
-                "memory after OOM, changing iterations, switching functional). "
-                "Supported change keys: 'memory', 'charge', 'mult', 'task', and "
-                "'block.keyword' patterns like 'dft.iterations', 'dft.xc', 'scf.maxiter'."
+                "Create a versioned copy (_v2.nw, _v3.nw) of an input with changes applied. "
+                "Keys: 'memory', 'charge', 'mult', 'task', 'block.keyword' (e.g. 'dft.xc')."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2018,18 +1960,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "get_nwchem_workflow_state",
             "description": (
-                "Determine the current workflow state of an NWChem calculation and return "
-                "the exact next tool call to advance it. Returns an explicit state enum "
-                "(pending, running_scf, running_freq, freq_timelimited, scf_failed, "
-                "imaginary_modes, opt_converged, completed, oom, etc.) plus a pre-filled "
-                "next_action with all parameters ready. A model can drive the full NWChem "
-                "workflow by looping: call this tool → execute next_action → repeat. "
-                "Domain logic is encoded in the tool, not expected from the model. "
-                "input_file is optional — when only the .out file is available, the tool "
-                "parses the NWChem input echo from the output. The tool also checks squeue "
-                "for related running jobs and reports them in related_jobs (never assumes — "
-                "asks the model to confirm with the user). Missing companion files (.nw, "
-                ".fdrst, .err, .db, .movecs) are listed in missing_files."
+                "Determine workflow state and return the next tool call to advance it. "
+                "Returns state enum + pre-filled next_action. Loop: call → execute next_action → repeat. "
+                "input_file is optional (parsed from output echo if missing)."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2615,14 +2548,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "suggest_nwchem_resources",
             "description": (
-                "Recommend optimal HPC resources for a NWChem job. Analyzes the input "
-                "file (atoms, basis set, method, task type) and the runner profile's "
-                "hardware specs (cores/node, memory/node, max nodes, max walltime) to "
-                "recommend nodes, MPI ranks, walltime, and NWChem memory directive. "
-                "Returns resource_overrides ready to pass to launch_nwchem_run. "
-                "Call this BEFORE launching jobs on HPC to avoid wasting queue time "
-                "with suboptimal resources. Requires the profile to have hardware "
-                "fields populated (cores_per_node, node_memory_mb, etc.)."
+                "Recommend HPC resources (nodes, ranks, walltime, memory) for a NWChem job. "
+                "Returns resource_overrides ready for launch_nwchem_run. Call before launching."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2659,13 +2586,8 @@ def tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "suggest_nwchem_partition",
             "description": (
-                "Suggest the best HPC partition/queue for a NWChem job by comparing ALL "
-                "available scheduler profiles. Evaluates memory fit, walltime fit, SU cost, "
-                "dev queue suitability for short jobs, and optionally queries sinfo for "
-                "current queue availability (idle nodes). Returns the recommended profile "
-                "and partition with resource_overrides ready for launch_nwchem_run. "
-                "Use this INSTEAD OF suggest_nwchem_resources when you want the tool to "
-                "pick the best partition automatically rather than specifying one."
+                "Auto-select the best HPC partition by comparing all profiles on memory, "
+                "walltime, SU cost, and queue availability. Returns resource_overrides for launch."
             ),
             "inputSchema": {
                 "type": "object",
@@ -3063,12 +2985,6 @@ def _handle_extract_nwchem_geometry(arguments: dict[str, Any]) -> dict[str, Any]
         frame=frame_arg,
         input_path=arguments.get("input_file"),
     )
-    if result.get("available"):
-        xyz = result.get("xyz_file") or result.get("written_file", "<xyz_file>")
-        result["next_steps"] = [
-            f"Write the geometry to an XYZ file, then call create_nwchem_input or create_nwchem_dft_workflow_input with geometry_file='{xyz}'.",
-            "For a TCE calculation: call suggest_nwchem_tce_freeze(elements=[...]) and draft_nwchem_tce_input after running an SCF on this geometry.",
-        ]
     return result
 
 
@@ -3361,36 +3277,6 @@ def _handle_watch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
         max_polls=arguments.get("max_polls"),
         history_limit=arguments.get("history_limit", 8),
     )
-    out_file = arguments.get("output_file", "")
-    in_file = arguments.get("input_file", "")
-    overall = result.get("overall_status", "")
-    tasks = result.get("progress_summary", {}).get("tasks", []) if result.get("progress_summary") else []
-    has_tce = any((t.get("module") or "").lower() == "tce" for t in tasks)
-    has_freq = any((t.get("module") or "").lower() in {"freq", "frequency"} for t in tasks)
-    has_opt = any((t.get("operation") or "").lower() == "optimize" for t in tasks)
-
-    next_steps: list[str] = []
-    if overall == "completed":
-        if has_tce:
-            next_steps.append(f"Call parse_nwchem_tce_output(output_file='{out_file}') to extract correlation energies and T1/D1 diagnostics.")
-        elif has_freq and has_opt:
-            next_steps.append(f"Call extract_nwchem_geometry(output_file='{out_file}', frame='best') to get the converged geometry for the next calculation.")
-            next_steps.append(f"Call parse_nwchem_output(output_file='{out_file}', sections=['tasks','freq']) to review frequencies.")
-        elif has_freq:
-            next_steps.append(f"Call parse_nwchem_output(output_file='{out_file}', sections=['freq']) to review frequency results.")
-        else:
-            next_steps.append(f"Call analyze_nwchem_case(output_file='{out_file}', input_file='{in_file}') to review the result and get next-step guidance.")
-            has_scf_or_dft = any((t.get("module") or "").lower() in {"scf", "dft"} for t in tasks)
-            if has_scf_or_dft:
-                next_steps.append(f"Call suggest_nwchem_vectors_swaps(output_file='{out_file}', input_file='{in_file}') to verify the correct spin state converged (important for open-shell metals).")
-    elif overall in {"failed", "error"}:
-        next_steps.append(f"Call analyze_nwchem_case(output_file='{out_file}', input_file='{in_file}') to diagnose the failure.")
-        next_steps.append("Call suggest_nwchem_recovery(output_file=..., input_file=..., mode='auto') if recovery is needed.")
-    elif overall == "running":
-        next_steps.append("Job is still running. Call watch_nwchem_run again to continue monitoring.")
-
-    if next_steps:
-        result["next_steps"] = next_steps
     result["next_actions"] = _build_next_actions(
         "watch_run", result,
         output_file=arguments.get("output_file", ""),
@@ -3568,7 +3454,7 @@ def _handle_create_nwchem_input(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("create_nwchem_dft_workflow_input")
 def _handle_create_nwchem_dft_workflow_input(arguments: dict[str, Any]) -> dict[str, Any]:
-    return create_nwchem_dft_workflow_input(
+    result = create_nwchem_dft_workflow_input(
         geometry_path=arguments["geometry_file"],
         library_path=basis_library_path(arguments.get("library_path")) if arguments.get("library_path") else basis_library_path(),
         basis_assignments=arguments["basis_assignments"],
@@ -3592,6 +3478,22 @@ def _handle_create_nwchem_dft_workflow_input(arguments: dict[str, Any]) -> dict[
         output_dir=arguments.get("output_dir"),
         write_file=arguments.get("write_file", False),
     )
+    # Strip large basis/ECP text from response when file was written — saves tokens
+    if arguments.get("write_file") and result.get("written_file"):
+        result.pop("input_text", None)
+        bs = result.get("basis_setup")
+        if isinstance(bs, dict):
+            bs = dict(bs)
+            if isinstance(bs.get("basis_block"), dict):
+                bb = dict(bs["basis_block"])
+                bb.pop("text", None)
+                bs["basis_block"] = bb
+            if isinstance(bs.get("ecp_block"), dict):
+                eb = dict(bs["ecp_block"])
+                eb.pop("text", None)
+                bs["ecp_block"] = eb
+            result["basis_setup"] = bs
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -3807,75 +3709,6 @@ def _build_next_actions(
     return actions
 
 
-def _derive_recommended_next_tool(result: dict[str, Any]) -> dict[str, Any]:
-    """Derive a structured next-tool recommendation from summarize_nwchem_case output."""
-    diagnosis = result.get("diagnosis") or {}
-    next_step = result.get("next_step") or {}
-    state = result.get("spin_charge_state") or {}
-    output_file = result.get("output_file", "")
-    input_file = result.get("input_file") or ""
-
-    task_outcome = diagnosis.get("task_outcome", "")
-    failure_class = diagnosis.get("failure_class", "")
-    selected_workflow = next_step.get("selected_workflow", "")
-    state_action = state.get("recommended_next_action", "") if state else ""
-
-    if task_outcome == "success":
-        wf = selected_workflow.lower()
-        if "tce" in wf or "ccsd" in wf or "mp2" in wf:
-            return {
-                "tool": "parse_nwchem_tce_output",
-                "parameters": {"output_file": output_file},
-                "reason": "Correlated calculation completed — extract energies and T1/D1 diagnostics.",
-            }
-        if "freq" in wf and ("opt" in wf or "geometry" in wf):
-            return {
-                "tool": "extract_nwchem_geometry",
-                "parameters": {"output_file": output_file, "frame": "best"},
-                "reason": "Opt+freq completed — extract converged geometry for the next calculation.",
-            }
-        if "freq" in wf:
-            return {
-                "tool": "parse_nwchem_output",
-                "parameters": {"output_file": output_file, "sections": ["freq", "tasks"]},
-                "reason": "Frequency calculation completed — review normal modes.",
-            }
-        if state_action and "swap" in state_action:
-            return {
-                "tool": "suggest_nwchem_vectors_swaps",
-                "parameters": {"output_file": output_file, "input_file": input_file},
-                "reason": "State check flagged spin inconsistency — verify orbital ordering before proceeding.",
-            }
-        return {
-            "tool": "draft_nwchem_tce_input",
-            "parameters": {"output_file": output_file, "input_file": input_file},
-            "reason": "SCF/DFT complete and state looks OK — draft correlated follow-up if needed.",
-        }
-    elif task_outcome in ("failed", "error", "scf_failed"):
-        if failure_class == "scf_convergence":
-            return {
-                "tool": "suggest_nwchem_recovery",
-                "parameters": {"output_file": output_file, "input_file": input_file, "mode": "scf"},
-                "reason": "SCF convergence failure — get targeted strategies.",
-            }
-        if failure_class in ("bad_state", "wrong_state", "state_mismatch"):
-            return {
-                "tool": "suggest_nwchem_recovery",
-                "parameters": {"output_file": output_file, "input_file": input_file, "mode": "state"},
-                "reason": "Spin/state error — recover with state correction strategies.",
-            }
-        return {
-            "tool": "suggest_nwchem_recovery",
-            "parameters": {"output_file": output_file, "input_file": input_file, "mode": "auto"},
-            "reason": f"Calculation failed ({failure_class or 'unknown'}) — get recovery recommendations.",
-        }
-    return {
-        "tool": "analyze_nwchem_case",
-        "parameters": {"output_file": output_file, "input_file": input_file},
-        "reason": "Outcome unclear — re-run analysis with more context.",
-    }
-
-
 @_tool("analyze_nwchem_case")
 def _handle_analyze_nwchem_case(arguments: dict[str, Any]) -> dict[str, Any]:
     compact = arguments.get("detail", "compact") == "compact"
@@ -3890,7 +3723,6 @@ def _handle_analyze_nwchem_case(arguments: dict[str, Any]) -> dict[str, Any]:
         base_name=arguments.get("base_name"),
         compact=compact,
     )
-    result["recommended_next_tool"] = _derive_recommended_next_tool(result)
     result["next_actions"] = _build_next_actions(
         "analyze_case", result,
         output_file=arguments["output_file"],
@@ -4141,23 +3973,12 @@ def _handle_draft_nwchem_tce_input(arguments: dict[str, Any]) -> dict[str, Any]:
         base_name=arguments.get("base_name"),
         write_file=arguments.get("write_file", False),
     )
-    nw_file = result.get("written_file") or result.get("planned_output_file", "<tce.nw>")
-    has_swap_warnings = bool(result.get("ordering_warnings"))
-    next_steps = []
-    if has_swap_warnings:
-        next_steps.append("WARNING: orbital ordering issues detected. Call swap_nwchem_movecs for each flagged pair, verify with parse_nwchem_movecs, then re-run draft_nwchem_tce_input.")
-    next_steps += [
-        f"Call lint_nwchem_input(input_file='{nw_file}') to validate before launching.",
-        f"Call launch_nwchem_run(input_file='{nw_file}', profile='<your_profile>') to start the job.",
-        "After completion: call parse_nwchem_tce_output to extract energies and T1/D1 diagnostics.",
-    ]
-    result["next_steps"] = next_steps
     return result
 
 
 @_tool("draft_nwchem_tce_restart_input")
 def _handle_draft_nwchem_tce_restart_input(arguments: dict[str, Any]) -> dict[str, Any]:
-    result = draft_nwchem_tce_restart_input(
+    return draft_nwchem_tce_restart_input(
         tce_output_file=arguments["tce_output_file"],
         tce_input_file=arguments.get("tce_input_file"),
         max_iterations=arguments.get("max_iterations", 200),
@@ -4166,19 +3987,6 @@ def _handle_draft_nwchem_tce_restart_input(arguments: dict[str, Any]) -> dict[st
         output_dir=arguments.get("output_dir"),
         write_file=arguments.get("write_file", False),
     )
-    nw_file = result.get("written_file") or result.get("planned_output_file", "<restart.nw>")
-    next_steps = []
-    if result.get("copy_errors"):
-        next_steps.append(
-            "WARNING: amplitude file copy failed — check copy_errors. "
-            "Manually copy .t1amp.* → {start_name}.t1 and .t2amp.* → {start_name}.t2 before running."
-        )
-    if result.get("can_read_amplitudes"):
-        next_steps.append(f"Amplitude files are in place. Call lint_nwchem_input(input_file='{nw_file}') then launch_nwchem_run to continue.")
-    else:
-        next_steps.append(f"Amplitude files NOT found. Input has 'set tce:read_ta' commented out — NWChem will restart from scratch with higher maxiter.")
-    result["next_steps"] = next_steps
-    return result
 
 
 @_tool("validate_nwchem_tce_setup")
@@ -4721,10 +4529,9 @@ def make_success_result(payload: dict[str, Any]) -> dict[str, Any]:
         "content": [
             {
                 "type": "text",
-                "text": json.dumps(payload, indent=2),
+                "text": json.dumps(payload, separators=(",", ":")),
             }
         ],
-        "structuredContent": payload,
         "isError": False,
     }
 

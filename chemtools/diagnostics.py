@@ -38,7 +38,7 @@ def parse_scf(path: str) -> dict[str, Any]:
             if current_run is not None:
                 current_run["failure_messages"].append(line.strip())
 
-        if total_energy is None and (match := TOTAL_ENERGY_RE.search(line)):
+        if match := TOTAL_ENERGY_RE.search(line):
             total_energy = parse_scientific_float(match.group(1))
 
         if "Starting SCF solution at" in line or "convergence    iter" in line:

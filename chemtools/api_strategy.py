@@ -2360,6 +2360,45 @@ _BASIS_SCALE: dict[str, float] = {
 }
 
 
+def _analyze_job_size(input_file: str) -> dict[str, Any]:
+    """Shared helper: inspect input and extract job-size metrics.
+
+    Returns dict with: summary, all_elements, n_atoms, n_heavy, tasks,
+    main_task, module, operation, is_freq, is_opt, is_tce, basis_name,
+    basis_scale, n_bf.
+    """
+    from .nwchem_input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
+
+    summary = inspect_nwchem_input(input_file)
+    all_elements = summary.get("all_elements") or summary.get("elements", [])
+    n_atoms = summary.get("atom_count") or len(all_elements) or 1
+    n_heavy = sum(1 for e in all_elements if e != "H") if all_elements else n_atoms
+    tasks = summary.get("tasks") or [{}]
+    main_task = tasks[-1] if tasks else {}
+    module = (main_task.get("module") or "dft").lower()
+    operation = (main_task.get("operation") or "energy").lower()
+
+    is_freq = operation in ("freq", "frequencies", "vib")
+    is_opt = operation in ("optimize", "saddle")
+    is_tce = module == "tce"
+
+    basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
+    basis_name = ""
+    if basis_blocks:
+        basis_name = basis_blocks[0].get("default_library", "") or ""
+    scale = _basis_scale(basis_name) if basis_name else 1.5
+    n_bf = max(10, int(n_heavy * 15 * scale))
+
+    return {
+        "summary": summary, "all_elements": all_elements,
+        "n_atoms": n_atoms, "n_heavy": n_heavy,
+        "tasks": tasks, "main_task": main_task,
+        "module": module, "operation": operation,
+        "is_freq": is_freq, "is_opt": is_opt, "is_tce": is_tce,
+        "basis_name": basis_name, "basis_scale": scale, "n_bf": n_bf,
+    }
+
+
 def _basis_scale(basis: str) -> float:
     b = basis.strip().lower()
     if b in _BASIS_SCALE:
@@ -2401,22 +2440,11 @@ def suggest_resources(
             Expected keys: cpus_per_node (or available_cores), node_memory_mb
             (or available_mem_mb), cpu_arch.
     """
-    from .nwchem_input import inspect_nwchem_input
-
-    summary = inspect_nwchem_input(input_file)
-    elements = summary.get("elements", [])
-    n_atoms = len(elements) if elements else 1
-    tasks = summary.get("tasks") or [{}]
-    method = (tasks[0].get("module") or "dft").lower()
-
-    # Estimate basis functions using the existing _basis_scale heuristic
-    basis_name = ""
-    if summary.get("basis_blocks"):
-        basis_name = summary["basis_blocks"][0].get("default_library", "") or ""
-    scale = _basis_scale(basis_name) if basis_name else 1.5
-    # ~15 basis functions per atom at double-zeta baseline
-    n_heavy = sum(1 for e in elements if e != "H") if elements else n_atoms
-    M = max(10, int(n_heavy * 15 * scale))
+    job = _analyze_job_size(input_file)
+    n_atoms = job["n_atoms"]
+    M = job["n_bf"]
+    method = job["module"]
+    basis_name = job["basis_name"]
 
     # CPU-arch-aware parallelism target
     arch = hw_specs.get("cpu_arch", "generic")
@@ -3801,7 +3829,6 @@ def suggest_hpc_resources(
         profiles_path: Optional path to profiles YAML/JSON.
     """
     from .runner import load_runner_profiles, _resolve_profile
-    from .nwchem_input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
 
     # --- Load profile hardware specs ---
     loaded = load_runner_profiles(profiles_path)
@@ -3817,28 +3844,15 @@ def suggest_hpc_resources(
     partition = res.get("partition")
 
     # --- Analyze input file ---
-    summary = inspect_nwchem_input(input_file)
-    all_elements = summary.get("all_elements") or summary.get("elements", [])
-    n_atoms = summary.get("atom_count") or len(all_elements) or 1
-    n_heavy = sum(1 for e in all_elements if e != "H") if all_elements else n_atoms
-    tasks = summary.get("tasks") or [{}]
-    # Use the last task line — typically the main calculation
-    main_task = tasks[-1] if tasks else {}
-    module = (main_task.get("module") or "dft").lower()
-    operation = (main_task.get("operation") or "energy").lower()
-
-    # Detect task type
-    is_freq = operation in ("freq", "frequencies", "vib")
-    is_opt = operation in ("optimize", "saddle")
-    is_tce = module == "tce"
-
-    # Basis info
-    basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
-    basis_name = ""
-    if basis_blocks:
-        basis_name = basis_blocks[0].get("default_library", "") or ""
-    scale = _basis_scale(basis_name) if basis_name else 1.5
-    n_bf = max(10, int(n_heavy * 15 * scale))
+    job = _analyze_job_size(input_file)
+    n_atoms = job["n_atoms"]
+    n_heavy = job["n_heavy"]
+    n_bf = job["n_bf"]
+    module = job["module"]
+    is_freq = job["is_freq"]
+    is_opt = job["is_opt"]
+    is_tce = job["is_tce"]
+    basis_name = job["basis_name"]
 
     rationale: list[str] = []
     warnings: list[str] = []
@@ -4102,30 +4116,17 @@ def suggest_partition(
     """
     import subprocess
     from .runner import load_runner_profiles, _resolve_profile
-    from .nwchem_input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
-
     loaded = load_runner_profiles(profiles_path)
     all_profile_names = list((loaded.get("profiles") or {}).keys())
 
     # --- Analyze the input file once ---
-    summary = inspect_nwchem_input(input_file)
-    all_elements = summary.get("all_elements") or summary.get("elements", [])
-    n_atoms = summary.get("atom_count") or len(all_elements) or 1
-    n_heavy = sum(1 for e in all_elements if e != "H") if all_elements else n_atoms
-    tasks = summary.get("tasks") or [{}]
-    main_task = tasks[-1] if tasks else {}
-    module = (main_task.get("module") or "dft").lower()
-    operation = (main_task.get("operation") or "energy").lower()
-    is_freq = operation in ("freq", "frequencies", "vib")
-    is_opt = operation in ("optimize", "saddle")
-    is_tce = module == "tce"
-
-    basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
-    basis_name = ""
-    if basis_blocks:
-        basis_name = basis_blocks[0].get("default_library", "") or ""
-    scale = _basis_scale(basis_name) if basis_name else 1.5
-    n_bf = max(10, int(n_heavy * 15 * scale))
+    job = _analyze_job_size(input_file)
+    n_atoms = job["n_atoms"]
+    n_bf = job["n_bf"]
+    is_freq = job["is_freq"]
+    is_opt = job["is_opt"]
+    is_tce = job["is_tce"]
+    basis_name = job["basis_name"]
 
     # --- Estimate walltime needed ---
     if is_freq:
