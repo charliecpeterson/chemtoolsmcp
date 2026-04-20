@@ -231,16 +231,25 @@ def run_nwchem(
             Path(script_path).parent.mkdir(parents=True, exist_ok=True)
             Path(script_path).write_text(rendered["submit_script_text"], encoding="utf-8")
         submit_command = rendered["submit_command"]
-        completed = subprocess.run(
-            submit_command,
-            cwd=rendered["working_directory"],
-            env=env,
-            capture_output=True,
-            text=True,
-            shell=isinstance(submit_command, str),
-            executable=rendered["shell"] if isinstance(submit_command, str) else None,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                submit_command,
+                cwd=rendered["working_directory"],
+                env=env,
+                capture_output=True,
+                text=True,
+                shell=isinstance(submit_command, str),
+                executable=rendered["shell"] if isinstance(submit_command, str) else None,
+                check=False,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            rendered["executed"] = True
+            rendered["status"] = "submit_failed"
+            rendered["return_code"] = -1
+            rendered["stdout"] = ""
+            rendered["stderr"] = "sbatch/qsub timed out after 60 seconds"
+            return rendered
         rendered["executed"] = True
         rendered["status"] = "submitted" if completed.returncode == 0 else "submit_failed"
         rendered["return_code"] = completed.returncode
@@ -844,6 +853,7 @@ def _process_status(process_id: int | None) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=10,
         )
         if completed.returncode == 0:
             state = completed.stdout.strip()

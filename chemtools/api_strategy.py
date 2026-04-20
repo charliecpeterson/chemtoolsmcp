@@ -4074,3 +4074,278 @@ def suggest_hpc_resources(
     if account_info:
         result["account_info"] = account_info
     return result
+
+
+# ── Smart partition / queue selection ────────────────────────────────────
+
+
+def suggest_partition(
+    input_file: str,
+    profiles_path: str | None = None,
+    check_queue: bool = True,
+) -> dict[str, Any]:
+    """Suggest the best partition/queue for a job across all available profiles.
+
+    Scans all scheduler-type profiles, evaluates job fit (memory, walltime),
+    checks if dev queues are suitable for short jobs, and optionally queries
+    ``sinfo`` for current queue availability.
+
+    Args:
+        input_file: Path to the NWChem .nw input file.
+        profiles_path: Optional path to runner profiles YAML/JSON.
+        check_queue: If True, run ``sinfo`` to check partition availability.
+
+    Returns:
+        Dict with ``recommended_profile``, ``recommended_partition``,
+        ``resource_overrides``, comparison table, and rationale.
+    """
+    import subprocess
+    from .runner import load_runner_profiles, _resolve_profile
+    from .nwchem_input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
+
+    loaded = load_runner_profiles(profiles_path)
+    all_profile_names = list((loaded.get("profiles") or {}).keys())
+
+    # --- Analyze the input file once ---
+    summary = inspect_nwchem_input(input_file)
+    elements = summary.get("elements", [])
+    n_atoms = len(elements) if elements else 1
+    n_heavy = sum(1 for e in elements if e != "H") if elements else n_atoms
+    tasks = summary.get("tasks") or [{}]
+    main_task = tasks[-1] if tasks else {}
+    module = (main_task.get("module") or "dft").lower()
+    operation = (main_task.get("operation") or "energy").lower()
+    is_freq = operation in ("freq", "frequencies", "vib")
+    is_opt = operation in ("optimize", "saddle")
+    is_tce = module == "tce"
+
+    basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
+    basis_name = ""
+    if basis_blocks:
+        basis_name = basis_blocks[0].get("default_library", "") or ""
+    scale = _basis_scale(basis_name) if basis_name else 1.5
+    n_bf = max(10, int(n_heavy * 15 * scale))
+
+    # --- Estimate walltime needed ---
+    if is_freq:
+        n_disp = n_atoms * 6
+        base_seconds = 300.0 * (n_atoms / 20.0) ** 1.5
+        est_hours = (n_disp * base_seconds) / 3600.0 / max(1, n_bf // 80)
+    elif is_opt:
+        if n_atoms <= 10:
+            est_hours = 0.5
+        elif n_atoms <= 30:
+            est_hours = 4.0
+        else:
+            est_hours = 12.0
+    elif is_tce:
+        if n_atoms <= 5:
+            est_hours = 2.0
+        elif n_atoms <= 15:
+            est_hours = 12.0
+        else:
+            est_hours = 24.0
+    else:
+        if n_atoms <= 5:
+            est_hours = 0.25
+        elif n_atoms <= 20:
+            est_hours = 1.0
+        else:
+            est_hours = 4.0
+
+    # Estimate memory per rank
+    mem_rec = suggest_memory(
+        n_atoms=n_atoms, basis=basis_name or "6-31g*",
+        method=module, n_heavy_atoms=n_heavy,
+    )
+    mem_per_rank_needed = mem_rec["recommended_total_mb"]
+
+    # --- Get queue status if requested ---
+    queue_info: dict[str, dict[str, Any]] = {}
+    if check_queue:
+        try:
+            proc = subprocess.run(
+                ["sinfo", "-o", "%P %a %F %l", "--noheader"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                for line in proc.stdout.strip().splitlines():
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        pname = parts[0].rstrip("*")
+                        avail = parts[1]
+                        # Node counts: allocated/idle/other/total
+                        node_counts = parts[2]
+                        timelimit = parts[3]
+                        idle = 0
+                        total = 0
+                        try:
+                            nc = node_counts.split("/")
+                            idle = int(nc[1]) if len(nc) > 1 else 0
+                            total = int(nc[3]) if len(nc) > 3 else 0
+                        except (ValueError, IndexError):
+                            pass
+                        queue_info[pname] = {
+                            "available": avail == "up",
+                            "idle_nodes": idle,
+                            "total_nodes": total,
+                            "timelimit": timelimit,
+                        }
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+    # --- Evaluate each profile ---
+    candidates: list[dict[str, Any]] = []
+    for prof_name in all_profile_names:
+        try:
+            prof = _resolve_profile(loaded, prof_name)
+        except ValueError:
+            continue
+
+        launcher = prof.get("launcher", {})
+        if launcher.get("kind") != "scheduler":
+            continue
+
+        res = prof.get("resources", {})
+        cores_per_node = res.get("cores_per_node") or res.get("mpi_ranks") or 48
+        node_memory_mb = res.get("node_memory_mb")
+        max_wt_str = res.get("max_walltime")
+        max_wt_hours = _parse_walltime_hours(max_wt_str) or 48.0
+        partition = res.get("partition", "")
+        cpu_arch = res.get("cpu_arch") or "generic"
+        max_nodes = res.get("max_nodes") or 1
+
+        # Memory per core
+        mem_per_core = (node_memory_mb / cores_per_node) if node_memory_mb else 4000
+
+        # Does the job fit in walltime?
+        fits_walltime = est_hours <= max_wt_hours * 0.90
+
+        # Does the job fit in memory?
+        fits_memory = mem_per_rank_needed <= mem_per_core * 0.85 if node_memory_mb else True
+
+        # Is this a dev queue?
+        is_dev = "dev" in prof_name.lower() or "dev" in partition.lower()
+
+        # SU rate (default 1.0 if not specified)
+        # Infer from common TACC naming
+        su_rate = 1.0
+        if "spr" in prof_name.lower():
+            su_rate = 2.0
+        elif "icx" in prof_name.lower():
+            su_rate = 1.5
+
+        # Queue status
+        q_status = queue_info.get(partition, {})
+        queue_available = q_status.get("available", True)  # assume available if no sinfo
+        idle_nodes = q_status.get("idle_nodes", 0)
+
+        # --- Scoring ---
+        score = 0.0
+
+        if not fits_walltime:
+            score -= 100  # Disqualify
+        if not fits_memory:
+            score -= 50
+
+        if not queue_available:
+            score -= 200
+
+        # Dev queue bonus for short jobs
+        if is_dev and est_hours <= max_wt_hours * 0.75:
+            score += 30  # Strong preference for dev queue when job fits
+
+        # Cheaper SU rate is better
+        score -= su_rate * 5
+
+        # Memory headroom is good
+        if node_memory_mb:
+            headroom = mem_per_core / max(mem_per_rank_needed, 100)
+            score += min(10, headroom * 2)
+
+        # Idle nodes bonus
+        if idle_nodes > 0:
+            score += min(10, idle_nodes)
+
+        candidates.append({
+            "profile": prof_name,
+            "partition": partition,
+            "cores_per_node": cores_per_node,
+            "node_memory_mb": node_memory_mb,
+            "mem_per_core_mb": round(mem_per_core),
+            "max_walltime": max_wt_str or "unknown",
+            "max_walltime_hours": max_wt_hours,
+            "cpu_arch": cpu_arch,
+            "su_rate": su_rate,
+            "is_dev": is_dev,
+            "fits_walltime": fits_walltime,
+            "fits_memory": fits_memory,
+            "queue_available": queue_available,
+            "idle_nodes": idle_nodes,
+            "score": round(score, 1),
+        })
+
+    # Sort by score descending
+    candidates.sort(key=lambda c: -c["score"])
+
+    rationale: list[str] = []
+    rationale.append(
+        f"Job: {n_atoms} atoms, ~{n_bf} BF, {module}/{operation}, "
+        f"estimated ~{est_hours:.1f}h, ~{mem_per_rank_needed} MB/rank"
+    )
+
+    recommended = candidates[0] if candidates else None
+    if recommended:
+        rec_name = recommended["profile"]
+        rec_part = recommended["partition"]
+
+        if recommended["is_dev"]:
+            rationale.append(
+                f"Recommended dev queue '{rec_part}' — job estimated at "
+                f"{est_hours:.1f}h fits within {recommended['max_walltime']} "
+                f"max walltime, faster queue turnaround"
+            )
+        else:
+            rationale.append(
+                f"Recommended '{rec_part}' — best fit for memory "
+                f"({recommended['mem_per_core_mb']} MB/core) and cost "
+                f"({recommended['su_rate']}x SU rate)"
+            )
+
+        if queue_info:
+            idle = recommended.get("idle_nodes", 0)
+            if idle > 0:
+                rationale.append(f"Queue status: {idle} idle nodes on {rec_part}")
+            else:
+                rationale.append(f"Queue status: no idle nodes on {rec_part} (job will queue)")
+
+        # Run full resource suggestion for the recommended profile
+        full_suggestion = suggest_hpc_resources(input_file, rec_name, profiles_path)
+
+        return {
+            "recommended_profile": rec_name,
+            "recommended_partition": rec_part,
+            "resource_overrides": full_suggestion.get("resource_overrides", {}),
+            "nwchem_memory_directive": full_suggestion.get("nwchem_memory_directive", ""),
+            "estimated_walltime_hours": round(est_hours, 2),
+            "job_summary": {
+                "n_atoms": n_atoms,
+                "n_heavy_atoms": n_heavy,
+                "estimated_basis_functions": n_bf,
+                "method": module,
+                "task_type": operation,
+                "mem_per_rank_needed_mb": mem_per_rank_needed,
+            },
+            "partition_comparison": candidates,
+            "queue_status_available": bool(queue_info),
+            "rationale": rationale + full_suggestion.get("rationale", []),
+            "warnings": full_suggestion.get("warnings", []),
+        }
+
+    return {
+        "recommended_profile": None,
+        "recommended_partition": None,
+        "error": "No suitable scheduler profiles found",
+        "profiles_scanned": all_profile_names,
+        "rationale": rationale,
+    }

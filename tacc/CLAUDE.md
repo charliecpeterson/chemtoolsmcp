@@ -37,8 +37,12 @@ Use `suggest_nwchem_resources(input_file, profile)` to auto-select optimal resou
 
 ```
 inspect_runner_profiles                          → confirm profiles are loaded
+suggest_nwchem_partition(input_file=...)          → auto-select best partition across all profiles
+                                                   (checks memory fit, walltime, dev queue, SU cost,
+                                                   queue availability via sinfo)
 suggest_nwchem_resources(input_file=...,
                          profile="stampede3_skx") → auto-pick nodes/ranks/walltime/memory
+                                                   (use if you already know the partition)
 render_job_script(profile="stampede3_skx",
                   resource_overrides=...)         → preview .job script before submitting
 lint_nwchem_input(input_file=...)                → catch errors before wasting queue time

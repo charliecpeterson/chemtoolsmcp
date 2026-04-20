@@ -120,6 +120,7 @@ from chemtools import (  # noqa: E402
     estimate_freq_walltime,
     suggest_hpc_resources,
     detect_hpc_accounts,
+    suggest_partition,
 )
 from chemtools.eval import evaluate_case, evaluate_cases
 from chemtools.nwchem_docs import (
@@ -2650,6 +2651,28 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "suggest_nwchem_partition",
+            "description": (
+                "Suggest the best HPC partition/queue for a NWChem job by comparing ALL "
+                "available scheduler profiles. Evaluates memory fit, walltime fit, SU cost, "
+                "dev queue suitability for short jobs, and optionally queries sinfo for "
+                "current queue availability (idle nodes). Returns the recommended profile "
+                "and partition with resource_overrides ready for launch_nwchem_run. "
+                "Use this INSTEAD OF suggest_nwchem_resources when you want the tool to "
+                "pick the best partition automatically rather than specifying one."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input file."},
+                    "profiles_path": {"type": "string", "description": "Optional path to runner profiles YAML/JSON."},
+                    "check_queue": {"type": "boolean", "default": True, "description": "If true, run sinfo to check partition availability and idle nodes."},
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
         # ----- NWChem documentation tools (bundled docs) --------------------
         {
             "name": "list_nwchem_docs",
@@ -4552,6 +4575,15 @@ def _handle_detect_hpc_accounts(arguments: dict[str, Any]) -> dict[str, Any]:
     return detect_hpc_accounts(
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path"),
+    )
+
+
+@_tool("suggest_nwchem_partition")
+def _handle_suggest_partition(arguments: dict[str, Any]) -> dict[str, Any]:
+    return suggest_partition(
+        input_file=arguments["input_file"],
+        profiles_path=arguments.get("profiles_path"),
+        check_queue=arguments.get("check_queue", True),
     )
 
 

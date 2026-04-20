@@ -23,7 +23,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
   eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 107 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem MCP server — 108 tools, thin wrappers over chemtools/
     nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
     # Future: molpro.py, orca.py
 
@@ -36,9 +36,9 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 107
+- Current tool count: 108
 
-### Tool categories (107 tools)
+### Tool categories (108 tools)
 
 | Category | Count | Examples |
 |----------|-------|---------|
@@ -46,7 +46,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | Output parsing | 16 | `parse_nwchem_output`, `parse_nwchem_tce_output`, `parse_nwchem_thermochem`, `parse_nwchem_freq_progress`, `parse_nwchem_tasks`, `parse_nwchem_trajectory` |
 | Analysis & diagnosis | 11 | `analyze_nwchem_case`, `check_nwchem_spin_charge_state`, `summarize_nwchem_output`, `preflight_check`, `review_nwchem_progress` |
 | Strategy & suggestions | 12 | `suggest_basis_set`, `suggest_nwchem_recovery`, `suggest_spin_state`, `suggest_nwchem_resources`, `suggest_resources` |
-| Resource & HPC | 5 | `suggest_nwchem_resources`, `detect_nwchem_hpc_accounts`, `check_nwchem_memory_fit`, `estimate_nwchem_freq_walltime`, `render_job_script` |
+| Resource & HPC | 6 | `suggest_nwchem_resources`, `suggest_nwchem_partition`, `detect_nwchem_hpc_accounts`, `check_nwchem_memory_fit`, `estimate_nwchem_freq_walltime`, `render_job_script` |
 | Basis & ECP | 4 | `render_nwchem_basis_setup`, `basis_library_summary` |
 | Job management | 7 | `launch_nwchem_run`, `watch_nwchem_run`, `watch_multiple_runs`, `terminate_nwchem_run`, `get_nwchem_run_status`, `tail_nwchem_output` |
 | Registry & campaigns | 9 | `register_nwchem_run`, `create_nwchem_campaign`, `get_nwchem_campaign_energies`, `generate_nwchem_input_batch` |
