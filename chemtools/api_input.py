@@ -1664,10 +1664,26 @@ def draft_initial_geometry(
             else:
                 lig_coords = [(0.0, 0.0, -r_ml), (0.0, 0.0, r_ml)]
         elif n_lig == 3:
-            lig_coords = [
-                (r_ml * math.cos(k * two_pi / 3), r_ml * math.sin(k * two_pi / 3), 0.0)
-                for k in range(3)
-            ]
+            # Elements with lone pairs that produce pyramidal AX3 geometries
+            _PYRAMIDAL_CENTERS = {"N", "P", "As", "Sb", "Bi", "S", "Se", "Te"}
+            if center in _PYRAMIDAL_CENTERS:
+                # Pyramidal: ligands below the central atom plane
+                # Use ~107° bond angle for N, ~93° for heavier pnictogens
+                pyr_angle_deg = {"N": 107.0, "P": 93.5, "As": 91.8, "Sb": 91.6, "Bi": 90.5}.get(center, 95.0)
+                half_angle = math.radians(pyr_angle_deg / 2)
+                # Place ligands in a cone below center
+                z_lig = -r_ml * math.cos(half_angle)
+                r_xy = r_ml * math.sin(half_angle)
+                lig_coords = [
+                    (r_xy * math.cos(k * two_pi / 3), r_xy * math.sin(k * two_pi / 3), z_lig)
+                    for k in range(3)
+                ]
+            else:
+                # Trigonal planar (e.g. BH3, AlCl3)
+                lig_coords = [
+                    (r_ml * math.cos(k * two_pi / 3), r_ml * math.sin(k * two_pi / 3), 0.0)
+                    for k in range(3)
+                ]
         elif n_lig == 4:
             s = r_ml / math.sqrt(3)
             lig_coords = [(s, s, s), (s, -s, -s), (-s, s, -s), (-s, -s, s)]
@@ -2172,6 +2188,7 @@ def create_nwchem_dft_workflow_input(
     multiplicity: int | None = None,
     dft_settings: list[str] | None = None,
     extra_blocks: list[str] | None = None,
+    geometry_options: list[str] | None = None,
     memory: str | None = None,
     title: str | None = None,
     start_name: str | None = None,
@@ -2189,8 +2206,15 @@ def create_nwchem_dft_workflow_input(
         raise ValueError("xc_functional is required")
 
     geometry = load_geometry_source(geometry_path, block_index=geometry_block_index)
+    header_line = geometry["header_line"]
+    # Append geometry options (e.g. noautosym, noautoz) to the header line
+    if geometry_options:
+        for opt in geometry_options:
+            opt_stripped = opt.strip()
+            if opt_stripped and opt_stripped.lower() not in header_line.lower():
+                header_line = header_line.rstrip() + " " + opt_stripped
     geometry_block = render_nwchem_geometry_block(
-        geometry["header_line"],
+        header_line,
         geometry["atoms"],
         directives=geometry["directives"],
     )
@@ -2297,6 +2321,7 @@ def create_nwchem_dft_input_from_request(
     multiplicity: int | None = None,
     dft_settings: list[str] | None = None,
     extra_blocks: list[str] | None = None,
+    geometry_options: list[str] | None = None,
     memory: str | None = None,
     title: str | None = None,
     start_name: str | None = None,
@@ -2352,6 +2377,7 @@ def create_nwchem_dft_input_from_request(
         multiplicity=multiplicity,
         dft_settings=dft_settings,
         extra_blocks=extra_blocks,
+        geometry_options=geometry_options,
         memory=memory,
         title=title,
         start_name=start_name,

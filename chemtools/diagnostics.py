@@ -479,8 +479,25 @@ def summarize_nwchem_output(
     bullets.append(f"Outcome: {diagnosis['task_outcome']}")
     bullets.append(f"Diagnosis: {diagnosis['failure_class']}")
 
-    if scf["total_energy_hartree"] is not None:
-        bullets.append(f"Energy: {scf['total_energy_hartree']:.12f} Ha")
+    # Report the best available energy: correlated > DFT > SCF
+    # Tasks are parsed with priority-based energy tokens, so the last task's
+    # energy includes the correlation correction for MP2/CCSD/CCSD(T).
+    raw_tasks = diagnosis["tasks"]["program_summary"]["raw"]["tasks"]
+    best_energy = scf["total_energy_hartree"]
+    correlated_method = None
+    for t in reversed(raw_tasks):
+        te = t.get("total_energy_hartree")
+        if te is not None:
+            method = t.get("method") or ""
+            if method.lower() in ("mp2", "ccsd", "ccsd(t)", "tce"):
+                correlated_method = method
+            best_energy = te
+            break
+    if best_energy is not None:
+        energy_label = f"Energy ({correlated_method})" if correlated_method else "Energy"
+        bullets.append(f"{energy_label}: {best_energy:.12f} Ha")
+        if correlated_method and scf["total_energy_hartree"] is not None and scf["total_energy_hartree"] != best_energy:
+            bullets.append(f"SCF reference energy: {scf['total_energy_hartree']:.12f} Ha")
 
     if scf["last_run"] is not None:
         last_run = scf["last_run"]
@@ -627,7 +644,9 @@ def summarize_nwchem_output(
         "likely_cause": diagnosis["likely_cause"],
         "recommended_next_action": diagnosis["recommended_next_action"],
         "confidence": diagnosis["confidence"],
-        "energy_hartree": scf.get("total_energy_hartree"),
+        "energy_hartree": best_energy if best_energy is not None else scf.get("total_energy_hartree"),
+        "scf_energy_hartree": scf.get("total_energy_hartree"),
+        "correlated_method": correlated_method,
         "scf": scf_for_summary,
         "optimization_status": (diagnosis.get("trajectory") or {}).get("optimization_status"),
         "optimization_step_count": (diagnosis.get("trajectory") or {}).get("step_count"),

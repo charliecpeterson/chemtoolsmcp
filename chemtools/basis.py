@@ -176,6 +176,33 @@ def _find_basis_file(basis_name: str, library_path: str | Path) -> Path:
             if candidate_key.replace('"', "") == alias:
                 return candidate_path
 
+    # Normalize Pople polarization notation:
+    # 6-31G(d,p) → 6-31gss (d on heavy = *, p on H = **)
+    # 6-31G(d)   → 6-31gs  (d on heavy = *)
+    # 6-311+G(2d,p) → 6-311+g2d_p (multi-polarization uses underscore)
+    import re as _re
+    _pople_match = _re.search(r"g(\+*)\(([^)]+)\)", normalized)
+    if _pople_match:
+        _plus = _pople_match.group(1)
+        _pol = _pople_match.group(2)
+        # Simple (d) → s, (d,p) → ss
+        _simple_map = {"d": "s", "d,p": "ss"}
+        if _pol in _simple_map:
+            _pople_repl = f"g{_plus}{_simple_map[_pol]}"
+        else:
+            # Multi-polarization: (2d,p) → 2d_p, (3df,3pd) → 3df_3pd
+            _pople_repl = f"g{_plus}" + _pol.replace(",", "_")
+        pople = normalized[:_pople_match.start()] + _pople_repl + normalized[_pople_match.end():]
+    else:
+        pople = normalized.replace("(", "").replace(")", "").replace(",", "_")
+    if pople != normalized:
+        if pople in entries:
+            return entries[pople]
+        # Also try with star substitutions on the pople form
+        pople_star = pople.replace("**", "ss").replace("*", "s")
+        if pople_star != pople and pople_star in entries:
+            return entries[pople_star]
+
     # Suggest close matches to help the caller
     import difflib
     close = difflib.get_close_matches(normalized, [k.replace('"', "") for k in entries], n=3, cutoff=0.6)
@@ -594,6 +621,7 @@ def extract_nwchem_geometry_elements(path: str | Path) -> dict[str, Any]:
     lines = contents.splitlines()
     in_geometry = False
     elements: list[str] = []
+    all_elements: list[str] = []
     seen: set[str] = set()
     geometry_blocks = 0
 
@@ -616,6 +644,7 @@ def extract_nwchem_geometry_elements(path: str | Path) -> dict[str, Any]:
             symbol = normalize_element_symbol(head)
         except ValueError:
             continue
+        all_elements.append(symbol)
         if symbol not in seen:
             seen.add(symbol)
             elements.append(symbol)
@@ -623,7 +652,9 @@ def extract_nwchem_geometry_elements(path: str | Path) -> dict[str, Any]:
     return {
         "file": normalize_path(path),
         "elements": elements,
+        "all_elements": all_elements,
         "element_count": len(elements),
+        "atom_count": len(all_elements),
         "geometry_block_count": geometry_blocks,
     }
 

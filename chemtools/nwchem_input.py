@@ -169,6 +169,8 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
             geometry_refs.append(match.group(1))
 
     elements = geometry["elements"]
+    all_elements = geometry.get("all_elements", elements)
+    atom_count = geometry.get("atom_count", len(elements))
     transition_metals = [element for element in elements if element in TRANSITION_METALS]
 
     # Infer multiplicity from nopen if not explicitly set (nopen N → mult N+1)
@@ -178,6 +180,8 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
     return {
         "file": normalize_path(path),
         "elements": elements,
+        "all_elements": all_elements,
+        "atom_count": atom_count,
         "transition_metals": transition_metals,
         "charge": charges[-1] if charges else None,
         "charges_seen": charges,

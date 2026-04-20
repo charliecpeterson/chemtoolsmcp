@@ -1933,7 +1933,8 @@ def check_nwchem_freq_plausibility(
             })
 
     # --- ZPE check ---
-    zpe_kcal = thermo.get("zpe_kcal_mol")
+    zpe_correction = thermo.get("zero_point_correction") or {}
+    zpe_kcal = zpe_correction.get("kcal_mol")
     n_atoms_thermo = None
     zpe_per_atom: float | None = None
     zpe_note: str | None = None
@@ -3817,9 +3818,9 @@ def suggest_hpc_resources(
 
     # --- Analyze input file ---
     summary = inspect_nwchem_input(input_file)
-    elements = summary.get("elements", [])
-    n_atoms = len(elements) if elements else 1
-    n_heavy = sum(1 for e in elements if e != "H") if elements else n_atoms
+    all_elements = summary.get("all_elements") or summary.get("elements", [])
+    n_atoms = summary.get("atom_count") or len(all_elements) or 1
+    n_heavy = sum(1 for e in all_elements if e != "H") if all_elements else n_atoms
     tasks = summary.get("tasks") or [{}]
     # Use the last task line — typically the main calculation
     main_task = tasks[-1] if tasks else {}
@@ -4108,9 +4109,9 @@ def suggest_partition(
 
     # --- Analyze the input file once ---
     summary = inspect_nwchem_input(input_file)
-    elements = summary.get("elements", [])
-    n_atoms = len(elements) if elements else 1
-    n_heavy = sum(1 for e in elements if e != "H") if elements else n_atoms
+    all_elements = summary.get("all_elements") or summary.get("elements", [])
+    n_atoms = summary.get("atom_count") or len(all_elements) or 1
+    n_heavy = sum(1 for e in all_elements if e != "H") if all_elements else n_atoms
     tasks = summary.get("tasks") or [{}]
     main_task = tasks[-1] if tasks else {}
     module = (main_task.get("module") or "dft").lower()
