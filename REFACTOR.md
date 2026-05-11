@@ -222,7 +222,12 @@ example_text = plugin.examples.read_example(template["name"])
 13. ~~**MCP tool that dispatches through plugins**~~ — done (Phase 4e). `summarize_run`.
 14. ~~**Extend MCSCF orchestrator**~~ — done (Phase 4g). `prepare_nwchem_mcscf_setup` MCP tool with frontier-aware routing.
 15. ~~**Expand examples corpus**~~ — done (Phase 4h). 4 → 8 starter templates covering DFT, opt, freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO.
-16. **`api_input.py` split** (multi-session, family-by-family). Cleans up the Drafter's lazy imports and unlocks `patch_input`.
+16. **`api_input.py` split** — in progress. 3 of ~9 families carved out:
+    - ~~cube drafters~~ → `programs/nwchem/input/cube.py` (Phase 5a)
+    - ~~SCF recovery + property check drafters~~ → `programs/nwchem/input/scf_recovery.py` (Phase 5b)
+    - ~~MCSCF drafters~~ → `programs/nwchem/input/mcscf.py` (Phase 5c)
+    - Still flat: TCE drafters (~1000 LOC), imaginary-mode handling (~270), geometry helpers (~250), DFT workflow drafters (~250), optimization follow-up (~120), lint + restart (~400), general create_nwchem_input + variants (~400), prepare_nwchem_next_step orchestrator (~200).
+    api_input.py: 4170 → 3404 LOC (771 moved).
 17. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
 18. **`mcp/nwchem.py` split** (depends on 16+17 being underway).
 19. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
