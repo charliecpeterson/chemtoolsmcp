@@ -142,19 +142,37 @@ embedding search later if needed.
 - ~17,000 LOC migrated. 244/244 smoke tests green.
 
 **Plugin sub-protocols wired:**
-- `NWCHEM.parser` (full) — `parse_output`, `task_index`, `parse_input`, `get_orbitals`, `get_frequency`, `get_trajectory`, `get_thermochem`, `get_geometry`. Returns proper `ParsedRun` envelope with `tasks`, `derived`, `diagnostics`, auto-picked `primary_task_index`.
-- `NWCHEM.strategist` (minimal) — `diagnose`, `suggest_recovery`, `suggest_resources`, `progress_summary`. Returns proper `Diagnosis` envelope with `verdict + next_actions`.
-- `MOLPRO.parser` (parse-only) — `parse_output`, `task_index`, `get_orbitals` wired; rest raise `NotImplementedError`.
-- `MOLCAS.parser` (stub) — `parse_output`, `task_index` only.
-- `registry.resolve(file)` correctly dispatches NWChem outputs (detection window enlarged to 32KB; "echo of input deck" added as an early signal).
+
+| Plugin | parser | drafter | strategist | examples | binary |
+|---|---|---|---|---|---|
+| NWCHEM | full (8/8) | full (draft / lint; patch TODO) | minimal (4/4) | 4 starter templates | — |
+| MOLPRO | parse-only (3/8) | — | — | — | — |
+| MOLCAS | stub (2/8) | — | — | — | — |
+
+- `registry.resolve(file)` correctly dispatches NWChem / Molpro / Molcas outputs (detection window enlarged to 32KB; "echo of input deck" added as an early signal).
 
 **Working end-to-end:**
 
 ```python
 from chemtools.core import registry
-plugin = registry.resolve(program=None, path=output_file)  # auto-detect
+
+plugin = registry.resolve(program=None, path=output_file)   # auto-detect
+
+# Read existing outputs
 parsed = plugin.parser.parse_output(output_file)            # ParsedRun
-diagnosis = plugin.strategist.diagnose(parsed)              # Diagnosis (NWChem only for now)
+diagnosis = plugin.strategist.diagnose(parsed)              # Diagnosis (NWChem only)
+
+# Draft new inputs from a 5-line spec
+text = plugin.drafter.draft_input({
+    "atoms": [...], "charge": 0, "multiplicity": 1,
+    "method": "DFT", "functional": "b3lyp", "basis": "def2-svp",
+    "task": "energy", "title": "water test",
+})
+issues = plugin.drafter.lint_input(text)
+
+# Pull a curated template
+template = plugin.examples.find_example(task="energy", methods=["B3LYP"])
+example_text = plugin.examples.read_example(template["name"])
 ```
 
 ### Deferred (need real splits)
@@ -189,15 +207,16 @@ diagnosis = plugin.strategist.diagnose(parsed)              # Diagnosis (NWChem 
 6. ~~**Wire NWChem Parser sub-protocol**~~ — done (Phase 4a).
 7. ~~**Wire NWChem Strategist sub-protocol**~~ — done (Phase 4a).
 8. ~~**Wire Molpro/Molcas Parser sub-protocols + extract shared adapter helpers**~~ — done (Phase 4b).
-9. **`api_input.py` split** (multi-session, family-by-family).
-10. **`api_strategy.py` split** (multi-session, family-by-family).
-11. **`mcp/nwchem.py` split** (depends on 9+10 being underway so tool defs land in clean families).
-12. **Drafter sub-protocol on NWChem** — adapter from `InputSpec` to the existing `draft_nwchem_*` functions. Will likely happen alongside the `api_input.py` split.
-13. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality).
-14. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
-15. **Examples corpus** — tag-based bundled NWChem input templates.
-16. **Active space design tool** — `prepare_active_space(scf_output, target_method, expected_somos)`.
-17. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
+9. ~~**Wire NWChem Drafter sub-protocol**~~ — done (Phase 4c). `draft_input` + `lint_input` work; `patch_input` is NotImplementedError until api_input.py splits.
+10. ~~**Build NWChem ExamplesCorpus**~~ — done (Phase 4d). 4 starter templates bundled; user adds more over time.
+11. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality, unlocks TS workflows and intelligent freq restart). Likely next move.
+12. **Active space design tool** — `prepare_active_space(scf_output, target_method, expected_somos)`. Concrete "thick tool" example that uses Parser + binary movecs reader + Drafter end-to-end.
+13. **MCP tool that dispatches through plugins** — flagship tool exposing the plugin envelope to agents. Single MCP tool that returns combined `ParsedRun + Diagnosis` from one call via `registry.resolve`.
+14. **`api_input.py` split** (multi-session, family-by-family). Cleans up the Drafter's lazy imports and unlocks `patch_input`.
+15. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
+16. **`mcp/nwchem.py` split** (depends on 14+15 being underway).
+17. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
+18. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
 
 After all of the above:
 
