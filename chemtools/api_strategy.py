@@ -1641,7 +1641,8 @@ def check_nwchem_geometry_plausibility(
       ring_checks        planarity for rings
       selected_frame     step/energy of the frame checked
     """
-    from .api_input import extract_nwchem_geometry, _select_best_optimization_frame
+    from .api_input import extract_nwchem_geometry
+    from chemtools.programs.nwchem.input.opt_followup import _select_best_optimization_frame
 
     contents = read_text(output_path)
 
