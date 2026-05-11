@@ -698,6 +698,10 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return d
 
 
+# TODO(multi-program): _apply_change and generate_input_batch both contain
+# NWChem-specific text-munging that should not live in core/. Move them to
+# programs/nwchem/input/ and have generate_input_batch dispatch through
+# program.drafter.patch_input(). Tracked as Phase 2 cleanup.
 def _apply_change(text: str, key: str, value: str) -> str:
     """Apply a single parameter change to NWChem input text.
 

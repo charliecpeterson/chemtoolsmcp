@@ -10,7 +10,7 @@ from .api_output import parse_freq_progress  # noqa: F401
 from .api_strategy import *  # noqa: F401,F403
 from .api_strategy import check_nwchem_geometry_plausibility, check_nwchem_freq_plausibility, suggest_spin_state, suggest_basis_set, suggest_memory, suggest_resources, suggest_relativistic_correction, prepare_freq_restart, preflight_check, get_nwchem_workflow_state, check_memory_fit, estimate_freq_walltime, suggest_hpc_resources, detect_hpc_accounts, suggest_partition  # noqa: F401
 from .diagnostics import summarize_electronic_structure, track_spin_state_across_optimization  # noqa: F401
-from .registry import (  # noqa: F401
+from chemtools.core.run_registry import (  # noqa: F401
     register_run, update_run_status, list_runs, get_run_summary,
     create_campaign, get_campaign_status, get_campaign_energies,
     create_workflow, advance_workflow, generate_input_batch,

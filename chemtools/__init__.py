@@ -102,7 +102,7 @@ from .api import (
     swap_nwchem_movecs,
     tail_nwchem_output,
 )
-from .registry import (
+from chemtools.core.run_registry import (
     register_run,
     update_run_status,
     list_runs,
