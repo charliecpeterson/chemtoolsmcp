@@ -4062,6 +4062,224 @@ def _build_next_actions(
                 "confidence": 0.7,
             })
 
+    elif context == "freq_progress":
+        # parse_nwchem_freq_progress returns pct_complete + restart estimates.
+        pct = result.get("pct_complete")
+        runs_needed = result.get("runs_needed_at_48h_walltime")
+        fdrst = result.get("fdrst") or {}
+        fdrst_present = fdrst.get("exists")
+
+        if pct is None:
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_output",
+                "params": {"output_file": output_file, "sections": ["tasks"]},
+                "reason": "Could not detect freq progress markers — fall back to task-level parsing.",
+                "confidence": 0.55,
+            })
+        elif pct >= 99.0:
+            actions.append({
+                "priority": 1,
+                "tool": "check_nwchem_freq_plausibility",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Frequency calc is essentially complete — validate the results.",
+                "confidence": 0.9,
+            })
+        elif fdrst_present and isinstance(runs_needed, int) and runs_needed > 1:
+            actions.append({
+                "priority": 1,
+                "tool": "prepare_nwchem_freq_restart",
+                "params": {"input_file": input_file, "output_file": output_file},
+                "reason": (
+                    f"Run is {pct:.0f}% through; the .fdrst restart file is present "
+                    f"and an estimated {runs_needed} restart cycle(s) are needed at "
+                    f"48h walltime — prepare a restart input."
+                ),
+                "confidence": 0.85,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "watch_nwchem_run",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"Freq calc is {pct:.0f}% complete; estimated remaining "
+                    f"{result.get('estimated_remaining_hours', 0):.1f} h — keep watching."
+                ),
+                "confidence": 0.7,
+            })
+
+    elif context == "review_progress":
+        # review_nwchem_progress returns overall_status + intervention block.
+        overall = (result.get("overall_status") or "").lower()
+        intervention = result.get("intervention") or {}
+        rec = (intervention.get("recommended_action") or "").lower()
+        should_terminate = intervention.get("should_terminate_process")
+
+        if overall in {"completed_success", "completed", "finished"}:
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job completed — run full case analysis to confirm and pick next step.",
+                "confidence": 0.9,
+            })
+        elif should_terminate:
+            actions.append({
+                "priority": 1,
+                "tool": "terminate_nwchem_run",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"Intervention recommends terminating the job: {rec or 'see reasons'}. "
+                    "Cancel and re-plan."
+                ),
+                "confidence": 0.8,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "suggest_nwchem_recovery",
+                "params": {"output_file": output_file, "input_file": input_file, "mode": "auto"},
+                "reason": "After termination, get recovery strategy for the next attempt.",
+                "confidence": 0.75,
+            })
+        elif overall in {"running", "in_progress", "active"}:
+            actions.append({
+                "priority": 1,
+                "tool": "watch_nwchem_run",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job is still running and nothing flags intervention — keep watching.",
+                "confidence": 0.75,
+            })
+        elif overall in {"failed", "error", "crashed"}:
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Job did not complete cleanly — run full case analysis for failure diagnosis.",
+                "confidence": 0.85,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "watch_nwchem_run",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": f"Unknown status ({overall!r}) — continue watching.",
+                "confidence": 0.5,
+            })
+
+    elif context == "tce_validation":
+        # validate_nwchem_tce_setup returns status ("ok"/"warnings"/"errors"),
+        # issues (with level/code), detected (parsed fields).
+        status = (result.get("status") or "").lower()
+        issues_list = result.get("issues") or []
+        error_codes = {i.get("code") for i in issues_list if i.get("level") == "error"}
+
+        if status == "errors":
+            # Specific recovery paths for known error codes.
+            if "freeze_atomic_forbidden" in error_codes or "missing_freeze" in error_codes:
+                actions.append({
+                    "priority": 1,
+                    "tool": "prepare_nwchem_tce_setup",
+                    "params": {"scf_output_path": output_file or "<scf.out>"},
+                    "reason": (
+                        "Freeze directive missing or uses `freeze atomic` — "
+                        "run the TCE setup orchestrator to compute the explicit "
+                        "freeze count and regenerate the input."
+                    ),
+                    "confidence": 0.85,
+                })
+            elif "missing_vectors" in error_codes or "vectors_unreachable" in error_codes:
+                actions.append({
+                    "priority": 1,
+                    "tool": "find_nwchem_restart_assets",
+                    "params": {"path": input_file or "<tce_input.nw>"},
+                    "reason": "Vectors file path is missing or unreachable — locate the right movecs in the run directory.",
+                    "confidence": 0.8,
+                })
+            else:
+                actions.append({
+                    "priority": 1,
+                    "tool": "prepare_nwchem_tce_setup",
+                    "params": {"scf_output_path": output_file or "<scf.out>"},
+                    "reason": (
+                        f"TCE input has {len(error_codes)} error(s): "
+                        f"{', '.join(sorted(c for c in error_codes if c)) or 'unspecified'}. "
+                        "Use the TCE setup orchestrator to regenerate cleanly."
+                    ),
+                    "confidence": 0.7,
+                })
+        elif status == "warnings":
+            actions.append({
+                "priority": 1,
+                "tool": "launch_nwchem_run",
+                "params": {"input_file": input_file or "<tce_input.nw>"},
+                "reason": (
+                    f"TCE input passes validation with {len(issues_list)} warning(s) — "
+                    "OK to launch, but review the warnings first if any flag a "
+                    "specific concern (e.g. unusual freeze count)."
+                ),
+                "confidence": 0.7,
+            })
+        else:
+            # ok
+            actions.append({
+                "priority": 1,
+                "tool": "launch_nwchem_run",
+                "params": {"input_file": input_file or "<tce_input.nw>"},
+                "reason": "TCE input passes all validation checks — ready to launch.",
+                "confidence": 0.9,
+            })
+
+    elif context == "movecs":
+        # parse_nwchem_movecs returns binary-only eigenvalues + occupancies.
+        # Orbital character (metal-d vs ligand-π etc.) requires the matching
+        # .out text — route the agent toward the right next call.
+        n_mo = result.get("n_mo") or 0
+        n_occ = result.get("n_occupied") or 0
+        orbitals = result.get("orbitals") or []
+
+        # Sanity-check the eigenvalues — a degenerate or inverted ordering hints
+        # at the kind of pathology that motivates calling movecs in the first place.
+        has_ordering_issue = False
+        if orbitals:
+            occ_energies = [o["energy_hartree"] for o in orbitals if o.get("occupied")]
+            if occ_energies and any(
+                occ_energies[i + 1] < occ_energies[i] - 1e-6
+                for i in range(len(occ_energies) - 1)
+            ):
+                has_ordering_issue = True
+
+        if has_ordering_issue:
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_mos",
+                "params": {"output_file": output_file, "top_n": 20},
+                "reason": (
+                    "Occupied-orbital eigenvalues are not monotonically increasing — "
+                    "fetch dominant_character from the .out to confirm whether a swap "
+                    "is needed before TCE."
+                ),
+                "confidence": 0.8,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "prepare_nwchem_tce_setup",
+                "params": {"scf_output_path": output_file},
+                "reason": "After confirming ordering, run the TCE setup orchestrator to draft the input with correct freeze + swap_list.",
+                "confidence": 0.65,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "prepare_nwchem_tce_setup",
+                "params": {"scf_output_path": output_file},
+                "reason": (
+                    f"Movecs has {n_mo} MOs ({n_occ} occupied) with sane ordering — "
+                    "feed into the TCE setup orchestrator for freeze count + draft."
+                ),
+                "confidence": 0.8,
+            })
+
     elif context == "tce_output":
         # parse_nwchem_tce_output returns scf_total_energy_hartree + method +
         # correlation_energy_hartree + multireference_diagnostics (added by
@@ -4437,7 +4655,13 @@ def _handle_check_nwchem_freq_plausibility(arguments: dict[str, Any]) -> dict[st
 
 @_tool("parse_nwchem_freq_progress")
 def _handle_parse_nwchem_freq_progress(arguments: dict[str, Any]) -> dict[str, Any]:
-    return parse_freq_progress(arguments["output_file"])
+    result = parse_freq_progress(arguments["output_file"])
+    result["next_actions"] = _build_next_actions(
+        "freq_progress", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("prepare_nwchem_freq_restart")
@@ -4580,15 +4804,32 @@ def _handle_draft_nwchem_tce_restart_input(arguments: dict[str, Any]) -> dict[st
 
 @_tool("validate_nwchem_tce_setup")
 def _handle_validate_nwchem_tce_setup(arguments: dict[str, Any]) -> dict[str, Any]:
-    return validate_nwchem_tce_setup(
+    result = validate_nwchem_tce_setup(
         tce_input_path=arguments["tce_input_file"],
         scf_output_path=arguments.get("scf_output_file"),
     )
+    result["next_actions"] = _build_next_actions(
+        "tce_validation", result,
+        output_file=arguments.get("scf_output_file", ""),
+        input_file=arguments["tce_input_file"],
+    )
+    return result
 
 
 @_tool("parse_nwchem_movecs")
 def _handle_parse_nwchem_movecs(arguments: dict[str, Any]) -> dict[str, Any]:
-    return parse_nwchem_movecs(arguments["movecs_file"])
+    movecs_file = arguments["movecs_file"]
+    result = parse_nwchem_movecs(movecs_file)
+    # The natural sibling .out file usually shares the same stem, e.g.
+    # water.movecs ↔ water.out — emit that as the next-action target.
+    from pathlib import Path
+    output_file = str(Path(movecs_file).with_suffix(".out"))
+    result["next_actions"] = _build_next_actions(
+        "movecs", result,
+        output_file=output_file,
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("parse_nwchem_hessian")
@@ -4815,7 +5056,7 @@ def _handle_review_nwchem_input_request(arguments: dict[str, Any]) -> dict[str, 
 
 @_tool("review_nwchem_progress")
 def _handle_review_nwchem_progress(arguments: dict[str, Any]) -> dict[str, Any]:
-    return review_nwchem_progress(
+    result = review_nwchem_progress(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         error_path=arguments.get("error_file"),
@@ -4823,6 +5064,12 @@ def _handle_review_nwchem_progress(arguments: dict[str, Any]) -> dict[str, Any]:
         profile=arguments.get("profile"),
         job_id=arguments.get("job_id"),
     )
+    result["next_actions"] = _build_next_actions(
+        "review_progress", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("summarize_nwchem_output")
