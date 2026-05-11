@@ -255,7 +255,14 @@ example_text = plugin.examples.read_example(template["name"])
     - `tool_definitions()` + all 112 `@_tool` handlers + `_TOOL_ALIASES` + `dispatch_tool` + `handle_request` → `mcp/tools/nwchem.py` (7c)
     `mcp/nwchem.py`: 4983 → 105 LOC. Now just the chemtools-nwchem entry point (serve() + main() + arg parser). Per-program entry points (chemtools-molpro, chemtools-molcas) can drop in alongside it without copying any framework code.
 19. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
-20. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
+20. **Thicken thin tools** — in progress. Five more analysis tools now carry the `next_actions[]` envelope:
+    - `analyze_nwchem_frontier_orbitals` — routes on `analysis.assessment` (metal-state mismatch → draft swap; clean → extract energy).
+    - `check_nwchem_spin_charge_state` — routes on `assessment` + `state_check_assessment` + SOMO count mismatch.
+    - `check_nwchem_geometry_plausibility` — routes on `plausible` + `red_flags` (broken → draft opt followup; warnings → check freq plausibility).
+    - `compare_nwchem_runs` — routes on `overall_assessment` (better → confirm via case analysis; worse → recovery).
+    - `parse_nwchem_tce_output` — routes on `multireference_diagnostics.mr_assessment` (strong MR → MCSCF; moderate → CCSD(T); clean → thermochem).
+    Also fixed an inherited bug: `check_nwchem_geometry_plausibility` had been broken since the case_review carve-out — the `_MAX_COORD` / `_LANTHANIDES` / `_TYPICAL_COORD` data tables had gone to case_review.py by mistake. Moved them back to plausibility.py.
+    Tools still thin: many parsers (parse_nwchem_movecs, parse_nwchem_thermochem, parse_nwchem_freq_progress, ...), validate_nwchem_tce_setup, review_nwchem_progress, summarize tools. Most don't have a strong "next action" signal — they just return raw data; lower priority.
 
 After all of the above:
 
