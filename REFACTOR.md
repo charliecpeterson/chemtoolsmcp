@@ -235,7 +235,14 @@ example_text = plugin.examples.read_example(template["name"])
     - general drafters (`create_nwchem_input`, `_variant`, `review_request`) → `general.py` (5j)
     - workflow planner (`prepare_nwchem_next_step`, `plan_nwchem_workflow`) → `programs/nwchem/strategy/workflow_planner.py` (5k)
     api_input.py: 4170 → 211 LOC (3959 moved). Remaining content is module-level imports, tiny stem-match helpers, and back-compat re-export blocks.
-17. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
+17. **`api_strategy.py` split** — in progress. 5 of ~9 families carved out:
+    - SCF/state recovery (suggest_scf_fix, suggest_state_recovery) → `strategy/recovery.py` (6a)
+    - MCSCF active-space advisor → `strategy/mcscf_active_space.py` (6b)
+    - HPC resource advisors (detect_hpc_accounts, suggest_hpc_resources, suggest_partition) → `strategy/hpc_resources.py` (6c)
+    - Resource sizing (suggest_resources, suggest_memory, check_memory_fit, estimate_freq_walltime) → `strategy/resources.py` (6d)
+    - Plausibility checks (geometry + frequency) → `strategy/plausibility.py` (6e)
+    - Still flat: check_spin_charge_state, TCE helpers, summarize_case + review_case + review_mcscf_case + MCSCF review helpers, suggest_spin_state, suggest_basis_set, suggest_relativistic_correction, prepare_freq_restart, preflight_check, get_nwchem_workflow_state + workflow helpers.
+    api_strategy.py: 4353 → 1959 LOC (2394 moved across 5 families, ~55%).
 18. **`mcp/nwchem.py` split** (depends on 16+17 being underway).
 19. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
 20. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
