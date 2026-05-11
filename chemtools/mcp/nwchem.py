@@ -218,6 +218,56 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "prepare_nwchem_tce_setup",
+            "description": (
+                "Thick orchestrator for TCE (CCSD / CCSD(T) / MP2) setup. Given a "
+                "converged SCF/DFT output, this tool parses the MOs, computes the "
+                "freeze count for the target method, checks orbital ordering, and "
+                "suggests any vectors swaps needed before launching TCE. Returns a "
+                "Diagnosis envelope with next_actions so a small LLM can chain "
+                "swap_nwchem_movecs -> draft_nwchem_tce_input deterministically. "
+                "Replaces ~5 manual reasoning steps (parse MOs, decide freeze, "
+                "check ordering, suggest swaps, draft input) with a single call."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "scf_output_path": {
+                        "type": "string",
+                        "description": "Path to the converged SCF/DFT output file.",
+                    },
+                    "target_method": {
+                        "type": "string",
+                        "default": "ccsd(t)",
+                        "description": "TCE method tag: 'ccsd', 'ccsd(t)', 'mp2'.",
+                    },
+                    "elements": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional explicit element list. Inferred from MO data when omitted.",
+                    },
+                    "charge": {"type": "integer", "default": 0},
+                    "multiplicity": {"type": "integer", "default": 1},
+                    "expected_metal_elements": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "For open-shell systems: transition metals expected to host the SOMO(s).",
+                    },
+                    "expected_somo_count": {
+                        "type": "integer",
+                        "description": "Expected number of singly-occupied orbitals (M-1 where M is multiplicity).",
+                    },
+                    "ecp_core_electrons": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                        "description": "Per-element ECP core counts, e.g. {'Au': 60}. Adjusts freeze count.",
+                    },
+                },
+                "required": ["scf_output_path"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "summarize_run",
             "description": (
                 "One-call thick summary of any registered program's output file. Auto-detects "
@@ -2791,6 +2841,23 @@ def tool_definitions() -> list[dict[str, Any]]:
 @_tool("get_server_mode")
 def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
     return _modes.summarize_mode(ACTIVE_MODE, _TOOL_CAPABILITIES, tool_definitions())
+
+
+@_tool("prepare_nwchem_tce_setup")
+def _handle_prepare_nwchem_tce_setup(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Thick orchestrator — parses MOs, computes freeze count, checks ordering,
+    suggests swaps, and returns a Diagnosis with next_actions."""
+    from chemtools.programs.nwchem.strategy.active_space import prepare_nwchem_tce_setup
+    return prepare_nwchem_tce_setup(
+        scf_output_path=arguments["scf_output_path"],
+        target_method=arguments.get("target_method", "ccsd(t)"),
+        elements=arguments.get("elements"),
+        charge=arguments.get("charge", 0),
+        multiplicity=arguments.get("multiplicity", 1),
+        expected_metal_elements=arguments.get("expected_metal_elements"),
+        expected_somo_count=arguments.get("expected_somo_count"),
+        ecp_core_electrons=arguments.get("ecp_core_electrons"),
+    )
 
 
 @_tool("summarize_run")
