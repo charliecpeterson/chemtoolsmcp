@@ -4062,6 +4062,63 @@ def _build_next_actions(
                 "confidence": 0.7,
             })
 
+    elif context == "tce_output":
+        # parse_nwchem_tce_output returns scf_total_energy_hartree + method +
+        # correlation_energy_hartree + multireference_diagnostics (added by
+        # the handler when amplitude files are present).
+        mr = result.get("multireference_diagnostics") or {}
+        mr_assessment = (mr.get("mr_assessment") or "").lower()
+        method = (result.get("method") or "").lower()
+        correlation_energy = result.get("correlation_energy_hartree")
+
+        if mr_assessment == "strong":
+            actions.append({
+                "priority": 1,
+                "tool": "prepare_nwchem_mcscf_setup",
+                "params": {"scf_output_path": output_file, "input_path": input_file},
+                "reason": (
+                    "Strong multireference character (T1 > 0.05 or D1 > 0.05) — "
+                    "single-reference CCSD is unreliable. Switch to a "
+                    "multireference treatment (CASSCF) and re-run."
+                ),
+                "confidence": 0.85,
+            })
+        elif mr_assessment == "moderate":
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_tce_input",
+                "params": {
+                    "scf_output_path": output_file,
+                    "method": "ccsd(t)",
+                    "input_file": input_file,
+                },
+                "reason": (
+                    "Moderate MR character (0.02 < T1 < 0.05). CCSD is borderline — "
+                    "draft a CCSD(T) job to bracket the answer."
+                ),
+                "confidence": 0.75,
+            })
+        elif correlation_energy is None:
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_tce_restart_input",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "TCE did not produce a correlation energy — likely incomplete. Draft a restart input.",
+                "confidence": 0.7,
+            })
+        else:
+            # Clean TCE run — proceed with the workflow (thermochem, comparison, etc.)
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_thermochem",
+                "params": {"output_file": output_file},
+                "reason": (
+                    f"{method.upper() if method else 'TCE'} correlation energy "
+                    f"converged; extract thermochemistry to finish the workflow."
+                ),
+                "confidence": 0.85,
+            })
+
     elif context == "compare_runs":
         # compare_nwchem_runs returns overall_assessment + energy_delta_kcal_mol.
         assessment = (result.get("overall_assessment") or "").lower()
@@ -4445,7 +4502,8 @@ def _handle_draft_nwchem_imaginary_mode_inputs(arguments: dict[str, Any]) -> dic
 
 @_tool("parse_nwchem_tce_output")
 def _handle_parse_nwchem_tce_output(arguments: dict[str, Any]) -> dict[str, Any]:
-    result = parse_tce_output(arguments["output_file"])
+    output_file = arguments["output_file"]
+    result = parse_tce_output(output_file)
     # Auto-include T1/D1 multireference diagnostics when amplitude files exist
     try:
         amp = parse_tce_amplitudes(arguments["output_file"])
@@ -4471,6 +4529,11 @@ def _handle_parse_nwchem_tce_output(arguments: dict[str, Any]) -> dict[str, Any]
             }
     except Exception as exc:
         result["multireference_diagnostics"] = {"available": False, "error": str(exc)}
+    result["next_actions"] = _build_next_actions(
+        "tce_output", result,
+        output_file=output_file,
+        input_file=arguments.get("input_file", ""),
+    )
     return result
 
 
