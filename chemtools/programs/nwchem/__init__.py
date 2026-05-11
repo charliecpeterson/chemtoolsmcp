@@ -37,6 +37,9 @@ class _NwchemPlugin:
     }
 
     # Sub-protocols — filled in as code moves into the submodules.
+    # (parser is assigned below, after the class is defined and after the
+    # parser module is imported, to avoid an import-cycle with parser code
+    # that may itself import this package.)
     parser = None
     drafter = None
     strategist = None
@@ -58,6 +61,13 @@ class _NwchemPlugin:
 
 
 NWCHEM = _NwchemPlugin()
+
+# Wire up sub-protocols after the plugin instance exists. Imports are kept
+# inside this block so a consumer that touches `chemtools.programs.nwchem`
+# only pays for what it imports.
+from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER as _NWCHEM_PARSER  # noqa: E402
+NWCHEM.parser = _NWCHEM_PARSER
+
 registry.register(NWCHEM)
 
 
