@@ -36,7 +36,8 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 108
+- Current tool count: 109 (108 NWChem + 1 introspection: `get_server_mode`)
+- Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)
 
@@ -266,6 +267,61 @@ advance_nwchem_workflow(workflow_id=...)              → next ready steps
 append_session_log(entry_type="summary", ...)         → final summary
 ```
 
+## Server modes
+
+The MCP server runs in one of three modes; the mode determines which tools are exposed
+at `tools/list` time and gated at `tools/call` time. This lets the same package serve a
+laptop user doing post-hoc analysis, a workstation user running NWChem locally, and an
+HPC user submitting to a scheduler — without the agent ever seeing tools it cannot use.
+
+| Mode | Tools visible | Use when |
+|---|---|---|
+| `analysis` | 93 | No NWChem executable available; post-hoc parsing, drafting, planning, registry tracking of runs done elsewhere |
+| `local` | 106 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 109 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+
+### Selecting a mode
+
+Priority order:
+1. `chemtools-nwchem --mode {analysis|local|hpc}` CLI flag
+2. `CHEMTOOLS_MODE` env var
+3. **Auto-detect** (default):
+   - `CHEMTOOLS_RUNNER_PROFILES` not set → `analysis`
+   - profiles file has any `launcher.kind: "scheduler"` → `hpc`
+   - profiles file has only `direct` profiles → `local`
+   - profiles file unreadable or empty → `analysis` (logged)
+
+Auto-detect means most users never configure mode explicitly; the existing
+`CHEMTOOLS_RUNNER_PROFILES` env var carries the signal.
+
+### Capability tags
+
+Each tool is tagged via `@_tool("name", needs="...")`. Valid tags:
+
+| Tag | Modes exposing it | Tools |
+|---|---|---|
+| `none` (default) | analysis, local, hpc | 84 pure-Python tools (parsing, drafting, suggest, docs, eval) |
+| `registry` | analysis, local, hpc | 9 SQLite registry/campaign/workflow tools |
+| `runner_profile` | local, hpc | 2 profile inspection/validation tools |
+| `executable_or_scheduler` | local, hpc | 5 resource advisors that adapt to `launcher.kind` |
+| `executable` | local, hpc | 6 job-execution tools (launch, watch, terminate) |
+| `scheduler` | hpc | 3 scheduler-only tools (`render_job_script`, `detect_nwchem_hpc_accounts`, `suggest_nwchem_partition`) |
+
+To add a new tool: tag it on the decorator. `needs="none"` is the default and is
+also the right answer for the majority of tools.
+
+### CLI debugging
+
+```
+chemtools-nwchem --show-mode        # print resolved mode + reason + blocked tools, exit
+chemtools-nwchem --list-tools       # print tool names visible in the resolved mode, exit
+chemtools-nwchem --mode analysis    # force analysis mode (e.g. profiles configured but doing post-hoc work)
+```
+
+At runtime, agents can call `get_server_mode` to introspect which mode they are in
+and which tools are blocked — useful when a tool fails with a "not available in mode"
+error or before recommending a workflow that needs HPC submission.
+
 ## Development Environment
 
 - Install in editable mode: `pip install -e .`
@@ -273,3 +329,4 @@ append_session_log(entry_type="summary", ...)         → final summary
 - Basis library: bundled at `chemtools/data/nwchem/basis_library/` (auto-detected after install)
 - NWChem docs: bundled at `chemtools/data/nwchem/docs/` (29 text files, always available)
 - Runner profiles: set `CHEMTOOLS_RUNNER_PROFILES` to your local YAML/JSON file
+- Server mode: set `CHEMTOOLS_MODE` or pass `--mode` (see **Server modes** above; defaults to auto-detect)

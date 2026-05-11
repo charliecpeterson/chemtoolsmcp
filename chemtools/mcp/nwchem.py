@@ -153,13 +153,34 @@ TRANSPORT_MODE = "content-length"
 # ---------------------------------------------------------------------------
 from typing import Callable  # noqa: E402
 
+from chemtools.mcp import modes as _modes  # noqa: E402
+
+# Active server mode. Resolved at startup in main(); analysis is the safe
+# default so any caller that imports the module without going through main()
+# still gets a consistent answer (only pure tools).
+ACTIVE_MODE: str = "analysis"
+
 _TOOL_REGISTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
+# Capability tag for each registered tool. Drives mode-based filtering at
+# tools/list time. Valid tags: "none", "registry", "runner_profile",
+# "executable_or_scheduler", "executable", "scheduler". See chemtools/mcp/modes.py.
+_TOOL_CAPABILITIES: dict[str, str] = {}
 
-def _tool(name: str) -> Callable:
-    """Decorator that registers a handler function under *name*."""
+_VALID_CAPABILITIES = {
+    "none", "registry", "runner_profile",
+    "executable_or_scheduler", "executable", "scheduler",
+}
+
+
+def _tool(name: str, *, needs: str = "none") -> Callable:
+    """Decorator that registers a handler function under *name* with a capability tag."""
+    if needs not in _VALID_CAPABILITIES:
+        raise ValueError(f"_tool({name!r}): unknown needs={needs!r}; expected one of {sorted(_VALID_CAPABILITIES)}")
+
     def decorator(fn: Callable) -> Callable:
         _TOOL_REGISTRY[name] = fn
+        _TOOL_CAPABILITIES[name] = needs
         return fn
     return decorator
 
@@ -180,6 +201,22 @@ def basis_library_path(path: str | None = None) -> str:
 
 def tool_definitions() -> list[dict[str, Any]]:
     return [
+        # ------------------------------------------------------------------
+        # Server introspection
+        # ------------------------------------------------------------------
+        {
+            "name": "get_server_mode",
+            "description": (
+                "Report which mode this MCP server was started in (analysis, local, or hpc) "
+                "and which tools are blocked. Useful when a tool fails with a 'not available "
+                "in mode' error, or before suggesting a workflow that requires HPC submission."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
         # ------------------------------------------------------------------
         # Workflow planning and geometry setup (start here for new jobs)
         # ------------------------------------------------------------------
@@ -2722,6 +2759,11 @@ def tool_definitions() -> list[dict[str, Any]]:
 # Handlers — frontier orbital / vectors-swap workflow
 # ---------------------------------------------------------------------------
 
+@_tool("get_server_mode")
+def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _modes.summarize_mode(ACTIVE_MODE, _TOOL_CAPABILITIES, tool_definitions())
+
+
 @_tool("parse_nwchem_output")
 def _handle_parse_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
     return parse_output(
@@ -2849,7 +2891,7 @@ def _handle_suggest_memory(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("suggest_resources")
+@_tool("suggest_resources", needs="executable_or_scheduler")
 def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
     hw = arguments.get("hw_specs")
     if not hw and arguments.get("profile"):
@@ -3077,12 +3119,12 @@ def _handle_inspect_nwchem_input(arguments: dict[str, Any]) -> dict[str, Any]:
     return inspect_input(arguments["input_file"])
 
 
-@_tool("inspect_nwchem_runner_profiles")
+@_tool("inspect_nwchem_runner_profiles", needs="runner_profile")
 def _handle_inspect_nwchem_runner_profiles(arguments: dict[str, Any]) -> dict[str, Any]:
     return inspect_runner_profiles(arguments.get("profiles_path"))
 
 
-@_tool("preflight_check")
+@_tool("preflight_check", needs="runner_profile")
 def _handle_preflight_check(arguments: dict[str, Any]) -> dict[str, Any]:
     return preflight_check(
         input_file=arguments["input_file"],
@@ -3108,7 +3150,7 @@ def _handle_find_nwchem_restart_assets(arguments: dict[str, Any]) -> dict[str, A
 # Handlers — runner / job management
 # ---------------------------------------------------------------------------
 
-@_tool("render_job_script")
+@_tool("render_job_script", needs="scheduler")
 def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
     return render_job_script(
         input_path=arguments["input_file"],
@@ -3119,7 +3161,7 @@ def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("launch_nwchem_run")
+@_tool("launch_nwchem_run", needs="executable")
 def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     dry_run = arguments.get("dry_run", False)
     auto_watch = arguments.get("auto_watch", True)
@@ -3204,7 +3246,7 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-@_tool("get_nwchem_run_status")
+@_tool("get_nwchem_run_status", needs="executable")
 def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
     status = check_nwchem_run_status(
         output_path=arguments.get("output_file"),
@@ -3239,7 +3281,7 @@ def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
     return status
 
 
-@_tool("tail_nwchem_output")
+@_tool("tail_nwchem_output", needs="executable")
 def _handle_tail_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
     return tail_nwchem_output(
         arguments["output_file"],
@@ -3248,7 +3290,7 @@ def _handle_tail_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("terminate_nwchem_run")
+@_tool("terminate_nwchem_run", needs="executable")
 def _handle_terminate_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
     return terminate_nwchem_run(
@@ -3260,7 +3302,7 @@ def _handle_terminate_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("watch_nwchem_run")
+@_tool("watch_nwchem_run", needs="executable")
 def _handle_watch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     result = watch_nwchem_run(
         output_path=arguments.get("output_file"),
@@ -4024,7 +4066,7 @@ def _handle_suggest_nwchem_tce_freeze(arguments: dict[str, Any]) -> dict[str, An
 # Handlers — parallel job monitoring, session log, input versioning
 # ---------------------------------------------------------------------------
 
-@_tool("watch_multiple_runs")
+@_tool("watch_multiple_runs", needs="executable")
 def _handle_watch_multiple_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     return watch_multiple_nwchem_runs(
         jobs=arguments["jobs"],
@@ -4226,7 +4268,7 @@ def _handle_summarize_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]
 # Handlers — run registry, campaigns, workflows, batch generation
 # ---------------------------------------------------------------------------
 
-@_tool("register_nwchem_run")
+@_tool("register_nwchem_run", needs="registry")
 def _handle_register_run(arguments: dict[str, Any]) -> dict[str, Any]:
     return register_run(
         job_name=arguments["job_name"],
@@ -4249,7 +4291,7 @@ def _handle_register_run(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("update_nwchem_run_status")
+@_tool("update_nwchem_run_status", needs="registry")
 def _handle_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
     return update_run_status(
         run_id=arguments["run_id"],
@@ -4264,7 +4306,7 @@ def _handle_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("list_nwchem_runs")
+@_tool("list_nwchem_runs", needs="registry")
 def _handle_list_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"runs": list_runs(
         campaign_id=arguments.get("campaign_id"),
@@ -4275,7 +4317,7 @@ def _handle_list_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     )}
 
 
-@_tool("get_nwchem_run_summary")
+@_tool("get_nwchem_run_summary", needs="registry")
 def _handle_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_run_summary(
         run_id=arguments.get("run_id"),
@@ -4283,7 +4325,7 @@ def _handle_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("create_nwchem_campaign")
+@_tool("create_nwchem_campaign", needs="registry")
 def _handle_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
     return create_campaign(
         name=arguments["name"],
@@ -4292,7 +4334,7 @@ def _handle_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("get_nwchem_campaign_status")
+@_tool("get_nwchem_campaign_status", needs="registry")
 def _handle_get_campaign_status(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_campaign_status(
         campaign_id=arguments.get("campaign_id"),
@@ -4300,7 +4342,7 @@ def _handle_get_campaign_status(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("get_nwchem_campaign_energies")
+@_tool("get_nwchem_campaign_energies", needs="registry")
 def _handle_get_campaign_energies(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_campaign_energies(
         campaign_id=arguments.get("campaign_id"),
@@ -4308,7 +4350,7 @@ def _handle_get_campaign_energies(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("create_nwchem_workflow")
+@_tool("create_nwchem_workflow", needs="registry")
 def _handle_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     return create_workflow(
         name=arguments["name"],
@@ -4318,14 +4360,14 @@ def _handle_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("advance_nwchem_workflow")
+@_tool("advance_nwchem_workflow", needs="registry")
 def _handle_advance_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     return advance_workflow(
         workflow_id=arguments["workflow_id"],
     )
 
 
-@_tool("generate_nwchem_input_batch")
+@_tool("generate_nwchem_input_batch", needs="executable_or_scheduler")
 def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
     kwargs: dict[str, Any] = dict(
         template_input=arguments["template_input"],
@@ -4339,7 +4381,7 @@ def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
     return generate_input_batch(**kwargs)
 
 
-@_tool("check_nwchem_memory_fit")
+@_tool("check_nwchem_memory_fit", needs="executable_or_scheduler")
 def _handle_check_memory_fit(arguments: dict[str, Any]) -> dict[str, Any]:
     profile_resources = None
     if arguments.get("profile"):
@@ -4364,7 +4406,7 @@ def _handle_check_memory_fit(arguments: dict[str, Any]) -> dict[str, Any]:
     return check_memory_fit(**kwargs)
 
 
-@_tool("estimate_nwchem_freq_walltime")
+@_tool("estimate_nwchem_freq_walltime", needs="executable_or_scheduler")
 def _handle_estimate_freq_walltime(arguments: dict[str, Any]) -> dict[str, Any]:
     return estimate_freq_walltime(
         n_atoms=arguments["n_atoms"],
@@ -4376,7 +4418,7 @@ def _handle_estimate_freq_walltime(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("suggest_nwchem_resources")
+@_tool("suggest_nwchem_resources", needs="executable_or_scheduler")
 def _handle_suggest_hpc_resources(arguments: dict[str, Any]) -> dict[str, Any]:
     return suggest_hpc_resources(
         input_file=arguments["input_file"],
@@ -4385,7 +4427,7 @@ def _handle_suggest_hpc_resources(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("detect_nwchem_hpc_accounts")
+@_tool("detect_nwchem_hpc_accounts", needs="scheduler")
 def _handle_detect_hpc_accounts(arguments: dict[str, Any]) -> dict[str, Any]:
     return detect_hpc_accounts(
         profile=arguments["profile"],
@@ -4393,7 +4435,7 @@ def _handle_detect_hpc_accounts(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("suggest_nwchem_partition")
+@_tool("suggest_nwchem_partition", needs="scheduler")
 def _handle_suggest_partition(arguments: dict[str, Any]) -> dict[str, Any]:
     return suggest_partition(
         input_file=arguments["input_file"],
@@ -4589,13 +4631,27 @@ def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool
     if method == "shutdown":
         return make_response(request_id, {}), True
     if method == "tools/list":
-        log_event("tools/list requested")
-        return make_response(request_id, {"tools": tool_definitions()}), False
+        log_event(f"tools/list requested mode={ACTIVE_MODE}")
+        visible = _modes.filter_tools(tool_definitions(), _TOOL_CAPABILITIES, ACTIVE_MODE)
+        return make_response(request_id, {"tools": visible}), False
     if method == "tools/call":
         try:
             tool_name = params["name"]
             arguments = params.get("arguments", {})
-            log_event(f"tools/call name={tool_name}")
+            log_event(f"tools/call name={tool_name} mode={ACTIVE_MODE}")
+            # Gate against tools that the active mode does not expose. Resolves
+            # aliases to the canonical name so blocked tools cannot be reached
+            # via a back-compat alias either.
+            resolved_for_check = _TOOL_ALIASES.get(tool_name, (tool_name, None))[0]
+            if not _modes.is_tool_allowed(resolved_for_check, _TOOL_CAPABILITIES, ACTIVE_MODE):
+                tag = _TOOL_CAPABILITIES.get(resolved_for_check, "none")
+                msg = (
+                    f"tool {tool_name!r} (capability={tag}) is not available in "
+                    f"server mode {ACTIVE_MODE!r}. Restart with --mode=local or "
+                    f"--mode=hpc to enable it."
+                )
+                log_event(f"tools/call blocked name={tool_name} mode={ACTIVE_MODE} tag={tag}")
+                return make_response(request_id, make_error_result(msg)), False
             payload = dispatch_tool(tool_name, arguments)
             return make_response(request_id, make_success_result(payload)), False
         except Exception as exc:
@@ -4660,7 +4716,7 @@ def write_message(stream: Any, payload: dict[str, Any]) -> None:
 def serve() -> None:
     input_stream = sys.stdin.buffer
     output_stream = sys.stdout.buffer
-    log_event("server start")
+    log_event(f"server start mode={ACTIVE_MODE}")
 
     while True:
         message = read_message(input_stream)
@@ -4675,10 +4731,67 @@ def serve() -> None:
             break
 
 
+def _build_arg_parser() -> "argparse.ArgumentParser":
+    import argparse
+    parser = argparse.ArgumentParser(
+        prog="chemtools-nwchem",
+        description="NWChem MCP server. Tool exposure depends on --mode.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=_modes.VALID_MODES,
+        default=None,
+        help=(
+            "Server mode: 'analysis' (no executable, no scheduler), "
+            "'local' (direct subprocess launcher), or 'hpc' (scheduler "
+            "submission). Default: read CHEMTOOLS_MODE, else auto-detect "
+            "from CHEMTOOLS_RUNNER_PROFILES."
+        ),
+    )
+    parser.add_argument(
+        "--list-tools",
+        action="store_true",
+        help="Print the tool names visible in the resolved mode and exit.",
+    )
+    parser.add_argument(
+        "--show-mode",
+        action="store_true",
+        help="Print the resolved mode and reason and exit.",
+    )
+    return parser
+
+
 def main() -> None:
     """Entry point registered by pyproject.toml — `chemtools-nwchem` command."""
+    global ACTIVE_MODE
+    args = _build_arg_parser().parse_args()
+    mode, reason = _modes.resolve_mode(args.mode)
+    ACTIVE_MODE = mode
+
+    summary = _modes.summarize_mode(mode, _TOOL_CAPABILITIES, tool_definitions())
+    log_event(
+        f"resolved mode={mode} reason={reason} "
+        f"tools={summary['available_tool_count']}/{summary['total_tool_count']}"
+    )
+
+    if args.show_mode:
+        print(json.dumps({"mode": mode, "reason": reason, **summary}, indent=2))
+        return
+    if args.list_tools:
+        visible = _modes.filter_tools(tool_definitions(), _TOOL_CAPABILITIES, mode)
+        for d in visible:
+            print(d["name"])
+        return
+
+    # Tell stderr (visible in the client transcript on stderr capture) what mode
+    # we are running in. Stdout is reserved for the JSON-RPC stream.
+    sys.stderr.write(
+        f"chemtools-nwchem: mode={mode} ({reason}); "
+        f"{summary['available_tool_count']}/{summary['total_tool_count']} tools exposed\n"
+    )
+    sys.stderr.flush()
     serve()
 
 
 if __name__ == "__main__":
-    serve()
+    main()
