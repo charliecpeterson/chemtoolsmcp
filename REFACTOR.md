@@ -175,6 +175,13 @@ template = plugin.examples.find_example(task="energy", methods=["B3LYP"])
 example_text = plugin.examples.read_example(template["name"])
 ```
 
+**Exposed as MCP tools (111 total):**
+
+| Tool | What it does |
+|---|---|
+| `summarize_run` | One-call dispatch via `registry.resolve`. Returns combined `ParsedRun + Diagnosis` for any registered program. |
+| `prepare_nwchem_tce_setup` | Thick orchestrator: parse MOs + freeze count + ordering check + swap suggestions + draft routing, with a `Diagnosis` envelope telling the agent exactly what to do next. |
+
 ### Deferred (need real splits)
 
 | File | LOC | Plan |
@@ -209,14 +216,16 @@ example_text = plugin.examples.read_example(template["name"])
 8. ~~**Wire Molpro/Molcas Parser sub-protocols + extract shared adapter helpers**~~ — done (Phase 4b).
 9. ~~**Wire NWChem Drafter sub-protocol**~~ — done (Phase 4c). `draft_input` + `lint_input` work; `patch_input` is NotImplementedError until api_input.py splits.
 10. ~~**Build NWChem ExamplesCorpus**~~ — done (Phase 4d). 4 starter templates bundled; user adds more over time.
-11. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality, unlocks TS workflows and intelligent freq restart). Likely next move.
-12. **Active space design tool** — `prepare_active_space(scf_output, target_method, expected_somos)`. Concrete "thick tool" example that uses Parser + binary movecs reader + Drafter end-to-end.
-13. **MCP tool that dispatches through plugins** — flagship tool exposing the plugin envelope to agents. Single MCP tool that returns combined `ParsedRun + Diagnosis` from one call via `registry.resolve`.
+11. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality, unlocks TS workflows and intelligent freq restart). Needs NWChem `.hess` format spec to implement reliably.
+12. ~~**Active space design tool**~~ — done (Phase 4f). `prepare_nwchem_tce_setup` MCP tool orchestrates parse_mos + freeze count + ordering check + swap suggestions + draft routing into one call with a Diagnosis envelope.
+13. ~~**MCP tool that dispatches through plugins**~~ — done (Phase 4e). `summarize_run` auto-detects program and returns combined `ParsedRun + Diagnosis` from `registry.resolve`.
 14. **`api_input.py` split** (multi-session, family-by-family). Cleans up the Drafter's lazy imports and unlocks `patch_input`.
 15. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
 16. **`mcp/nwchem.py` split** (depends on 14+15 being underway).
 17. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
 18. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
+19. **Extend MCSCF orchestrator** — analogue of `prepare_nwchem_tce_setup` for `prepare_nwchem_mcscf_setup` (active space window selection, fragment guess routing).
+20. **Expand examples corpus** — open-shell DFT (Fe complex), CASSCF, TDDFT, geometry opt with constraints. User-supplied templates with index.json entries.
 
 After all of the above:
 
