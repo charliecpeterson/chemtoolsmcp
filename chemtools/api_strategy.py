@@ -13,7 +13,7 @@ from .diagnostics import (
     suggest_vectors_swaps as suggest_nwchem_vectors_swaps,
     summarize_nwchem_output,
 )
-from .nwchem_input import inspect_nwchem_input
+from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from . import nwchem
 from ._api_utils import _TRANSITION_METALS, _COVALENT_RADII, _strategy_entry, _coerce_api_int, _coerce_api_float
 from .api_output import parse_mcscf_output
@@ -1892,7 +1892,7 @@ def check_nwchem_freq_plausibility(
       missing_xh_stretches  expected X-H bands not observed
     """
     from . import nwchem as _nwchem
-    from .nwchem_freq import parse_freq as _parse_freq
+    from chemtools.programs.nwchem.parse.freq import parse_freq as _parse_freq
 
     contents = read_text(output_path)
     freq_data = _parse_freq(output_path, contents)
@@ -2367,7 +2367,7 @@ def _analyze_job_size(input_file: str) -> dict[str, Any]:
     main_task, module, operation, is_freq, is_opt, is_tce, basis_name,
     basis_scale, n_bf.
     """
-    from .nwchem_input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
+    from chemtools.programs.nwchem.parse.input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
 
     summary = inspect_nwchem_input(input_file)
     all_elements = summary.get("all_elements") or summary.get("elements", [])
@@ -3034,7 +3034,7 @@ def prepare_freq_restart(
     import re
     from pathlib import Path
     from chemtools.core.common import read_text
-    from .nwchem_freq import parse_freq_progress
+    from chemtools.programs.nwchem.parse.freq import parse_freq_progress
 
     nw_text = Path(input_file).read_text(encoding="utf-8")
     issues: list[str] = []
@@ -3259,7 +3259,7 @@ def get_nwchem_workflow_state(
     """
     import shutil
     import subprocess
-    from .nwchem_freq import parse_freq_progress as _parse_freq_progress, analyze_imaginary_modes as _analyze_imag
+    from chemtools.programs.nwchem.parse.freq import parse_freq_progress as _parse_freq_progress, analyze_imaginary_modes as _analyze_imag
 
     out = Path(output_file)
     inp = Path(input_file) if input_file else None

@@ -27,7 +27,7 @@ from .diagnostics import (
     suggest_vectors_swaps as suggest_nwchem_vectors_swaps,
     summarize_nwchem_output,
 )
-from .nwchem_input import (
+from chemtools.programs.nwchem.parse.input import (
     extract_nwchem_geometry_block,
     extract_nwchem_module_block,
     inspect_all_nwchem_basis_blocks,
@@ -1596,7 +1596,7 @@ def draft_initial_geometry(
         geometry.  Inferred automatically if None (the element that appears
         fewest times, or the heaviest unique element).
     """
-    from .nwchem_freq import COVALENT_RADII
+    from chemtools.programs.nwchem.parse.freq import COVALENT_RADII
 
     _FALLBACK_R = 1.20  # Å, used when element not in table
 
@@ -2754,7 +2754,7 @@ def lint_nwchem_input(
     # --- TCE-specific checks ---
     tce_tasks = [t for t in input_summary["tasks"] if (t.get("module") or "").lower() == "tce"]
     if tce_tasks:
-        from .nwchem_input import extract_nwchem_geometry_block
+        from chemtools.programs.nwchem.parse.input import extract_nwchem_geometry_block
         from chemtools.core.common import read_text as _read_text
         import re as _re
 
@@ -3004,7 +3004,7 @@ def _extract_ecp_nelec_from_input(
     to the basis library for library-assigned ECPs.  Returns an empty dict if
     no ECP block exists.
     """
-    from .nwchem_input import inspect_nwchem_ecp_block
+    from chemtools.programs.nwchem.parse.input import inspect_nwchem_ecp_block
     try:
         ecp_info = inspect_nwchem_ecp_block(input_path)
     except (ValueError, FileNotFoundError):
@@ -3164,7 +3164,7 @@ def draft_nwchem_tce_input(
     save_t_directive = "set tce:save_t T T"
 
     # --- Build geometry block (always include with symmetry c1 for TCE) ---
-    from .nwchem_input import extract_nwchem_geometry_block, render_nwchem_geometry_block
+    from chemtools.programs.nwchem.parse.input import extract_nwchem_geometry_block, render_nwchem_geometry_block
     geo_section: str | None = None
     charge_line: str | None = None
     try:
@@ -3354,7 +3354,7 @@ def validate_nwchem_tce_setup(
     import re as _re
     from pathlib import Path
     from .nwchem_tce import suggest_tce_freeze_count as _suggest_freeze
-    from .nwchem_input import inspect_nwchem_input
+    from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
     issues: list[dict[str, Any]] = []
 
@@ -3832,7 +3832,7 @@ def draft_nwchem_tce_restart_input(
 
     if inferred_input and _Path(inferred_input).exists():
         try:
-            from .nwchem_input import inspect_nwchem_input as _inspect
+            from chemtools.programs.nwchem.parse.input import inspect_nwchem_input as _inspect
             summary = _inspect(inferred_input)
             blocks = summary.get("start_blocks", [])
             if blocks and blocks[0].get("start_name"):
@@ -3909,7 +3909,7 @@ def draft_nwchem_tce_restart_input(
 
     if inferred_input and _Path(inferred_input).exists():
         try:
-            from .nwchem_input import (
+            from chemtools.programs.nwchem.parse.input import (
                 extract_nwchem_geometry_block,
                 render_nwchem_geometry_block,
                 inspect_all_nwchem_basis_blocks,
@@ -3939,7 +3939,7 @@ def draft_nwchem_tce_restart_input(
             pass
 
         try:
-            from .nwchem_input import extract_nwchem_module_block
+            from chemtools.programs.nwchem.parse.input import extract_nwchem_module_block
             # Try to find the last SCF block before the TCE block
             scf_blk = extract_nwchem_module_block(inferred_input, module="scf", block_index=-1)
             # Strip existing vectors lines; we'll use the restart movecs
@@ -3954,7 +3954,7 @@ def draft_nwchem_tce_restart_input(
             pass
 
         try:
-            from .nwchem_input import inspect_nwchem_input as _inspect
+            from chemtools.programs.nwchem.parse.input import inspect_nwchem_input as _inspect
             summary = _inspect(inferred_input)
             charge = summary.get("charge")
             if charge:

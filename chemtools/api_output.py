@@ -11,7 +11,7 @@ from .diagnostics import (
     suggest_vectors_swaps as suggest_nwchem_vectors_swaps,
     summarize_nwchem_output,
 )
-from .nwchem_input import inspect_nwchem_input
+from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from .nwchem_tce import parse_tce_output as _parse_tce_output
 from . import molcas, molpro, nwchem
 
@@ -273,7 +273,7 @@ def parse_nwchem_thermochem(
     dict with E_scf, ZPE, H(T), G(T), S, Cv, and warnings.
     """
     from chemtools.programs.nwchem.parse.tasks import parse_tasks as _parse_tasks
-    from .nwchem_freq import parse_freq as _parse_freq_raw
+    from chemtools.programs.nwchem.parse.freq import parse_freq as _parse_freq_raw
 
     contents = read_text(path)
     warnings: list[str] = []
@@ -430,7 +430,7 @@ def compute_reaction_energy(
         contents = read_text(path)
         return _parse_tasks_nwchem(path, contents)
 
-    from .nwchem_freq import parse_freq as _parse_freq_raw
+    from chemtools.programs.nwchem.parse.freq import parse_freq as _parse_freq_raw
 
     _METHOD_PRIORITY = {"CCSD(T)": 5, "CCSD": 4, "MP2": 3, "DFT": 2, "SCF": 1}
     _norm_method = (method or "").strip().upper()

@@ -5,7 +5,7 @@ from typing import Any
 
 from chemtools.core.common import make_metadata, parse_scientific_float, read_text
 from . import nwchem
-from .nwchem_input import inspect_nwchem_input
+from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 
 SCF_ITER_RE = re.compile(

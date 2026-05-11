@@ -123,7 +123,7 @@ from chemtools import (  # noqa: E402
     suggest_partition,
 )
 from chemtools.core.eval import evaluate_case, evaluate_cases
-from chemtools.nwchem_docs import (
+from chemtools.programs.nwchem.docs import (
     find_examples as docs_find_examples,
     get_topic_guide as docs_get_topic_guide,
     list_docs as docs_list_docs,
@@ -131,7 +131,7 @@ from chemtools.nwchem_docs import (
     read_doc_excerpt as docs_read_doc_excerpt,
     search_docs as docs_search_docs,
 )
-from chemtools.nwchem_forum import search_forum as forum_search
+from chemtools.programs.nwchem.forum import search_forum as forum_search
 
 
 SERVER_NAME = "chemtools-nwchem"

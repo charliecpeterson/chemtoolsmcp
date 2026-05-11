@@ -18,7 +18,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if not any("chemtools" in p for p in sys.path):
     sys.path.insert(0, str(_REPO_ROOT))
 
-from chemtools.nwchem_docs import (  # noqa: E402
+from chemtools.programs.nwchem.docs import (  # noqa: E402
     find_examples,
     get_topic_guide,
     list_docs,

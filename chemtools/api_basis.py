@@ -16,7 +16,7 @@ from .basis import (
     resolve_mixed_ecp_assignments,
     resolve_basis_set,
 )
-from .nwchem_input import load_geometry_source
+from chemtools.programs.nwchem.parse.input import load_geometry_source
 
 
 def basis_library_summary(library_path: str) -> dict[str, Any]:

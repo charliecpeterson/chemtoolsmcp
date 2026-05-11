@@ -14,7 +14,7 @@ from typing import Any
 
 from chemtools.core.common import detect_program, read_text
 from . import nwchem
-from .nwchem_input import inspect_nwchem_input
+from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 
 DEFAULT_RUNNER_PROFILES = Path(__file__).resolve().parent / "runner_profiles.example.json"
