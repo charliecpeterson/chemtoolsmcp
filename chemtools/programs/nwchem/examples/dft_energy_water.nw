@@ -1,0 +1,25 @@
+start water_dft
+
+title "Water DFT energy — reference template"
+
+echo
+
+geometry units angstroms
+  O   0.0000  0.0000  0.1173
+  H   0.0000  0.7572 -0.4692
+  H   0.0000 -0.7572 -0.4692
+end
+
+basis
+  * library def2-svp
+end
+
+charge 0
+
+dft
+  xc b3lyp
+  iterations 200
+  direct
+end
+
+task dft energy

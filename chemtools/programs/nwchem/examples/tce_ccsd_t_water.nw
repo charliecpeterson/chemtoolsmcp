@@ -1,0 +1,39 @@
+start water_ccsdt
+
+title "Water CCSD(T)/aug-cc-pVTZ single point — reference template (TCE)"
+
+echo
+
+memory total 4000 mb noverify
+
+geometry units angstroms noautosym
+  O   0.0000  0.0000  0.1173
+  H   0.0000  0.7572 -0.4692
+  H   0.0000 -0.7572 -0.4692
+end
+
+basis
+  O library aug-cc-pVTZ
+  H library aug-cc-pVTZ
+end
+
+charge 0
+
+scf
+  rhf
+  singlet
+  thresh 1.0e-9
+  maxiter 200
+end
+
+# TCE freeze count = number of core orbitals to freeze. For H2O with
+# aug-cc-pVTZ this is 1 (the O 1s). Always compute explicitly — never
+# use `freeze atomic`.
+tce
+  ccsd(t)
+  freeze 1
+  thresh 1.0e-7
+  maxiter 200
+end
+
+task tce energy

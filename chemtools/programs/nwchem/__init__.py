@@ -72,9 +72,11 @@ NWCHEM = _NwchemPlugin()
 from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER as _NWCHEM_PARSER  # noqa: E402
 from chemtools.programs.nwchem._plugin_strategist import NWCHEM_STRATEGIST as _NWCHEM_STRATEGIST  # noqa: E402
 from chemtools.programs.nwchem._plugin_drafter import NWCHEM_DRAFTER as _NWCHEM_DRAFTER  # noqa: E402
+from chemtools.programs.nwchem._plugin_examples import NWCHEM_EXAMPLES as _NWCHEM_EXAMPLES  # noqa: E402
 NWCHEM.parser = _NWCHEM_PARSER
 NWCHEM.strategist = _NWCHEM_STRATEGIST
 NWCHEM.drafter = _NWCHEM_DRAFTER
+NWCHEM.examples = _NWCHEM_EXAMPLES
 
 registry.register(NWCHEM)
 

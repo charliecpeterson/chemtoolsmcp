@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "name": "dft_energy_water",
+      "task_type": "energy",
+      "methods": ["DFT", "B3LYP"],
+      "basis": ["def2-SVP"],
+      "tags": ["closed_shell", "small_molecule", "starter"],
+      "description": "B3LYP/def2-SVP single-point energy for water — minimal DFT template.",
+      "file": "dft_energy_water.nw",
+      "notes": "Plain DFT energy. Adapt by replacing the geometry block and tuning xc/basis."
+    },
+    {
+      "name": "dft_optimize_water",
+      "task_type": "optimize",
+      "methods": ["DFT", "B3LYP"],
+      "basis": ["def2-SVP"],
+      "tags": ["closed_shell", "small_molecule", "starter", "geometry_optimization"],
+      "description": "B3LYP/def2-SVP geometry optimization for water — driver block with tight convergence.",
+      "file": "dft_optimize_water.nw",
+      "notes": "Uses noautosym to avoid symmetry-related restart issues. tight convergence is the safe default."
+    },
+    {
+      "name": "dft_frequency_water",
+      "task_type": "frequency",
+      "methods": ["DFT", "B3LYP"],
+      "basis": ["def2-SVP"],
+      "tags": ["closed_shell", "small_molecule", "thermochemistry", "starter"],
+      "description": "B3LYP/def2-SVP geometry opt followed by analytical frequencies for water.",
+      "file": "dft_frequency_water.nw",
+      "notes": "Frequencies pick up the converged geometry from the preceding optimize task. Real workflows usually want a separate freq job to checkpoint independently."
+    },
+    {
+      "name": "tce_ccsd_t_water",
+      "task_type": "energy",
+      "methods": ["CCSD(T)", "TCE"],
+      "basis": ["aug-cc-pVTZ"],
+      "tags": ["closed_shell", "correlated", "tce", "small_molecule", "starter"],
+      "description": "CCSD(T)/aug-cc-pVTZ single point for water using the Tensor Contraction Engine.",
+      "file": "tce_ccsd_t_water.nw",
+      "notes": "Explicit `freeze N` (N=1 here for H2O core). Never use `freeze atomic` per project rule. Memory budget is generous; lower if running on a workstation."
+    }
+  ]
+}

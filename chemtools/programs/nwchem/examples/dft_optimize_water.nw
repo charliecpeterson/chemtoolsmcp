@@ -1,0 +1,30 @@
+start water_opt
+
+title "Water DFT geometry optimization — reference template"
+
+echo
+
+geometry units angstroms noautosym
+  O   0.0000  0.0000  0.1173
+  H   0.0000  0.7572 -0.4692
+  H   0.0000 -0.7572 -0.4692
+end
+
+basis
+  * library def2-svp
+end
+
+charge 0
+
+dft
+  xc b3lyp
+  iterations 200
+  direct
+end
+
+driver
+  maxiter 100
+  tight
+end
+
+task dft optimize
