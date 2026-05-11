@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import detect_program, make_metadata, read_text, ELEMENT_TO_Z
-from .basis import (
+from chemtools.programs.nwchem.input.basis_library import (
     extract_basis_blocks,
     extract_nwchem_geometry_elements,
     list_basis_sets,
@@ -3647,7 +3647,7 @@ def draft_nwchem_atom_input(
 
     # Build basis block
     try:
-        from .basis import render_nwchem_basis_block as _render_basis
+        from chemtools.programs.nwchem.input.basis_library import render_nwchem_basis_block as _render_basis
         basis_info = _render_basis(
             basis_name=basis,
             elements=[sym],

@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from chemtools.basis import extract_nwchem_geometry_elements, normalize_element_symbol
+from chemtools.programs.nwchem.input.basis_library import extract_nwchem_geometry_elements, normalize_element_symbol
 from chemtools.core.common import normalize_path, read_text
 
 
