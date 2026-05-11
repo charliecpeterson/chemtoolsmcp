@@ -43,7 +43,7 @@ from chemtools.programs.nwchem.parse.input import (
     replace_nwchem_module_block,
 )
 from . import nwchem
-from ._api_utils import (
+from chemtools.programs.nwchem.input._utils import (
     _TRANSITION_METALS,
     _COVALENT_RADII,
     _coerce_api_int,
@@ -3621,7 +3621,7 @@ def draft_nwchem_atom_input(
             multiplicity = neutral_mult
             mult_source = "ground_state_table"
         else:
-            from ._api_utils import ELEMENT_TO_Z
+            from chemtools.programs.nwchem.input._utils import ELEMENT_TO_Z
             z = ELEMENT_TO_Z.get(sym, 0)
             n_electrons = z - charge
             if n_electrons <= 0:

@@ -20,7 +20,7 @@ from .runner import (
     watch_nwchem_run as watch_nwchem_run_payload,
 )
 from . import nwchem
-from ._api_utils import _TRANSITION_METALS, _COVALENT_RADII
+from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII
 
 # Forward reference - review_nwchem_mcscf_case is in api_strategy.py
 # We import lazily to avoid circular imports

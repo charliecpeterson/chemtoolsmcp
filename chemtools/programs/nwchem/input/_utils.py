@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from . import nwchem
+from chemtools import nwchem
 from chemtools.programs.nwchem.parse.input import render_nwchem_module_block
 
 # Alias so private helpers in this module and in api_runner.py can use _COVALENT_RADII
