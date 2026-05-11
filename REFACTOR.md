@@ -130,14 +130,14 @@ embedding search later if needed.
 
 ## Status
 
-### Done (Phase 1 + Phase 2 easy moves)
+### Done (Phase 1 + Phase 2 + Phase 3a-3b)
 
-- `chemtools/core/`: types, program, registry, run_registry, common, cube, eval
-- `chemtools/programs/nwchem/`: plugin scaffold, docs, forum, protocols, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, _utils}
+- `chemtools/core/`: types, program, registry, run_registry, common, cube, eval, **runner**
+- `chemtools/programs/nwchem/`: plugin scaffold, docs, forum, protocols, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, **basis_library**, _utils}
 - `chemtools/programs/molcas/`: scaffold + parse/output
 - `chemtools/programs/molpro/`: scaffold + parse/output
 - All three plugins register on import; detection routes correctly.
-- ~10,000 LOC migrated. 244/244 smoke tests green.
+- ~12,000 LOC migrated. 244/244 smoke tests green.
 
 ### Deferred (need real splits)
 
@@ -145,9 +145,9 @@ embedding search later if needed.
 |---|---|---|
 | `api.py` | 28 | Public API aggregator — touching means redesigning `chemtools.X` user-facing paths. Defer to after splits land. |
 | `nwchem.py` shim | 8 | Remove once `COVALENT_RADII` (defined in 3 parse modules) is deduped and call sites use direct imports. |
-| `basis.py` | 682 | Split: library scan → `core/basis.py`; NWChem renderers → `programs/nwchem/input/basis.py`. |
-| `runner.py` | 1376 | Split: launcher/scheduler → `core/runner.py`; NWChem `_build_nwchem_progress_summary` → `programs/nwchem/strategy/progress.py`. Public symbol rename `run_nwchem` → `run_calculation`. |
-| `api_runner.py` | 1475 | Paired with `runner.py`. Session log helpers → `core/session.py`; rest splits across `core/runner.py` and `mcp/tools/`. |
+| ~~`basis.py`~~ | ~~682~~ | **DONE** — whole-file move to `programs/nwchem/input/basis_library.py`. Format-neutral pieces (list_basis_sets, normalize_element_symbol, PERIODIC_SYMBOLS) marked with TODO for lift to `core/basis.py` when a second program ships a library reader. |
+| ~~`runner.py`~~ | ~~1376~~ | **DONE** — whole-file move to `core/runner.py` with detailed TODO covering: (a) rename NWChem-named publics (run_nwchem → run_calculation, etc.), (b) extract `_build_nwchem_progress_summary` to `programs/nwchem/strategy/progress.py`, (c) accept `progress_summary_fn` callback. |
+| `api_runner.py` | 1475 | **Design decision pending**: MCP-wrapper code that should eventually live in `mcp/tools/nwchem.py`, but contains session log helpers (`init_session_log`, `append_session_log`, `next_versioned_path`) that should lift to `core/session.py`. Whole-file move to `programs/nwchem/runner.py` is a reasonable interim. |
 | `api_output.py` | 628 | Mostly migrates to `mcp/tools/nwchem.py`; thin cross-program dispatch into `mcp/tools/shared.py`. |
 | `api_input.py` | **4170** | Big split into `programs/nwchem/input/{scf, dft, tce, mcscf, freq, property, geometry}.py`. Multi-session. |
 | `api_strategy.py` | **4353** | Big split into `programs/nwchem/strategy/{recovery, active_space, resources, progress, freq_check, geometry_check}.py`. Multi-session. |
@@ -158,16 +158,19 @@ embedding search later if needed.
 - `programs/nwchem/parse/tce.py` — split out binary movecs IO into `programs/nwchem/binary/movecs.py`
 - `programs/nwchem/protocols.py` — lift DAG engine to `core/workflow.py`
 - `core/run_registry.py::_apply_change` and `generate_input_batch` — NWChem text rewriters belong in `programs/nwchem/input/` and dispatch via `program.drafter.patch_input`
+- `programs/nwchem/input/basis_library.py` — format-neutral pieces (list_basis_sets, _scan_basis_library, normalize_element_symbol, PERIODIC_SYMBOLS) lift to `core/basis.py` when a second program needs them. Dedupe PERIODIC_SYMBOLS with ATOMIC_SYMBOLS in `core/common.py` at the same time.
+- `core/runner.py` — rename NWChem-named publics to drop the prefix (run_nwchem → run_calculation, etc.); extract `_build_nwchem_progress_summary` + helpers to `programs/nwchem/strategy/progress.py`; accept a `progress_summary_fn` callback so the runner stops importing program code.
 
 ## Recommended order for remaining work
 
-1. **`basis.py` split** (~2 hours). Smallest remaining real split; lands `core/basis.py`.
-2. **`runner.py` + `api_runner.py`** paired refactor (~half day). Public symbol renames are the design call here.
-3. **`api_output.py` migration** (~half day). Mostly moves to `mcp/tools/`.
-4. **NWChem shim removal** (~half day). Dedup `COVALENT_RADII`, update call sites, delete `chemtools/nwchem.py`.
-5. **`api_input.py` split** (multi-session, family-by-family).
-6. **`api_strategy.py` split** (multi-session, family-by-family).
-7. **`mcp/nwchem.py` split** (depends on 5+6 being underway so tool defs land in clean families).
+1. ~~**`basis.py`**~~ — done.
+2. ~~**`runner.py`**~~ — done as a whole-file move; the internal split is captured as inline TODO.
+3. **`api_runner.py` move** (~1 hour). Decide location (probably `programs/nwchem/runner.py`) with a TODO for the eventual `core/session.py` and `mcp/tools/nwchem.py` extraction.
+4. **`api_output.py` migration** (~half day). Mostly moves to `mcp/tools/nwchem.py`.
+5. **NWChem shim removal** (~half day). Dedup `COVALENT_RADII`, update call sites, delete `chemtools/nwchem.py`.
+6. **`api_input.py` split** (multi-session, family-by-family).
+7. **`api_strategy.py` split** (multi-session, family-by-family).
+8. **`mcp/nwchem.py` split** (depends on 6+7 being underway so tool defs land in clean families).
 
 After all of the above:
 
