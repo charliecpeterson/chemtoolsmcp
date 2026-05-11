@@ -217,7 +217,11 @@ example_text = plugin.examples.read_example(template["name"])
 8. ~~**Wire Molpro/Molcas Parser sub-protocols + extract shared adapter helpers**~~ — done (Phase 4b).
 9. ~~**Wire NWChem Drafter sub-protocol**~~ — done (Phase 4c). `draft_input` + `lint_input` work; `patch_input` is NotImplementedError until api_input.py splits.
 10. ~~**Build NWChem ExamplesCorpus**~~ — done (Phase 4d). 4 starter templates bundled; user adds more over time.
-11. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality, unlocks TS workflows and intelligent freq restart). Needs NWChem `.hess` format spec to implement reliably.
+11. **Binary readers** — partly done:
+    - ~~`parse_nwchem_hessian`~~ — done (Phase 8a). NWChem `.hess` is actually ASCII (Fortran D-exponent floats, lower-triangle packed). Returns dimensions, matrix, sanity stats. Wired through new BinaryReader sub-protocol on the NWCHEM plugin.
+    - ~~`compute_nwchem_harmonic_frequencies`~~ — done (Phase 8b). Companion that mass-weights, eigendecomposes, and converts to cm^-1. Bit-exact match to NWChem-printed frequencies on water / methane / ammonium / CO2 / H2O2-TS fixtures.
+    - `parse_nwchem_drv_hessian` deferred — `.drv.hess` is internal driver state (BFGS update buffer), no documented format.
+    - `parse_nwchem_fdrst` deferred — `.fdrst` byte layout is not externally documented; risk of misinterpretation. Defer until a workflow concretely needs it.
 12. ~~**Active space design tool**~~ — done (Phase 4f). `prepare_nwchem_tce_setup` MCP tool.
 13. ~~**MCP tool that dispatches through plugins**~~ — done (Phase 4e). `summarize_run`.
 14. ~~**Extend MCSCF orchestrator**~~ — done (Phase 4g). `prepare_nwchem_mcscf_setup` MCP tool with frontier-aware routing.
