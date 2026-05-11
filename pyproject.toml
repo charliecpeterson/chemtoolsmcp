@@ -26,5 +26,10 @@ where   = ["."]
 include = ["chemtools*"]
 
 [tool.setuptools.package-data]
-# Bundle all per-program data (basis libraries, etc.) with the package
-chemtools = ["data/**/*"]
+# Bundle per-program data (basis libraries, docs) and the bundled
+# per-program example corpora.
+chemtools = [
+    "data/**/*",
+    "programs/*/examples/*.nw",
+    "programs/*/examples/*.json",
+]
