@@ -1895,6 +1895,35 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "parse_nwchem_hessian",
+            "description": (
+                "Parse an NWChem .hess file (ASCII lower-triangle Cartesian Hessian in "
+                "atomic units, Eh/bohr^2). Use this to validate a previous frequency "
+                "run's Hessian before seeding a TS optimization (`driver; inhess 2; "
+                "reuse <file.hess>`), or to inspect basic Hessian stats. "
+                "Returns n_atoms, n_dof, the full symmetric matrix, and quick sanity "
+                "stats (max|H|, Frobenius norm, diagonal min/max). For larger systems, "
+                "set return_matrix=false to skip the n_dof*n_dof matrix and keep only "
+                "the lower-triangle entries + stats."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "hessian_file": {
+                        "type": "string",
+                        "description": "Path to the .hess file.",
+                    },
+                    "return_matrix": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "When true (default), include the full n_dof x n_dof symmetric matrix. Set false for large systems to keep only the flat triangle entries + stats.",
+                    },
+                },
+                "required": ["hessian_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "swap_nwchem_movecs",
             "description": (
                 "Swap two MOs in a binary NWChem movecs file. This is the solution when "
@@ -4208,6 +4237,15 @@ def _handle_validate_nwchem_tce_setup(arguments: dict[str, Any]) -> dict[str, An
 @_tool("parse_nwchem_movecs")
 def _handle_parse_nwchem_movecs(arguments: dict[str, Any]) -> dict[str, Any]:
     return parse_nwchem_movecs(arguments["movecs_file"])
+
+
+@_tool("parse_nwchem_hessian")
+def _handle_parse_nwchem_hessian(arguments: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.nwchem.binary.hessian import parse_nwchem_hessian
+    return parse_nwchem_hessian(
+        arguments["hessian_file"],
+        return_matrix=arguments.get("return_matrix", True),
+    )
 
 
 @_tool("swap_nwchem_movecs")
