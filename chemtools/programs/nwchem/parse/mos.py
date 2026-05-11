@@ -93,37 +93,8 @@ TRANSITION_METALS = {
     "Np",
     "Pu",
 }
-COVALENT_RADII = {
-    "H": 0.31,
-    "B": 0.85,
-    "C": 0.76,
-    "N": 0.71,
-    "O": 0.66,
-    "F": 0.57,
-    "P": 1.07,
-    "S": 1.05,
-    "Cl": 1.02,
-    "Br": 1.20,
-    "I": 1.39,
-    "Cr": 1.39,
-    "Mn": 1.39,
-    "Fe": 1.32,
-    "Co": 1.26,
-    "Ni": 1.24,
-    "Cu": 1.32,
-    "Zn": 1.22,
-    "Mo": 1.54,
-    "W": 1.62,
-    "Re": 1.51,
-    "Ru": 1.46,
-    "Rh": 1.42,
-    "Pd": 1.39,
-    "Ag": 1.45,
-    "Cd": 1.44,
-    "Pt": 1.36,
-    "Au": 1.36,
-    "U": 1.96,
-}
+# Re-exported from core for backward compatibility — see chemtools.core.common
+from chemtools.core.common import COVALENT_RADII  # noqa: F401
 
 
 def _frontier_orbital_window(

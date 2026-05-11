@@ -4,7 +4,9 @@ import re
 from typing import Any
 
 from chemtools.core.common import make_metadata, parse_scientific_float, read_text
-from chemtools import nwchem
+from chemtools.programs.nwchem.parse.tasks import parse_tasks
+from chemtools.programs.nwchem.parse.mos import parse_mos, parse_population_analysis
+from chemtools.programs.nwchem.parse.freq import parse_freq, parse_trajectory
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 
@@ -276,12 +278,12 @@ def diagnose_nwchem_output(
     _contents: str | None = None,
 ) -> dict[str, Any]:
     contents = _contents if _contents is not None else read_text(output_path)
-    tasks = nwchem.parse_tasks(output_path, contents)
+    tasks = parse_tasks(output_path, contents)
     scf = parse_scf(output_path)
-    mos = nwchem.parse_mos(output_path, contents, top_n=8)
-    population = nwchem.parse_population_analysis(output_path, contents)
-    freq = nwchem.parse_freq(output_path, contents) if _looks_like_frequency_run(tasks) else None
-    trajectory = nwchem.parse_trajectory(output_path, contents) if _looks_like_optimization_run(tasks) else None
+    mos = parse_mos(output_path, contents, top_n=8)
+    population = parse_population_analysis(output_path, contents)
+    freq = parse_freq(output_path, contents) if _looks_like_frequency_run(tasks) else None
+    trajectory = parse_trajectory(output_path, contents) if _looks_like_optimization_run(tasks) else None
 
     # Analyze the .err file (auto-detect if not provided)
     _err_path = err_file or _auto_err_path(output_path)
@@ -1261,7 +1263,7 @@ def summarize_electronic_structure(
     contents = read_text(output_path)
 
     # --- MO analysis ---
-    mos_data = nwchem.parse_mos(output_path, contents, top_n=5)
+    mos_data = parse_mos(output_path, contents, top_n=5)
     homo = mos_data.get("homo")
     lumo = mos_data.get("lumo")
     gap_hartree = mos_data.get("homo_lumo_gap_hartree")
@@ -1290,7 +1292,7 @@ def summarize_electronic_structure(
         }
 
     # --- Population analysis ---
-    pop_data = nwchem.parse_population_analysis(output_path, contents)
+    pop_data = parse_population_analysis(output_path, contents)
     mulliken = pop_data.get("methods", {}).get("mulliken", {})
 
     # Extract charges
@@ -1492,7 +1494,7 @@ def track_spin_state_across_optimization(
     warnings: list[str] = []
 
     # Parse trajectory for per-step energies
-    traj = nwchem.parse_trajectory(output_path, contents, include_positions=False)
+    traj = parse_trajectory(output_path, contents, include_positions=False)
     frames = traj.get("frames", [])
 
     # Parse all <S²> values with their line positions

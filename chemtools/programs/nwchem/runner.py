@@ -47,7 +47,7 @@ from chemtools.core.runner import (
     tail_text_file,
     watch_nwchem_run as watch_nwchem_run_payload,
 )
-from chemtools import nwchem
+from chemtools.programs.nwchem.parse.freq import parse_trajectory
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII
 
 # Forward reference - review_nwchem_mcscf_case is in api_strategy.py
@@ -552,7 +552,7 @@ def _assess_nwchem_progress_intervention(
         }
 
     if current_phase == "optimization_in_progress":
-        trajectory = nwchem.parse_trajectory(output_path, contents, include_positions=True)
+        trajectory = parse_trajectory(output_path, contents, include_positions=True)
         energies = [value for value in trajectory.get("energies_hartree", []) if value is not None]
         recent = energies[-4:]
         positive_steps = sum(1 for idx in range(1, len(recent)) if recent[idx] > recent[idx - 1] + 1e-4)

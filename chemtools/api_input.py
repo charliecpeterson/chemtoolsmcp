@@ -42,7 +42,15 @@ from chemtools.programs.nwchem.parse.input import (
     replace_nwchem_geometry_block,
     replace_nwchem_module_block,
 )
-from . import nwchem
+# Raw-signature versions of functions that have same-name MCP wrappers
+# in this file or in chemtools.programs.nwchem.output. The wrappers below
+# take a single `path` argument; the raw versions take `(path, contents, ...)`.
+from chemtools.programs.nwchem.parse.mos import parse_mos as _parse_mos_raw
+from chemtools.programs.nwchem.parse.freq import (
+    parse_trajectory as _parse_trajectory_raw,
+    analyze_imaginary_modes as _analyze_imaginary_modes_raw,
+    displace_geometry_along_mode as _displace_geometry_along_mode_raw,
+)
 from chemtools.programs.nwchem.input._utils import (
     _TRANSITION_METALS,
     _COVALENT_RADII,
@@ -326,7 +334,7 @@ def analyze_imaginary_modes(
     contents = read_text(path)
     program = detect_program(contents)
     if program == "nwchem":
-        return nwchem.analyze_imaginary_modes(
+        return _analyze_imaginary_modes_raw(
             path,
             contents,
             significant_threshold_cm1=significant_threshold_cm1,
@@ -415,7 +423,7 @@ def extract_nwchem_geometry(
     """
     import re as _re
     contents = read_text(output_path)
-    trajectory = nwchem.parse_trajectory(output_path, contents, include_positions=True)
+    trajectory = _parse_trajectory_raw(output_path, contents, include_positions=True)
     frames = trajectory["frames"]
 
     if not frames:
@@ -549,7 +557,7 @@ def draft_nwchem_optimization_followup_input(
     if program != "nwchem":
         raise ValueError(f"optimization follow-up drafting is not implemented for {program or 'unknown'}")
 
-    trajectory = nwchem.parse_trajectory(output_path, contents, include_positions=True)
+    trajectory = _parse_trajectory_raw(output_path, contents, include_positions=True)
     if not trajectory["frames"]:
         raise ValueError("no optimization geometry frames were found in the output")
 
@@ -659,7 +667,7 @@ def displace_geometry_along_mode(
     contents = read_text(path)
     program = detect_program(contents)
     if program == "nwchem":
-        return nwchem.displace_geometry_along_mode(
+        return _displace_geometry_along_mode_raw(
             path,
             contents,
             mode_number=mode_number,
@@ -3105,7 +3113,7 @@ def draft_nwchem_tce_input(
 
     # --- Read SCF output and parse orbitals ---
     scf_contents = read_text(scf_output_file)
-    mos_result = nwchem.parse_mos(scf_output_file, scf_contents)
+    mos_result = _parse_mos_raw(scf_output_file, scf_contents)
     orbitals = mos_result.get("orbitals", [])
 
     # --- Infer elements from the input file ---

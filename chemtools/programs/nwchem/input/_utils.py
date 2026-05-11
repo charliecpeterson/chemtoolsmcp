@@ -4,11 +4,12 @@ import re
 from pathlib import Path
 from typing import Any
 
-from chemtools import nwchem
+from chemtools.core.common import COVALENT_RADII
 from chemtools.programs.nwchem.parse.input import render_nwchem_module_block
+from chemtools.programs.nwchem.parse.mos import _coerce_int, _coerce_float
 
 # Alias so private helpers in this module and in api_runner.py can use _COVALENT_RADII
-_COVALENT_RADII = nwchem.COVALENT_RADII
+_COVALENT_RADII = COVALENT_RADII
 
 
 def _coerce_api_int(value: Any) -> int | None:
@@ -16,7 +17,7 @@ def _coerce_api_int(value: Any) -> int | None:
         return None
     if isinstance(value, int):
         return value
-    parsed = nwchem._coerce_int(value)
+    parsed = _coerce_int(value)
     return parsed
 
 
@@ -27,7 +28,7 @@ def _coerce_api_float(value: Any) -> float | None:
         return value
     if isinstance(value, int):
         return float(value)
-    return nwchem._coerce_float(value)
+    return _coerce_float(value)
 
 
 def _strategy_entry(

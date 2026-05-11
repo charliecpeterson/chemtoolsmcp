@@ -40,7 +40,18 @@ from chemtools.programs.nwchem.strategy.diagnose import (
 )
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from chemtools.programs.nwchem.parse.tce import parse_tce_output as _parse_tce_output
-from chemtools import nwchem
+# Underscore-prefixed to avoid shadowing the same-name wrapper functions below.
+from chemtools.programs.nwchem.parse.tasks import parse_tasks as _parse_tasks_raw
+from chemtools.programs.nwchem.parse.mos import (
+    parse_mos as _parse_mos_raw,
+    parse_population_analysis as _parse_pop_raw,
+    parse_mcscf_output as _parse_mcscf_raw,
+)
+from chemtools.programs.nwchem.parse.freq import (
+    parse_freq as _parse_freq_raw,
+    parse_freq_progress as _parse_freq_progress_raw,
+    parse_trajectory as _parse_trajectory_raw,
+)
 from chemtools.programs.molcas.parse import output as molcas
 from chemtools.programs.molpro.parse import output as molpro
 
@@ -53,7 +64,7 @@ def _dispatch_parse_mos(
     program = detect_program(contents)
     if program == "molpro":
         return molpro.parse_mos(path, contents, top_n=top_n, include_coefficients=include_coefficients)
-    return nwchem.parse_mos(
+    return _parse_mos_raw(
         path, contents, top_n=top_n, include_coefficients=include_coefficients,
         include_all_orbitals=include_all_orbitals,
     )
@@ -63,12 +74,12 @@ def parse_tasks(path: str) -> dict[str, Any]:
     contents = read_text(path)
     program = detect_program(contents)
     if program == "nwchem":
-        return nwchem.parse_tasks(path, contents)
+        return _parse_tasks_raw(path, contents)
     if program == "molpro":
         return molpro.parse_tasks(path, contents)
     if program == "molcas":
         return molcas.parse_tasks(path, contents)
-    return nwchem.parse_tasks(path, contents)
+    return _parse_tasks_raw(path, contents)
 
 
 def parse_mos(
@@ -84,27 +95,27 @@ def parse_mos(
 
 def parse_population_analysis(path: str) -> dict[str, Any]:
     contents = read_text(path)
-    return nwchem.parse_population_analysis(path, contents)
+    return _parse_pop_raw(path, contents)
 
 
 def parse_mcscf_output(path: str) -> dict[str, Any]:
     contents = read_text(path)
-    return nwchem.parse_mcscf_output(path, contents)
+    return _parse_mcscf_raw(path, contents)
 
 
 def parse_freq(path: str, include_displacements: bool = False) -> dict[str, Any]:
     contents = read_text(path)
-    return nwchem.parse_freq(path, contents, include_displacements=include_displacements)
+    return _parse_freq_raw(path, contents, include_displacements=include_displacements)
 
 
 def parse_freq_progress(path: str) -> dict[str, Any]:
     contents = read_text(path)
-    return nwchem.parse_freq_progress(path, contents)
+    return _parse_freq_progress_raw(path, contents)
 
 
 def parse_trajectory(path: str, include_positions: bool = False) -> dict[str, Any]:
     contents = read_text(path)
-    return nwchem.parse_trajectory(path, contents, include_positions=include_positions)
+    return _parse_trajectory_raw(path, contents, include_positions=include_positions)
 
 
 def analyze_frontier_orbitals(
@@ -118,8 +129,8 @@ def analyze_frontier_orbitals(
     if program != "nwchem":
         raise ValueError(f"frontier orbital analysis is not implemented for {program or 'unknown'}")
 
-    mos = nwchem.parse_mos(output_path, contents, top_n=8)
-    population = nwchem.parse_population_analysis(output_path, contents)
+    mos = _parse_mos_raw(output_path, contents, top_n=8)
+    population = _parse_pop_raw(output_path, contents)
     input_summary = inspect_nwchem_input(input_path) if input_path else None
     metals = expected_metal_elements or (input_summary["transition_metals"] if input_summary else [])
     somo_target = expected_somo_count
@@ -154,7 +165,7 @@ def suggest_vectors_swaps(
     if program != "nwchem":
         raise ValueError(f"vectors swap suggestions are not implemented for {program or 'unknown'}")
 
-    mos = nwchem.parse_mos(output_path, contents, top_n=8)
+    mos = _parse_mos_raw(output_path, contents, top_n=8)
     input_summary = inspect_nwchem_input(input_path) if input_path else None
     metals = expected_metal_elements or (input_summary["transition_metals"] if input_summary else [])
     somo_target = expected_somo_count

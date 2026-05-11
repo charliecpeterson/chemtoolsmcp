@@ -14,7 +14,8 @@ from chemtools.programs.nwchem.strategy.diagnose import (
     summarize_nwchem_output,
 )
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
-from . import nwchem
+from chemtools.programs.nwchem.parse.freq import parse_trajectory
+from chemtools.programs.nwchem.parse.mos import parse_mos, parse_population_analysis
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII, _strategy_entry, _coerce_api_int, _coerce_api_float
 from chemtools.programs.nwchem.output import parse_mcscf_output
 
@@ -99,8 +100,8 @@ def suggest_nwchem_mcscf_active_space(
     if program != "nwchem":
         raise ValueError(f"MCSCF active-space suggestions are not implemented for {program or 'unknown'}")
 
-    mos = nwchem.parse_mos(output_path, contents, top_n=8)
-    population = nwchem.parse_population_analysis(output_path, contents)
+    mos = parse_mos(output_path, contents, top_n=8)
+    population = parse_population_analysis(output_path, contents)
     input_summary = inspect_nwchem_input(input_path) if input_path else None
     metal_elements = expected_metal_elements or (input_summary["transition_metals"] if input_summary else [])
     metal_set = {element.lower() for element in metal_elements}
@@ -1641,7 +1642,6 @@ def check_nwchem_geometry_plausibility(
       selected_frame     step/energy of the frame checked
     """
     from .api_input import extract_nwchem_geometry, _select_best_optimization_frame
-    from . import nwchem
 
     contents = read_text(output_path)
 
@@ -1660,7 +1660,7 @@ def check_nwchem_geometry_plausibility(
     # extract_nwchem_geometry returns frame info but we need elements+positions
     # Fall back: parse from trajectory directly
     if not atoms or not positions_raw:
-        traj = nwchem.parse_trajectory(output_path, contents, include_positions=True)
+        traj = parse_trajectory(output_path, contents, include_positions=True)
         frames = traj.get("frames", [])
         if not frames:
             return {"error": "no geometry frames found in output"}
@@ -1891,7 +1891,6 @@ def check_nwchem_freq_plausibility(
       zpe_check             ZPE analysis
       missing_xh_stretches  expected X-H bands not observed
     """
-    from . import nwchem as _nwchem
     from chemtools.programs.nwchem.parse.freq import parse_freq as _parse_freq
 
     contents = read_text(output_path)

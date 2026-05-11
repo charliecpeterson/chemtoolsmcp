@@ -22,9 +22,11 @@ serve other programs by name:
     inspect_run_status accept a `progress_summary_fn` callback so the
     runner doesn't import program code directly.
 
-  * Replace `from chemtools import nwchem` (the back-compat shim) with
-    a callback or with `registry.get(program).parser` dispatch once the
-    plugin Parser sub-protocol is wired up.
+  * Currently imports parse_tasks / parse_trajectory / parse_freq from
+    programs/nwchem/parse directly (see top of file). Once the plugin
+    Parser sub-protocol is wired up, replace those direct imports with a
+    `progress_summary_fn` callback or with `registry.get(program).parser`
+    dispatch so core/ stops depending on programs/.
 
 For now this is a verbatim move from chemtools/runner.py — public symbols
 and call signatures are unchanged so the surrounding code keeps working.
@@ -45,7 +47,10 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import detect_program, read_text
-from chemtools import nwchem
+# Direct NWChem imports — see module docstring for the planned
+# progress_summary_fn callback that will remove core's coupling to programs/.
+from chemtools.programs.nwchem.parse.tasks import parse_tasks
+from chemtools.programs.nwchem.parse.freq import parse_freq, parse_trajectory
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 
@@ -556,7 +561,7 @@ def inspect_nwchem_run_status(
         try:
             contents = read_text(output_info["path"])
             if detect_program(contents) == "nwchem":
-                parsed_output = nwchem.parse_tasks(output_info["path"], contents)
+                parsed_output = parse_tasks(output_info["path"], contents)
                 progress_summary = _build_nwchem_progress_summary(
                     contents,
                     parsed_output,
@@ -1215,7 +1220,7 @@ def _build_nwchem_progress_summary(
 ) -> dict[str, Any]:
     raw_tasks = ((parsed_output.get("program_summary") or {}).get("raw") or {}).get("tasks") or []
     last_task = raw_tasks[-1] if raw_tasks else None
-    trajectory = nwchem.parse_trajectory("<status>", contents)
+    trajectory = parse_trajectory("<status>", contents)
     frequency_started = any(
         marker in contents
         for marker in (
@@ -1224,7 +1229,7 @@ def _build_nwchem_progress_summary(
             "P.Frequency",
         )
     )
-    frequency = nwchem.parse_freq("<status>", contents) if frequency_started else None
+    frequency = parse_freq("<status>", contents) if frequency_started else None
 
     summary: dict[str, Any] = {
         "current_task_kind": last_task.get("kind") if last_task else None,
