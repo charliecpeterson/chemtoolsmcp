@@ -39,6 +39,46 @@
       "description": "CCSD(T)/aug-cc-pVTZ single point for water using the Tensor Contraction Engine.",
       "file": "tce_ccsd_t_water.nw",
       "notes": "Explicit `freeze N` (N=1 here for H2O core). Never use `freeze atomic` per project rule. Memory budget is generous; lower if running on a workstation."
+    },
+    {
+      "name": "dft_open_shell_fe_water",
+      "task_type": "energy",
+      "methods": ["DFT", "B3LYP", "UDFT"],
+      "basis": ["def2-TZVP"],
+      "tags": ["open_shell", "transition_metal", "high_spin", "starter"],
+      "description": "Fe(II) high-spin (quintet, S=2) DFT single-point template with explicit mult/odft.",
+      "file": "dft_open_shell_fe_water.nw",
+      "notes": "Always pair open-shell DFT with frontier orbital + spin density analysis to verify the SOMOs sit on Fe-d. Run analyze_nwchem_frontier_orbitals after this."
+    },
+    {
+      "name": "mcscf_o2_triplet",
+      "task_type": "energy",
+      "methods": ["MCSCF", "CASSCF"],
+      "basis": ["cc-pVDZ"],
+      "tags": ["open_shell", "multireference", "small_molecule", "starter"],
+      "description": "O2 triplet ground state CAS(8,6) — classic 2p sigma/sigma*/pi* active space.",
+      "file": "mcscf_o2_triplet.nw",
+      "notes": "ROHF triplet guess feeds the MCSCF orbital optimization. Adapt the active window for larger systems by re-counting electrons + orbitals."
+    },
+    {
+      "name": "tddft_formaldehyde",
+      "task_type": "energy",
+      "methods": ["TDDFT", "TDA"],
+      "basis": ["def2-SVP"],
+      "tags": ["excited_states", "tddft", "small_molecule", "starter"],
+      "description": "Formaldehyde n->pi* lowest singlet excitation via TDDFT in the TDA approximation.",
+      "file": "tddft_formaldehyde.nw",
+      "notes": "TDA (CIS) is the default here; replace `cis` with `rpa` for full TDDFT. nroots=5 gets the first five singlets."
+    },
+    {
+      "name": "dft_cosmo_water_in_water",
+      "task_type": "energy",
+      "methods": ["DFT", "B3LYP"],
+      "basis": ["def2-SVP"],
+      "tags": ["solvent", "cosmo", "small_molecule", "starter"],
+      "description": "B3LYP energy with COSMO solvent model (epsilon = 78.4, water). Sanity-check template for solvent setup.",
+      "file": "dft_cosmo_water_in_water.nw",
+      "notes": "Switch dielec to match your solvent. After the run, check COSMO surface charge convergence in the output."
     }
   ]
 }

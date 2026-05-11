@@ -1,0 +1,40 @@
+start ch2o_tddft
+
+title "Formaldehyde TDDFT n->pi* excitation — TDDFT starter template"
+
+echo
+
+# Classic test: the lowest singlet excitation in formaldehyde is the n->pi*
+# (HOMO -> LUMO) transition, around 4 eV. Useful as a baseline for any
+# TDDFT setup.
+
+geometry units angstroms
+  C 0.000  0.000  0.000
+  O 1.205  0.000  0.000
+  H -0.595  0.927  0.000
+  H -0.595 -0.927  0.000
+end
+
+basis
+  * library def2-svp
+end
+
+charge 0
+
+dft
+  xc b3lyp
+  iterations 200
+  direct
+end
+
+task dft
+
+# TDDFT block: solve for the lowest 5 singlet roots in the TDA approximation.
+# Remove cis and use rpa for full TDDFT (TD-DFT/RPA) if needed.
+tddft
+  nroots 5
+  cis
+  singlet
+end
+
+task tddft

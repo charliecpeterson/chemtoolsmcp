@@ -1,0 +1,41 @@
+start fe_h2o_open_shell
+
+title "Fe(H2O) cation high-spin DFT — open-shell starter template"
+
+echo
+
+# Simple high-spin Fe(II)-aquo single-point.
+# Quintet (S=2, multiplicity=5) is the default for a d6 high-spin first-row metal.
+# Replace the geometry with your real complex; this is a minimal 2-atom probe.
+
+geometry units angstroms noautosym
+  Fe  0.0000  0.0000  0.0000
+  O   1.9500  0.0000  0.0000
+  H   2.3200  0.7500  0.5000
+  H   2.3200 -0.7500  0.5000
+end
+
+basis
+  Fe library def2-tzvp
+  O  library def2-tzvp
+  H  library def2-tzvp
+end
+
+charge 2
+
+# Multiplicity for the SCF/DFT block — 5 for high-spin Fe(II) d6.
+dft
+  xc b3lyp
+  mult 5
+  odft
+  iterations 200
+  direct
+  convergence energy 1.0d-7
+  convergence density 1.0d-6
+end
+
+task dft energy
+
+# Always pair an open-shell DFT job with frontier orbital and spin density
+# analysis — confirm the 4 SOMOs sit on Fe-d before trusting the result.
+# Use: analyze_nwchem_frontier_orbitals + check_nwchem_spin_charge_state.

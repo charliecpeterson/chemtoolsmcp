@@ -1,0 +1,41 @@
+start o2_cas86
+
+title "O2 triplet CAS(8,6) MCSCF — classic small-molecule template"
+
+echo
+
+# Triplet ground state of O2 in a CAS(8,6) active space:
+# 8 electrons in 6 active orbitals (the four 2p_sigma/sigma* and two 2p_pi*).
+# The SCF reference comes first as a guess; MCSCF then re-optimizes orbitals
+# within the chosen window.
+
+geometry units angstroms noautosym
+  O 0.0 0.0  0.6037
+  O 0.0 0.0 -0.6037
+end
+
+basis
+  * library cc-pVDZ
+end
+
+charge 0
+
+# Triplet reference: 2 alpha-only electrons in pi* (multiplicity 3, M=2S+1 -> S=1)
+scf
+  rohf
+  triplet
+  thresh 1.0e-9
+  maxiter 200
+end
+
+task scf
+
+mcscf
+  active 6
+  actelec 8
+  multiplicity 3
+  thresh 1.0e-9
+  maxiter 200
+end
+
+task mcscf

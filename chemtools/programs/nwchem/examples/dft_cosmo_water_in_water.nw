@@ -1,0 +1,40 @@
+start water_cosmo
+
+title "Water DFT energy with COSMO solvent (eps=78.4) — solvent starter template"
+
+echo
+
+# Water as both solute and solvent — useful as a sanity check that COSMO
+# is wired correctly. Real workflows substitute the geometry and choose a
+# solvent epsilon that matches the bulk medium.
+
+geometry units angstroms noautosym
+  O 0.0000  0.0000  0.1173
+  H 0.0000  0.7572 -0.4692
+  H 0.0000 -0.7572 -0.4692
+end
+
+basis
+  * library def2-svp
+end
+
+charge 0
+
+dft
+  xc b3lyp
+  iterations 200
+  direct
+end
+
+# COSMO is NWChem's most common implicit-solvent model. epsilon=78.4 is
+# bulk water at 298 K. Use rsolv=1.30 (default) for water; switch to
+# rsolv=1.85 for non-protic solvents.
+cosmo
+  dielec 78.4
+end
+
+task dft energy
+
+# After the run, check the COSMO surface charge convergence in the output —
+# poorly converged surface charges often indicate the cavity overlaps a
+# diffuse basis function or the geometry is too close to a discontinuity.
