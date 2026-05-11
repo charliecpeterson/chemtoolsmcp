@@ -13,7 +13,9 @@ from chemtools.programs.nwchem.strategy.diagnose import (
 )
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from chemtools.programs.nwchem.parse.tce import parse_tce_output as _parse_tce_output
-from . import molcas, molpro, nwchem
+from chemtools import nwchem
+from chemtools.programs.molcas.parse import output as molcas
+from chemtools.programs.molpro.parse import output as molpro
 
 
 def _dispatch_parse_mos(
