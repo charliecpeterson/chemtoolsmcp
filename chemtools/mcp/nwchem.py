@@ -2895,7 +2895,7 @@ def _handle_suggest_memory(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
     hw = arguments.get("hw_specs")
     if not hw and arguments.get("profile"):
-        from chemtools.runner import load_runner_profiles, _resolve_profile, query_partition_specs, get_local_resource_budget
+        from chemtools.core.runner import load_runner_profiles, _resolve_profile, query_partition_specs, get_local_resource_budget
         profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
         profiles = load_runner_profiles(profiles_path)
         profile_payload = _resolve_profile(profiles, arguments["profile"])
@@ -2912,7 +2912,7 @@ def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
         else:
             hw = get_local_resource_budget()
     if not hw:
-        from chemtools.runner import get_local_resource_budget
+        from chemtools.core.runner import get_local_resource_budget
         hw = get_local_resource_budget()
     return suggest_resources(input_file=arguments["input_file"], hw_specs=hw)
 
@@ -4385,7 +4385,7 @@ def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_check_memory_fit(arguments: dict[str, Any]) -> dict[str, Any]:
     profile_resources = None
     if arguments.get("profile"):
-        from chemtools.runner import load_runner_profiles, _resolve_profile
+        from chemtools.core.runner import load_runner_profiles, _resolve_profile
         profiles_path = arguments.get("profiles_path")
         loaded = load_runner_profiles(profiles_path)
         resolved = _resolve_profile(loaded, arguments["profile"])

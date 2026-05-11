@@ -10,7 +10,7 @@ from chemtools.programs.nwchem.strategy.diagnose import (
     diagnose_nwchem_output,
     parse_scf,
 )
-from .runner import (
+from chemtools.core.runner import (
     cancel_scheduler_job,
     load_runner_profiles,
     render_nwchem_run,

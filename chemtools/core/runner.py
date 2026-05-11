@@ -1,3 +1,35 @@
+"""Launcher and scheduler runtime — local subprocess and HPC scheduler glue.
+
+Most of this module is program-neutral: profile loading, SLURM/PBS submission,
+process status polling, job-id tracking, output tailing, slow-phase detection.
+The NWChem coupling lives in a handful of functions and one helper at the
+bottom of the file.
+
+TODO(multi-program): split the NWChem-specific bits out so this module can
+serve other programs by name:
+
+  * Rename public NWChem-named functions to drop the prefix and let callers
+    pass a program tag:
+      run_nwchem              -> run_calculation
+      render_nwchem_run       -> render_calculation_run
+      inspect_nwchem_run_status -> inspect_run_status
+      watch_nwchem_run        -> watch_run
+
+  * Extract _build_nwchem_progress_summary,
+    _summarize_requested_task_progress, _normalize_requested_task,
+    and _annotate_status_with_requested_tasks to
+    chemtools/programs/nwchem/strategy/progress.py. Make watch_run /
+    inspect_run_status accept a `progress_summary_fn` callback so the
+    runner doesn't import program code directly.
+
+  * Replace `from chemtools import nwchem` (the back-compat shim) with
+    a callback or with `registry.get(program).parser` dispatch once the
+    plugin Parser sub-protocol is wired up.
+
+For now this is a verbatim move from chemtools/runner.py — public symbols
+and call signatures are unchanged so the surrounding code keeps working.
+"""
+
 from __future__ import annotations
 
 import json
@@ -13,11 +45,11 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import detect_program, read_text
-from . import nwchem
+from chemtools import nwchem
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 
-DEFAULT_RUNNER_PROFILES = Path(__file__).resolve().parent / "runner_profiles.example.json"
+DEFAULT_RUNNER_PROFILES = Path(__file__).resolve().parent.parent / "runner_profiles.example.json"
 RUNNER_PROFILES_ENV = "CHEMTOOLS_RUNNER_PROFILES"
 
 # Session-level cache for partition specs (avoids repeated sinfo calls)

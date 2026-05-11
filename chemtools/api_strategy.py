@@ -3112,7 +3112,7 @@ def preflight_check(
     import re
     from pathlib import Path
     from .api_input import lint_nwchem_input
-    from .runner import load_runner_profiles, _resolve_profile
+    from chemtools.core.runner import load_runner_profiles, _resolve_profile
 
     checks: list[dict[str, Any]] = []
 
@@ -3156,7 +3156,7 @@ def preflight_check(
         node_mem_mb = None
         cpus_per_node = None
         if launcher.get("kind") == "scheduler" and partition:
-            from .runner import query_partition_specs
+            from chemtools.core.runner import query_partition_specs
             hw = query_partition_specs(partition, scheduler_type)
             node_mem_mb = hw.get("node_memory_mb")
             cpus_per_node = hw.get("cpus_per_node")
@@ -3732,7 +3732,7 @@ def detect_hpc_accounts(
     and ``recommended`` (the account with the most SUs remaining).
     """
     import subprocess
-    from .runner import load_runner_profiles, _resolve_profile
+    from chemtools.core.runner import load_runner_profiles, _resolve_profile
 
     loaded = load_runner_profiles(profiles_path)
     profile_payload = _resolve_profile(loaded, profile)
@@ -3828,7 +3828,7 @@ def suggest_hpc_resources(
         profile: Runner profile name (must have hardware fields populated).
         profiles_path: Optional path to profiles YAML/JSON.
     """
-    from .runner import load_runner_profiles, _resolve_profile
+    from chemtools.core.runner import load_runner_profiles, _resolve_profile
 
     # --- Load profile hardware specs ---
     loaded = load_runner_profiles(profiles_path)
@@ -4115,7 +4115,7 @@ def suggest_partition(
         ``resource_overrides``, comparison table, and rationale.
     """
     import subprocess
-    from .runner import load_runner_profiles, _resolve_profile
+    from chemtools.core.runner import load_runner_profiles, _resolve_profile
     loaded = load_runner_profiles(profiles_path)
     all_profile_names = list((loaded.get("profiles") or {}).keys())
 
