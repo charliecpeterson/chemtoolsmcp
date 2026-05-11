@@ -177,4 +177,164 @@ def parse_nwchem_hessian(
     return result
 
 
-__all__ = ["parse_nwchem_hessian"]
+# ---------------------------------------------------------------------------
+# Harmonic frequency analysis from a parsed Hessian
+# ---------------------------------------------------------------------------
+
+# NWChem-printed atomic masses for the most common elements. Falls back to a
+# wider table if needed. These specific values match NWChem's default "Atomic
+# Mass" output (most-abundant isotope), not IUPAC average atomic weights.
+_NWCHEM_DEFAULT_MASSES_AMU: dict[str, float] = {
+    "H":  1.007825,  "D":  2.014102,  "T":  3.016049,
+    "He": 4.002603,
+    "Li": 7.016003,  "Be": 9.012182,
+    "B": 11.009305,  "C": 12.000000,  "N": 14.003074,
+    "O": 15.994910,  "F": 18.998403,
+    "Ne":19.992440,
+    "Na":22.989770,  "Mg":23.985042,  "Al":26.981538,
+    "Si":27.976927,  "P": 30.973762,  "S": 31.972071,
+    "Cl":34.968853,  "Ar":39.962383,
+    "K": 38.963707,  "Ca":39.962591,
+    "Sc":44.955910,  "Ti":47.947947,  "V": 50.943964,
+    "Cr":51.940512,  "Mn":54.938050,  "Fe":55.934942,
+    "Co":58.933200,  "Ni":57.935348,  "Cu":62.929601,
+    "Zn":63.929147,  "Ga":68.925581,  "Ge":73.921178,
+    "As":74.921596,  "Se":79.916522,  "Br":78.918338,
+    "Kr":83.911507,  "Rb":84.911789,  "Sr":87.905614,
+    "Y": 88.905848,  "Zr":89.904704,  "Nb":92.906378,
+    "Mo":97.905408,  "Tc":97.907216,  "Ru":101.904350,
+    "Rh":102.905504, "Pd":105.903483, "Ag":106.905093,
+    "Cd":113.903358, "In":114.903878, "Sn":119.902197,
+    "Sb":120.903818, "Te":129.906223, "I": 126.904468,
+    "Xe":131.904155, "Cs":132.905447, "Ba":137.905242,
+    "La":138.906349,
+    "Hf":179.946549, "Ta":180.947996, "W": 183.950933,
+    "Re":186.955751, "Os":191.961479, "Ir":192.962924,
+    "Pt":194.964774, "Au":196.966552, "Hg":201.970626,
+    "U": 238.050783, "Np":237.048167, "Pu":244.064198,
+    "Am":243.061373,
+}
+
+
+# CODATA-based conversion: sqrt(eigenvalue in Eh/(bohr²·amu)) → cm⁻¹.
+# Derived from 1 Eh = 4.3597447222071e-18 J, 1 bohr = 5.29177210903e-11 m,
+# 1 amu = 1.66053906660e-27 kg, c = 2.99792458e10 cm/s.
+# omega² (rad/s)² = (Eh / bohr² / amu) * 9.37582976e+29
+# nu_tilde (cm⁻¹) = omega / (2 pi c) = sqrt(eigenval) * 5140.48477...
+_AU_TO_CM_INV = 5140.48477
+
+
+def _masses_for_elements(elements: list[str]) -> list[float]:
+    """Look up atomic masses (amu) for a list of element symbols."""
+    out: list[float] = []
+    for el in elements:
+        m = _NWCHEM_DEFAULT_MASSES_AMU.get(el)
+        if m is None:
+            raise KeyError(
+                f"No atomic mass available for element {el!r}; "
+                f"supported: {sorted(_NWCHEM_DEFAULT_MASSES_AMU)}"
+            )
+        out.append(m)
+    return out
+
+
+def compute_nwchem_harmonic_frequencies(
+    hessian_path: str,
+    elements: list[str],
+    masses_amu: list[float] | None = None,
+) -> dict[str, Any]:
+    """Diagonalize a mass-weighted Hessian and return vibrational frequencies.
+
+    Useful for:
+      * Verifying a `.hess` file produces the same frequencies an agent
+        saw in the .out file (sanity check before reuse).
+      * Re-deriving frequencies under different isotope labels without
+        re-running NWChem.
+      * Detecting imaginary modes when the .out file is unavailable.
+
+    Args:
+        hessian_path:  Path to the `.hess` file (ASCII lower-triangle).
+        elements:      Element symbol per atom, in the SAME ORDER as the
+                       geometry rows that produced the Hessian. Length
+                       must equal n_atoms.
+        masses_amu:    Optional explicit masses in amu, overriding the
+                       built-in NWChem-default-isotope table. Length
+                       must equal n_atoms.
+
+    Returns dict with:
+        hessian_file:      Resolved path.
+        n_atoms / n_dof:   Matches parse_nwchem_hessian.
+        elements:          Echoed back.
+        masses_amu:        Used masses (resolved from table if not provided).
+        eigenvalues_au:    nat3 eigenvalues in Eh/(bohr²·amu), sorted ascending.
+        frequencies_cm1:   nat3 frequencies in cm⁻¹. Negative values mean
+                           imaginary (sign(λ) * sqrt(|λ|) * conversion).
+        n_imaginary:       Count of frequencies < -1.0 cm⁻¹ (modes
+                           whose magnitude exceeds typical numerical
+                           noise from the six trans/rot near-zero modes).
+        n_near_zero:       Count of |frequency| <= 50 cm⁻¹ (translation,
+                           rotation, and tiny numerical artifacts).
+    """
+    import numpy as np
+
+    parsed = parse_nwchem_hessian(hessian_path, return_matrix=True)
+    nat3 = parsed["n_dof"]
+    n_atoms = parsed["n_atoms"]
+
+    if len(elements) != n_atoms:
+        raise ValueError(
+            f"elements has length {len(elements)} but the Hessian dimension "
+            f"implies n_atoms = {n_atoms}."
+        )
+
+    if masses_amu is None:
+        masses_amu = _masses_for_elements(elements)
+    elif len(masses_amu) != n_atoms:
+        raise ValueError(
+            f"masses_amu has length {len(masses_amu)} but n_atoms = {n_atoms}."
+        )
+
+    # Mass-weight: F_ij = H_ij / sqrt(m_i * m_j) where m_{i,j} are the
+    # masses of the atoms that index i and j belong to.
+    H = np.asarray(parsed["hessian"], dtype=np.float64)
+    sqrt_m_per_dof = np.array(
+        [masses_amu[a] ** 0.5 for a in range(n_atoms) for _ in range(3)],
+        dtype=np.float64,
+    )  # length nat3
+    F = H / np.outer(sqrt_m_per_dof, sqrt_m_per_dof)
+
+    # Symmetric eigenvalue decomposition (eigenvalues only — modes
+    # would require the eigenvectors, defer until needed).
+    eigvals = np.linalg.eigvalsh(F)
+
+    freqs = np.sign(eigvals) * np.sqrt(np.abs(eigvals)) * _AU_TO_CM_INV
+    # Conventions:
+    #   |freq| <= 50 cm⁻¹       -> translation, rotation, or numerical noise
+    #   freq   < -50 cm⁻¹       -> real imaginary mode (TS, broken geometry)
+    #   freq   >  50 cm⁻¹       -> real vibration
+    near_zero_threshold = 50.0
+    imaginary_modes = [
+        {"index": i, "frequency_cm1": float(f)}
+        for i, f in enumerate(freqs) if f < -near_zero_threshold
+    ]
+    n_near_zero = int(np.sum(np.abs(freqs) <= near_zero_threshold))
+
+    return {
+        "hessian_file": parsed["hessian_file"],
+        "n_atoms": n_atoms,
+        "n_dof": nat3,
+        "elements": list(elements),
+        "masses_amu": list(masses_amu),
+        "eigenvalues_au": eigvals.tolist(),
+        "frequencies_cm1": freqs.tolist(),
+        "imaginary_modes": imaginary_modes,
+        "n_imaginary": len(imaginary_modes),
+        "n_near_zero": n_near_zero,
+        "near_zero_threshold_cm1": near_zero_threshold,
+    }
+
+
+__all__ = [
+    "parse_nwchem_hessian",
+    "compute_nwchem_harmonic_frequencies",
+]

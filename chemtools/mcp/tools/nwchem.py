@@ -1895,6 +1895,43 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "compute_nwchem_harmonic_frequencies",
+            "description": (
+                "Diagonalize a mass-weighted NWChem .hess Hessian and return "
+                "vibrational frequencies in cm^-1. Useful for: "
+                "(1) verifying a .hess produces the same frequencies an agent "
+                "saw in the .out file; (2) re-deriving frequencies with "
+                "different isotope labels without re-running NWChem; (3) "
+                "detecting imaginary modes when the .out file is unavailable. "
+                "Returns frequencies, eigenvalues in atomic units, and explicit "
+                "imaginary_modes (frequency < -50 cm^-1, real TS modes — does "
+                "not flag numerical near-zero noise from translations/rotations). "
+                "Conversion factor verified bit-exact against NWChem's printed "
+                "frequencies on water / methane / CO2 / H2O2 TS fixtures."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "hessian_file": {
+                        "type": "string",
+                        "description": "Path to the .hess file.",
+                    },
+                    "elements": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Element symbol per atom in the SAME ORDER as the geometry that produced the Hessian. Length must equal n_atoms.",
+                    },
+                    "masses_amu": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "Optional explicit masses in amu, overriding the NWChem-default-isotope table. Length must equal n_atoms. Useful for deuterium / heavy-isotope studies.",
+                    },
+                },
+                "required": ["hessian_file", "elements"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "parse_nwchem_hessian",
             "description": (
                 "Parse an NWChem .hess file (ASCII lower-triangle Cartesian Hessian in "
@@ -4245,6 +4282,16 @@ def _handle_parse_nwchem_hessian(arguments: dict[str, Any]) -> dict[str, Any]:
     return parse_nwchem_hessian(
         arguments["hessian_file"],
         return_matrix=arguments.get("return_matrix", True),
+    )
+
+
+@_tool("compute_nwchem_harmonic_frequencies")
+def _handle_compute_nwchem_harmonic_frequencies(arguments: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.nwchem.binary.hessian import compute_nwchem_harmonic_frequencies
+    return compute_nwchem_harmonic_frequencies(
+        hessian_path=arguments["hessian_file"],
+        elements=arguments["elements"],
+        masses_amu=arguments.get("masses_amu"),
     )
 
 
