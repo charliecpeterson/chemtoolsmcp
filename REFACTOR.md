@@ -145,7 +145,7 @@ embedding search later if needed.
 
 | Plugin | parser | drafter | strategist | examples | binary |
 |---|---|---|---|---|---|
-| NWCHEM | full (8/8) | full (draft / lint; patch TODO) | minimal (4/4) | 4 starter templates | — |
+| NWCHEM | full (8/8) | full (draft / lint; patch TODO) | minimal (4/4) | 8 templates (DFT energy/opt/freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO) | — |
 | MOLPRO | parse-only (3/8) | — | — | — | — |
 | MOLCAS | stub (2/8) | — | — | — | — |
 
@@ -181,6 +181,7 @@ example_text = plugin.examples.read_example(template["name"])
 |---|---|
 | `summarize_run` | One-call dispatch via `registry.resolve`. Returns combined `ParsedRun + Diagnosis` for any registered program. |
 | `prepare_nwchem_tce_setup` | Thick orchestrator: parse MOs + freeze count + ordering check + swap suggestions + draft routing, with a `Diagnosis` envelope telling the agent exactly what to do next. |
+| `prepare_nwchem_mcscf_setup` | Multireference analogue of the TCE orchestrator. Returns a recommended CAS(M,N) window, frontier-assessment verdict, and routed `next_actions` (draft directly, inspect more orbitals, or fix state mismatch first via vectors swap). |
 
 ### Deferred (need real splits)
 
@@ -217,15 +218,15 @@ example_text = plugin.examples.read_example(template["name"])
 9. ~~**Wire NWChem Drafter sub-protocol**~~ — done (Phase 4c). `draft_input` + `lint_input` work; `patch_input` is NotImplementedError until api_input.py splits.
 10. ~~**Build NWChem ExamplesCorpus**~~ — done (Phase 4d). 4 starter templates bundled; user adds more over time.
 11. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality, unlocks TS workflows and intelligent freq restart). Needs NWChem `.hess` format spec to implement reliably.
-12. ~~**Active space design tool**~~ — done (Phase 4f). `prepare_nwchem_tce_setup` MCP tool orchestrates parse_mos + freeze count + ordering check + swap suggestions + draft routing into one call with a Diagnosis envelope.
-13. ~~**MCP tool that dispatches through plugins**~~ — done (Phase 4e). `summarize_run` auto-detects program and returns combined `ParsedRun + Diagnosis` from `registry.resolve`.
-14. **`api_input.py` split** (multi-session, family-by-family). Cleans up the Drafter's lazy imports and unlocks `patch_input`.
-15. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
-16. **`mcp/nwchem.py` split** (depends on 14+15 being underway).
-17. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
-18. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
-19. **Extend MCSCF orchestrator** — analogue of `prepare_nwchem_tce_setup` for `prepare_nwchem_mcscf_setup` (active space window selection, fragment guess routing).
-20. **Expand examples corpus** — open-shell DFT (Fe complex), CASSCF, TDDFT, geometry opt with constraints. User-supplied templates with index.json entries.
+12. ~~**Active space design tool**~~ — done (Phase 4f). `prepare_nwchem_tce_setup` MCP tool.
+13. ~~**MCP tool that dispatches through plugins**~~ — done (Phase 4e). `summarize_run`.
+14. ~~**Extend MCSCF orchestrator**~~ — done (Phase 4g). `prepare_nwchem_mcscf_setup` MCP tool with frontier-aware routing.
+15. ~~**Expand examples corpus**~~ — done (Phase 4h). 4 → 8 starter templates covering DFT, opt, freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO.
+16. **`api_input.py` split** (multi-session, family-by-family). Cleans up the Drafter's lazy imports and unlocks `patch_input`.
+17. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
+18. **`mcp/nwchem.py` split** (depends on 16+17 being underway).
+19. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
+20. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
 
 After all of the above:
 
