@@ -66,7 +66,9 @@ NWCHEM = _NwchemPlugin()
 # inside this block so a consumer that touches `chemtools.programs.nwchem`
 # only pays for what it imports.
 from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER as _NWCHEM_PARSER  # noqa: E402
+from chemtools.programs.nwchem._plugin_strategist import NWCHEM_STRATEGIST as _NWCHEM_STRATEGIST  # noqa: E402
 NWCHEM.parser = _NWCHEM_PARSER
+NWCHEM.strategist = _NWCHEM_STRATEGIST
 
 registry.register(NWCHEM)
 
