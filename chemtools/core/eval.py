@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .api import diagnose_output, prepare_nwchem_next_step
+from chemtools.api import diagnose_output, prepare_nwchem_next_step
 
 
 def discover_case_files(path: str) -> list[str]:

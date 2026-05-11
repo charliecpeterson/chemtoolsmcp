@@ -122,7 +122,7 @@ from chemtools import (  # noqa: E402
     detect_hpc_accounts,
     suggest_partition,
 )
-from chemtools.eval import evaluate_case, evaluate_cases
+from chemtools.core.eval import evaluate_case, evaluate_cases
 from chemtools.nwchem_docs import (
     find_examples as docs_find_examples,
     get_topic_guide as docs_get_topic_guide,

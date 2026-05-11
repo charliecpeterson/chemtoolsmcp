@@ -114,7 +114,7 @@ from .registry import (
     advance_workflow,
     generate_input_batch,
 )
-from .eval import evaluate_case, evaluate_cases
+from chemtools.core.eval import evaluate_case, evaluate_cases
 
 __all__ = [
     "render_job_script",
