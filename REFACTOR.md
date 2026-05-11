@@ -145,7 +145,7 @@ embedding search later if needed.
 
 | Plugin | parser | drafter | strategist | examples | binary |
 |---|---|---|---|---|---|
-| NWCHEM | full (8/8) | full (draft / lint; patch TODO) | minimal (4/4) | 8 templates (DFT energy/opt/freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO) | — |
+| NWCHEM | full (8/8) | full (draft / lint / **patch** all wired) | minimal (4/4) | 8 templates (DFT energy/opt/freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO) | hessian + movecs |
 | MOLPRO | parse-only (3/8) | — | — | — | — |
 | MOLCAS | stub (2/8) | — | — | — | — |
 
@@ -199,11 +199,12 @@ example_text = plugin.examples.read_example(template["name"])
 
 ### Open TODOs (marked inline with `TODO(multi-program)`)
 
-- `programs/nwchem/parse/tce.py` — split out binary movecs IO into `programs/nwchem/binary/movecs.py`
-- `programs/nwchem/protocols.py` — lift DAG engine to `core/workflow.py`
-- `core/run_registry.py::_apply_change` and `generate_input_batch` — NWChem text rewriters belong in `programs/nwchem/input/` and dispatch via `program.drafter.patch_input`
-- `programs/nwchem/input/basis_library.py` — format-neutral pieces (list_basis_sets, _scan_basis_library, normalize_element_symbol, PERIODIC_SYMBOLS) lift to `core/basis.py` when a second program needs them. Dedupe PERIODIC_SYMBOLS with ATOMIC_SYMBOLS in `core/common.py` at the same time.
-- `core/runner.py` — rename NWChem-named publics to drop the prefix (run_nwchem → run_calculation, etc.); extract `_build_nwchem_progress_summary` + helpers to `programs/nwchem/strategy/progress.py`; accept a `progress_summary_fn` callback so the runner stops importing program code.
+- ~~`programs/nwchem/parse/tce.py` — split out binary movecs IO~~ DONE (Phase 9b — binary/movecs.py).
+- `programs/nwchem/protocols.py` — lift DAG engine to `core/workflow.py`. Deferred (YAGNI; no second program needs the DAG engine yet).
+- ~~`core/run_registry.py::_apply_change` and `generate_input_batch`~~ DONE (Phase 9e — generate_input_batch dispatches via `registry.resolve(program).drafter.patch_input`; `_apply_change` kept as safety-net fallback).
+- ~~PERIODIC_SYMBOLS dedup~~ DONE (Phase 9c — `PERIODIC_SYMBOLS = set(ATOMIC_SYMBOLS.values())`).
+- `programs/nwchem/input/basis_library.py` — format-neutral file-discovery pieces (list_basis_sets, _scan_basis_library, normalize_element_symbol) lift to `core/basis.py` when a second program needs them. Deferred (YAGNI).
+- `core/runner.py` — partial: ~~program-neutral aliases (run_calculation, render_calculation_run, inspect_run_status, watch_run)~~ DONE (Phase 9d). ~~progress_summary_fn callback parameter on inspect/watch~~ DONE. Full extraction of `_build_nwchem_progress_summary` + 5 helpers (316 LOC) to `programs/nwchem/strategy/progress.py` deferred — only worth doing when a second program ships its own progress builder.
 
 ## Recommended order for remaining work
 
