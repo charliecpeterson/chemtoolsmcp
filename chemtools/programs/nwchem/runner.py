@@ -1,3 +1,31 @@
+"""NWChem MCP-tool wrappers and run-analysis helpers.
+
+This module sits between the MCP server (chemtools/mcp/nwchem.py) and the
+underlying domain code in chemtools/core/runner.py + chemtools/programs/
+nwchem/. It packages launch/watch/terminate operations, progress headline
+generation, optimization-trajectory analysis (drift, gradient trends,
+fragment displacement), and session-log helpers for agent workflows.
+
+TODO(multi-program): two natural extractions are pending here:
+
+  * MCP-tool wrappers (launch_nwchem_run, prepare_nwchem_run,
+    check_nwchem_run_status, review_nwchem_progress, terminate_nwchem_run,
+    render_job_script, watch_nwchem_run, watch_multiple_nwchem_runs,
+    tail_nwchem_output, compare_nwchem_runs, review_nwchem_followup_outcome,
+    review_nwchem_mcscf_followup_outcome) belong in chemtools/mcp/tools/
+    nwchem.py once that subpackage is split out of the mcp/nwchem.py
+    monolith. They're here for now because mcp/tools/ does not yet exist.
+
+  * Session-log helpers (init_session_log, append_session_log,
+    next_versioned_path) are program-neutral and should lift to a
+    chemtools/core/session.py module. They write a session log file
+    that any program could share.
+
+For now this is a verbatim move from chemtools/api_runner.py; public
+symbols and call signatures are unchanged so the surrounding code keeps
+working.
+"""
+
 from __future__ import annotations
 
 import math
@@ -19,7 +47,7 @@ from chemtools.core.runner import (
     tail_text_file,
     watch_nwchem_run as watch_nwchem_run_payload,
 )
-from . import nwchem
+from chemtools import nwchem
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII
 
 # Forward reference - review_nwchem_mcscf_case is in api_strategy.py

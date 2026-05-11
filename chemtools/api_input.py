@@ -4055,7 +4055,7 @@ def create_nwchem_input_variant(
     source to generate ``_v2.nw``, ``_v3.nw``, etc.  The original file is
     never overwritten.
     """
-    from .api_runner import next_versioned_path as _next_versioned_path
+    from chemtools.programs.nwchem.runner import next_versioned_path as _next_versioned_path
 
     src = Path(source_input)
     if not src.exists():
