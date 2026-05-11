@@ -4116,6 +4116,68 @@ def _build_next_actions(
                 "confidence": 0.8,
             })
 
+    elif context == "summarize_output":
+        # summarize_output returns outcome + failure_class + recommended_next_action
+        outcome = (result.get("outcome") or "").lower()
+        failure_class = (result.get("failure_class") or "").lower()
+        rec = (result.get("recommended_next_action") or "").lower()
+
+        if outcome in {"success", "completed"}:
+            # Pick a follow-up based on what was computed.
+            if result.get("frequency"):
+                actions.append({
+                    "priority": 1,
+                    "tool": "check_nwchem_freq_plausibility",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "Run completed with frequency data — validate before using thermochem.",
+                    "confidence": 0.85,
+                })
+            elif result.get("optimization_status") == "converged":
+                actions.append({
+                    "priority": 1,
+                    "tool": "check_nwchem_geometry_plausibility",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "Optimization converged — validate the final geometry.",
+                    "confidence": 0.85,
+                })
+            elif result.get("correlated_method"):
+                actions.append({
+                    "priority": 1,
+                    "tool": "parse_nwchem_tce_output",
+                    "params": {"output_file": output_file},
+                    "reason": "Correlated calc completed — extract correlation energy + MR diagnostics.",
+                    "confidence": 0.85,
+                })
+            else:
+                actions.append({
+                    "priority": 1,
+                    "tool": "analyze_nwchem_frontier_orbitals",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "SCF/DFT energy completed — confirm orbital ordering before trusting the result.",
+                    "confidence": 0.8,
+                })
+        elif outcome in {"failed", "error", "crashed"}:
+            mode = "scf" if failure_class == "scf_nonconvergence" else "auto"
+            actions.append({
+                "priority": 1,
+                "tool": "suggest_nwchem_recovery",
+                "params": {"output_file": output_file, "input_file": input_file, "mode": mode},
+                "reason": (
+                    f"Run did not complete ({failure_class or 'unknown failure class'}). "
+                    "Get recovery strategies."
+                ),
+                "confidence": 0.85,
+            })
+        else:
+            # incomplete or unknown — drill in with full case analysis
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": f"Output is {outcome or 'unknown'} — run the full case analysis.",
+                "confidence": 0.75,
+            })
+
     elif context == "track_spin_state":
         # track_spin_state_across_optimization flags state flips along an opt
         # trajectory. recommendation is already populated; map to a tool call.
@@ -5174,13 +5236,19 @@ def _handle_review_nwchem_progress(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("summarize_nwchem_output")
 def _handle_summarize_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
-    return summarize_output(
+    result = summarize_output(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         expected_metal_elements=arguments.get("expected_metals"),
         expected_somo_count=arguments.get("expected_somos"),
         detail_level=arguments.get("detail", "summary"),
     )
+    result["next_actions"] = _build_next_actions(
+        "summarize_output", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------
