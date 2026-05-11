@@ -134,9 +134,27 @@ from chemtools.programs.nwchem.docs import (
 from chemtools.programs.nwchem.forum import search_forum as forum_search
 
 
-SERVER_NAME = "chemtools-nwchem"
-SERVER_VERSION = "0.1.0"
-DEFAULT_PROTOCOL_VERSION = "2024-11-05"
+# Decorator, registries, server constants, and log_event are in mcp/decorator.py.
+# Imported here at module-import time so @_tool registrations land in the
+# shared _TOOL_REGISTRY dict.
+from chemtools.mcp.decorator import (  # noqa: E402
+    SERVER_NAME,
+    SERVER_VERSION,
+    DEFAULT_PROTOCOL_VERSION,
+    TRANSPORT_MODE,
+    LOG_PATH,
+    _TOOL_REGISTRY,
+    _TOOL_CAPABILITIES,
+    _VALID_CAPABILITIES,
+    _tool,
+    log_event,
+    set_active_mode,
+)
+# ACTIVE_MODE is a module-level variable in chemtools.mcp.decorator; rebind
+# locally so existing references to `ACTIVE_MODE` in this file continue to
+# read the (initial) value. main() updates the canonical one via
+# set_active_mode().
+from chemtools.mcp import decorator as _dec  # noqa: E402
 
 # Basis library: bundled inside the package at chemtools/data/nwchem/basis_library/
 # Can be overridden at runtime with CHEMTOOLS_BASIS_LIBRARY env var.
@@ -145,52 +163,13 @@ try:
     DEFAULT_BASIS_LIBRARY = Path(str(_pkg_files("chemtools").joinpath("data/nwchem/basis_library")))
 except Exception:
     DEFAULT_BASIS_LIBRARY = _REPO_ROOT / "chemtools" / "data" / "nwchem" / "basis_library"
-LOG_PATH = os.environ.get("CHEMTOOLS_MCP_LOG")
-TRANSPORT_MODE = "content-length"
 
-# ---------------------------------------------------------------------------
-# Tool registry
-# ---------------------------------------------------------------------------
 from typing import Callable  # noqa: E402
-
 from chemtools.mcp import modes as _modes  # noqa: E402
 
-# Active server mode. Resolved at startup in main(); analysis is the safe
-# default so any caller that imports the module without going through main()
-# still gets a consistent answer (only pure tools).
-ACTIVE_MODE: str = "analysis"
-
-_TOOL_REGISTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
-
-# Capability tag for each registered tool. Drives mode-based filtering at
-# tools/list time. Valid tags: "none", "registry", "runner_profile",
-# "executable_or_scheduler", "executable", "scheduler". See chemtools/mcp/modes.py.
-_TOOL_CAPABILITIES: dict[str, str] = {}
-
-_VALID_CAPABILITIES = {
-    "none", "registry", "runner_profile",
-    "executable_or_scheduler", "executable", "scheduler",
-}
-
-
-def _tool(name: str, *, needs: str = "none") -> Callable:
-    """Decorator that registers a handler function under *name* with a capability tag."""
-    if needs not in _VALID_CAPABILITIES:
-        raise ValueError(f"_tool({name!r}): unknown needs={needs!r}; expected one of {sorted(_VALID_CAPABILITIES)}")
-
-    def decorator(fn: Callable) -> Callable:
-        _TOOL_REGISTRY[name] = fn
-        _TOOL_CAPABILITIES[name] = needs
-        return fn
-    return decorator
-
-
-def log_event(message: str) -> None:
-    if not LOG_PATH:
-        return
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    with Path(LOG_PATH).open("a", encoding="utf-8") as handle:
-        handle.write(f"[{timestamp}] {message}\n")
+# Back-compat alias — code below references ACTIVE_MODE directly. main()
+# updates the canonical value via set_active_mode() and we mirror it here.
+ACTIVE_MODE: str = _dec.ACTIVE_MODE
 
 
 def basis_library_path(path: str | None = None) -> str:
@@ -4953,6 +4932,7 @@ def main() -> None:
     args = _build_arg_parser().parse_args()
     mode, reason = _modes.resolve_mode(args.mode)
     ACTIVE_MODE = mode
+    set_active_mode(mode)  # Keep the canonical decorator-module copy in sync.
 
     summary = _modes.summarize_mode(mode, _TOOL_CAPABILITIES, tool_definitions())
     log_event(
