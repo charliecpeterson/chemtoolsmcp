@@ -3151,12 +3151,18 @@ def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("analyze_nwchem_frontier_orbitals")
 def _handle_analyze_nwchem_frontier_orbitals(arguments: dict[str, Any]) -> dict[str, Any]:
-    return analyze_frontier_orbitals(
+    result = analyze_frontier_orbitals(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         expected_metal_elements=arguments.get("expected_metals"),
         expected_somo_count=arguments.get("expected_somos"),
     )
+    result["next_actions"] = _build_next_actions(
+        "frontier_orbitals", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("suggest_nwchem_vectors_swaps")
@@ -3980,6 +3986,150 @@ def _build_next_actions(
                 "confidence": 0.90,
             })
 
+    elif context == "spin_charge_state":
+        # Handler dispatches on `assessment` ("plausible" / "suspicious") and
+        # the state_check_assessment values from analyze_frontier_orbitals.
+        assessment = (result.get("assessment") or "").lower()
+        state_check = (result.get("state_check_assessment") or "").lower()
+        observed = result.get("observed_somo_count")
+        expected = result.get("expected_somo_count")
+        rec = result.get("recommended_next_action") or ""
+
+        # Mismatch by count is the cleanest "swap me" signal.
+        if (
+            assessment == "suspicious"
+            and isinstance(observed, int) and isinstance(expected, int)
+            and observed != expected
+        ):
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_vectors_swap_input",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"Observed SOMO count ({observed}) does not match expected "
+                    f"({expected}). Recover by swapping vectors so the metal-centered "
+                    f"orbitals sit in the SOMO positions, then re-converge SCF."
+                ),
+                "confidence": 0.85,
+            })
+        elif state_check == "metal_state_mismatch_suspected":
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_frontier_orbitals",
+                "params": {
+                    "output_file": output_file,
+                    "input_file": input_file,
+                },
+                "reason": (
+                    "State check flags metal-state mismatch — drill into the frontier "
+                    "orbital characters to confirm which SOMOs are ligand-centered."
+                ),
+                "confidence": 0.8,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "draft_nwchem_vectors_swap_input",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "If the frontier analysis confirms ligand-centered SOMOs, swap to fix.",
+                "confidence": 0.65,
+            })
+        elif assessment == "suspicious":
+            # Catch-all suspicious: route to recovery strategy advisor.
+            actions.append({
+                "priority": 1,
+                "tool": "suggest_nwchem_state_recovery_strategy",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": f"State looks suspicious: {rec or 'reason unclear'}. Get explicit recovery routes.",
+                "confidence": 0.7,
+            })
+        else:
+            # plausible / unavailable — usually still want to drill in once.
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_frontier_orbitals",
+                "params": {
+                    "output_file": output_file,
+                    "input_file": input_file,
+                },
+                "reason": "State looks plausible — confirm by inspecting the SOMO characters.",
+                "confidence": 0.7,
+            })
+
+    elif context == "frontier_orbitals":
+        analysis = result.get("analysis") or {}
+        analysis_assessment = (analysis.get("assessment") or "").lower()
+        somo_count = analysis.get("somo_count") or 0
+        expected_somo = analysis.get("expected_somo_count")
+        metal_like = analysis.get("metal_like_somo_count") or 0
+        ligand_like = analysis.get("ligand_like_somo_count") or 0
+        expected_metals = result.get("expected_metal_elements") or []
+
+        if analysis_assessment == "metal_state_mismatch_suspected":
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_vectors_swap_input",
+                "params": {
+                    "output_file": output_file,
+                    "input_file": input_file,
+                    "expected_metal_elements": expected_metals,
+                    "expected_somo_count": expected_somo,
+                },
+                "reason": (
+                    f"Frontier orbitals flagged as metal-state mismatch "
+                    f"({metal_like} metal-like vs {ligand_like} ligand-like of "
+                    f"{somo_count} SOMOs). Apply vectors swap to push metal "
+                    f"orbitals into the SOMO positions."
+                ),
+                "confidence": 0.85,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "suggest_nwchem_vectors_swaps",
+                "params": {
+                    "output_file": output_file,
+                    "input_file": input_file,
+                    "expected_metal_elements": expected_metals,
+                    "expected_somo_count": expected_somo,
+                },
+                "reason": "If automated drafting needs different swap pairs, get explicit pair suggestions.",
+                "confidence": 0.75,
+            })
+        elif expected_metals and metal_like == 0 and somo_count > 0:
+            # Open-shell run with expected metals but ligand-centered SOMOs.
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_vectors_swap_input",
+                "params": {
+                    "output_file": output_file,
+                    "input_file": input_file,
+                    "expected_metal_elements": expected_metals,
+                    "expected_somo_count": expected_somo,
+                },
+                "reason": (
+                    f"Expected metal-centered open shell on {expected_metals} but all "
+                    f"{somo_count} SOMOs are ligand-centered — classic case for "
+                    f"vectors swap."
+                ),
+                "confidence": 0.85,
+            })
+        elif not analysis.get("available"):
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_mos",
+                "params": {"output_file": output_file, "top_n": 12},
+                "reason": "Frontier orbitals not parseable — inspect the raw MO list.",
+                "confidence": 0.6,
+            })
+        else:
+            # Clean frontier — agent can proceed to thermochem / energies.
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_output",
+                "params": {"output_file": output_file, "sections": ["tasks"]},
+                "reason": "Frontier orbitals look consistent with expectations — extract final energy / next step.",
+                "confidence": 0.85,
+            })
+
     return actions
 
 
@@ -4446,12 +4596,18 @@ def _handle_basis_library_summary(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("check_nwchem_spin_charge_state")
 def _handle_check_spin_charge_state(arguments: dict[str, Any]) -> dict[str, Any]:
-    return check_spin_charge_state(
+    result = check_spin_charge_state(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         expected_metal_elements=arguments.get("expected_metals"),
         expected_somo_count=arguments.get("expected_somos"),
     )
+    result["next_actions"] = _build_next_actions(
+        "spin_charge_state", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("inspect_nwchem_geometry")
