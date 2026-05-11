@@ -6,7 +6,7 @@ import signal
 from typing import Any
 
 from chemtools.core.common import detect_program, read_text
-from .diagnostics import (
+from chemtools.programs.nwchem.strategy.diagnose import (
     diagnose_nwchem_output,
     parse_scf,
 )

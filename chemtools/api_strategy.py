@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import detect_program, make_metadata, read_text, ELEMENT_TO_Z
-from .diagnostics import (
+from chemtools.programs.nwchem.strategy.diagnose import (
     analyze_frontier_orbitals as analyze_nwchem_frontier_orbitals,
     diagnose_nwchem_output,
     parse_scf,

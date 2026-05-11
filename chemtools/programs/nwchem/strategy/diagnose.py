@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from chemtools.core.common import make_metadata, parse_scientific_float, read_text
-from . import nwchem
+from chemtools import nwchem
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 

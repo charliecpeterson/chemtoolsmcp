@@ -20,7 +20,7 @@ from .basis import (
     resolve_mixed_ecp_assignments,
     resolve_basis_set,
 )
-from .diagnostics import (
+from chemtools.programs.nwchem.strategy.diagnose import (
     analyze_frontier_orbitals as analyze_nwchem_frontier_orbitals,
     diagnose_nwchem_output,
     parse_scf,
