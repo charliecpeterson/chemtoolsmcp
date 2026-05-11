@@ -71,8 +71,10 @@ NWCHEM = _NwchemPlugin()
 # only pays for what it imports.
 from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER as _NWCHEM_PARSER  # noqa: E402
 from chemtools.programs.nwchem._plugin_strategist import NWCHEM_STRATEGIST as _NWCHEM_STRATEGIST  # noqa: E402
+from chemtools.programs.nwchem._plugin_drafter import NWCHEM_DRAFTER as _NWCHEM_DRAFTER  # noqa: E402
 NWCHEM.parser = _NWCHEM_PARSER
 NWCHEM.strategist = _NWCHEM_STRATEGIST
+NWCHEM.drafter = _NWCHEM_DRAFTER
 
 registry.register(NWCHEM)
 
