@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from chemtools.core.common import make_metadata, parse_float_after_delimiter, parse_scientific_float, split_tokens
-from .nwchem_tasks import detect_energy_token, detect_method_token, detect_basis_token
+from chemtools.programs.nwchem.parse.tasks import detect_energy_token, detect_method_token, detect_basis_token
 
 METHOD_PATTERNS: list[tuple[int, str, tuple[str, ...]]] = [
     (5, "CCSD(T)", ("ccsd(t)",)),

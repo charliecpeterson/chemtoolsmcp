@@ -272,7 +272,7 @@ def parse_nwchem_thermochem(
     -------
     dict with E_scf, ZPE, H(T), G(T), S, Cv, and warnings.
     """
-    from .nwchem_tasks import parse_tasks as _parse_tasks
+    from chemtools.programs.nwchem.parse.tasks import parse_tasks as _parse_tasks
     from .nwchem_freq import parse_freq as _parse_freq_raw
 
     contents = read_text(path)
@@ -424,7 +424,7 @@ def compute_reaction_energy(
       When ``include_thermochem=True``, also: ``delta_e_plus_zpe_*``,
       ``delta_h_*``, ``delta_g_*``.
     """
-    from .nwchem_tasks import parse_tasks as _parse_tasks_nwchem
+    from chemtools.programs.nwchem.parse.tasks import parse_tasks as _parse_tasks_nwchem
 
     def parse_tasks(path: str) -> dict[str, Any]:
         contents = read_text(path)
