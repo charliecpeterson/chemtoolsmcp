@@ -222,19 +222,19 @@ example_text = plugin.examples.read_example(template["name"])
 13. ~~**MCP tool that dispatches through plugins**~~ — done (Phase 4e). `summarize_run`.
 14. ~~**Extend MCSCF orchestrator**~~ — done (Phase 4g). `prepare_nwchem_mcscf_setup` MCP tool with frontier-aware routing.
 15. ~~**Expand examples corpus**~~ — done (Phase 4h). 4 → 8 starter templates covering DFT, opt, freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO.
-16. **`api_input.py` split** — substantially complete. 10 of ~11 families carved out (~86% of original LOC moved):
-    - ~~cube drafters~~ → `programs/nwchem/input/cube.py` (5a)
-    - ~~SCF recovery + property check~~ → `scf_recovery.py` (5b)
-    - ~~MCSCF drafters~~ → `mcscf.py` (5c)
-    - ~~TCE drafters~~ → `tce.py` (5d, biggest at 1047 LOC)
-    - ~~imaginary-mode handling~~ → `imaginary_modes.py` (5e)
-    - ~~optimization follow-up~~ → `opt_followup.py` (5f)
-    - ~~DFT workflow drafters~~ → `dft.py` (5g)
-    - ~~geometry helpers~~ → `geometry.py` (5h)
-    - ~~lint + restart~~ → `lint_restart.py` (5i)
-    - ~~general drafters (`create_nwchem_input`, `_variant`, `review_request`)~~ → `general.py` (5j)
-    - Still flat in api_input.py: `prepare_nwchem_next_step` orchestrator (~200 LOC) and `plan_nwchem_workflow` (~170 LOC). Both are strategy-flavored and would go to `programs/nwchem/strategy/`.
-    api_input.py: 4170 → 565 LOC (3605 moved across 10 families).
+16. ~~**`api_input.py` split**~~ — done. 11 families carved out (95% of original LOC moved):
+    - cube → `programs/nwchem/input/cube.py` (5a)
+    - SCF recovery + property check → `scf_recovery.py` (5b)
+    - MCSCF → `mcscf.py` (5c)
+    - TCE → `tce.py` (5d, biggest at 1047 LOC)
+    - imaginary-mode handling → `imaginary_modes.py` (5e)
+    - optimization follow-up → `opt_followup.py` (5f)
+    - DFT workflow → `dft.py` (5g)
+    - geometry helpers → `geometry.py` (5h)
+    - lint + restart → `lint_restart.py` (5i)
+    - general drafters (`create_nwchem_input`, `_variant`, `review_request`) → `general.py` (5j)
+    - workflow planner (`prepare_nwchem_next_step`, `plan_nwchem_workflow`) → `programs/nwchem/strategy/workflow_planner.py` (5k)
+    api_input.py: 4170 → 211 LOC (3959 moved). Remaining content is module-level imports, tiny stem-match helpers, and back-compat re-export blocks.
 17. **`api_strategy.py` split** (multi-session, family-by-family). Enriches Strategist's recovery / resource / progress methods.
 18. **`mcp/nwchem.py` split** (depends on 16+17 being underway).
 19. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
