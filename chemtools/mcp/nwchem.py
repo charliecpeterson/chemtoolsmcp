@@ -4731,37 +4731,12 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def make_success_result(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(payload, separators=(",", ":")),
-            }
-        ],
-        "isError": False,
-    }
-
-
-def make_error_result(message: str) -> dict[str, Any]:
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": message,
-            }
-        ],
-        "isError": True,
-    }
-
-
-def make_response(request_id: Any, result: dict[str, Any] | None = None, error: dict[str, Any] | None = None) -> dict[str, Any]:
-    payload: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
-    if error is not None:
-        payload["error"] = error
-    else:
-        payload["result"] = result if result is not None else {}
-    return payload
+# Protocol I/O helpers moved to chemtools/mcp/server.py.
+from chemtools.mcp.server import (  # noqa: F401, E402
+    make_response,
+    make_success_result,
+    make_error_result,
+)
 
 
 def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
@@ -4837,45 +4812,11 @@ def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool
     )
 
 
-def read_message(stream: Any) -> dict[str, Any] | None:
-    global TRANSPORT_MODE
-    headers: dict[str, str] = {}
-
-    while True:
-        line = stream.readline()
-        if not line:
-            return None
-        if line.lstrip().startswith(b"{"):
-            TRANSPORT_MODE = "jsonl"
-            return json.loads(line.decode("utf-8"))
-        if line in (b"\r\n", b"\n"):
-            break
-        decoded = line.decode("utf-8")
-        if ":" not in decoded:
-            continue
-        key, value = decoded.split(":", 1)
-        headers[key.strip().lower()] = value.strip()
-
-    content_length = headers.get("content-length")
-    if content_length is None:
-        return None
-    body = stream.read(int(content_length))
-    if not body:
-        return None
-    TRANSPORT_MODE = "content-length"
-    return json.loads(body.decode("utf-8"))
-
-
-def write_message(stream: Any, payload: dict[str, Any]) -> None:
-    body = json.dumps(payload).encode("utf-8")
-    if TRANSPORT_MODE == "jsonl":
-        stream.write(body + b"\n")
-        stream.flush()
-        return
-    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
-    stream.write(header)
-    stream.write(body)
-    stream.flush()
+# Transport read/write moved to chemtools/mcp/server.py.
+from chemtools.mcp.server import (  # noqa: F401, E402
+    read_message,
+    write_message,
+)
 
 
 def serve() -> None:
@@ -4896,34 +4837,13 @@ def serve() -> None:
             break
 
 
-def _build_arg_parser() -> "argparse.ArgumentParser":
-    import argparse
-    parser = argparse.ArgumentParser(
+def _build_arg_parser():
+    # Standard CLI surface shared with future chemtools-molpro / molcas entries.
+    from chemtools.mcp.server import build_arg_parser
+    return build_arg_parser(
         prog="chemtools-nwchem",
         description="NWChem MCP server. Tool exposure depends on --mode.",
     )
-    parser.add_argument(
-        "--mode",
-        choices=_modes.VALID_MODES,
-        default=None,
-        help=(
-            "Server mode: 'analysis' (no executable, no scheduler), "
-            "'local' (direct subprocess launcher), or 'hpc' (scheduler "
-            "submission). Default: read CHEMTOOLS_MODE, else auto-detect "
-            "from CHEMTOOLS_RUNNER_PROFILES."
-        ),
-    )
-    parser.add_argument(
-        "--list-tools",
-        action="store_true",
-        help="Print the tool names visible in the resolved mode and exit.",
-    )
-    parser.add_argument(
-        "--show-mode",
-        action="store_true",
-        help="Print the resolved mode and reason and exit.",
-    )
-    return parser
 
 
 def main() -> None:
