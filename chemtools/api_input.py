@@ -3089,7 +3089,7 @@ def draft_nwchem_tce_input(
     write_file:
         If True, write the generated input to disk.
     """
-    from .nwchem_tce import suggest_tce_freeze_count, analyze_tce_orbital_ordering
+    from chemtools.programs.nwchem.parse.tce import suggest_tce_freeze_count, analyze_tce_orbital_ordering
     from chemtools.core.common import read_text
 
     method_norm = method.strip().lower()
@@ -3353,7 +3353,7 @@ def validate_nwchem_tce_setup(
     """
     import re as _re
     from pathlib import Path
-    from .nwchem_tce import suggest_tce_freeze_count as _suggest_freeze
+    from chemtools.programs.nwchem.parse.tce import suggest_tce_freeze_count as _suggest_freeze
     from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
     issues: list[dict[str, Any]] = []
@@ -3777,7 +3777,7 @@ def draft_nwchem_tce_restart_input(
     import shutil as _shutil
     from pathlib import Path as _Path
     from chemtools.core.common import read_text as _read_text
-    from .nwchem_tce import parse_tce_output as _parse_tce
+    from chemtools.programs.nwchem.parse.tce import parse_tce_output as _parse_tce
 
     out_path = _Path(tce_output_file).resolve()
     out_dir = out_path.parent

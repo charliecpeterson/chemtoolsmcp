@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-"""
-nwchem_tce.py — TCE (Tensor Contraction Engine) support for NWChem.
+"""TCE (Tensor Contraction Engine) support for NWChem.
 
 Covers:
   - parse_tce_output: extract energies, convergence, frozen orbital info
@@ -9,6 +8,14 @@ Covers:
   - swap_nwchem_movecs: swap two MOs in a binary movecs file
   - suggest_tce_freeze_count: chemically-aware core orbital count (never freeze atomic)
   - analyze_tce_orbital_ordering: warn when orbital ordering may require swaps
+
+TODO(multi-program): The binary movecs IO (parse_nwchem_movecs,
+swap_nwchem_movecs, and the underlying Fortran-unformatted record helpers)
+should move to chemtools/programs/nwchem/binary/movecs.py so the text TCE
+parser and the binary readers live separately, matching the BinaryReader
+sub-protocol in chemtools.core.program. The TCE text parser (parse_tce_output,
+parse_tce_amplitudes, suggest_tce_freeze_count, analyze_tce_orbital_ordering)
+stays here.
 """
 
 import re

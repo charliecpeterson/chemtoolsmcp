@@ -19,7 +19,7 @@ from .protocols import plan_calculation, list_protocols  # noqa: F401
 from .api_input import *  # noqa: F401,F403
 from .api_input import extract_nwchem_geometry, draft_initial_geometry, plan_nwchem_workflow, validate_nwchem_tce_setup, draft_nwchem_tce_restart_input, draft_nwchem_atom_input, create_nwchem_input_variant  # noqa: F401
 from .api_output import compute_reaction_energy, parse_nwchem_thermochem  # noqa: F401
-from .nwchem_tce import (  # noqa: F401
+from chemtools.programs.nwchem.parse.tce import (  # noqa: F401
     parse_nwchem_movecs,
     parse_tce_amplitudes,
     swap_nwchem_movecs,

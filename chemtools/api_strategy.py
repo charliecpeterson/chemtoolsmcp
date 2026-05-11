@@ -765,7 +765,7 @@ def _try_parse_tce(output_path: str, _contents: str | None = None) -> "dict[str,
     """Return parse_tce_output result if the file contains a TCE section, else None."""
     try:
         from chemtools.core.common import read_text
-        from .nwchem_tce import parse_tce_output as _parse_tce_output
+        from chemtools.programs.nwchem.parse.tce import parse_tce_output as _parse_tce_output
         contents = _contents if _contents is not None else read_text(output_path)
         result = _parse_tce_output(output_path, contents)
         if result.get("tce_sections"):
@@ -970,7 +970,7 @@ def summarize_nwchem_case(
     tce_amp: dict[str, Any] | None = None
     if is_tce:
         try:
-            from .nwchem_tce import parse_tce_amplitudes as _parse_amp
+            from chemtools.programs.nwchem.parse.tce import parse_tce_amplitudes as _parse_amp
             tce_amp = _parse_amp(output_path)
         except Exception:
             tce_amp = None

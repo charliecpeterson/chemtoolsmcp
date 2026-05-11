@@ -12,7 +12,7 @@ from .diagnostics import (
     summarize_nwchem_output,
 )
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
-from .nwchem_tce import parse_tce_output as _parse_tce_output
+from chemtools.programs.nwchem.parse.tce import parse_tce_output as _parse_tce_output
 from . import molcas, molpro, nwchem
 
 
@@ -475,7 +475,7 @@ def compute_reaction_energy(
 
         # Also try TCE output directly
         try:
-            from .nwchem_tce import parse_tce_output as _ptce
+            from chemtools.programs.nwchem.parse.tce import parse_tce_output as _ptce
             tce = _ptce(out_file, read_text(out_file))
             if tce.get("total_energy_hartree") is not None:
                 candidates.append((tce["method"] or "TCE", tce["total_energy_hartree"]))
