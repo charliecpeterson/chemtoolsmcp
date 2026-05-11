@@ -3573,7 +3573,7 @@ def _handle_watch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("compare_nwchem_runs")
 def _handle_compare_nwchem_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     if arguments.get("output_dir") or arguments.get("base_name"):
-        return review_nwchem_followup_outcome(
+        result = review_nwchem_followup_outcome(
             reference_output_path=arguments["reference_output_file"],
             candidate_output_path=arguments["candidate_output_file"],
             reference_input_path=arguments.get("reference_input_file"),
@@ -3583,14 +3583,21 @@ def _handle_compare_nwchem_runs(arguments: dict[str, Any]) -> dict[str, Any]:
             output_dir=arguments.get("output_dir"),
             base_name=arguments.get("base_name"),
         )
-    return compare_nwchem_runs(
-        reference_output_path=arguments["reference_output_file"],
-        candidate_output_path=arguments["candidate_output_file"],
-        reference_input_path=arguments.get("reference_input_file"),
-        candidate_input_path=arguments.get("candidate_input_file"),
-        expected_metal_elements=arguments.get("expected_metals"),
-        expected_somo_count=arguments.get("expected_somos"),
+    else:
+        result = compare_nwchem_runs(
+            reference_output_path=arguments["reference_output_file"],
+            candidate_output_path=arguments["candidate_output_file"],
+            reference_input_path=arguments.get("reference_input_file"),
+            candidate_input_path=arguments.get("candidate_input_file"),
+            expected_metal_elements=arguments.get("expected_metals"),
+            expected_somo_count=arguments.get("expected_somos"),
+        )
+    result["next_actions"] = _build_next_actions(
+        "compare_runs", result,
+        output_file=arguments["candidate_output_file"],
+        input_file=arguments.get("candidate_input_file", ""),
     )
+    return result
 
 
 @_tool("review_nwchem_mcscf_case")
@@ -4055,6 +4062,95 @@ def _build_next_actions(
                 "confidence": 0.7,
             })
 
+    elif context == "compare_runs":
+        # compare_nwchem_runs returns overall_assessment + energy_delta_kcal_mol.
+        assessment = (result.get("overall_assessment") or "").lower()
+        regressions = result.get("regressed_signals") or []
+        improvements = result.get("improved_signals") or []
+        delta_kcal = result.get("energy_delta_kcal_mol")
+
+        if assessment in {"candidate_better", "candidate_improved", "improved"}:
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_case",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"Candidate run improved over the reference"
+                    + (f" (Δ = {delta_kcal:+.2f} kcal/mol)" if isinstance(delta_kcal, (int, float)) else "")
+                    + (f", {len(improvements)} signal(s) improved" if improvements else "")
+                    + ". Run full case analysis on the candidate to confirm and pick the next step."
+                ),
+                "confidence": 0.85,
+            })
+        elif assessment in {"candidate_worse", "regressed", "candidate_regressed"}:
+            actions.append({
+                "priority": 1,
+                "tool": "suggest_nwchem_recovery",
+                "params": {"output_file": output_file, "input_file": input_file, "mode": "auto"},
+                "reason": (
+                    f"Candidate run regressed (Δ={delta_kcal}; {len(regressions)} signal(s) worse). "
+                    "Get recovery suggestions before another attempt."
+                ),
+                "confidence": 0.75,
+            })
+        else:
+            # no_clear_change / unknown — drill into freq + frontier orbitals
+            actions.append({
+                "priority": 1,
+                "tool": "check_nwchem_freq_plausibility",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    "No clear improvement or regression — disambiguate by checking the "
+                    "candidate's frequency plausibility (real minimum? imaginary modes?)."
+                ),
+                "confidence": 0.65,
+            })
+
+    elif context == "geometry_plausibility":
+        # Geometry plausibility returns plausible (bool), red_flags (list),
+        # warnings (list), and bond/coordination summaries.
+        plausible = result.get("plausible")
+        red_flags = result.get("red_flags") or []
+        warnings = result.get("warnings") or []
+
+        if plausible is False or red_flags:
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_optimization_followup_input",
+                "params": {"output_path": output_file, "input_path": input_file},
+                "reason": (
+                    f"Geometry has {len(red_flags)} red flag(s) — "
+                    "draft a follow-up optimization with adjusted strategy."
+                ),
+                "confidence": 0.8,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "extract_nwchem_geometry",
+                "params": {"output_file": output_file, "frame": "best"},
+                "reason": "If the follow-up strategy fails, fall back to the best frame extracted from the trajectory.",
+                "confidence": 0.6,
+            })
+        elif warnings:
+            actions.append({
+                "priority": 1,
+                "tool": "check_nwchem_freq_plausibility",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"{len(warnings)} geometry warning(s) — check the frequency "
+                    f"calc to see whether the structure is a real minimum."
+                ),
+                "confidence": 0.75,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_output",
+                "params": {"output_file": output_file, "sections": ["tasks"]},
+                "reason": "Geometry is plausible — proceed with energy extraction or freq calc.",
+                "confidence": 0.85,
+            })
+
     elif context == "frontier_orbitals":
         analysis = result.get("analysis") or {}
         analysis_assessment = (analysis.get("assessment") or "").lower()
@@ -4254,11 +4350,17 @@ def _handle_check_nwchem_geometry_plausibility(arguments: dict[str, Any]) -> dic
         frame_arg = int(frame_arg)
     except (TypeError, ValueError):
         pass
-    return check_nwchem_geometry_plausibility(
+    result = check_nwchem_geometry_plausibility(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         frame=frame_arg,
     )
+    result["next_actions"] = _build_next_actions(
+        "geometry_plausibility", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("check_nwchem_freq_plausibility")

@@ -725,49 +725,6 @@ def _review_mcscf_active_space_density(parsed: dict[str, Any], metal_elements: l
     }
 
 
-# ---------------------------------------------------------------------------
-# Geometry plausibility checker
-# ---------------------------------------------------------------------------
-
-# Typical max coordination numbers per element (above this → red flag)
-_MAX_COORD: dict[str, int] = {
-    "H": 2, "He": 0,
-    "Li": 4, "Be": 4, "B": 4, "C": 4, "N": 4, "O": 3, "F": 1, "Ne": 0,
-    "Na": 6, "Mg": 6, "Al": 6, "Si": 6, "P": 6, "S": 6, "Cl": 1, "Ar": 0,
-    "K": 8, "Ca": 8, "Ga": 6, "Ge": 4, "As": 6, "Se": 6, "Br": 1, "Kr": 0,
-    "Rb": 8, "Sr": 8, "In": 6, "Sn": 6, "Sb": 6, "Te": 6, "I": 1, "Xe": 0,
-    "Cs": 12, "Ba": 12, "Tl": 6, "Pb": 6, "Bi": 6,
-}
-# Transition metals: typical max CN = 9
-for _tm in _TRANSITION_METALS:
-    if _tm not in _MAX_COORD:
-        _MAX_COORD[_tm] = 9
-
-# Lanthanides and actinides: high-CN chemistry (up to 12–14)
-_LANTHANIDES = {"La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu"}
-_ACTINIDES = {"Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr"}
-for _hm in _LANTHANIDES | _ACTINIDES:
-    if _hm not in _MAX_COORD:
-        _MAX_COORD[_hm] = 14
-
-# All elements that behave like metals (used for coordination reporting)
-_ALL_METALS = _TRANSITION_METALS | _LANTHANIDES | _ACTINIDES | {
-    "Li","Na","K","Rb","Cs","Be","Mg","Ca","Sr","Ba",
-    "Al","Ga","In","Tl","Sn","Pb","Bi",
-}
-
-# Typical CN ranges for main-group elements  {element: (min_ok, max_ok)}
-_TYPICAL_COORD: dict[str, tuple[int, int]] = {
-    "H": (1, 1), "He": (0, 0),
-    "B": (2, 4), "C": (1, 4), "N": (1, 4), "O": (1, 2), "F": (1, 1),
-    "Si": (2, 6), "P": (1, 6), "S": (1, 6), "Cl": (1, 1),
-    "Ge": (2, 4), "As": (2, 6), "Se": (1, 6), "Br": (1, 1),
-    "Sn": (2, 6), "Sb": (2, 6), "Te": (1, 6), "I": (1, 1),
-    "Pb": (2, 6), "Bi": (2, 6),
-}
-
-
-
 __all__ = [
     "check_spin_charge_state",
     "summarize_nwchem_case",
