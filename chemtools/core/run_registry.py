@@ -633,10 +633,23 @@ def generate_input_batch(
     for idx, combo in enumerate(combos):
         params = dict(zip(keys, combo))
 
-        # Apply changes to template
-        text = template_text
-        for key, value in params.items():
-            text = _apply_change(text, key, str(value))
+        # Apply changes via the registered program's Drafter.patch_input.
+        # Default to nwchem since the existing _apply_change logic was
+        # NWChem-specific; the dispatch lets a future Molpro/Molcas
+        # plugin handle the same call without forking generate_input_batch.
+        from chemtools.core import registry as _program_registry
+        try:
+            _plugin = _program_registry.resolve(program="nwchem")
+        except Exception:
+            _plugin = None
+        change_map = {k: str(v) for k, v in params.items()}
+        if _plugin is not None and getattr(_plugin, "drafter", None) is not None:
+            text = _plugin.drafter.patch_input(template_text, change_map)
+        else:
+            # Fallback for environments where the plugin failed to load.
+            text = template_text
+            for key, value in params.items():
+                text = _apply_change(text, key, str(value))
 
         # Build filename
         fmt_vars = {"stem": stem, "idx": idx, **{k: str(v) for k, v in params.items()}}
@@ -698,10 +711,11 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return d
 
 
-# TODO(multi-program): _apply_change and generate_input_batch both contain
-# NWChem-specific text-munging that should not live in core/. Move them to
-# programs/nwchem/input/ and have generate_input_batch dispatch through
-# program.drafter.patch_input(). Tracked as Phase 2 cleanup.
+# Fallback path: kept here as a safety net for callers that import this
+# module without the program plugins available (e.g. early bootstrapping
+# or tests with a stripped install). The canonical patch logic now lives
+# in chemtools.programs.nwchem.input.general.create_nwchem_input_variant
+# and is reached via plugin.drafter.patch_input in generate_input_batch.
 def _apply_change(text: str, key: str, value: str) -> str:
     """Apply a single parameter change to NWChem input text.
 

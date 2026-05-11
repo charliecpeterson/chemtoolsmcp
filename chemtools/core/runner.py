@@ -5,31 +5,30 @@ process status polling, job-id tracking, output tailing, slow-phase detection.
 The NWChem coupling lives in a handful of functions and one helper at the
 bottom of the file.
 
-TODO(multi-program): split the NWChem-specific bits out so this module can
-serve other programs by name:
+Program-neutral entry points (added Phase 9d):
 
-  * Rename public NWChem-named functions to drop the prefix and let callers
-    pass a program tag:
-      run_nwchem              -> run_calculation
-      render_nwchem_run       -> render_calculation_run
-      inspect_nwchem_run_status -> inspect_run_status
-      watch_nwchem_run        -> watch_run
+  run_calculation         = run_nwchem
+  render_calculation_run  = render_nwchem_run
+  inspect_run_status      = inspect_nwchem_run_status   (accepts progress_summary_fn=)
+  watch_run               = watch_nwchem_run            (accepts progress_summary_fn=)
 
-  * Extract _build_nwchem_progress_summary,
-    _summarize_requested_task_progress, _normalize_requested_task,
-    and _annotate_status_with_requested_tasks to
-    chemtools/programs/nwchem/strategy/progress.py. Make watch_run /
-    inspect_run_status accept a `progress_summary_fn` callback so the
-    runner doesn't import program code directly.
+The NWChem-named originals are retained for back-compat with existing call
+sites. Future per-program runners can pass `progress_summary_fn=` to inject
+their own progress builder instead of the default `_build_nwchem_progress_summary`.
 
-  * Currently imports parse_tasks / parse_trajectory / parse_freq from
-    programs/nwchem/parse directly (see top of file). Once the plugin
-    Parser sub-protocol is wired up, replace those direct imports with a
-    `progress_summary_fn` callback or with `registry.get(program).parser`
-    dispatch so core/ stops depending on programs/.
+Outstanding cleanup (deferred, not blocking any current workflow):
 
-For now this is a verbatim move from chemtools/runner.py — public symbols
-and call signatures are unchanged so the surrounding code keeps working.
+  * Move _build_nwchem_progress_summary + helpers (_compact_program_summary,
+    _detect_slow_phase, _summarize_requested_task_progress,
+    _normalize_requested_task, _annotate_status_with_requested_tasks) to
+    chemtools/programs/nwchem/strategy/progress.py. ~316 LOC, all
+    interconnected; only worth doing when a second program ships its own
+    progress builder.
+
+  * The top-of-file imports of parse_tasks / parse_trajectory / parse_freq
+    from programs/nwchem/parse will be deleted once the progress builder
+    moves out and the slow-phase detector either moves with it or accepts
+    its own parser callback.
 """
 
 from __future__ import annotations
@@ -506,6 +505,7 @@ def inspect_nwchem_run_status(
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
+    progress_summary_fn: "Any" = None,
 ) -> dict[str, Any]:
     output_info = _file_info(output_path)
     error_info = _file_info(error_path)
@@ -562,7 +562,11 @@ def inspect_nwchem_run_status(
             contents = read_text(output_info["path"])
             if detect_program(contents) == "nwchem":
                 parsed_output = parse_tasks(output_info["path"], contents)
-                progress_summary = _build_nwchem_progress_summary(
+                # Default progress builder is the NWChem one defined below in
+                # this module. Callers (esp. future per-program runners) can
+                # inject their own via `progress_summary_fn=`.
+                _build_progress = progress_summary_fn or _build_nwchem_progress_summary
+                progress_summary = _build_progress(
                     contents,
                     parsed_output,
                     input_summary=input_summary,
@@ -633,6 +637,7 @@ def watch_nwchem_run(
     timeout_seconds: float | None = 3600.0,
     max_polls: int | None = None,
     history_limit: int = 8,
+    progress_summary_fn: "Any" = None,
 ) -> dict[str, Any]:
     if poll_interval_seconds < 0:
         raise ValueError("poll_interval_seconds must be non-negative")
@@ -664,6 +669,7 @@ def watch_nwchem_run(
             profile=profile,
             job_id=job_id,
             profiles_path=profiles_path,
+            progress_summary_fn=progress_summary_fn,
         )
         poll_count += 1
         elapsed_seconds = time.monotonic() - started
@@ -1411,3 +1417,16 @@ def _annotate_status_with_requested_tasks(summary: dict[str, Any]) -> None:
     status_line = summary.get("status_line") or ""
     if suffix.strip() not in status_line:
         summary["status_line"] = f"{status_line}{suffix}"
+
+
+# ---------------------------------------------------------------------------
+# Program-neutral aliases
+# ---------------------------------------------------------------------------
+# These exist so future per-program runners can call `run_calculation` /
+# `watch_run` etc. without the leading "nwchem" in the name. The
+# NWChem-specific names stay for back-compat with existing call sites
+# (mcp/tools/nwchem.py, programs/nwchem/runner.py, etc.).
+run_calculation = run_nwchem
+render_calculation_run = render_nwchem_run
+inspect_run_status = inspect_nwchem_run_status
+watch_run = watch_nwchem_run
