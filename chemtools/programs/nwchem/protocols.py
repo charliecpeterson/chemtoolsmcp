@@ -3,6 +3,12 @@
 Protocols encode multi-step calculation recipes so a model (even a cheap one)
 can drive the full workflow without understanding NWChem internals.  The model
 calls ``plan_calculation`` to get the step list, then executes each step.
+
+TODO(multi-program): the DAG engine (plan_calculation, list_protocols, the
+step / depends_on / post_actions schema) is generic and a future
+core/workflow.py would let other programs reuse it. The PROTOCOLS dict
+itself stays program-specific — each protocol references NWChem methods
+and tool names.
 """
 from __future__ import annotations
 
