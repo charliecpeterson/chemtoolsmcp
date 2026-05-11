@@ -35,9 +35,7 @@ class _NwchemBinaryReader:
         if kind == "hessian":
             return parse_nwchem_hessian(path)
         if kind == "movecs":
-            # Lazy import — keeps binary/__init__ light when only one kind
-            # is needed and avoids a circular import via TCE.
-            from chemtools.programs.nwchem.parse.tce import parse_nwchem_movecs
+            from chemtools.programs.nwchem.binary.movecs import parse_nwchem_movecs
             return parse_nwchem_movecs(path)
         raise ValueError(
             f"NWChem BinaryReader does not support kind={kind!r}; "
@@ -46,9 +44,9 @@ class _NwchemBinaryReader:
 
     def write(self, path: str, kind: str, data: dict[str, Any]) -> None:
         if kind == "movecs":
-            # The existing swap operation writes a modified movecs file in place.
-            # `data` is expected to carry the swap_pairs; see swap_nwchem_movecs.
-            from chemtools.programs.nwchem.parse.tce import swap_nwchem_movecs
+            # swap_nwchem_movecs rewrites the file in place. `data` is
+            # expected to carry the swap_pairs list.
+            from chemtools.programs.nwchem.binary.movecs import swap_nwchem_movecs
             swap_pairs = data.get("swap_pairs") or []
             swap_nwchem_movecs(path, swap_pairs)
             return

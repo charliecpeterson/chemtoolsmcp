@@ -199,19 +199,62 @@ class _NwchemDrafter:
         return issues_out
 
     def patch_input(self, text: str, change: dict[str, Any]) -> str:
-        """Apply a structured change to an existing input file.
+        """Apply a structured change to an existing NWChem input.
 
-        Not yet implemented. The current API exposes specific
-        draft_nwchem_*_variant tools (vectors_swap, scf_stabilization,
-        property_check, optimization_followup) that will be unified into
-        this single entry point when api_input.py is split into families.
+        Delegates to `create_nwchem_input_variant`, which understands a set
+        of dotted keyword paths:
+
+          * "memory"                     -> replaces the `memory` line
+          * "charge"                     -> top-level charge directive
+          * "mult"                       -> SCF/DFT multiplicity (nopen)
+          * "task"                       -> replaces the last task line
+          * "dft.xc"                     -> functional inside the dft block
+          * "dft.iterations"             -> dft iter count
+          * "dft.convergence energy"     -> dft conv. threshold
+          * "scf.maxiter"                -> scf iter count
+          * any other "block.keyword"    -> best-effort in-block replace
+
+        `change` is expected to map these keys to string values; an
+        optional `change["reason"]` (without dots) is treated as commentary
+        rather than a directive change.
+
+        For the bigger structural rewrites that the legacy variant tools
+        handle (vectors swap, SCF stabilization, property check,
+        optimization follow-up), the agent should call those tools
+        directly — they re-render the module body, not just a keyword.
         """
-        raise NotImplementedError(
-            "patch_input is not yet implemented. Use the specific MCP tools "
-            "(draft_nwchem_vectors_swap_input, draft_nwchem_scf_stabilization_input, "
-            "draft_nwchem_property_check_input, draft_nwchem_optimization_followup_input) "
-            "directly until api_input.py is split."
+        # Lazy import — keeps the Drafter sub-protocol importable even if
+        # input/ is still being split.
+        from chemtools.programs.nwchem.input.general import create_nwchem_input_variant
+
+        # Separate the optional "reason" key from the actual changes.
+        change = dict(change or {})
+        reason = change.pop("reason", "") if isinstance(change.get("reason"), str) else ""
+
+        # Write the input text to a temp file so the variant tool can read it
+        # via load_geometry_source / inspect_nwchem_input, then ask it not to
+        # write the patched result back to disk — we want the text back, not
+        # a versioned file.
+        fh = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".nw", delete=False, encoding="utf-8"
         )
+        fh.write(text)
+        fh.close()
+        try:
+            result = create_nwchem_input_variant(
+                source_input=fh.name,
+                changes=change,
+                reason=reason,
+                output_path=None,
+                write_file=False,
+            )
+        finally:
+            try:
+                os.unlink(fh.name)
+            except OSError:
+                pass
+
+        return result.get("input_text") or text
 
 
 NWCHEM_DRAFTER = _NwchemDrafter()
