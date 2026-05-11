@@ -19,6 +19,11 @@ from typing import Any
 
 from chemtools.core.common import read_text
 from chemtools.core.types import ParsedRun, TaskSummary, GeometryAtom
+from chemtools.programs._adapter_helpers import (
+    to_task_summary as _to_task_summary,
+    pick_primary as _pick_primary,
+    compute_derived as _compute_derived,
+)
 from chemtools.programs.nwchem.parse.tasks import parse_tasks as _parse_tasks
 from chemtools.programs.nwchem.parse.mos import parse_mos as _parse_mos
 from chemtools.programs.nwchem.parse.freq import (
@@ -26,99 +31,6 @@ from chemtools.programs.nwchem.parse.freq import (
     parse_trajectory as _parse_trajectory,
 )
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
-
-
-# Mapping from generic_tasks kind labels to TaskKind values + auto-pick priority.
-_SELECTION_PRIORITY: dict[str, int] = {
-    "optimize": 3,
-    "saddle": 3,
-    "frequency": 2,
-    "gradient": 1,
-    "energy": 1,
-    "property": 1,
-    "raman": 1,
-    "dynamics": 1,
-    "unknown": 0,
-}
-
-# Legacy kind names that older parsers emit — normalize to the TaskKind enum.
-_KIND_ALIASES: dict[str, str] = {
-    "single_point": "energy",
-    "optimization": "optimize",
-}
-
-
-def _normalize_kind(raw_kind: str | None) -> str:
-    if raw_kind is None:
-        return "unknown"
-    return _KIND_ALIASES.get(raw_kind, raw_kind)
-
-
-def _to_task_summary(idx: int, generic: dict[str, Any], raw: dict[str, Any]) -> TaskSummary:
-    """Convert one (generic_tasks entry, program_summary.raw.tasks entry) pair to a TaskSummary."""
-    kind = _normalize_kind(generic.get("kind") or raw.get("kind"))
-    extra = generic.get("extra") or {}
-    outcome_raw = extra.get("outcome") or raw.get("outcome") or "unknown"
-    if outcome_raw not in {"success", "failed", "incomplete", "unknown"}:
-        outcome_raw = "unknown"
-    boundary = raw.get("boundary") or {}
-    line_start = boundary.get("line_start") or boundary.get("start_byte") or 0
-    line_end = boundary.get("line_end") or boundary.get("end_byte") or 0
-
-    has_data = (
-        generic.get("energy_hartree") is not None
-        or bool(extra.get("frame_count"))
-        or bool(extra.get("mode_count"))
-    )
-
-    return {
-        "index": idx,
-        "kind": kind,
-        "name": generic.get("label") or raw.get("label") or "Unknown Task",
-        "method": raw.get("method") or extra.get("method"),
-        "basis": raw.get("basis") or extra.get("basis"),
-        "energy_hartree": generic.get("energy_hartree") or raw.get("total_energy_hartree"),
-        "line_range": (int(line_start), int(line_end)),
-        "outcome": outcome_raw,
-        "has_usable_data": bool(has_data),
-        "selection_priority": _SELECTION_PRIORITY.get(kind, 0),
-    }
-
-
-def _pick_primary(tasks: list[TaskSummary]) -> int | None:
-    """Choose the "main" task: highest selection_priority, ties broken by latest index."""
-    if not tasks:
-        return None
-    best = max(tasks, key=lambda t: (t.get("selection_priority", 0), t.get("index", 0)))
-    return best.get("index")
-
-
-def _compute_derived(
-    tasks: list[TaskSummary], raw_tasks: list[dict[str, Any]]
-) -> dict[str, Any]:
-    """Pre-compute scalars an agent typically needs without re-parsing."""
-    derived: dict[str, Any] = {}
-    # final energy = energy of the last task with one
-    final_energy = None
-    for t in reversed(tasks):
-        if t.get("energy_hartree") is not None:
-            final_energy = t["energy_hartree"]
-            break
-    if final_energy is not None:
-        derived["final_energy_hartree"] = final_energy
-
-    # n_imaginary_modes across all freq tasks
-    n_imag = 0
-    for task in raw_tasks:
-        for mode in task.get("frequency_modes") or []:
-            f = mode.get("frequency_cm1")
-            if f is not None and f < 0:
-                n_imag += 1
-    if n_imag > 0:
-        derived["n_imaginary_modes"] = n_imag
-
-    derived["n_tasks"] = len(tasks)
-    return derived
 
 
 class _NwchemParser:

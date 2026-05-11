@@ -46,6 +46,10 @@ class _MolproPlugin:
 
 
 MOLPRO = _MolproPlugin()
+
+from chemtools.programs.molpro._plugin_parser import MOLPRO_PARSER as _MOLPRO_PARSER  # noqa: E402
+MOLPRO.parser = _MOLPRO_PARSER
+
 registry.register(MOLPRO)
 
 

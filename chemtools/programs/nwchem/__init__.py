@@ -49,10 +49,14 @@ class _NwchemPlugin:
     _VERSION_RE = re.compile(r"NWChem(?:\s+version)?\s+(\d+\.\d+(?:\.\d+)?)", re.IGNORECASE)
 
     def detect(self, output_head: str) -> bool:
-        upper = output_head[:8192].upper()
+        upper = output_head.upper()
         return (
             "NORTHWEST COMPUTATIONAL CHEMISTRY PACKAGE" in upper
             or "NWCHEM" in upper
+            # Earliest reliable NWChem-specific signal — appears at the top of
+            # every output, before the banner. Useful when the head window
+            # doesn't reach the banner because the input echo is large.
+            or "ECHO OF INPUT DECK" in upper
         )
 
     def detect_version(self, output_head: str) -> str | None:

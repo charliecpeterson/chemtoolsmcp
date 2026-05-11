@@ -17,7 +17,10 @@ from chemtools.core.program import Program
 
 
 _REGISTRY: dict[str, Program] = {}
-_DETECT_HEAD_BYTES: int = 8192
+# 32KB — large enough to catch the NWChem program banner after a typical
+# input-deck echo (which can run 10-20KB), small enough to stay cheap for
+# huge output files.
+_DETECT_HEAD_BYTES: int = 32 * 1024
 
 
 class ProgramNotRegistered(KeyError):

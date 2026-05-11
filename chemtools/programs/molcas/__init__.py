@@ -43,6 +43,10 @@ class _MolcasPlugin:
 
 
 MOLCAS = _MolcasPlugin()
+
+from chemtools.programs.molcas._plugin_parser import MOLCAS_PARSER as _MOLCAS_PARSER  # noqa: E402
+MOLCAS.parser = _MOLCAS_PARSER
+
 registry.register(MOLCAS)
 
 
