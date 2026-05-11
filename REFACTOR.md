@@ -245,7 +245,11 @@ example_text = plugin.examples.read_example(template["name"])
     - Pre-job input advisors (suggest_spin_state / basis / relativistic) → `strategy/input_advisors.py` (6g)
     - Workflow state + preflight + freq restart → `strategy/workflow_state.py` (6h)
     api_strategy.py: 4353 → 89 LOC. The file is now a back-compat shim of imports + re-exports.
-18. **`mcp/nwchem.py` split** (depends on 16+17 being underway).
+18. **`mcp/nwchem.py` split** — in progress. Framework extracted in two carves:
+    - ~~Tool decorator + registries (`_tool`, `_TOOL_REGISTRY`, `_TOOL_CAPABILITIES`, `log_event`, server constants)~~ → `mcp/decorator.py` (7a)
+    - ~~Protocol I/O helpers (`read_message`, `write_message`, `make_response`, `make_success_result`, `make_error_result`, `build_arg_parser`)~~ → `mcp/server.py` (7b)
+    - Still in `mcp/nwchem.py`: `tool_definitions()` (the 2700-line dict), all `@_tool` handlers (~2000 lines), `_TOOL_ALIASES`, `dispatch_tool`, `handle_request`, `serve`, `main`. Future split would put these in `mcp/tools/nwchem.py` so other programs can drop in `mcp/tools/molpro.py` etc.
+    `mcp/nwchem.py`: 4983 → 4883 LOC (3.4% trimmed; the remaining 4500 LOC is tool definitions and handlers that move together).
 19. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
 20. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
 
