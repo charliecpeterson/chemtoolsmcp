@@ -130,15 +130,32 @@ embedding search later if needed.
 
 ## Status
 
-### Done (Phase 1 + Phase 2 + Phase 3a-3e)
+### Done (Phase 1 + Phase 2 + Phase 3 + Phase 4a-4b)
 
-- `chemtools/core/`: types, program, registry, run_registry, common (now includes deduped **COVALENT_RADII**), cube, eval, runner
-- `chemtools/programs/nwchem/`: plugin scaffold, docs, forum, protocols, **output**, **runner**, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, basis_library, _utils}
-- `chemtools/programs/molcas/`: scaffold + parse/output
-- `chemtools/programs/molpro/`: scaffold + parse/output
-- All three plugins register on import; detection routes correctly.
-- **`chemtools/nwchem.py` shim removed**; all callers use direct imports from `programs/nwchem/parse/` or `programs/nwchem/output.py`.
+**Code organization:**
+- `chemtools/core/`: types, program, registry, run_registry, common (with deduped COVALENT_RADII), cube, eval, runner
+- `chemtools/programs/nwchem/`: plugin scaffold + Parser/Strategist wired, docs, forum, protocols, output, runner, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, basis_library, _utils}
+- `chemtools/programs/molcas/`: scaffold + Parser (partial), parse/output
+- `chemtools/programs/molpro/`: scaffold + Parser (partial), parse/output
+- `chemtools/programs/_adapter_helpers.py`: shared TaskSummary / Diagnosis adapters
+- `chemtools/nwchem.py` back-compat shim removed; all callers use direct imports.
 - ~17,000 LOC migrated. 244/244 smoke tests green.
+
+**Plugin sub-protocols wired:**
+- `NWCHEM.parser` (full) — `parse_output`, `task_index`, `parse_input`, `get_orbitals`, `get_frequency`, `get_trajectory`, `get_thermochem`, `get_geometry`. Returns proper `ParsedRun` envelope with `tasks`, `derived`, `diagnostics`, auto-picked `primary_task_index`.
+- `NWCHEM.strategist` (minimal) — `diagnose`, `suggest_recovery`, `suggest_resources`, `progress_summary`. Returns proper `Diagnosis` envelope with `verdict + next_actions`.
+- `MOLPRO.parser` (parse-only) — `parse_output`, `task_index`, `get_orbitals` wired; rest raise `NotImplementedError`.
+- `MOLCAS.parser` (stub) — `parse_output`, `task_index` only.
+- `registry.resolve(file)` correctly dispatches NWChem outputs (detection window enlarged to 32KB; "echo of input deck" added as an early signal).
+
+**Working end-to-end:**
+
+```python
+from chemtools.core import registry
+plugin = registry.resolve(program=None, path=output_file)  # auto-detect
+parsed = plugin.parser.parse_output(output_file)            # ParsedRun
+diagnosis = plugin.strategist.diagnose(parsed)              # Diagnosis (NWChem only for now)
+```
 
 ### Deferred (need real splits)
 
@@ -169,9 +186,18 @@ embedding search later if needed.
 3. ~~**`api_runner.py` move**~~ — done as a whole-file move to `programs/nwchem/runner.py`.
 4. ~~**`api_output.py` migration**~~ — done as a whole-file move to `programs/nwchem/output.py`.
 5. ~~**NWChem shim removal**~~ — done; COVALENT_RADII deduped, direct imports everywhere.
-6. **`api_input.py` split** (multi-session, family-by-family).
-7. **`api_strategy.py` split** (multi-session, family-by-family).
-8. **`mcp/nwchem.py` split** (depends on 6+7 being underway so tool defs land in clean families).
+6. ~~**Wire NWChem Parser sub-protocol**~~ — done (Phase 4a).
+7. ~~**Wire NWChem Strategist sub-protocol**~~ — done (Phase 4a).
+8. ~~**Wire Molpro/Molcas Parser sub-protocols + extract shared adapter helpers**~~ — done (Phase 4b).
+9. **`api_input.py` split** (multi-session, family-by-family).
+10. **`api_strategy.py` split** (multi-session, family-by-family).
+11. **`mcp/nwchem.py` split** (depends on 9+10 being underway so tool defs land in clean families).
+12. **Drafter sub-protocol on NWChem** — adapter from `InputSpec` to the existing `draft_nwchem_*` functions. Will likely happen alongside the `api_input.py` split.
+13. **Binary readers** — `parse_nwchem_hessian`, `parse_nwchem_fdrst` (new functionality).
+14. **CLI entry points** — `chemtools-molpro`, `chemtools-molcas` (require `mcp/tools/<program>.py` to exist first).
+15. **Examples corpus** — tag-based bundled NWChem input templates.
+16. **Active space design tool** — `prepare_active_space(scf_output, target_method, expected_somos)`.
+17. **Thicken thin tools** — enrich `Strategist._build_next_actions` and `_ACTION_TO_TOOL` mapping; extend `next_actions[]` envelope to the ~30 analysis tools that still return raw data.
 
 After all of the above:
 
