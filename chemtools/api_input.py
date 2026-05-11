@@ -99,7 +99,7 @@ from chemtools.programs.nwchem.input._utils import (
     _write_imaginary_input_files,
 )
 from chemtools.programs.nwchem.input.basis import render_nwchem_basis_setup
-from .api_output import (
+from chemtools.programs.nwchem.output import (
     parse_tasks,
     parse_mos,
     parse_trajectory,

@@ -16,7 +16,7 @@ from chemtools.programs.nwchem.strategy.diagnose import (
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from . import nwchem
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII, _strategy_entry, _coerce_api_int, _coerce_api_float
-from .api_output import parse_mcscf_output
+from chemtools.programs.nwchem.output import parse_mcscf_output
 
 
 def check_spin_charge_state(

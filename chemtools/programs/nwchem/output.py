@@ -1,3 +1,30 @@
+"""NWChem MCP-tool wrappers for output parsing.
+
+Companion to programs/nwchem/runner.py — this module is the layer between
+the MCP server (chemtools/mcp/nwchem.py) and the per-section parsers in
+programs/nwchem/parse/. Includes orchestrators (parse_output,
+diagnose_output, summarize_output) plus thin dispatchers for each section.
+
+Two cross-program functions live here for historical reasons:
+parse_tasks() and parse_mos() use detect_program to route between nwchem/
+molpro/molcas parsers. They moved with the file rather than being carved
+out into a neutral location, since the rest of the file is NWChem-specific
+and an empty cross-program module would not earn its keep yet.
+
+TODO(multi-program):
+
+  * Lift parse_tasks(), parse_mos(), and _dispatch_parse_mos() to a future
+    chemtools/mcp/tools/shared.py (or chemtools/core/output.py) once a
+    second program has substantive output coverage.
+
+  * The remainder of this file is MCP wrappers and belongs in
+    chemtools/mcp/tools/nwchem.py once mcp/nwchem.py is split out of the
+    monolith.
+
+For now this is a verbatim move from chemtools/api_output.py; public
+symbols and call signatures are unchanged.
+"""
+
 from __future__ import annotations
 
 from typing import Any
