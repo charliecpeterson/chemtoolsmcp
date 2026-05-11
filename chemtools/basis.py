@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .common import normalize_path, read_text
+from chemtools.core.common import normalize_path, read_text
 
 
 PERIODIC_SYMBOLS = {

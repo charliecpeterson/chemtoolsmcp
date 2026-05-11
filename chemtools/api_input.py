@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .common import detect_program, make_metadata, read_text, ELEMENT_TO_Z
+from chemtools.core.common import detect_program, make_metadata, read_text, ELEMENT_TO_Z
 from .basis import (
     extract_basis_blocks,
     extract_nwchem_geometry_elements,
@@ -1626,7 +1626,7 @@ def draft_initial_geometry(
         counts = Counter(atoms)
 
         # Determine central atom: explicit hint, or fewest occurrences, or heaviest element
-        from .common import ELEMENT_TO_Z
+        from chemtools.core.common import ELEMENT_TO_Z
         if central_atom and central_atom in counts:
             center = central_atom
         elif len(counts) > 1:
@@ -2711,7 +2711,7 @@ def lint_nwchem_input(
     # --- Relativistic + ECP conflict check, and relativistic + SP-shell incompatibility ---
     try:
         import re as _re2
-        from .common import read_text as _rt2
+        from chemtools.core.common import read_text as _rt2
         _rc = _rt2(input_path)
         _has_rel = bool(_re2.search(r"^\s*relativistic\b", _rc, _re2.IGNORECASE | _re2.MULTILINE))
         _has_ecp = bool(_re2.search(r"^\s*ecp\b", _rc, _re2.IGNORECASE | _re2.MULTILINE))
@@ -2755,7 +2755,7 @@ def lint_nwchem_input(
     tce_tasks = [t for t in input_summary["tasks"] if (t.get("module") or "").lower() == "tce"]
     if tce_tasks:
         from .nwchem_input import extract_nwchem_geometry_block
-        from .common import read_text as _read_text
+        from chemtools.core.common import read_text as _read_text
         import re as _re
 
         # NWChem TCE accepts any of these Abelian point groups
@@ -3090,7 +3090,7 @@ def draft_nwchem_tce_input(
         If True, write the generated input to disk.
     """
     from .nwchem_tce import suggest_tce_freeze_count, analyze_tce_orbital_ordering
-    from .common import read_text
+    from chemtools.core.common import read_text
 
     method_norm = method.strip().lower()
     valid_methods = {"mp2", "ccsd", "ccsd(t)", "ccsdt"}
@@ -3776,7 +3776,7 @@ def draft_nwchem_tce_restart_input(
     import glob as _glob
     import shutil as _shutil
     from pathlib import Path as _Path
-    from .common import read_text as _read_text
+    from chemtools.core.common import read_text as _read_text
     from .nwchem_tce import parse_tce_output as _parse_tce
 
     out_path = _Path(tce_output_file).resolve()

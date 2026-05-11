@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .common import normalize_path, parse_scientific_float, read_text, ATOMIC_SYMBOLS
+from chemtools.core.common import normalize_path, parse_scientific_float, read_text, ATOMIC_SYMBOLS
 
 
 BOHR_TO_ANGSTROM = 0.529177210903

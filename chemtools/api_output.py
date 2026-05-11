@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .common import detect_program, make_metadata, read_text
+from chemtools.core.common import detect_program, make_metadata, read_text
 from .cube import parse_cube_file, summarize_cube_file
 from .diagnostics import (
     analyze_frontier_orbitals as analyze_nwchem_frontier_orbitals,

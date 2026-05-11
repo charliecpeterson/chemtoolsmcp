@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .common import detect_program, make_metadata, read_text, ELEMENT_TO_Z
+from chemtools.core.common import detect_program, make_metadata, read_text, ELEMENT_TO_Z
 from .diagnostics import (
     analyze_frontier_orbitals as analyze_nwchem_frontier_orbitals,
     diagnose_nwchem_output,
@@ -764,7 +764,7 @@ def suggest_nwchem_state_recovery_strategy(
 def _try_parse_tce(output_path: str, _contents: str | None = None) -> "dict[str, Any] | None":
     """Return parse_tce_output result if the file contains a TCE section, else None."""
     try:
-        from .common import read_text
+        from chemtools.core.common import read_text
         from .nwchem_tce import parse_tce_output as _parse_tce_output
         contents = _contents if _contents is not None else read_text(output_path)
         result = _parse_tce_output(output_path, contents)
@@ -957,7 +957,7 @@ def summarize_nwchem_case(
 ) -> dict[str, Any]:
     # Lazy import to break circular dependency with api_input
     from .api_input import prepare_nwchem_next_step, lint_nwchem_input, find_restart_assets
-    from .common import read_text
+    from chemtools.core.common import read_text
 
     # Read the output file once — reused by all downstream parsers to avoid redundant I/O
     output_contents = read_text(output_path)
@@ -3033,7 +3033,7 @@ def prepare_freq_restart(
     """
     import re
     from pathlib import Path
-    from .common import read_text
+    from chemtools.core.common import read_text
     from .nwchem_freq import parse_freq_progress
 
     nw_text = Path(input_file).read_text(encoding="utf-8")

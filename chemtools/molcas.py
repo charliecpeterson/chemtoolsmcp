@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .common import make_metadata
+from chemtools.core.common import make_metadata
 
 MODULE_RE = re.compile(r"---\s+Start Module:\s+([A-Za-z0-9_]+)")
 INTERNAL_MODULES = {"last_energy", "last_atoms", "emil"}

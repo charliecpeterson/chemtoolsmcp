@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .common import make_metadata, parse_scientific_float, read_text
+from chemtools.core.common import make_metadata, parse_scientific_float, read_text
 from . import nwchem
 from .nwchem_input import inspect_nwchem_input
 
@@ -333,7 +333,7 @@ def diagnose_nwchem_output(
         _has_rel_block = bool(_rd.search(r"^\s*relativistic\b", contents, _rd.IGNORECASE | _rd.MULTILINE))
         # Also check input file if provided
         if not _has_sp and input_path:
-            from .common import read_text as _rt_d
+            from chemtools.core.common import read_text as _rt_d
             _ic = _rt_d(input_path)
             _has_sp = bool(_rd.search(r"^\s*[A-Za-z][a-z]?\s+SP\s*$", _ic, _rd.MULTILINE))
             _has_rel_block = _has_rel_block or bool(

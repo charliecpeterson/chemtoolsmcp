@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from .common import make_metadata, parse_float_after_delimiter
+from chemtools.core.common import make_metadata, parse_float_after_delimiter
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +357,7 @@ def suggest_tce_freeze_count(
       notes                 explanation of the logic
     """
     from collections import Counter
-    from .common import ELEMENT_TO_Z
+    from chemtools.core.common import ELEMENT_TO_Z
     ecp = ecp_core_electrons or {}
     atom_counts = Counter(elements)
     unique_elements = list(dict.fromkeys(elements))  # order-preserving unique
@@ -608,7 +608,7 @@ def parse_tce_amplitudes(output_path: str) -> dict[str, Any]:
         glob-matching ``<stem>.t1_copy.*`` / ``<stem>.t2_copy.*`` in the same
         directory.
     """
-    from .common import read_text
+    from chemtools.core.common import read_text
     from pathlib import Path
     import glob as _glob
 

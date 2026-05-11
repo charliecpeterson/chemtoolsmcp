@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from .basis import extract_nwchem_geometry_elements, normalize_element_symbol
-from .common import normalize_path, read_text
+from chemtools.core.common import normalize_path, read_text
 
 
 CHARGE_RE = re.compile(r"^\s*charge\s+([+-]?\d+)\s*$", re.IGNORECASE)

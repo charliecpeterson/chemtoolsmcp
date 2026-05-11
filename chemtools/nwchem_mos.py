@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 import re
 from typing import Any
 
-from .common import make_metadata, parse_float_after_delimiter, parse_scientific_float, split_tokens
+from chemtools.core.common import make_metadata, parse_float_after_delimiter, parse_scientific_float, split_tokens
 
 METHOD_PATTERNS: list[tuple[int, str, tuple[str, ...]]] = [
     (5, "CCSD(T)", ("ccsd(t)",)),

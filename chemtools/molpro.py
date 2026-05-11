@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .common import (
+from chemtools.core.common import (
     BASIS_RE,
     CHARGE_RE,
     LABEL_RE,
