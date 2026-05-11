@@ -226,4 +226,190 @@ def prepare_nwchem_tce_setup(
     }
 
 
-__all__ = ["prepare_nwchem_tce_setup"]
+def prepare_nwchem_mcscf_setup(
+    scf_output_path: str,
+    *,
+    input_path: str | None = None,
+    expected_metal_elements: list[str] | None = None,
+    expected_somo_count: int | None = None,
+    prefer_expanded: bool = False,
+) -> dict[str, Any]:
+    """One-call MCSCF/CASSCF setup: active space recommendation + Diagnosis.
+
+    Companion to prepare_nwchem_tce_setup but for the multireference branch.
+    Calls suggest_nwchem_mcscf_active_space, then wraps its richer recommendation
+    payload with a Diagnosis envelope so the agent gets a clear verdict and a
+    routed next_action.
+
+    Inputs:
+      scf_output_path        — path to the converged SCF (or DFT) reference output
+      input_path             — optional path to the SCF input file (improves
+                                expected_somo_count inference when multiplicity > 1)
+      expected_metal_elements — for open-shell metal complexes
+      expected_somo_count    — overrides multiplicity-based inference
+      prefer_expanded        — when True, route the agent toward the expanded
+                                CAS window (typically CAS(2N,2N+lone_pairs))
+                                instead of the minimal one. Default minimal.
+
+    Returns:
+      mcscf_recommendation  — passthrough of suggest_nwchem_mcscf_active_space
+      recommended_active_space — picked window (minimal or expanded)
+      frontier_assessment   — state-check verdict from the underlying analyzer
+      diagnosis             — Diagnosis envelope routing the agent to draft_input,
+                              parse_mos for deeper inspection, or vectors_swap_input
+    """
+    # Lazy import — api_strategy is still flat; will clean up after Phase 14.
+    from chemtools.api_strategy import suggest_nwchem_mcscf_active_space
+
+    rec = suggest_nwchem_mcscf_active_space(
+        output_path=scf_output_path,
+        input_path=input_path,
+        expected_metal_elements=expected_metal_elements,
+        expected_somo_count=expected_somo_count,
+    )
+
+    minimal = rec.get("minimal_active_space") or {}
+    expanded = rec.get("expanded_active_space") if isinstance(rec.get("expanded_active_space"), dict) else None
+    # frontier_assessment may be a string label (current shape from
+    # suggest_nwchem_mcscf_active_space) or a dict (future shape if expanded).
+    frontier_raw = rec.get("frontier_assessment")
+    if isinstance(frontier_raw, dict):
+        assessment = frontier_raw.get("assessment") or ""
+        frontier_payload: Any = frontier_raw
+    else:
+        assessment = frontier_raw or ""
+        frontier_payload = {"assessment": assessment}
+    notes = rec.get("notes") or []
+    swap_in = rec.get("swap_in_candidates") or []
+    swap_out = rec.get("swap_out_candidates") or []
+
+    chosen = (expanded or minimal) if prefer_expanded else minimal
+
+    # ---- Verdict logic ----
+    issues: list[str] = []
+    if assessment == "metal_state_mismatch_suspected":
+        issues.append(
+            "Frontier orbitals do not match the expected metal-centered open-shell pattern; "
+            "the SCF guess may need correction (vectors swap or different starting orbitals)."
+        )
+    if not chosen.get("active_electrons") or not chosen.get("active_orbitals"):
+        issues.append("Active space recommendation has empty electron/orbital counts.")
+    if swap_in or swap_out:
+        issues.append(
+            f"{len(swap_in)} swap_in / {len(swap_out)} swap_out candidates flagged for the active window."
+        )
+
+    if not issues and chosen.get("active_orbitals"):
+        verdict_label = "ready_to_draft_mcscf"
+        confidence = 0.8
+    elif assessment == "metal_state_mismatch_suspected":
+        verdict_label = "state_mismatch_review_frontier_first"
+        confidence = 0.55
+    else:
+        verdict_label = "active_space_review_recommended"
+        confidence = 0.6
+
+    verdict: Verdict = {
+        "label": verdict_label,
+        "confidence": confidence,
+        "reasons": issues,
+    }
+
+    # ---- Next actions ----
+    next_actions: list[NextAction] = []
+    if verdict_label == "state_mismatch_review_frontier_first":
+        next_actions.append({
+            "tool": "analyze_nwchem_frontier_orbitals",
+            "params": {
+                "output_path": scf_output_path,
+                "input_path": input_path,
+                "expected_metal_elements": expected_metal_elements or [],
+                "expected_somo_count": expected_somo_count,
+            },
+            "reason": (
+                "Verify the frontier orbital characters and confirm the metal-centered "
+                "open-shell expectation before committing to an active space."
+            ),
+            "confidence": 0.75,
+            "priority": 1,
+        })
+        next_actions.append({
+            "tool": "draft_nwchem_vectors_swap_input",
+            "params": {
+                "output_path": scf_output_path,
+                "input_path": input_path,
+            },
+            "reason": (
+                "If the state mismatch is confirmed, a vectors swap on the SCF guess is the "
+                "usual fix before attempting MCSCF."
+            ),
+            "confidence": 0.6,
+            "priority": 2,
+        })
+    elif verdict_label == "active_space_review_recommended":
+        next_actions.append({
+            "tool": "parse_nwchem_mos",
+            "params": {
+                "output_file": scf_output_path,
+                "top_n": 15,
+            },
+            "reason": (
+                "Inspect a wider window of frontier orbitals to disambiguate the active space "
+                "before drafting MCSCF."
+            ),
+            "confidence": 0.6,
+            "priority": 1,
+        })
+        if chosen.get("active_electrons") and chosen.get("active_orbitals"):
+            next_actions.append({
+                "tool": "draft_nwchem_mcscf_input",
+                "params": {
+                    "reference_output_path": scf_output_path,
+                    "active_electrons": chosen["active_electrons"],
+                    "active_orbitals": chosen["active_orbitals"],
+                },
+                "reason": (
+                    f"Tentative CAS({chosen.get('active_electrons')}, {chosen.get('active_orbitals')}) "
+                    "based on the orbital window. Review first."
+                ),
+                "confidence": 0.5,
+                "priority": 2,
+            })
+    else:
+        # ready_to_draft_mcscf
+        next_actions.append({
+            "tool": "draft_nwchem_mcscf_input",
+            "params": {
+                "reference_output_path": scf_output_path,
+                "active_electrons": chosen["active_electrons"],
+                "active_orbitals": chosen["active_orbitals"],
+            },
+            "reason": (
+                f"Draft MCSCF with CAS({chosen.get('active_electrons')}, "
+                f"{chosen.get('active_orbitals')}) — orbital characters look clean."
+            ),
+            "confidence": 0.8,
+            "priority": 1,
+        })
+
+    diagnosis: Diagnosis = {
+        "verdict": verdict,
+        "next_actions": next_actions,
+        "anchors": [],
+    }
+
+    return {
+        "metadata": rec.get("metadata"),
+        "expected_metal_elements": rec.get("expected_metal_elements"),
+        "expected_somo_count": rec.get("expected_somo_count"),
+        "frontier_assessment": frontier_payload,
+        "recommended_active_space": chosen,
+        "alternative_active_space": expanded if not prefer_expanded else minimal,
+        "swap_in_candidates": swap_in,
+        "swap_out_candidates": swap_out,
+        "notes": notes,
+        "diagnosis": diagnosis,
+    }
+
+
+__all__ = ["prepare_nwchem_tce_setup", "prepare_nwchem_mcscf_setup"]

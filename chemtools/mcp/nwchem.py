@@ -218,6 +218,47 @@ def tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "prepare_nwchem_mcscf_setup",
+            "description": (
+                "Thick orchestrator for MCSCF / CASSCF active-space setup. Given a "
+                "converged SCF reference output, this tool parses the MOs, picks a "
+                "recommended CAS(M,N) window, checks frontier orbital character, "
+                "and returns a Diagnosis envelope with next_actions so the agent "
+                "knows whether to draft MCSCF directly, inspect more orbitals "
+                "first, or fix a state mismatch via vectors swap. Companion to "
+                "prepare_nwchem_tce_setup for the multireference branch."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "scf_output_path": {
+                        "type": "string",
+                        "description": "Path to the converged SCF (or DFT) reference output.",
+                    },
+                    "input_path": {
+                        "type": "string",
+                        "description": "Optional path to the SCF input file. Improves expected_somo_count inference when multiplicity > 1.",
+                    },
+                    "expected_metal_elements": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Transition metals expected to host the active electrons.",
+                    },
+                    "expected_somo_count": {
+                        "type": "integer",
+                        "description": "Expected number of singly-occupied orbitals; overrides multiplicity-based inference.",
+                    },
+                    "prefer_expanded": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "When true, route the agent toward the expanded CAS window (typically larger). Default minimal.",
+                    },
+                },
+                "required": ["scf_output_path"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "prepare_nwchem_tce_setup",
             "description": (
                 "Thick orchestrator for TCE (CCSD / CCSD(T) / MP2) setup. Given a "
@@ -2841,6 +2882,18 @@ def tool_definitions() -> list[dict[str, Any]]:
 @_tool("get_server_mode")
 def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
     return _modes.summarize_mode(ACTIVE_MODE, _TOOL_CAPABILITIES, tool_definitions())
+
+
+@_tool("prepare_nwchem_mcscf_setup")
+def _handle_prepare_nwchem_mcscf_setup(arguments: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.nwchem.strategy.active_space import prepare_nwchem_mcscf_setup
+    return prepare_nwchem_mcscf_setup(
+        scf_output_path=arguments["scf_output_path"],
+        input_path=arguments.get("input_path"),
+        expected_metal_elements=arguments.get("expected_metal_elements"),
+        expected_somo_count=arguments.get("expected_somo_count"),
+        prefer_expanded=arguments.get("prefer_expanded", False),
+    )
 
 
 @_tool("prepare_nwchem_tce_setup")
