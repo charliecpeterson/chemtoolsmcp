@@ -130,25 +130,26 @@ embedding search later if needed.
 
 ## Status
 
-### Done (Phase 1 + Phase 2 + Phase 3a-3b)
+### Done (Phase 1 + Phase 2 + Phase 3a-3e)
 
-- `chemtools/core/`: types, program, registry, run_registry, common, cube, eval, **runner**
-- `chemtools/programs/nwchem/`: plugin scaffold, docs, forum, protocols, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, **basis_library**, _utils}
+- `chemtools/core/`: types, program, registry, run_registry, common (now includes deduped **COVALENT_RADII**), cube, eval, runner
+- `chemtools/programs/nwchem/`: plugin scaffold, docs, forum, protocols, **output**, **runner**, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, basis_library, _utils}
 - `chemtools/programs/molcas/`: scaffold + parse/output
 - `chemtools/programs/molpro/`: scaffold + parse/output
 - All three plugins register on import; detection routes correctly.
-- ~12,000 LOC migrated. 244/244 smoke tests green.
+- **`chemtools/nwchem.py` shim removed**; all callers use direct imports from `programs/nwchem/parse/` or `programs/nwchem/output.py`.
+- ~17,000 LOC migrated. 244/244 smoke tests green.
 
 ### Deferred (need real splits)
 
 | File | LOC | Plan |
 |---|---|---|
 | `api.py` | 28 | Public API aggregator — touching means redesigning `chemtools.X` user-facing paths. Defer to after splits land. |
-| `nwchem.py` shim | 8 | Remove once `COVALENT_RADII` (defined in 3 parse modules) is deduped and call sites use direct imports. |
+| ~~`nwchem.py` shim~~ | ~~8~~ | **DONE** — removed; COVALENT_RADII deduped to `core/common.py`; all callers use direct imports. |
 | ~~`basis.py`~~ | ~~682~~ | **DONE** — whole-file move to `programs/nwchem/input/basis_library.py`. Format-neutral pieces (list_basis_sets, normalize_element_symbol, PERIODIC_SYMBOLS) marked with TODO for lift to `core/basis.py` when a second program ships a library reader. |
 | ~~`runner.py`~~ | ~~1376~~ | **DONE** — whole-file move to `core/runner.py` with detailed TODO covering: (a) rename NWChem-named publics (run_nwchem → run_calculation, etc.), (b) extract `_build_nwchem_progress_summary` to `programs/nwchem/strategy/progress.py`, (c) accept `progress_summary_fn` callback. |
-| `api_runner.py` | 1475 | **Design decision pending**: MCP-wrapper code that should eventually live in `mcp/tools/nwchem.py`, but contains session log helpers (`init_session_log`, `append_session_log`, `next_versioned_path`) that should lift to `core/session.py`. Whole-file move to `programs/nwchem/runner.py` is a reasonable interim. |
-| `api_output.py` | 628 | Mostly migrates to `mcp/tools/nwchem.py`; thin cross-program dispatch into `mcp/tools/shared.py`. |
+| ~~`api_runner.py`~~ | ~~1475~~ | **DONE** — whole-file move to `programs/nwchem/runner.py` with TODO marker that the MCP-tool wrappers should later move to `mcp/tools/nwchem.py` and the session-log helpers should lift to `core/session.py`. |
+| ~~`api_output.py`~~ | ~~628~~ | **DONE** — whole-file move to `programs/nwchem/output.py` with TODO marker. Cross-program parse_tasks/parse_mos dispatchers came along; they'll lift to `mcp/tools/shared.py` once a second program has substantive coverage. |
 | `api_input.py` | **4170** | Big split into `programs/nwchem/input/{scf, dft, tce, mcscf, freq, property, geometry}.py`. Multi-session. |
 | `api_strategy.py` | **4353** | Big split into `programs/nwchem/strategy/{recovery, active_space, resources, progress, freq_check, geometry_check}.py`. Multi-session. |
 | `mcp/nwchem.py` | **4797** | Last big split. Server framework → `mcp/server.py` + `mcp/decorator.py`; NWChem-specific tool defs → `mcp/tools/nwchem.py`; program-neutral tools → `mcp/tools/shared.py`. |
@@ -164,10 +165,10 @@ embedding search later if needed.
 ## Recommended order for remaining work
 
 1. ~~**`basis.py`**~~ — done.
-2. ~~**`runner.py`**~~ — done as a whole-file move; the internal split is captured as inline TODO.
-3. **`api_runner.py` move** (~1 hour). Decide location (probably `programs/nwchem/runner.py`) with a TODO for the eventual `core/session.py` and `mcp/tools/nwchem.py` extraction.
-4. **`api_output.py` migration** (~half day). Mostly moves to `mcp/tools/nwchem.py`.
-5. **NWChem shim removal** (~half day). Dedup `COVALENT_RADII`, update call sites, delete `chemtools/nwchem.py`.
+2. ~~**`runner.py`**~~ — done as a whole-file move.
+3. ~~**`api_runner.py` move**~~ — done as a whole-file move to `programs/nwchem/runner.py`.
+4. ~~**`api_output.py` migration**~~ — done as a whole-file move to `programs/nwchem/output.py`.
+5. ~~**NWChem shim removal**~~ — done; COVALENT_RADII deduped, direct imports everywhere.
 6. **`api_input.py` split** (multi-session, family-by-family).
 7. **`api_strategy.py` split** (multi-session, family-by-family).
 8. **`mcp/nwchem.py` split** (depends on 6+7 being underway so tool defs land in clean families).
