@@ -2,7 +2,7 @@ from __future__ import annotations
 
 # api.py — public API surface, re-exports from domain sub-modules
 from ._api_utils import _COVALENT_RADII, _TRANSITION_METALS  # noqa: F401
-from .api_basis import *  # noqa: F401,F403
+from chemtools.programs.nwchem.input.basis import *  # noqa: F401,F403
 from .api_runner import *  # noqa: F401,F403
 from .api_runner import render_job_script, watch_multiple_nwchem_runs, init_session_log, append_session_log, next_versioned_path  # noqa: F401
 from .api_output import *  # noqa: F401,F403

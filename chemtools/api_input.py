@@ -98,7 +98,7 @@ from ._api_utils import (
     _build_imaginary_output_file_plan,
     _write_imaginary_input_files,
 )
-from .api_basis import render_nwchem_basis_setup
+from chemtools.programs.nwchem.input.basis import render_nwchem_basis_setup
 from .api_output import (
     parse_tasks,
     parse_mos,
@@ -3021,7 +3021,7 @@ def _extract_ecp_nelec_from_input(
     # Library-assigned elements: look up nelec from the basis library
     library_assignments = ecp_info.get("library_assignments") or {}
     if library_assignments and basis_library_path:
-        from .api_basis import resolve_ecp
+        from chemtools.programs.nwchem.input.basis import resolve_ecp
         for elem, ecp_name in library_assignments.items():
             if elem in result:
                 continue

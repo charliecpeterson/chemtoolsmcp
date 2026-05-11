@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .basis import (
+from chemtools.basis import (
     extract_basis_blocks,
     extract_nwchem_geometry_elements,
     list_basis_sets,
