@@ -217,6 +217,35 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "summarize_run",
+            "description": (
+                "One-call thick summary of any registered program's output file. Auto-detects "
+                "the program (NWChem / Molpro / Molcas) and returns a compact ParsedRun "
+                "(tasks list with kind/method/basis/energy/outcome, auto-picked "
+                "primary_task_index, pre-computed derived scalars like final_energy_hartree "
+                "and n_imaginary_modes) plus a Diagnosis (verdict label + ready-to-execute "
+                "next_actions). Designed for small-LLM workflows: read the verdict, "
+                "execute next_actions[0]. For heavy sections (full MO coefficients, "
+                "trajectories, eigenvectors) use the section-specific tools instead."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {
+                        "type": "string",
+                        "description": "Path to the output file. Program is auto-detected.",
+                    },
+                    "program": {
+                        "type": "string",
+                        "enum": ["nwchem", "molpro", "molcas"],
+                        "description": "Optional program override; if omitted, auto-detect from the file head.",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
         # ------------------------------------------------------------------
         # Workflow planning and geometry setup (start here for new jobs)
         # ------------------------------------------------------------------
@@ -2762,6 +2791,43 @@ def tool_definitions() -> list[dict[str, Any]]:
 @_tool("get_server_mode")
 def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
     return _modes.summarize_mode(ACTIVE_MODE, _TOOL_CAPABILITIES, tool_definitions())
+
+
+@_tool("summarize_run")
+def _handle_summarize_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Flagship plugin-dispatch tool — combines parser + strategist for any program."""
+    from chemtools.core import registry as _registry
+
+    output_file = arguments["output_file"]
+    program = arguments.get("program")
+
+    try:
+        plugin = _registry.resolve(program=program, path=output_file)
+    except _registry.ProgramDetectionFailed as e:
+        return {
+            "error": "program_detection_failed",
+            "message": str(e),
+            "registered_programs": _registry.list_programs(),
+        }
+    except _registry.ProgramNotRegistered as e:
+        return {
+            "error": "program_not_registered",
+            "message": str(e),
+            "registered_programs": _registry.list_programs(),
+        }
+
+    parsed = plugin.parser.parse_output(output_file)
+    diagnosis: dict[str, Any] | None = None
+    if plugin.strategist is not None:
+        try:
+            diagnosis = plugin.strategist.diagnose(parsed)
+        except NotImplementedError:
+            diagnosis = None
+    return {
+        "program": plugin.name,
+        "parsed": parsed,
+        "diagnosis": diagnosis,
+    }
 
 
 @_tool("parse_nwchem_output")
