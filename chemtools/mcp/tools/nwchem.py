@@ -3073,17 +3073,29 @@ def _handle_parse_nwchem_thermochem(arguments: dict[str, Any]) -> dict[str, Any]
 
 @_tool("summarize_nwchem_electronic_structure")
 def _handle_summarize_electronic_structure(arguments: dict[str, Any]) -> dict[str, Any]:
-    return summarize_electronic_structure(
+    result = summarize_electronic_structure(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
     )
+    result["next_actions"] = _build_next_actions(
+        "electronic_structure", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("track_nwchem_spin_state")
 def _handle_track_spin_state(arguments: dict[str, Any]) -> dict[str, Any]:
-    return track_spin_state_across_optimization(
+    result = track_spin_state_across_optimization(
         output_path=arguments["output_file"],
     )
+    result["next_actions"] = _build_next_actions(
+        "track_spin_state", result,
+        output_file=arguments["output_file"],
+        input_file=arguments.get("input_file", ""),
+    )
+    return result
 
 
 @_tool("suggest_relativistic_correction")
@@ -4060,6 +4072,94 @@ def _build_next_actions(
                 },
                 "reason": "State looks plausible — confirm by inspecting the SOMO characters.",
                 "confidence": 0.7,
+            })
+
+    elif context == "electronic_structure":
+        # summarize_electronic_structure returns spin_state_consistent + somo_count.
+        consistent = result.get("spin_state_consistent")
+        somo_count = result.get("somo_count") or 0
+        metal_centers = result.get("metal_centers") or []
+
+        if consistent is False:
+            actions.append({
+                "priority": 1,
+                "tool": "check_nwchem_spin_charge_state",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"Spin state looks inconsistent (somo_count={somo_count}; "
+                    f"metal centers: {metal_centers or 'none'}) — drill in with the "
+                    "state check tool to confirm and route recovery."
+                ),
+                "confidence": 0.8,
+            })
+        elif metal_centers and somo_count > 0:
+            actions.append({
+                "priority": 1,
+                "tool": "analyze_nwchem_frontier_orbitals",
+                "params": {
+                    "output_file": output_file,
+                    "input_file": input_file,
+                    "expected_metals": metal_centers,
+                },
+                "reason": (
+                    "Open-shell metal complex — confirm the SOMO characters are "
+                    "metal-centered before trusting the result."
+                ),
+                "confidence": 0.8,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "parse_nwchem_thermochem",
+                "params": {"output_file": output_file},
+                "reason": "Electronic structure summary looks clean — extract thermochemistry.",
+                "confidence": 0.8,
+            })
+
+    elif context == "track_spin_state":
+        # track_spin_state_across_optimization flags state flips along an opt
+        # trajectory. recommendation is already populated; map to a tool call.
+        flip_detected = result.get("flip_detected")
+        flip_steps = result.get("flip_steps") or []
+        warnings = result.get("warnings") or []
+        recommendation_text = result.get("recommendation") or ""
+
+        if flip_detected:
+            actions.append({
+                "priority": 1,
+                "tool": "draft_nwchem_vectors_swap_input",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"State flip(s) detected at step(s) {flip_steps[:3]} — recover "
+                    f"by swapping vectors and re-converging. {recommendation_text}"
+                ),
+                "confidence": 0.85,
+            })
+            actions.append({
+                "priority": 2,
+                "tool": "suggest_nwchem_state_recovery_strategy",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "If a simple swap doesn't stabilize the state, get more recovery strategies.",
+                "confidence": 0.7,
+            })
+        elif warnings:
+            actions.append({
+                "priority": 1,
+                "tool": "check_nwchem_spin_charge_state",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": (
+                    f"{len(warnings)} warning(s) on the spin state trajectory but no flips — "
+                    f"confirm the final state is what was requested."
+                ),
+                "confidence": 0.7,
+            })
+        else:
+            actions.append({
+                "priority": 1,
+                "tool": "check_nwchem_freq_plausibility",
+                "params": {"output_file": output_file, "input_file": input_file},
+                "reason": "Spin state stable across the trajectory — proceed with freq validation.",
+                "confidence": 0.8,
             })
 
     elif context == "freq_progress":
