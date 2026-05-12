@@ -48,6 +48,13 @@ Phase DC ships the read-only tool surface:
                                        (Cm/Bk/Cf/Es/Fm/Md/No/Lr) where
                                        .KPSELE alone doesn't converge
 
+  Core-ionization workflow (Phase DJ):
+    prepare_dirac_core_ionization      ΔSCF plan for 1s ionization
+                                       potentials (.REORDER + .OVLSEL +
+                                       .NODYNSEL + .OPENFAC + --put)
+    compute_dirac_core_ip              IP = E(ionized) - E(neutral) in
+                                       Hartree + eV
+
   Documentation:
     list_dirac_docs                enumerate bundled DIRAC docs (180 files)
     search_dirac_docs              substring search across the doc corpus
@@ -113,6 +120,10 @@ from chemtools.programs.dirac.input.atomic_start import (  # noqa: E402
 from chemtools.programs.dirac.input.cm_class import (  # noqa: E402
     prepare_cm_class_workflow as _prepare_cm_class_workflow,
     is_cm_class as _is_cm_class,
+)
+from chemtools.programs.dirac.input.core_ionization import (  # noqa: E402
+    prepare_core_ionization as _prepare_core_ionization,
+    compute_core_ip as _compute_core_ip,
 )
 from chemtools.programs.dirac.runtime import (  # noqa: E402
     prepare_launch as _prepare_launch,
@@ -531,6 +542,70 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     },
                 },
                 "required": ["molecule_atoms"],
+            },
+        },
+
+        # ----- Phase DJ: ΔSCF core-ionization workflow -----
+        {
+            "name": "prepare_dirac_core_ionization",
+            "description": (
+                "Build the ΔSCF launch plan for 1s core ionization "
+                "potentials (X-ray photoemission spectroscopy). Drafts a "
+                "neutral SCF + one core-ionized SCF per target atom. The "
+                "ionized inputs use .REORDER to move the target 1s out "
+                "of the closed-shell range, .OPEN SHELL with 1 electron "
+                "in 2 spinors, .OPENFAC 1.0, .OVLSEL + .NODYNSEL to "
+                "lock the core hole to the right spinor (overlap-based "
+                "selection prevents collapse to ground state).\n\n"
+                "Per the DIRAC tutorial (release-26/tutorials/x_ray/"
+                "CO_N2_IP1s): produces CO C1s = 297.3 eV (vs experiment "
+                "295.9), CO O1s = 542.0 eV (vs 542.1). Works out of the "
+                "box for HETERONUCLEAR systems. For HOMONUCLEAR diatomics "
+                "(N2, O2), the symmetric ΔSCF overestimates by ~10 eV — "
+                "the orchestrator detects this case, raises a warning, "
+                "and refers to the Pipek-Mezey localization workflow.\n\n"
+                "Orbital indexing: atoms are sorted by Z descending; "
+                "1s MO index follows that order. For CO (O then C): "
+                "MO 1 = O 1s, MO 2 = C 1s.\n\n"
+                "Returns plan + ip_pairs ready to chain into "
+                "prepare_dirac_launch and then compute_dirac_core_ip."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "atoms":             {"type": "array", "items": {"type": "object"}},
+                    "target_atom_indices": {"type": "array", "items": {"type": "integer"},
+                                            "description": "0-based atom indices to ionize."},
+                    "n_total_electrons": {"type": "integer"},
+                    "basis":             {"type": "object"},
+                    "default_basis":     {"type": "string"},
+                    "use_x2c":           {"type": "boolean", "default": True},
+                    "output_dir":        {"type": "string"},
+                    "molecule_name":     {"type": "string", "default": "molecule"},
+                    "molecule_units":    {"type": "string", "default": "bohr"},
+                    "closed_shell_per_ircop": {"type": "array", "items": {"type": "integer"}},
+                    "write_files":       {"type": "boolean", "default": False},
+                },
+                "required": ["atoms", "target_atom_indices", "n_total_electrons"],
+            },
+        },
+        {
+            "name": "compute_dirac_core_ip",
+            "description": (
+                "Compute one core ionization potential from a pair of "
+                "DIRAC .out files (neutral + core-ionized). Returns "
+                "{ip_hartree, ip_ev, neutral_total_energy_hartree, "
+                "ionized_total_energy_hartree}. For multi-atom IPs, "
+                "call once per (neutral, ionized) pair using the "
+                "ip_pairs list returned by prepare_dirac_core_ionization."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "neutral_out": {"type": "string"},
+                    "ionized_out": {"type": "string"},
+                },
+                "required": ["neutral_out", "ionized_out"],
             },
         },
 
@@ -1015,6 +1090,35 @@ def _handle_prepare_dirac_atomic_start(arguments: dict[str, Any]) -> dict[str, A
             Path(p["mol_path"]).write_text(p["mol_text"], encoding="utf-8")
         result["files_written"] = True
     return result
+
+
+@_tool("prepare_dirac_core_ionization")
+def _handle_prepare_dirac_core_ionization(arguments: dict[str, Any]) -> dict[str, Any]:
+    raw_basis = arguments.get("basis")
+    basis: dict[str, str] | None = None
+    if raw_basis:
+        basis = {str(k): v for k, v in raw_basis.items()}
+    return _prepare_core_ionization(
+        atoms=arguments["atoms"],
+        target_atom_indices=arguments["target_atom_indices"],
+        n_total_electrons=int(arguments["n_total_electrons"]),
+        basis=basis,
+        default_basis=arguments.get("default_basis"),
+        use_x2c=bool(arguments.get("use_x2c", True)),
+        output_dir=arguments.get("output_dir"),
+        molecule_name=arguments.get("molecule_name", "molecule"),
+        molecule_units=arguments.get("molecule_units", "bohr"),
+        closed_shell_per_ircop=arguments.get("closed_shell_per_ircop"),
+        write_files=bool(arguments.get("write_files", False)),
+    )
+
+
+@_tool("compute_dirac_core_ip")
+def _handle_compute_dirac_core_ip(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _compute_core_ip(
+        neutral_out=arguments["neutral_out"],
+        ionized_out=arguments["ionized_out"],
+    )
 
 
 @_tool("prepare_dirac_cm_class_workflow")

@@ -32,6 +32,7 @@ def prepare_launch(
     mw: int | None = None,
     nw: int | None = None,
     copy_files: list[str] | None = None,
+    put_files: list[str] | None = None,
     outcmo: bool = False,
     get_files: list[str] | None = None,
     container_sif: str | None = None,
@@ -119,6 +120,12 @@ def prepare_launch(
         cmd.append(f"--nw={nw}")
     if staged_copy:
         cmd.append(f"--copy={' '.join(staged_copy)}")
+    # --put: stages files INTO the scratch directory under specified names.
+    # Spec format: "local_path=SCRATCH_NAME" (e.g. "cf.CO=DFCOEF" copies the
+    # local cf.CO file to scratch as DFCOEF so DIRAC reads it as starting
+    # orbitals). Used in core-ionization ΔSCF chains.
+    if put_files:
+        cmd.append(f"--put={' '.join(put_files)}")
     if outcmo:
         cmd.append("--outcmo")
     if get_files:

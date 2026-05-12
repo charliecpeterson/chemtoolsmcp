@@ -120,25 +120,38 @@ def draft_inp(spec: dict[str, Any]) -> str:
                 lines.append(f" {r}")
 
     # ----- **WAVE FUNCTION ------------------------------------------
-    # .RESOLVE is a top-level **WAVE FUNCTION keyword (NOT a *SCF
-    # subsection one) — DIRAC's *SCF parser explicitly rejects it.
-    # Pull it from scf.resolve and emit at the right level.
+    # .RESOLVE and .REORDER are top-level **WAVE FUNCTION keywords
+    # (NOT *SCF subsection ones) — DIRAC's *SCF parser rejects them
+    # with "Keyword .RESOLV not recognized for *SCF" / similar.
+    # Pull them from scf.resolve / scf.reorder and emit at the right level.
     resolve_flag = bool(scf.get("resolve"))
-    scf_for_subsection = {k: v for k, v in scf.items() if k != "resolve"}
+    reorder_list = scf.get("reorder")  # list of per-ircop spec strings
+    scf_for_subsection = {
+        k: v for k, v in scf.items()
+        if k not in ("resolve", "reorder")
+    }
+
+    def _emit_top_level_wf_directives() -> None:
+        """Emit the **WAVE FUNCTION-level directives that are NOT *SCF
+        subsection keywords: .RESOLVE and .REORDER."""
+        if resolve_flag:
+            lines.append(".RESOLVE")
+        if reorder_list:
+            lines.append(".REORDER")
+            for spec in reorder_list:
+                lines.append(f" {spec}")
 
     lines.append("**WAVE FUNCTION")
     if wf == "scf" or wf == "dft":
         lines.append(".SCF")
-        if resolve_flag:
-            lines.append(".RESOLVE")
+        _emit_top_level_wf_directives()
         scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
             lines.extend(scf_block_lines)
     elif wf == "mp2":
         lines.append(".SCF")
-        if resolve_flag:
-            lines.append(".RESOLVE")
+        _emit_top_level_wf_directives()
         scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
@@ -146,8 +159,7 @@ def draft_inp(spec: dict[str, Any]) -> str:
         lines.append(".MP2")
     elif wf == "ccsd":
         lines.append(".SCF")
-        if resolve_flag:
-            lines.append(".RESOLVE")
+        _emit_top_level_wf_directives()
         scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
@@ -155,8 +167,7 @@ def draft_inp(spec: dict[str, Any]) -> str:
         lines.append(".CCSD")
     elif wf == "cosci":
         lines.append(".SCF")
-        if resolve_flag:
-            lines.append(".RESOLVE")
+        _emit_top_level_wf_directives()
         scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
@@ -236,11 +247,23 @@ def _build_scf_subsection(scf: dict[str, Any]) -> list[str]:
         for shell_row in shells_kappa:
             lines.append(" " + " ".join(f"{int(n):>2d}" for n in shell_row))
 
-    reorder = scf.get("reorder")
-    if reorder:
-        lines.append(".REORDER MO")
-        for r in reorder:
-            lines.append(f" {r}")
+    # Note: ``.REORDER`` (and ``.RESOLVE``) are **WAVE FUNCTION-level
+    # keywords, not *SCF subsection ones — DIRAC rejects them inside
+    # *SCF. draft_inp() emits them at the right level via a callback.
+
+    # ----- ΔSCF core-ionization flags (per DIRAC core-IP tutorial) -----
+    # .OPENFAC <factor> — fractional occupation factor for the open shell.
+    # Usually 1.0 to keep the open electron at full single-spinor occupation.
+    if scf.get("openfac") is not None:
+        lines.append(".OPENFAC")
+        lines.append(f" {float(scf['openfac'])}")
+    # .OVLSEL — overlap-based orbital selection (locks orbital identity to
+    # similarity with the starting orbitals; critical for ΔSCF core holes).
+    if scf.get("ovlsel"):
+        lines.append(".OVLSEL")
+    # .NODYNSEL — disable DIRAC's dynamic re-selection; pairs with .OVLSEL.
+    if scf.get("nodynsel"):
+        lines.append(".NODYNSEL")
 
     max_iter = scf.get("max_iter")
     if max_iter is not None:

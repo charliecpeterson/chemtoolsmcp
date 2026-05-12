@@ -295,6 +295,51 @@ _TOPIC_GUIDES: dict[str, dict[str, Any]] = {
             "multi-step orbital-import strategy."
         ),
     },
+    "core_ionization": {
+        "summary": (
+            "DIRAC's recipe for 1s core ionization potentials uses ΔSCF: "
+            "compute the neutral SCF energy, then the SCF energy of a "
+            "state with a hole in the target 1s spinor. IP = "
+            "E(ionized) - E(neutral).\n\n"
+            "The core-ionized input uses .REORDER to move the target 1s "
+            "out of the closed-shell range, .CLOSED SHELL with one less "
+            "Kramers pair, .OPEN SHELL '1 / 1/2' (1 electron in 2 "
+            "spinors), .OPENFAC 1.0, and crucially .OVLSEL + .NODYNSEL "
+            "to lock the core hole to the right spinor via overlap-based "
+            "selection (prevents collapse back to the closed-shell "
+            "ground state).\n\n"
+            "Orbital indexing: atoms are sorted by Z descending; their "
+            "1s orbitals appear in MO order (deepest first). For CO "
+            "(Z=8 O + Z=6 C): MO 1 = O 1s, MO 2 = C 1s. So C 1s wants "
+            "REORDER moving orbital 2 to the end; O 1s moves orbital 1.\n\n"
+            "HETERONUCLEAR (CO, OH, NH): symmetric ΔSCF works out of "
+            "the box. Validated end-to-end with dyall.3zp non-rel: "
+            "C 1s = 297.3 eV (tutorial), O 1s = 542.0 eV.\n\n"
+            "HOMONUCLEAR (N2, O2): the σg/σu 1s combinations are "
+            "near-degenerate; symmetric ΔSCF overestimates the IP by "
+            "~10 eV due to a delocalized core hole. The published fix "
+            "is Pipek-Mezey localization of the 1s orbitals in C1 "
+            "symmetry via .LOCALIZE + .SELECT, then importing the "
+            "localized orbitals into a lower-symmetry calculation "
+            "(N2 example: N2_KC2v.inp with --put 'ac.N2loc=DFACMO'). "
+            "Final IP improves to 410.3 eV vs experiment 409.9."
+        ),
+        "key_docs": ["tutorial.md", "open_shells.md", "bed.md"],
+        "agent_pattern": (
+            "1. prepare_dirac_core_ionization with atoms + target_atom_"
+            "indices (0-based) + n_total_electrons.\n"
+            "2. Launch step 1 (neutral SCF) with --outcmo so the MO "
+            "coefficients are kept in the .h5.\n"
+            "3. For each core-ionized step: launch with --incmo so "
+            "DIRAC reads the previous .h5 as starting orbitals; .OVLSEL "
+            "+ .NODYNSEL then pin the hole.\n"
+            "4. Call compute_dirac_core_ip on each (neutral, ionized) "
+            "pair; agent reports IP in eV.\n"
+            "5. For HOMONUCLEAR diatomics the orchestrator flags "
+            "manual_review_required and points at this guide — the "
+            "Pipek-Mezey localization step is not yet auto-drafted."
+        ),
+    },
     "cm_class_workflow": {
         "summary": (
             "Cm and its neighbours (Bk, Cf, Es, Fm, ...) have 5f^7+ open "

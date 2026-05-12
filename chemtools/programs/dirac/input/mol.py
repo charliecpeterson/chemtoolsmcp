@@ -81,20 +81,47 @@ def draft_mol(
             f"or `default_basis='...'`."
         )
 
-    # Build the C header line
+    # Build the C header line. DIRAC's Fortran read format is
+    #   BN,A1,I4,I3,A11,A1,D10.2,6I5
+    # which means:
+    #   col 1:    A1 "C" magic
+    #   cols 2-5: I4 n_types (right-aligned 4-char)
+    #   cols 6-8: I3 n_symops (right-aligned 3-char)
+    #   cols 9-19: A11 symmetry-generator string
+    #   col 20:   A1 units flag ("A" for angstrom, blank for bohr)
+    # Working fixtures: H2O has "C   2    0" (no symmetry); CO has
+    # "C   2              A" (angstrom flag at col 20).
     n_types = len(by_z)
     if symmetry == "C1":
-        sym_part = "    0"
+        n_symops = 0
+        gens_str = ""
     elif symmetry == "auto":
-        sym_part = ""  # blank = DIRAC's "use the natural symmetry" default
+        n_symops = 0
+        gens_str = ""  # DIRAC will detect symmetry itself
     else:
-        # Explicit list of generators
         gens = symmetry if isinstance(symmetry, list) else [symmetry]
-        n_gens = len(gens)
-        sym_part = f"   {n_gens} " + " ".join(gens)
-
-    units_flag = " A" if units.lower().startswith("angs") else ""
-    header_line = f"C   {n_types}{sym_part}{units_flag}"
+        n_symops = len(gens)
+        gens_str = " " + " ".join(gens)
+    units_char = "A" if units.lower().startswith("angs") else " "
+    # Compose with fixed column widths
+    header_line = (
+        "C"                                  # col 1
+        + f"{n_types:>4d}"                   # cols 2-5
+        + f"{n_symops:>3d}"                  # cols 6-8 (0 for auto/C1 — printed as "  0")
+        + f"{gens_str:<11s}"                 # cols 9-19
+        + units_char                         # col 20
+    )
+    # Strip n_symops "  0" back to spaces for auto/C1 to match the
+    # working fixtures' " " convention (DIRAC accepts either, but
+    # auto-detect mode prefers a blank n_symops field).
+    if symmetry in ("auto",) and n_symops == 0:
+        header_line = (
+            "C"
+            + f"{n_types:>4d}"
+            + "   "                           # blank I3 field
+            + " " * 11                        # blank A11 field
+            + units_char
+        )
 
     # Magic header determines DIRAC's basis-read mode:
     #   INTGRL  → expects inline primitive exponents + contraction coefs
