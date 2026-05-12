@@ -210,19 +210,18 @@ def analyze_molcas_case(output_file: str) -> dict[str, Any]:
       caspt2_validation   verdict from validate_molcas_caspt2_setup (if CASPT2)
       active_space_quality verdict from analyze_molcas_active_space (if RASSCF)
     """
+    from chemtools.core.issues import IssueCollector
+    from chemtools.core.case_analysis import (
+        classify_imaginary_modes,
+        check_charge_spin_parity,
+    )
+
     summary = summarize_molcas_output(output_file)
     text = read_text(output_file)
     full = parse_output_full(output_file, text)
 
-    issues: list[dict[str, str]] = []
+    coll = IssueCollector()
     next_actions: list[dict[str, Any]] = []
-    severity_levels = {"info": 0, "caution": 1, "problematic": 2}
-    worst = "info"
-
-    def _bump(level: str) -> None:
-        nonlocal worst
-        if severity_levels[level] > severity_levels[worst]:
-            worst = level
 
     # ----- RASSCF active-space quality -----
     rasscf_task = next(
@@ -238,30 +237,24 @@ def analyze_molcas_case(output_file: str) -> dict[str, Any]:
             }
             av = aa.get("verdict")
             if av == "poor":
-                issues.append({
-                    "severity": "problematic",
-                    "message": "Active space verdict is 'poor' (no truly active orbitals — all near 0 or 2 occupation).",
-                    "hint": "Either shrink the CAS to match what's chemically active, or use a different reference (HF/DFT may be more appropriate).",
-                })
-                _bump("problematic")
+                coll.add(
+                    "problematic",
+                    "Active space verdict is 'poor' (no truly active orbitals — all near 0 or 2 occupation).",
+                    hint="Either shrink the CAS to match what's chemically active, or use a different reference (HF/DFT may be more appropriate).",
+                )
             elif av == "marginal":
-                issues.append({
-                    "severity": "caution",
-                    "message": "Active space verdict is 'marginal' (fewer than half the orbitals carry truly active occupations).",
-                    "hint": "Consider character-aware orbital swaps (refine_molcas_active_space) or trimming the CAS.",
-                })
-                _bump("caution")
+                coll.add(
+                    "caution",
+                    "Active space verdict is 'marginal' (fewer than half the orbitals carry truly active occupations).",
+                    hint="Consider character-aware orbital swaps (refine_molcas_active_space) or trimming the CAS.",
+                )
                 next_actions.append({
                     "tool": "refine_molcas_active_space",
                     "args": {"output_file": output_file},
                     "rationale": "Marginal active space — refine_active_space can suggest character-aware swaps.",
                 })
         except Exception as exc:  # noqa: BLE001
-            issues.append({
-                "severity": "info",
-                "message": f"analyze_active_space failed: {exc}",
-                "hint": "RASSCF data may be malformed.",
-            })
+            coll.add("info", f"analyze_active_space failed: {exc}", hint="RASSCF data may be malformed.")
 
     # ----- CASPT2 reference weight + intruder check -----
     caspt2_task = next(
@@ -275,107 +268,84 @@ def analyze_molcas_case(output_file: str) -> dict[str, Any]:
                 "verdict": cv.get("verdict"),
                 "warnings": cv.get("warnings"),
             }
-            verdict = cv.get("verdict")
-            if verdict == "unreliable":
-                issues.append({
-                    "severity": "problematic",
-                    "message": "CASPT2 reference weight below trust threshold (<0.70).",
-                    "hint": "Increase CAS size, or add `Imaginary 0.1` to suppress intruders, or check for state mixing (try MS/XMS CASPT2).",
-                })
-                _bump("problematic")
+            v = cv.get("verdict")
+            if v == "unreliable":
+                coll.add(
+                    "problematic",
+                    "CASPT2 reference weight below trust threshold (<0.70).",
+                    hint="Increase CAS size, or add `Imaginary 0.1` to suppress intruders, or check for state mixing (try MS/XMS CASPT2).",
+                )
                 next_actions.append({
                     "tool": "validate_molcas_caspt2_setup",
                     "args": {"output_file": output_file},
                     "rationale": "Reference weight is below trust band — review intruder + reference-quality diagnostics.",
                 })
-            elif verdict == "caution":
-                issues.append({
-                    "severity": "caution",
-                    "message": "CASPT2 reference weight in caution band (0.70-0.85).",
-                    "hint": "Result is likely meaningful but consider tighter active space or MS-CASPT2 if multiple states mix.",
-                })
-                _bump("caution")
+            elif v == "caution":
+                coll.add(
+                    "caution",
+                    "CASPT2 reference weight in caution band (0.70-0.85).",
+                    hint="Result is likely meaningful but consider tighter active space or MS-CASPT2 if multiple states mix.",
+                )
         except Exception as exc:  # noqa: BLE001
-            issues.append({
-                "severity": "info",
-                "message": f"validate_caspt2_setup failed: {exc}",
-                "hint": "CASPT2 data may be malformed.",
-            })
+            coll.add("info", f"validate_caspt2_setup failed: {exc}", hint="CASPT2 data may be malformed.")
 
-    # ----- Imaginary frequencies (only flag if minimum opt; not for TS) -----
-    # Threshold: < -50 cm⁻¹ filters out translation/rotation projection
-    # artifacts (typically |f| < 70 cm⁻¹). Real chemical imaginary modes are
-    # almost always > 100 cm⁻¹ in magnitude.
+    # ----- Imaginary frequencies (generic helper from core) -----
     imag = summary.get("imaginary_frequencies_cm1") or []
-    physical_imag = [f for f in imag if f < -50.0]
-    artifact_imag = [f for f in imag if -50.0 <= f < -5.0]
+    classified = classify_imaginary_modes(imag)
+    physical_imag = classified["physical"]
+    artifact_imag = classified["artifacts"]
     if physical_imag:
         if len(physical_imag) == 1:
-            issues.append({
-                "severity": "info",
-                "message": f"One imaginary frequency: {physical_imag[0]:.2f} cm⁻¹. "
-                           "Correct for a TS, suspicious for a minimum.",
-                "hint": "If you expected a minimum, follow the imaginary mode (displace_molcas_geometry_along_mode) and re-optimize.",
-            })
+            coll.add(
+                "info",
+                f"One imaginary frequency: {physical_imag[0]:.2f} cm⁻¹. "
+                "Correct for a TS, suspicious for a minimum.",
+                hint="If you expected a minimum, follow the imaginary mode (displace_molcas_geometry_along_mode) and re-optimize.",
+            )
         else:
-            issues.append({
-                "severity": "caution",
-                "message": f"{len(physical_imag)} physical imaginary frequencies: "
-                           f"{[round(f, 1) for f in physical_imag]}",
-                "hint": "Multi-imaginary means the geometry isn't a stationary point — opt likely incomplete or wrong starting point.",
-            })
-            _bump("caution")
+            coll.add(
+                "caution",
+                f"{len(physical_imag)} physical imaginary frequencies: "
+                f"{[round(f, 1) for f in physical_imag]}",
+                hint="Multi-imaginary means the geometry isn't a stationary point — opt likely incomplete or wrong starting point.",
+            )
     if artifact_imag:
-        # Tiny imaginary modes (|f| < 50) are unprojected translation/rotation —
-        # mention but don't escalate severity.
-        issues.append({
-            "severity": "info",
-            "message": f"{len(artifact_imag)} small-magnitude imaginary mode(s) "
-                       f"(|f| < 50 cm⁻¹): {[round(f, 1) for f in artifact_imag]}. "
-                       "Likely translation/rotation projection artifacts, not chemical.",
-            "hint": "Safe to ignore unless the geometry is unusual (linear molecule, weak bond).",
-        })
+        coll.add(
+            "info",
+            f"{len(artifact_imag)} small-magnitude imaginary mode(s) "
+            f"(|f| < 50 cm⁻¹): {[round(f, 1) for f in artifact_imag]}. "
+            "Likely translation/rotation projection artifacts, not chemical.",
+            hint="Safe to ignore unless the geometry is unusual (linear molecule, weak bond).",
+        )
 
-    # ----- Cross-check: charge × spin parity -----
+    # ----- Cross-check: charge × spin parity (generic) -----
     if rasscf_task:
         details = rasscf_task.get("details", {}) or {}
         wave = details.get("wave_function", {}) or {}
         n_act_e = wave.get("active_electrons")
-        spin = wave.get("spin")  # half-integer S, so multiplicity = 2S+1
+        spin = wave.get("spin")  # half-integer S → multiplicity = 2S+1
         if n_act_e is not None and spin is not None:
-            mult = int(round(2 * float(spin)) + 1)
-            two_s = mult - 1
-            # parity check: 2S and n_act_e must share parity
-            if (n_act_e % 2) != (two_s % 2):
-                issues.append({
-                    "severity": "problematic",
-                    "message": (
-                        f"Charge/spin parity mismatch: {n_act_e} active electrons "
-                        f"cannot give 2S={two_s} unpaired (parity).",
-                    ),
-                    "hint": "Recompute the active-space partition with compute_molcas_active_space_partition.",
-                })
-                _bump("problematic")
+            mult = int(round(2 * float(spin))) + 1
+            parity_issue = check_charge_spin_parity(n_act_e, mult)
+            if parity_issue:
+                # Replace the core's generic hint with the Molcas-specific
+                # one (compute_molcas_active_space_partition).
+                parity_issue["hint"] = (
+                    "Recompute the active-space partition with "
+                    "compute_molcas_active_space_partition."
+                )
+                coll.add(**parity_issue)
 
     # ----- Lots of warnings is itself a caution -----
     n_warn = summary.get("n_warnings", 0)
     if n_warn >= 10:
-        issues.append({
-            "severity": "caution",
-            "message": f"Run emitted {n_warn} warnings.",
-            "hint": "Inspect warnings list — many warnings can mask real failures.",
-        })
-        _bump("caution")
+        coll.add(
+            "caution",
+            f"Run emitted {n_warn} warnings.",
+            hint="Inspect warnings list — many warnings can mask real failures.",
+        )
 
-    # ----- Determine final verdict -----
-    if worst == "problematic":
-        verdict = "problematic"
-    elif worst == "caution":
-        verdict = "caution"
-    else:
-        verdict = "healthy"
-
-    summary["verdict"] = verdict
-    summary["issues"] = issues
+    summary["verdict"] = coll.verdict
+    summary["issues"] = coll.issues
     summary["next_actions"] = next_actions
     return summary

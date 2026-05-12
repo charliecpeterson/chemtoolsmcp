@@ -465,7 +465,7 @@ duplication across programs).
 |---|---|
 | Phase 1: rename + filter | **DONE 2026-05-12** — `chemtools` binary + `--programs` flag + `CHEMTOOLS_PROGRAMS` env var. Legacy `chemtools-nwchem` aliased for backward compat. 12 new tests in `test_modes.py` (30 total, all passing). |
 | Phase 2: pure math to core/ | **DONE 2026-05-12** — new `core/units.py` (constants), `core/thermochem.py` (atomic masses + Sackur-Tetrode), `core/geometry.py` (distance/angle/dihedral/COM/bond detection/fragments/inspect). Molcas modules thinned to adapters: `reaction_energy.py` re-exports the atomic-mass table from core; `geometry_inspector.py` drops ~170 lines of math and is now just source resolution + bohr→Å normalization. All 30 tests still pass; H2O atomization numbers (ΔE=192.98, D_0=179.54, ΔH=167.09, ΔG=157.07, ΔS=33.62) reproduce exactly. |
-| Phase 3: framework promotion | not started |
+| Phase 3: framework promotion | **PARTIAL DONE 2026-05-12** — `core/issues.py` (IssueCollector + severity tracking), `core/recovery.py` (generic rule-walker `dispatch_rules`), `core/case_analysis.py` (`classify_imaginary_modes`, `check_charge_spin_parity`, `bond_table_for_atoms`). Molcas `recovery.py` + `case_analysis.py` thinned to thin adapters. Still pending: `core/workflow.py` (DAG engine, needs NWChem protocol-engine refactor), `core/session.py`, `core/basis_advisor.py`. |
 | Phase 4: generic MCP tools | not started |
 | Phase 5: standardized parse shape | partially done (energy_summary aligned) |
 | Phase 6: parity fill-in | tracked above |

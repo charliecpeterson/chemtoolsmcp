@@ -541,37 +541,32 @@ def suggest_recovery(
 ) -> dict[str, Any]:
     """Classify a Molcas .out / .log failure and suggest a recovery plan.
 
-    Walks a priority-ordered rule list against the output text + parsed
-    metadata. Returns the first matching recovery dict, or a structured
-    "success" / "unknown_failure" envelope if no rule matches.
-
-    Parameters
-    ----------
-    output_file
-        Path to the Molcas .out or .log file.
-    return_all_matches
-        If True, return ALL matching rules under `all_matches` (still picks
-        the highest-priority as the primary `recovery`). Useful for debugging
-        the rule engine itself.
+    Thin Molcas-specific dispatcher that:
+      1. Reads the file
+      2. Parses the output (best-effort; tolerates malformed runs)
+      3. Detects Molcas "Stop Module" lines and decides if the run completed
+      4. Delegates to ``chemtools.core.recovery.dispatch_rules`` for the
+         actual rule-walking + result shaping
 
     Returns
     -------
     dict with:
-      verdict          "success_no_recovery_needed" | "recovery_suggested" | "unknown_failure"
-      output_file      path
-      ran_to_completion bool  — did Molcas reach a normal-termination state?
-      last_module      str|None — module name of the last Stop Module
-      last_rc          str|None — return code of the last Stop Module
-      recovery         dict — primary recovery (see rule docstrings)
-      all_matches      list — only present if return_all_matches=True
+      verdict           "success_no_recovery_needed" | "recovery_suggested" | "unknown_failure"
+      output_file       path
+      ran_to_completion bool
+      last_module       str | None — last Stop Module name
+      last_rc           str | None — last Stop Module return code
+      recovery          dict — primary recovery record (see rule docstrings)
+      all_matches       list — only present if return_all_matches=True
     """
+    from chemtools.core.recovery import dispatch_rules
+
     output_path = Path(output_file)
     if not output_path.is_file():
         raise FileNotFoundError(f"Output file not found: {output_file}")
     text = read_text(output_file)
 
-    # Best-effort parse; some failures abort early before tasks are reported,
-    # so we tolerate parser issues.
+    # Best-effort parse; some failures abort early before tasks are reported.
     try:
         parsed: dict | None = parse_output_full(output_file, text)
     except Exception:  # noqa: BLE001
@@ -580,64 +575,34 @@ def suggest_recovery(
     stops = _scan_stops(text)
     last_stop = stops[-1] if stops else None
     # "Ran to completion" heuristic: every Stop Module returned _RC_ALL_IS_WELL_
-    # OR _RC_CONTINUE_LOOP_/_RC_INVOKED_OTHER_MODULE_ (normal opt/control rcs).
+    # OR _RC_CONTINUE_LOOP_ / _RC_INVOKED_OTHER_MODULE_ (normal opt/control rcs).
     benign_rcs = {"_RC_ALL_IS_WELL", "_RC_CONTINUE_LOOP", "_RC_INVOKED_OTHER_MODULE"}
     ran_clean = bool(stops) and all(
         any(s["rc"].startswith(b) for b in benign_rcs) for s in stops
     )
 
-    # Even on a clean run, check for low-ref-weight CASPT2 (caution case).
-    matches: list[dict] = []
-    for rule in _RULES:
-        m = rule(text, parsed)
-        if m is not None:
-            matches.append(m)
-            if not return_all_matches:
-                break
-
-    if not matches:
-        if ran_clean:
-            verdict = "success_no_recovery_needed"
-        else:
-            verdict = "unknown_failure"
-        result: dict[str, Any] = {
-            "verdict": verdict,
-            "output_file": output_file,
-            "ran_to_completion": ran_clean,
-            "last_module": last_stop["module"] if last_stop else None,
-            "last_rc": last_stop["rc"] if last_stop else None,
-            "recovery": None,
-        }
-        if verdict == "unknown_failure":
-            result["next_actions"] = [
-                {
-                    "tool": "parse_molcas_tasks",
-                    "args": {"output_file": output_file},
-                    "rationale": "Get a coarse task-by-task summary to localize where the run went off the rails.",
-                },
-                {
-                    "tool": "parse_molcas_output",
-                    "args": {"output_file": output_file},
-                    "rationale": "Get the deep parse — warnings + module-level details often surface the root cause when none of the known patterns match.",
-                },
-            ]
-        return result
-
-    primary = matches[0]
-    result = {
-        "verdict": "recovery_suggested",
-        "output_file": output_file,
-        "ran_to_completion": ran_clean,
-        "last_module": last_stop["module"] if last_stop else None,
-        "last_rc": last_stop["rc"] if last_stop else None,
-        "recovery": primary,
-        "failure_class": primary["failure_class"],
-        "severity": primary["severity"],
-        "next_actions": primary.get("next_actions", []),
-    }
-    if return_all_matches:
-        result["all_matches"] = matches
-    return result
+    return dispatch_rules(
+        rules=_RULES,
+        text=text,
+        parsed=parsed,
+        output_file=output_file,
+        ran_clean=ran_clean,
+        last_module=last_stop["module"] if last_stop else None,
+        last_rc=last_stop["rc"] if last_stop else None,
+        return_all_matches=return_all_matches,
+        unknown_failure_next_actions=[
+            {
+                "tool": "parse_molcas_tasks",
+                "args": {"output_file": output_file},
+                "rationale": "Get a coarse task-by-task summary to localize where the run went off the rails.",
+            },
+            {
+                "tool": "parse_molcas_output",
+                "args": {"output_file": output_file},
+                "rationale": "Get the deep parse — warnings + module-level details often surface the root cause when none of the known patterns match.",
+            },
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
