@@ -196,7 +196,15 @@ def _build_scf_subsection(scf: dict[str, Any]) -> list[str]:
         lines.append(f" {len(open_shells)}")
         for os in open_shells:
             n_e = int(os["n_electrons"])
-            # The "spinor spec" is a string like "0,14" or "2/0,14"
+            # The "spinor spec" depends on the number of fermion ircops:
+            #   NFSYM=2 (atomic Dinfh or D2h-like molecules) → "G,U" form
+            #     (gerade,ungerade), e.g. "10,14" for d+f manifold.
+            #   NFSYM=1 (C2v/Cs/C1 molecules, no inversion) → single
+            #     total count, e.g. "24" for the same manifold.
+            # DIRAC aborts with "for NFSYM=1 use N/O instead of N/G,U"
+            # if you give a comma-split spec to a non-inversion system.
+            # The caller is responsible for matching the molecule's
+            # symmetry; this drafter passes the string through.
             spec_str = os.get("spinors") or os.get("orbital_spec") or ""
             if "/" in str(spec_str):
                 lines.append(f" {spec_str}")
