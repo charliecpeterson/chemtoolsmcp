@@ -6,8 +6,9 @@ quantum chemistry programs — parsing outputs, drafting inputs, managing jobs,
 analyzing active spaces, recovering from failed runs.
 
 Currently supports **NWChem** (97 program-specific tools), **OpenMolcas**
-(40 tools), and **DIRAC** (16 tools, read-only Phase DC — parsers, HDF5
-checkpoint reader, open-shell analyzer, bundled 180-page docs) plus 36
+(40 tools), and **DIRAC** (22 tools: parsers, HDF5 checkpoint reader,
+VECPOP per-MO j-character classifier, open-shell quality analyzer, MO
+reorder block drafter + input patcher, bundled 180-page docs) plus 36
 program-generic tools that auto-detect any of them. Molpro, ORCA, and
 others planned.
 

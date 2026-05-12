@@ -23,8 +23,17 @@ Phase DC ships the read-only tool surface:
     read_dirac_mo_coefficients     MO coefficients (full or by index list)
 
   Open-shell + diagnostic:
-    analyze_dirac_open_shell       cross-checks input AOC spec vs h5 orbital occupations
-    summarize_dirac_run            high-level rollup of a DIRAC text+h5 pair
+    analyze_dirac_open_shell           cross-checks input AOC spec vs h5 orbital occupations
+    analyze_dirac_open_shell_quality   deep open-shell verdict: character + energy clustering
+                                       + chemistry-hint match (Phase DD)
+    parse_dirac_vecpop                 per-MO j-character + AO populations from VECPOP block
+    suggest_dirac_orbital_swaps        find spinor candidates with target character (Phase DD)
+    summarize_dirac_run                high-level rollup of a DIRAC text+h5 pair
+
+  MO reordering (Phase DE):
+    draft_dirac_reorder_block          render a `.REORDER MO` block from per-ircop orders
+    apply_dirac_reorder_to_input       insert/replace `.REORDER MO` in an existing .inp
+    parse_dirac_reorder_block          extract any existing `.REORDER MO` spec
 
   Documentation:
     list_dirac_docs                enumerate bundled DIRAC docs (180 files)
@@ -70,6 +79,18 @@ from chemtools.programs.dirac.docs import (  # noqa: E402
     lookup_section as _lookup_section,
     read_doc_excerpt as _read_doc_excerpt,
     get_topic_guide as _get_topic_guide,
+)
+from chemtools.programs.dirac.parse.vecpop import (  # noqa: E402
+    parse_vecpop as _parse_vecpop,
+)
+from chemtools.programs.dirac.strategy.open_shell import (  # noqa: E402
+    analyze_open_shell_quality as _analyze_open_shell_quality,
+    suggest_orbital_swaps as _suggest_orbital_swaps,
+)
+from chemtools.programs.dirac.strategy.reorder import (  # noqa: E402
+    draft_reorder_block as _draft_reorder_block,
+    apply_reorder_to_input as _apply_reorder_to_input,
+    parse_reorder_block as _parse_reorder_block,
 )
 
 
@@ -256,6 +277,138 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     "h5_file":     {"type": "string"},
                 },
                 "required": ["output_file"],
+            },
+        },
+
+        # ----- Phase DD: VECPOP + deep open-shell + swap suggester -----
+        {
+            "name": "parse_dirac_vecpop",
+            "description": (
+                "Parse the DIRAC VECPOP / Mulliken-per-MO block. Returns one entry "
+                "per electronic eigenvalue inside each fermion ircop, with energy, "
+                "occupation, j-character (s 1/2, p 3/2, d 3/2, d 5/2, f 5/2, f 7/2, "
+                "etc.), m_j quantum number, and per-AO gross populations. Requires "
+                "**ANALYZE / .MULPOP plus *MULPOP / .VECPOP in the input."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"output_file": {"type": "string"}},
+                "required": ["output_file"],
+            },
+        },
+        {
+            "name": "analyze_dirac_open_shell_quality",
+            "description": (
+                "Deep open-shell quality verdict combining VECPOP j-character "
+                "with energy-clustering checks. Returns verdict (healthy / "
+                "caution / problematic) + issues list. Optionally pass "
+                "``expected_character`` as a chemistry hint (``actinide_5f``, "
+                "``valence_d``, ``valence_p``, etc.) or as an explicit list of "
+                "j-character strings (e.g. ``['f 5/2', 'f 7/2']``) — mismatches "
+                "are flagged as problematic findings with hints to run "
+                "suggest_dirac_orbital_swaps. Checks open-shell energy lies "
+                "between highest closed and lowest virtual in each ircop."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "expected_character": {
+                        "description": (
+                            "Chemistry hint or explicit list. Hints: "
+                            "actinide_5f, lanthanide_4f, valence_d, valence_f, "
+                            "transition_metal_d, valence_p, single_unpaired_s. "
+                            "Or a list like ['f 5/2', 'f 7/2']."
+                        ),
+                    },
+                },
+                "required": ["output_file"],
+            },
+        },
+        {
+            "name": "suggest_dirac_orbital_swaps",
+            "description": (
+                "Find DIRAC MO swap candidates when the open shell has wrong "
+                "character. Walks VECPOP, identifies current open-shell MOs "
+                "whose character is NOT in target_character, then lists "
+                "virtual / closed MOs with the target character that could be "
+                "swapped in. Returns per-ircop lists ready to feed into "
+                "draft_dirac_reorder_block. Diagnostic only — final swap choice "
+                "still requires chemistry judgment."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "target_character": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of j-character strings the open shell SHOULD have, e.g. ['f 5/2', 'f 7/2'].",
+                    },
+                    "n_candidates": {"type": "integer", "default": 6},
+                },
+                "required": ["output_file", "target_character"],
+            },
+        },
+
+        # ----- Phase DE: MO reordering -----
+        {
+            "name": "draft_dirac_reorder_block",
+            "description": (
+                "Render a ``.REORDER MO`` block from per-ircop order strings. "
+                "Pass ``per_ircop_orders`` as a list of strings — one per "
+                "fermion ircop. Each string uses DIRAC's range syntax: "
+                "comma-separated indices with ``a..b`` ranges and ``..oo`` for "
+                "the remainder. Example: ``['1..8,10,9', '1..oo']`` swaps MOs "
+                "9 and 10 in ircop 1, leaves ircop 2 unchanged."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "per_ircop_orders": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["per_ircop_orders"],
+            },
+        },
+        {
+            "name": "apply_dirac_reorder_to_input",
+            "description": (
+                "Insert (or replace) a ``.REORDER MO`` block in a DIRAC ``.inp`` "
+                "text. Locates **WAVE FUNCTION (any variant). Prefers placement "
+                "under *SCF when that subsection exists, else inserts at the "
+                "end of **WAVE FUNCTION. If a ``.REORDER`` already exists, set "
+                "``replace=True`` to overwrite it cleanly; otherwise returns "
+                "verdict=already_present."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file":       {"type": "string"},
+                    "per_ircop_orders": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "replace":          {"type": "boolean", "default": False},
+                    "output_path":      {
+                        "type": "string",
+                        "description": "Optional — if provided, write the patched text here. Otherwise just return patched_text in the payload.",
+                    },
+                },
+                "required": ["input_file", "per_ircop_orders"],
+            },
+        },
+        {
+            "name": "parse_dirac_reorder_block",
+            "description": (
+                "Extract any existing ``.REORDER MO`` block from a DIRAC ``.inp``. "
+                "Returns ``{ircop_orders: [...], line: int}`` or null."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"input_file": {"type": "string"}},
+                "required": ["input_file"],
             },
         },
 
@@ -530,6 +683,66 @@ def _handle_summarize_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
     summary["verdict"] = verdict
 
     return summary
+
+
+@_tool("parse_dirac_vecpop")
+def _handle_parse_dirac_vecpop(arguments: dict[str, Any]) -> dict[str, Any]:
+    with open(arguments["output_file"], encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    return _parse_vecpop(text)
+
+
+@_tool("analyze_dirac_open_shell_quality")
+def _handle_analyze_dirac_open_shell_quality(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _analyze_open_shell_quality(
+        arguments["output_file"],
+        expected_character=arguments.get("expected_character"),
+    )
+
+
+@_tool("suggest_dirac_orbital_swaps")
+def _handle_suggest_dirac_orbital_swaps(arguments: dict[str, Any]) -> dict[str, Any]:
+    target = arguments["target_character"]
+    if isinstance(target, str):
+        target = [target]
+    return _suggest_orbital_swaps(
+        arguments["output_file"],
+        target_character=list(target),
+        n_candidates=int(arguments.get("n_candidates", 6)),
+    )
+
+
+@_tool("draft_dirac_reorder_block")
+def _handle_draft_dirac_reorder_block(arguments: dict[str, Any]) -> dict[str, Any]:
+    block = _draft_reorder_block(list(arguments["per_ircop_orders"]))
+    return {"block_text": block, "n_ircops": len(arguments["per_ircop_orders"])}
+
+
+@_tool("apply_dirac_reorder_to_input")
+def _handle_apply_dirac_reorder_to_input(arguments: dict[str, Any]) -> dict[str, Any]:
+    with open(arguments["input_file"], encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    result = _apply_reorder_to_input(
+        text,
+        list(arguments["per_ircop_orders"]),
+        replace=bool(arguments.get("replace", False)),
+    )
+    out_path = arguments.get("output_path")
+    if out_path and result["action"] != "already_present":
+        from pathlib import Path
+        Path(out_path).write_text(result["patched_text"], encoding="utf-8")
+        result["output_file"] = out_path
+    return result
+
+
+@_tool("parse_dirac_reorder_block")
+def _handle_parse_dirac_reorder_block(arguments: dict[str, Any]) -> dict[str, Any]:
+    with open(arguments["input_file"], encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    r = _parse_reorder_block(text)
+    if r is None:
+        return {"present": False, "input_file": arguments["input_file"]}
+    return {"present": True, **r}
 
 
 @_tool("list_dirac_docs")
