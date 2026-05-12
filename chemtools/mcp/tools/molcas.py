@@ -75,6 +75,10 @@ from chemtools.programs.molcas.strategy.orchestrators import (
     prepare_excited_states_workflow as _prepare_excited_states_workflow,
     prepare_opt_freq_workflow as _prepare_opt_freq_workflow,
 )
+from chemtools.programs.molcas.strategy.reaction_energy import (
+    compute_reaction_energy as _compute_reaction_energy,
+    check_active_space_consistency as _check_active_space_consistency,
+)
 from chemtools.programs.molcas.docs import (
     list_docs as _list_docs,
     search_docs as _search_docs,
@@ -843,6 +847,88 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "compute_molcas_reaction_energy",
+            "description": (
+                "Compute a reaction energy from converged Molcas outputs. "
+                "ΔE = Σ_products(coef × E) − Σ_reactants(coef × E). "
+                "For atomization / dissociation (1 reactant molecule, N atomic "
+                "products) the result is the binding/dissociation energy D_e "
+                "(positive = bound). Pair with check_molcas_active_space_consistency "
+                "before trusting CASSCF reaction energies on multireference systems."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "output_file": {"type": "string"},
+                                "coefficient": {"type": "number", "default": 1},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["output_file"],
+                        },
+                    },
+                    "reactants": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "output_file": {"type": "string"},
+                                "coefficient": {"type": "number", "default": 1},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["output_file"],
+                        },
+                    },
+                    "energy_kind": {
+                        "type": "string",
+                        "enum": ["primary", "scf", "rasscf", "caspt2", "ms_caspt2", "rassi_sf", "rassi_so"],
+                        "default": "primary",
+                        "description": "Which energy field to use. 'primary' follows the parser hierarchy (CASPT2 > RASSCF > SCF). For reaction energies, force a consistent level (e.g. 'rasscf' or 'caspt2') across all species.",
+                    },
+                    "label": {"type": ["string", "null"], "default": None},
+                },
+                "required": ["products", "reactants"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "check_molcas_active_space_consistency",
+            "description": (
+                "Compare a molecule's CAS spec to the sum of its dissociation "
+                "fragments' CAS specs. Flags the 'molecule CAS too small to "
+                "span fragments' trap — when this is wrong, CASSCF reaction "
+                "energies are unphysical (often negative for clearly bound "
+                "molecules). Optionally also counts active orbitals with "
+                "specific atomic character (e.g. how many Cr 3d orbitals)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "molecule_output": {"type": "string"},
+                    "fragments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "output_file": {"type": "string"},
+                                "stoichiometry": {"type": "integer", "default": 1},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["output_file"],
+                        },
+                    },
+                    "target_character_atom": {"type": ["string", "null"], "default": None, "description": "If set with target_character_ao, count active orbitals with this character in molecule vs fragments (e.g. 'Cr' + '3d')."},
+                    "target_character_ao": {"type": ["string", "null"], "default": None},
+                },
+                "required": ["molecule_output", "fragments"],
+                "additionalProperties": False,
+            },
+        },
         # ----- Documentation -----
         {
             "name": "list_molcas_docs",
@@ -1348,6 +1434,26 @@ def _handle_prepare_molcas_opt_freq_workflow(arguments: dict[str, Any]) -> dict[
         apptainer_sif=arguments.get("apptainer_sif"),
         profile=arguments.get("profile"),
         requested_np=int(arguments.get("requested_np", 1)),
+    )
+
+
+@_tool("compute_molcas_reaction_energy")
+def _handle_compute_molcas_reaction_energy(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _compute_reaction_energy(
+        products=arguments["products"],
+        reactants=arguments["reactants"],
+        energy_kind=arguments.get("energy_kind", "primary"),
+        label=arguments.get("label"),
+    )
+
+
+@_tool("check_molcas_active_space_consistency")
+def _handle_check_molcas_active_space_consistency(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _check_active_space_consistency(
+        molecule_output=arguments["molecule_output"],
+        fragments=arguments["fragments"],
+        target_character_atom=arguments.get("target_character_atom"),
+        target_character_ao=arguments.get("target_character_ao"),
     )
 
 
