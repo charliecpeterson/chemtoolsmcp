@@ -84,6 +84,9 @@ from chemtools.programs.molcas.strategy.case_analysis import (
     summarize_molcas_output as _summarize_molcas_output,
     analyze_molcas_case as _analyze_molcas_case,
 )
+from chemtools.programs.molcas.strategy.geometry_inspector import (
+    inspect_geometry as _inspect_geometry,
+)
 from chemtools.programs.molcas.strategy.reaction_energy import (
     compute_reaction_energy as _compute_reaction_energy,
     check_active_space_consistency as _check_active_space_consistency,
@@ -449,6 +452,54 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                     "block_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "inspect_molcas_geometry",
+            "description": (
+                "Inspect a Molcas geometry and report formula, bond lengths within a "
+                "threshold, bond angles through bonded triples, close contacts (overlap "
+                "detection), center of mass, fragment count, and optional user-specified "
+                "distance/angle/dihedral measurements. Accepts geometry from one of: "
+                "output_file (converged geom via parse_final_geometry), input_file "
+                "(extracts atoms from &SEWARD/&GATEWAY block), or an explicit atoms "
+                "list. Internally normalizes coordinates to Angstrom so bond detection "
+                "works regardless of source units (Molcas outputs are often in bohr)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": ["string", "null"], "default": None, "description": "Converged geometry from a Molcas .out file."},
+                    "input_file": {"type": ["string", "null"], "default": None, "description": "Pull atoms from a .input file's basis blocks (legacy fallback)."},
+                    "atoms": {
+                        "type": ["array", "null"], "default": None,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string"},
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "z": {"type": "number"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["symbol", "x", "y", "z"],
+                        },
+                        "description": "Explicit atoms list (assumes Angstrom units).",
+                    },
+                    "max_bond_length": {"type": "number", "default": 2.5, "description": "Upper distance (Å) for the bond_lengths report."},
+                    "min_safe_distance": {"type": "number", "default": 0.6, "description": "Lower threshold (Å) for the close_contacts warning."},
+                    "covalent_tolerance": {"type": "number", "default": 1.20, "description": "Scale factor for covalent radii sum — pairs with r ≤ tolerance × (r_cov_a + r_cov_b) are 'bonded' for angle enumeration."},
+                    "measurements": {
+                        "type": ["object", "null"], "default": None,
+                        "properties": {
+                            "distances": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+                            "angles": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+                            "dihedrals": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+                        },
+                        "description": "Specific measurements to compute, by 1-based atom indices.",
+                    },
+                },
                 "additionalProperties": False,
             },
         },
@@ -1603,6 +1654,19 @@ def _handle_extract_molcas_geometry(arguments: dict[str, Any]) -> dict[str, Any]
     if final is None:
         return {"error": "no_geometry", "message": f"No geometry found in {arguments['output_file']}"}
     return final
+
+
+@_tool("inspect_molcas_geometry")
+def _handle_inspect_molcas_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _inspect_geometry(
+        output_file=arguments.get("output_file"),
+        input_file=arguments.get("input_file"),
+        atoms=arguments.get("atoms"),
+        max_bond_length=float(arguments.get("max_bond_length", 2.5)),
+        min_safe_distance=float(arguments.get("min_safe_distance", 0.6)),
+        covalent_tolerance=float(arguments.get("covalent_tolerance", 1.20)),
+        measurements=arguments.get("measurements"),
+    )
 
 
 @_tool("parse_molcas_trajectory")
