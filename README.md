@@ -6,12 +6,14 @@ quantum chemistry programs — parsing outputs, drafting inputs, managing jobs,
 analyzing active spaces, recovering from failed runs.
 
 Currently supports **NWChem** (97 program-specific tools), **OpenMolcas**
-(40 tools), and **DIRAC** (26 tools: parsers, HDF5 checkpoint reader,
+(40 tools), and **DIRAC** (27 tools: parsers, HDF5 checkpoint reader,
 VECPOP per-MO j-character classifier, open-shell quality analyzer, MO
 reorder block drafter + input patcher, `.inp` + `.mol` drafters,
 atomic-start orchestrator with `--copy` chain, pam-dirac/apptainer
-launcher, bundled 180-page docs) plus 36 program-generic tools that
-auto-detect any of them. Molpro, ORCA, and others planned.
+launcher, `.KPSELE` atomic-supersymmetry support for actinide AOC,
+Cm-class multi-step convergence workflow scaffolding, bundled 180-page
+docs) plus 36 program-generic tools that auto-detect any of them.
+Molpro, ORCA, and others planned.
 
 ---
 

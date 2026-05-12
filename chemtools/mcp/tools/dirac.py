@@ -43,6 +43,11 @@ Phase DC ships the read-only tool surface:
   Launcher (Phase DG):
     prepare_dirac_launch               build the apptainer + pam-dirac command line
 
+  Cm-class actinide workflow (Phase DI):
+    prepare_dirac_cm_class_workflow    multi-step plan for hard actinides
+                                       (Cm/Bk/Cf/Es/Fm/Md/No/Lr) where
+                                       .KPSELE alone doesn't converge
+
   Documentation:
     list_dirac_docs                enumerate bundled DIRAC docs (180 files)
     search_dirac_docs              substring search across the doc corpus
@@ -104,6 +109,10 @@ from chemtools.programs.dirac.input.inp import draft_inp as _draft_inp  # noqa: 
 from chemtools.programs.dirac.input.mol import draft_mol as _draft_mol  # noqa: E402
 from chemtools.programs.dirac.input.atomic_start import (  # noqa: E402
     prepare_atomic_start as _prepare_atomic_start,
+)
+from chemtools.programs.dirac.input.cm_class import (  # noqa: E402
+    prepare_cm_class_workflow as _prepare_cm_class_workflow,
+    is_cm_class as _is_cm_class,
 )
 from chemtools.programs.dirac.runtime import (  # noqa: E402
     prepare_launch as _prepare_launch,
@@ -522,6 +531,49 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     },
                 },
                 "required": ["molecule_atoms"],
+            },
+        },
+
+        # ----- Phase DI: Cm-class multi-step convergence workflow -----
+        {
+            "name": "prepare_dirac_cm_class_workflow",
+            "description": (
+                "Build the 3-step convergence plan for heavy actinides "
+                "(Cm, Bk, Cf, Es, Fm, Md, No, Lr) where the simple "
+                "atomic-start + .KPSELE workflow stalls because the "
+                "5f^7+ orbitals lie BELOW the outer 6d/7s shells. Per "
+                "Mochizuki JCP 2003 / DIRAC CmF.md: (1) compute a "
+                "LIGHTER reference atom (Ce default) with KPSELE; "
+                "(2) molecular SCF as closed-shell with imported 5f^N "
+                "frozen at chosen orbital positions; (3) closed shells "
+                "frozen, 5f^N relaxes.\n\n"
+                "Step 1's input is fully auto-drafted and runnable. Step 2 "
+                "and Step 3 inputs are SCAFFOLDED with explanatory "
+                "comments — they need a chemist to fill in the .FROZEN / "
+                "orbital-position-remap blocks (the exact syntax lives "
+                "in DIRAC's test/tutorial fixtures, not in the bundled "
+                "docs). Returns the launch-command hints with the right "
+                "``--put``/``--get`` plumbing for the cf.<elem> orbital-"
+                "file passing between steps.\n\n"
+                "Call get_dirac_topic_guide('cm_class_workflow') for the "
+                "full strategy narrative."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "central_element":   {"type": "string"},
+                    "molecule_atoms":    {"type": "array", "items": {"type": "object"}},
+                    "basis":             {"type": "object"},
+                    "default_basis":     {"type": "string", "default": "dyall.2zp"},
+                    "reference_element": {"type": "string", "default": "Ce"},
+                    "output_dir":        {"type": "string"},
+                    "molecule_name":     {"type": "string", "default": "molecule"},
+                    "molecule_units":    {"type": "string", "default": "bohr"},
+                    "n_5f_electrons":    {"type": "integer", "default": 7},
+                    "write_files":       {"type": "boolean", "default": False,
+                                          "description": "Write each step's .inp/.mol to disk."},
+                },
+                "required": ["central_element", "molecule_atoms"],
             },
         },
 
@@ -954,6 +1006,33 @@ def _handle_prepare_dirac_atomic_start(arguments: dict[str, Any]) -> dict[str, A
         molecule_name=arguments.get("molecule_name", "molecule"),
         molecule_scf=arguments.get("molecule_scf"),
         molecule_units=arguments.get("molecule_units", "bohr"),
+    )
+    if arguments.get("write_files"):
+        from pathlib import Path
+        for p in result["plan"]:
+            Path(p["inp_path"]).parent.mkdir(parents=True, exist_ok=True)
+            Path(p["inp_path"]).write_text(p["inp_text"], encoding="utf-8")
+            Path(p["mol_path"]).write_text(p["mol_text"], encoding="utf-8")
+        result["files_written"] = True
+    return result
+
+
+@_tool("prepare_dirac_cm_class_workflow")
+def _handle_prepare_dirac_cm_class_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    raw_basis = arguments.get("basis")
+    basis: dict[str, str] | None = None
+    if raw_basis:
+        basis = {str(k): v for k, v in raw_basis.items()}
+    result = _prepare_cm_class_workflow(
+        central_element=arguments["central_element"],
+        molecule_atoms=arguments["molecule_atoms"],
+        basis=basis,
+        default_basis=arguments.get("default_basis", "dyall.2zp"),
+        reference_element=arguments.get("reference_element", "Ce"),
+        output_dir=arguments.get("output_dir"),
+        molecule_name=arguments.get("molecule_name", "molecule"),
+        molecule_units=arguments.get("molecule_units", "bohr"),
+        n_5f_electrons=int(arguments.get("n_5f_electrons", 7)),
     )
     if arguments.get("write_files"):
         from pathlib import Path

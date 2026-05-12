@@ -262,6 +262,86 @@ _TOPIC_GUIDES: dict[str, dict[str, Any]] = {
             "or library ECP name, add ``.ECP`` to **HAMILTONIAN."
         ),
     },
+    "kpsele": {
+        "summary": (
+            "``.KPSELE`` is DIRAC's atomic-supersymmetry mechanism — it tells "
+            "DIRAC's RELSCF inner loop how to populate orbitals by kappa "
+            "quantum number (-1=s1/2, +1=p1/2, -2=p3/2, +2=d3/2, -3=d5/2, "
+            "+3=f5/2, -4=f7/2). Required for actinide / lanthanide AOC where "
+            "the 5f / 4f near-degeneracy otherwise stalls the SCF. Format "
+            "(after .CLOSED SHELL / .OPEN SHELL inside *SCF):\n\n"
+            "  .KPSELE\n"
+            "   <n_kappa>\n"
+            "   <kappa_1> <kappa_2> ...\n"
+            "   <closed core spinors per kappa>\n"
+            "   <open shell 1 spinors per kappa>\n"
+            "   <open shell 2 spinors per kappa>\n"
+            "   ...\n\n"
+            "Sum of closed-core row = real electrons in closed core. Each "
+            "open-shell row sums to that shell's spinor count. Validated on "
+            "Np (5f^4 6d^1) — converges in 13 outer iterations per the "
+            "converging_atoms.md doc reference."
+        ),
+        "key_docs": ["converging_atoms.md", "aoc.md", "wave_function.md"],
+        "agent_pattern": (
+            "1. prepare_dirac_atomic_start with element in {Th, Pa, U, Np, "
+            "Pu, Am, Cm, Ac} auto-emits .KPSELE from the bundled per-element "
+            "table.\n"
+            "2. Verify the rendered .inp contains a .KPSELE block.\n"
+            "3. Launch with pam-dirac; expect normal exit in <50 iterations "
+            "for Np-class actinides.\n"
+            "4. For Cm-class systems where .KPSELE alone still oscillates, "
+            "see get_dirac_topic_guide('cm_class_workflow') for the "
+            "multi-step orbital-import strategy."
+        ),
+    },
+    "cm_class_workflow": {
+        "summary": (
+            "Cm and its neighbours (Bk, Cf, Es, Fm, ...) have 5f^7+ open "
+            "shells where the 5f orbitals are deeper than the 'closed' "
+            "outer 6d/7s shells — DIRAC's default 'open above closed' "
+            "AOC assumption breaks down. Even with .KPSELE the inner "
+            "RELSCF loop oscillates within the hardcoded 50-iter cap.\n\n"
+            "The published convergence strategy (Mochizuki, JCP 2003; "
+            "DIRAC docs CmF.md) is a THREE-step workflow:\n\n"
+            "  Step 1. Compute a reference 5f^N atomic checkpoint. For Cm, "
+            "          this is typically done on a LIGHTER reference like "
+            "          cerium (Ce, [Xe]4f^1 5d^1 6s^2 — similar 5f/4f "
+            "          structure, far easier to converge) using KPSELE.\n"
+            "          Output: cf.Cm (atomic coefficient file).\n\n"
+            "  Step 2. Run the molecular SCF as a CLOSED-SHELL calc with "
+            "          the 5f^7 orbitals IMPORTED from the cf.Cm file and "
+            "          FROZEN at specific orbital positions. Use pam-dirac\n"
+            "          ``--put 'cf.Cm=AFCMXX'`` to stage the atomic file\n"
+            "          in scratch as AFCMXX, then specify the orbital-\n"
+            "          import block inside *SCF.\n"
+            "          Output: cf.CmF_5f_frz (molecular coefficients with\n"
+            "          frozen 5f).\n\n"
+            "  Step 3. Re-run with the closed-shell orbitals FROZEN and "
+            "          the 5f^7 unfrozen to let them relax in the "
+            "          molecular environment.\n"
+            "          Output: final cf.CmF_5f_relax.\n\n"
+            "The exact orbital-position-remap + .FROZEN syntax inside "
+            "*SCF is not in the bundled docs and requires inspection of "
+            "DIRAC's test/tutorial_projection_analysis fixtures (not "
+            "shipped with all containers). The agent cannot auto-generate "
+            "Step 2's input — chemistry-expert manual editing required.\n\n"
+            "Use prepare_dirac_atomic_start for Step 1, then craft the "
+            "molecular steps manually following the CmF.md example."
+        ),
+        "key_docs": ["CmF.md", "converging_atoms.md", "projection_analysis.md",
+                     "atomic_start.md"],
+        "agent_pattern": (
+            "When prepare_dirac_atomic_start hits convergence failure on a "
+            "Cm/Bk/Cf/Es element:\n"
+            "1. Acknowledge the chemistry-gap — KPSELE alone isn't enough.\n"
+            "2. Suggest computing Ce (or a lighter lanthanide) atomic "
+            "checkpoint via prepare_dirac_atomic_start as a reference.\n"
+            "3. Surface CmF.md via get_dirac_topic_guide('cm_class_workflow').\n"
+            "4. The agent should NOT try to auto-generate the .FROZEN "
+            "block — flag for user/chemist review."
+        ),
+    },
 }
 
 
