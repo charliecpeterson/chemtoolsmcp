@@ -96,8 +96,12 @@ def draft_mol(
     units_flag = " A" if units.lower().startswith("angs") else ""
     header_line = f"C   {n_types}{sym_part}{units_flag}"
 
+    # Magic header determines DIRAC's basis-read mode:
+    #   INTGRL  → expects inline primitive exponents + contraction coefs
+    #   DIRAC   → expects LARGE BASIS <name> library lookups
+    # The drafter emits library lookups, so DIRAC is the right magic.
     lines: list[str] = [
-        "INTGRL",
+        "DIRAC",
         title.strip() or "DIRAC mol",
         title_line2.strip() or "(generated)",
         header_line,
@@ -106,7 +110,13 @@ def draft_mol(
     for z in sorted(by_z.keys()):
         atype_atoms = by_z[z]
         n_atoms = len(atype_atoms)
-        lines.append(f"        {z}.    {n_atoms}")
+        # DIRAC's atomtype header is right-aligned in a 10-column field for
+        # Z followed by a 5-column field for the atom count (e.g.
+        # ``       41.    1`` for Nb with one atom). Hardcoding 8 leading
+        # spaces breaks for Z≥100 and even for Z=10..99 when combined with
+        # certain readers — right-aligning matches what working fixtures use.
+        z_str = f"{z}."
+        lines.append(f"{z_str:>10s}{n_atoms:>5d}")
         for a in atype_atoms:
             label = a.get("label") or ATOMIC_SYMBOLS.get(z) or str(z)
             x = float(a["x"])

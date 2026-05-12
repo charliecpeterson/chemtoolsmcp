@@ -28,11 +28,13 @@ from chemtools.programs.dirac.input.inp import draft_inp
 from chemtools.programs.dirac.input.mol import draft_mol
 
 
-# Ground-state spin multiplicity + AOC config for common elements.
-# Format: (closed_per_ircop, open_shell_blocks_or_None)
-# closed_per_ircop omits an `open_shell` when the ground state is a
-# closed-shell singlet. n_ircops=1 in atoms with no inversion symmetry
-# under the default DIRAC behavior; the AOC spec carries through.
+# Neutral-atom AOC configs for DIRAC.
+#
+# Each entry is ``{closed_shell: [n_fsym1, n_fsym2], open_shell: [...]}``.
+# Both ``closed_shell`` entries and ``open_shell.n_electrons`` count REAL
+# ELECTRONS PER FERMION IRCOP (matching DIRAC's .CLOSED SHELL convention).
+# Closed-shell counts must be EVEN (one Kramers pair = 2 electrons).
+# Total real electrons = sum(closed_shell) + sum(open n_electrons) = Z.
 #
 # AOC "spinors" spec convention: ``"<fsym1_count>,<fsym2_count>"`` where
 # fsym 1 is the GERADE block (E1g) and fsym 2 is the UNGERADE block (E1u).
@@ -40,64 +42,92 @@ from chemtools.programs.dirac.input.mol import draft_mol
 #   s, d, g (even L) → gerade  → fsym 1
 #   p, f, h (odd L)  → ungerade → fsym 2
 #
-# 1s → 2 spinors in fsym 1   → "2,0"
-# 2p → 6 spinors in fsym 2   → "0,6"
-# 3d → 10 spinors in fsym 1  → "10,0"
-# 4f → 14 spinors in fsym 2  → "0,14"
-# 5f → 14 spinors in fsym 2  → "0,14"
+# 1s/2s/3s/... → 2 spinors each in fsym 1   (spec "2,0")
+# 2p/3p/...    → 6 spinors each in fsym 2   ("0,6")
+# 3d/4d/...    → 10 spinors each in fsym 1  ("10,0")
+# 4f/5f/...    → 14 spinors each in fsym 2  ("0,14")
+#
+# Noble-gas cumulative closed real-electron counts (matches DIRAC
+# ``converging_atoms.md`` examples: Nb [Kr]4d^4 5s^1 uses 18 18 closed):
+#   He → (2, 0)    Ne → (4, 6)     Ar → (6, 12)
+#   Kr → (18, 18)  Xe → (30, 24)   Rn → (42, 44)
 #
 _ATOMIC_GROUND_STATES: dict[str, dict[str, Any]] = {
-    # Period 1 (1s — gerade)
-    "H":  {"open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
-    "He": {"closed_shell": [1]},
-    # Period 2 (2s gerade, 2p ungerade)
-    "Li": {"open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
-    "Be": {"closed_shell": [2]},
-    "B":  {"open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
-    "C":  {"open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
-    "N":  {"open_shell": [{"n_electrons": 3, "spinors": "0,6"}]},
-    "O":  {"open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
-    "F":  {"open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
-    "Ne": {"closed_shell": [5]},
-    # Period 3 (3s gerade, 3p ungerade)
-    "Na": {"open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
-    "Mg": {"closed_shell": [6]},
-    "Al": {"open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
-    "Si": {"open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
-    "P":  {"open_shell": [{"n_electrons": 3, "spinors": "0,6"}]},
-    "S":  {"open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
-    "Cl": {"open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
-    "Ar": {"closed_shell": [9]},
-    # Period 4 transition metals (3d — gerade, fsym 1)
-    "Sc": {"open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
-    "Ti": {"open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
-    "V":  {"open_shell": [{"n_electrons": 3, "spinors": "10,0"}]},
-    "Cr": {"open_shell": [{"n_electrons": 5, "spinors": "10,0"}]},
-    "Mn": {"open_shell": [{"n_electrons": 5, "spinors": "10,0"}]},
-    "Fe": {"open_shell": [{"n_electrons": 6, "spinors": "10,0"}]},
-    "Co": {"open_shell": [{"n_electrons": 7, "spinors": "10,0"}]},
-    "Ni": {"open_shell": [{"n_electrons": 8, "spinors": "10,0"}]},
-    "Cu": {"open_shell": [{"n_electrons": 10, "spinors": "10,0"}]},
-    "Zn": {"closed_shell": [15]},
-    # Period 5 transition metals (4d — gerade, fsym 1)
-    "Y":  {"open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
-    "Zr": {"open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
-    "Mo": {"open_shell": [{"n_electrons": 6, "spinors": "10,0"}]},
-    "Ru": {"open_shell": [{"n_electrons": 7, "spinors": "10,0"}]},
-    "Rh": {"open_shell": [{"n_electrons": 8, "spinors": "10,0"}]},
-    "Pd": {"open_shell": [{"n_electrons": 10, "spinors": "10,0"}]},
-    "Ag": {"closed_shell": [23]},
-    # Lanthanides (4f — ungerade, fsym 2) — partial coverage.
-    "Ce": {"open_shell": [{"n_electrons": 1, "spinors": "0,14"}]},
-    "Eu": {"open_shell": [{"n_electrons": 7, "spinors": "0,14"}]},
-    "Gd": {"open_shell": [{"n_electrons": 8, "spinors": "0,14"}]},
-    # Actinides (5f — ungerade, fsym 2) — partial coverage.
-    "Th": {"open_shell": [{"n_electrons": 2, "spinors": "0,14"}]},
-    "U":  {"open_shell": [{"n_electrons": 4, "spinors": "0,14"}]},
-    "Np": {"open_shell": [{"n_electrons": 5, "spinors": "0,14"}]},
-    "Pu": {"open_shell": [{"n_electrons": 6, "spinors": "0,14"}]},
-    "Am": {"open_shell": [{"n_electrons": 7, "spinors": "0,14"}]},
-    "Cm": {"open_shell": [{"n_electrons": 8, "spinors": "0,14"}]},
+    # Period 1
+    "H":  {"closed_shell": [0, 0], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "He": {"closed_shell": [2, 0]},
+    # Period 2 — He core (2,0) + 2s/2p
+    "Li": {"closed_shell": [2, 0], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Be": {"closed_shell": [4, 0]},
+    "B":  {"closed_shell": [4, 0], "open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
+    "C":  {"closed_shell": [4, 0], "open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
+    "N":  {"closed_shell": [4, 0], "open_shell": [{"n_electrons": 3, "spinors": "0,6"}]},
+    "O":  {"closed_shell": [4, 0], "open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
+    "F":  {"closed_shell": [4, 0], "open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
+    "Ne": {"closed_shell": [4, 6]},
+    # Period 3 — Ne core (4,6) + 3s/3p
+    "Na": {"closed_shell": [4, 6], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Mg": {"closed_shell": [6, 6]},
+    "Al": {"closed_shell": [6, 6], "open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
+    "Si": {"closed_shell": [6, 6], "open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
+    "P":  {"closed_shell": [6, 6], "open_shell": [{"n_electrons": 3, "spinors": "0,6"}]},
+    "S":  {"closed_shell": [6, 6], "open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
+    "Cl": {"closed_shell": [6, 6], "open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
+    "Ar": {"closed_shell": [6, 12]},
+    # Period 4 — Ar core (6,12) + 4s/3d/4p
+    "K":  {"closed_shell": [6, 12], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Ca": {"closed_shell": [8, 12]},
+    # 3d transition metals: Ca core (8,12) + 3d^N (gerade, fsym 1)
+    "Sc": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Ti": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
+    "V":  {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 3, "spinors": "10,0"}]},
+    "Cr": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 4, "spinors": "10,0"}]},
+    "Mn": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 5, "spinors": "10,0"}]},
+    "Fe": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 6, "spinors": "10,0"}]},
+    "Co": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 7, "spinors": "10,0"}]},
+    "Ni": {"closed_shell": [8, 12], "open_shell": [{"n_electrons": 8, "spinors": "10,0"}]},
+    "Cu": {"closed_shell": [16, 12], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Zn": {"closed_shell": [18, 12]},
+    # 4p block — Zn core (18,12) + 4p
+    "Ga": {"closed_shell": [18, 12], "open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
+    "Ge": {"closed_shell": [18, 12], "open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
+    "As": {"closed_shell": [18, 12], "open_shell": [{"n_electrons": 3, "spinors": "0,6"}]},
+    "Se": {"closed_shell": [18, 12], "open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
+    "Br": {"closed_shell": [18, 12], "open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
+    "Kr": {"closed_shell": [18, 18]},
+    # Period 5 — Kr core (18,18) + 5s/4d/5p
+    "Rb": {"closed_shell": [18, 18], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Sr": {"closed_shell": [20, 18]},
+    "Y":  {"closed_shell": [20, 18], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Zr": {"closed_shell": [20, 18], "open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
+    "Mo": {"closed_shell": [20, 18], "open_shell": [{"n_electrons": 4, "spinors": "10,0"}]},
+    "Ru": {"closed_shell": [20, 18], "open_shell": [{"n_electrons": 6, "spinors": "10,0"}]},
+    "Rh": {"closed_shell": [20, 18], "open_shell": [{"n_electrons": 7, "spinors": "10,0"}]},
+    "Pd": {"closed_shell": [28, 18]},
+    "Ag": {"closed_shell": [28, 18], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Cd": {"closed_shell": [30, 18]},
+    "Xe": {"closed_shell": [30, 24]},
+    # Period 6 — Xe core (30,24) + 6s/4f/5d
+    "Cs": {"closed_shell": [30, 24], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Ba": {"closed_shell": [32, 24]},
+    "La": {"closed_shell": [32, 24], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Ce": {"closed_shell": [32, 24], "open_shell": [{"n_electrons": 2, "spinors": "10,14"}]},
+    "Eu": {"closed_shell": [32, 24], "open_shell": [{"n_electrons": 7, "spinors": "0,14"}]},
+    "Gd": {"closed_shell": [32, 24], "open_shell": [{"n_electrons": 8, "spinors": "10,14"}]},
+    "Yb": {"closed_shell": [32, 38]},
+    "Lu": {"closed_shell": [32, 38], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Rn": {"closed_shell": [42, 44]},
+    # Period 7 actinides — Rn core (42,44) + 7s/5f/6d
+    "Fr": {"closed_shell": [42, 44], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
+    "Ra": {"closed_shell": [44, 44]},
+    "Ac": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Th": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
+    "Pa": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 3, "spinors": "10,14"}]},
+    "U":  {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 4, "spinors": "10,14"}]},
+    "Np": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 5, "spinors": "10,14"}]},
+    "Pu": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 6, "spinors": "0,14"}]},
+    "Am": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 7, "spinors": "0,14"}]},
+    "Cm": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 8, "spinors": "10,14"}]},
 }
 
 
@@ -187,6 +217,15 @@ def prepare_atomic_start(
             # electrons paired. Caller may want to override.
             gs = {"closed_shell": []}
 
+        # Open-shell atomic AOC for heavy elements doesn't converge in
+        # DIRAC's default 50 iterations; bump to 200 and enable .RESOLVE
+        # so the SCF can iteratively re-classify the open-shell orbitals.
+        # Light closed-shell singlets (He, Ne, Ar, ...) don't need this.
+        gs = dict(gs)
+        if gs.get("open_shell"):
+            gs.setdefault("max_iter", 200)
+            gs.setdefault("resolve", True)
+
         atom_basis = _basis_for_element(sym, basis, default_basis)
         atom_mol_text = draft_mol(
             atoms=[{"label": sym, "x": 0.0, "y": 0.0, "z": 0.0,
@@ -200,6 +239,9 @@ def prepare_atomic_start(
             "title": f"{sym} atom SCF",
             "wave_function": "scf",
             "analyze": ["mulpop"],
+            # Atomic jobs have inversion symmetry (Dinfh-effective) so .VECPOP
+            # needs 2 ircop lines.
+            "analyze_vecpop_ranges": ["1..oo", "1..oo"],
             "hamiltonian": hamiltonian,
             "integrals": integrals,
             "scf": gs,

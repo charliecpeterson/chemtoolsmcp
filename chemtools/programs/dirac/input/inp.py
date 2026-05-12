@@ -108,37 +108,56 @@ def draft_inp(spec: dict[str, Any]) -> str:
         for kw in analyze:
             lines.append(f".{kw.upper()}")
         if "mulpop" in [a.lower() for a in analyze] or "vecpop" in [a.lower() for a in analyze]:
-            ranges = spec.get("analyze_vecpop_ranges") or ["1..oo", "1..oo"]
+            # .VECPOP must have exactly one argument line per FERMION ircop.
+            # Inversion-symmetric (atomic/D2h/Dinfh) → 2 fermion ircops;
+            # non-inversion (C2v/Cs/C1) → 1 fermion ircop. Default 1 line
+            # — caller can pass analyze_vecpop_ranges=["1..oo", "1..oo"]
+            # explicitly for atomic / inversion-symmetric runs.
+            ranges = spec.get("analyze_vecpop_ranges") or ["1..oo"]
             lines.append("*MULPOP")
             lines.append(".VECPOP")
             for r in ranges:
                 lines.append(f" {r}")
 
     # ----- **WAVE FUNCTION ------------------------------------------
+    # .RESOLVE is a top-level **WAVE FUNCTION keyword (NOT a *SCF
+    # subsection one) — DIRAC's *SCF parser explicitly rejects it.
+    # Pull it from scf.resolve and emit at the right level.
+    resolve_flag = bool(scf.get("resolve"))
+    scf_for_subsection = {k: v for k, v in scf.items() if k != "resolve"}
+
     lines.append("**WAVE FUNCTION")
     if wf == "scf" or wf == "dft":
         lines.append(".SCF")
-        scf_block_lines = _build_scf_subsection(scf)
+        if resolve_flag:
+            lines.append(".RESOLVE")
+        scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
             lines.extend(scf_block_lines)
     elif wf == "mp2":
         lines.append(".SCF")
-        scf_block_lines = _build_scf_subsection(scf)
+        if resolve_flag:
+            lines.append(".RESOLVE")
+        scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
             lines.extend(scf_block_lines)
         lines.append(".MP2")
     elif wf == "ccsd":
         lines.append(".SCF")
-        scf_block_lines = _build_scf_subsection(scf)
+        if resolve_flag:
+            lines.append(".RESOLVE")
+        scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
             lines.extend(scf_block_lines)
         lines.append(".CCSD")
     elif wf == "cosci":
         lines.append(".SCF")
-        scf_block_lines = _build_scf_subsection(scf)
+        if resolve_flag:
+            lines.append(".RESOLVE")
+        scf_block_lines = _build_scf_subsection(scf_for_subsection)
         if scf_block_lines:
             lines.append("*SCF")
             lines.extend(scf_block_lines)
@@ -156,11 +175,13 @@ def draft_inp(spec: dict[str, Any]) -> str:
 
 
 def _build_scf_subsection(scf: dict[str, Any]) -> list[str]:
-    """Build the contents of a *SCF subsection from the SCF spec."""
-    lines: list[str] = []
-    if scf.get("resolve"):
-        lines.append(".RESOLVE")
+    """Build the contents of a *SCF subsection from the SCF spec.
 
+    Note: ``.RESOLVE`` is NOT handled here — it's a top-level
+    **WAVE FUNCTION keyword that DIRAC's *SCF parser explicitly rejects.
+    The caller in ``draft_inp`` emits it at the right level.
+    """
+    lines: list[str] = []
     closed = scf.get("closed_shell")
     if closed:
         lines.append(".CLOSED SHELL")
