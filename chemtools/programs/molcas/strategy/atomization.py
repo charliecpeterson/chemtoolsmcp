@@ -177,22 +177,48 @@ def _draft_atomic_input(
     inline_basis: bool,
     memory_mb: int,
     title_prefix: str = "",
+    method: str = "CASSCF",
+    ipea_shift: float | None = 0.25,
+    imaginary_shift: float = 0.0,
 ) -> str:
-    """Draft a Molcas input for one atomic reference."""
+    """Draft a Molcas input for one atomic reference.
+
+    method: "CASSCF" or "CASPT2"/"MS-CASPT2" — for atomization at CASPT2
+    level, atomic refs must run CASPT2 at the same theory level so the
+    reaction-energy comparison is well-defined. SS-CASPT2 is used for
+    single-root atomic ground states.
+    """
+    program_opts: dict[str, Any] = {
+        "cas_active_electrons": fragment["cas_active_electrons"],
+        "cas_active_orbitals": fragment["cas_active_orbitals"],
+        "inline_basis": inline_basis,
+        "memory_mb": memory_mb,
+        # Bump RASSCF iters (see molecule path for rationale); atomic refs
+        # converge fast but extra headroom protects against TM weirdness.
+        "rasscf": {"iterations": (100, 50)},
+    }
+    if method.upper() in {"CASPT2", "MS-CASPT2", "XMS-CASPT2", "RMS-CASPT2", "XDW-CASPT2"}:
+        program_opts["caspt2"] = {
+            # SS-CASPT2 on a single-root atomic ground state; MS variants
+            # collapse to SS for n_roots=1.
+            "variant": "SS",
+            "n_roots": 1,
+            "ipea_shift": ipea_shift,
+            "imaginary_shift": imaginary_shift,
+        }
+        atomic_method = "CASPT2"
+    else:
+        atomic_method = "CASSCF"
+
     spec = {
         "atoms": [{"symbol": element, "x": 0.0, "y": 0.0, "z": 0.0}],
         "charge": 0,
         "multiplicity": fragment["multiplicity"],
         "basis": {element: _basis_for_element(basis, element)},
-        "method": "CASSCF",
+        "method": atomic_method,
         "task": "energy",
-        "title": f"{title_prefix}{element} {fragment['term']} CAS({fragment['cas_active_electrons']},{fragment['cas_active_orbitals']})",
-        "program_options": {
-            "cas_active_electrons": fragment["cas_active_electrons"],
-            "cas_active_orbitals": fragment["cas_active_orbitals"],
-            "inline_basis": inline_basis,
-            "memory_mb": memory_mb,
-        },
+        "title": f"{title_prefix}{element} {fragment['term']} CAS({fragment['cas_active_electrons']},{fragment['cas_active_orbitals']}) {atomic_method}",
+        "program_options": program_opts,
     }
     text = draft_molcas_input(spec)
     if fragment["skip_scf"]:
@@ -227,6 +253,8 @@ def prepare_atomization_calculation(
     requested_np: int = 1,
     title: str | None = None,
     geometry_units: str = "angstrom",
+    ipea_shift: float | None = 0.25,
+    imaginary_shift: float | None = None,
 ) -> dict[str, Any]:
     """Thick orchestrator for an atomization-energy workflow.
 
@@ -285,13 +313,13 @@ def prepare_atomization_calculation(
       consistency_args       ready-to-pass to check_molcas_active_space_consistency
       next_actions           agent-actionable list
     """
-    if method.upper() not in {"CASSCF", "CASPT2", "MS-CASPT2"}:
+    if method.upper() not in {"CASSCF", "CASPT2", "MS-CASPT2", "XMS-CASPT2", "RMS-CASPT2", "XDW-CASPT2"}:
         return {
             "verdict": "unsupported_method",
             "error": "unsupported_method",
             "message": (
                 f"prepare_molcas_atomization supports CASSCF / CASPT2 / "
-                f"MS-CASPT2 for the molecule level; got {method!r}."
+                f"MS-CASPT2 / XMS-CASPT2 / RMS-CASPT2 / XDW-CASPT2; got {method!r}."
             ),
         }
 
@@ -323,7 +351,37 @@ def prepare_atomization_calculation(
     else:
         raise ValueError(f"relativistic must be 'auto'/'always'/'never'; got {relativistic!r}")
 
+    # Imaginary-shift auto: 0.1 by default on TM systems (intruder protection),
+    # 0.0 for main-group only systems. CrO CASPT2 without imag shift hit
+    # ref_weight 0.64 + RC_NOT_CONVERGED on intruder states with small
+    # denominators in the secondary (4d / 4f-like) virtual space. With
+    # imag_shift=0.1 it converged at ref_weight 0.87.
+    if imaginary_shift is None:
+        imaginary_shift = 0.1 if apply_dkh else 0.0
+
     # --- Draft molecule input ---
+    method_upper = method.upper()
+    is_caspt2 = method_upper in {"CASPT2", "MS-CASPT2", "XMS-CASPT2", "RMS-CASPT2", "XDW-CASPT2"}
+
+    mol_program_opts: dict[str, Any] = {
+        "cas_active_electrons": mol_cas_e,
+        "cas_active_orbitals": mol_cas_o,
+        "inline_basis": inline_basis,
+        "memory_mb": memory_mb,
+        # Bump RASSCF iters from the default (50,25) — molecules with
+        # transition-metal CAS routinely need 40-60 macro iterations to
+        # converge from GuessOrb, and an unconverged RASSCF kills the
+        # CASPT2 chain that follows.
+        "rasscf": {"iterations": (100, 50)},
+    }
+    if is_caspt2:
+        mol_program_opts["caspt2"] = {
+            "variant": "MS" if method_upper.startswith(("MS-", "XMS-", "RMS-", "XDW-")) else "SS",
+            "n_roots": 1,
+            "ipea_shift": ipea_shift,
+            "imaginary_shift": imaginary_shift,
+        }
+
     mol_spec = {
         "atoms": atoms,
         "charge": charge,
@@ -331,14 +389,9 @@ def prepare_atomization_calculation(
         "basis": basis,
         "method": method,
         "task": "energy",
-        "title": title or f"{base} molecule CAS({mol_cas_e},{mol_cas_o})",
+        "title": title or f"{base} molecule CAS({mol_cas_e},{mol_cas_o}) {method_upper}",
         "geometry_units": geometry_units,
-        "program_options": {
-            "cas_active_electrons": mol_cas_e,
-            "cas_active_orbitals": mol_cas_o,
-            "inline_basis": inline_basis,
-            "memory_mb": memory_mb,
-        },
+        "program_options": mol_program_opts,
     }
     mol_text = draft_molcas_input(mol_spec)
     if apply_dkh:
@@ -360,6 +413,9 @@ def prepare_atomization_calculation(
             inline_basis=inline_basis,
             memory_mb=memory_mb,
             title_prefix=f"{base} ",
+            method=method,
+            ipea_shift=ipea_shift,
+            imaginary_shift=imaginary_shift,
         )
         apath = out_dir / f"{base}_{el.lower()}_atom.input"
         apath.write_text(atext, encoding="utf-8")
@@ -460,7 +516,7 @@ def prepare_atomization_calculation(
         next_actions.append({
             "tool": "shell_execute",
             "args": {"command": mol_launch["command_str"], "env": mol_launch["env"]},  # type: ignore[index]
-            "rationale": f"Run the {base} molecule at CAS({mol_cas_e},{mol_cas_o}).",
+            "rationale": f"Run the {base} molecule at CAS({mol_cas_e},{mol_cas_o}) {method_upper}.",
         })
         next_actions.append({
             "tool": "check_molcas_active_space_consistency",
@@ -470,13 +526,19 @@ def prepare_atomization_calculation(
                 "summed atomic CASes (and that 3d-character counts match for TMs)."
             ),
         })
+        # When method is CASPT2, force energy_kind='caspt2' so the parser
+        # picks up the CASPT2 line (not CASSCF). 'primary' would still work
+        # since the energy_summary hierarchy prefers CASPT2, but being
+        # explicit protects against silent fallback when one species'
+        # CASPT2 fails to converge.
+        energy_kind_for_rxn = "caspt2" if is_caspt2 else "rasscf"
         next_actions.append({
             "tool": "compute_molcas_reaction_energy",
             "args": {
                 "products": products_recipe,
                 "reactants": reactants_recipe,
-                "energy_kind": "primary",
-                "label": f"{base} atomization",
+                "energy_kind": energy_kind_for_rxn,
+                "label": f"{base} atomization at {method_upper}",
             },
             "rationale": "Compute the binding/atomization energy from converged outputs.",
         })
