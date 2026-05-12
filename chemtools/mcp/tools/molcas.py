@@ -73,6 +73,7 @@ from chemtools.programs.molcas.strategy.orchestrators import (
     prepare_casscf_setup as _prepare_casscf_setup,
     prepare_caspt2_chain as _prepare_caspt2_chain,
     prepare_excited_states_workflow as _prepare_excited_states_workflow,
+    prepare_opt_freq_workflow as _prepare_opt_freq_workflow,
 )
 from chemtools.programs.molcas.docs import (
     list_docs as _list_docs,
@@ -777,6 +778,71 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "prepare_molcas_opt_freq_workflow",
+            "description": (
+                "Geometry-optimization + analytic-frequency orchestrator. Wraps "
+                "SEWARD + (SCF on iter 1 only) + RASSCF (if CASSCF) + ALASKA + SLAPAF "
+                "in an EMIL `>>> Do while <<<` ... `>>> ENDDO <<<` loop, followed by "
+                "MCKINLEY + MCLR for analytic second derivatives. Supports SCF/HF/"
+                "CASSCF/RASSCF methods, minimum or transition-state search, frequency-"
+                "only single points, numerical-gradient fallback, and iroot picking "
+                "for state-averaged frequencies."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "atoms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string"},
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "z": {"type": "number"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["symbol", "x", "y", "z"],
+                        },
+                    },
+                    "charge": {"type": "integer", "default": 0},
+                    "multiplicity": {"type": "integer", "default": 1, "minimum": 1},
+                    "basis": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "object", "additionalProperties": {"type": "string"}},
+                        ],
+                    },
+                    "method": {"type": "string", "enum": ["SCF", "HF", "CASSCF", "RASSCF"], "default": "CASSCF"},
+                    "cas_active_electrons": {"type": ["integer", "null"], "default": None},
+                    "cas_active_orbitals": {"type": ["integer", "null"], "default": None},
+                    "do_optimization": {"type": "boolean", "default": True},
+                    "do_frequency": {"type": "boolean", "default": True},
+                    "transition_state": {"type": "boolean", "default": False, "description": "Add `TS` to SLAPAF for transition-state search."},
+                    "title": {"type": ["string", "null"], "default": None},
+                    "geometry_units": {"type": "string", "enum": ["angstrom", "bohr"], "default": "angstrom"},
+                    "symmetry": {"type": ["string", "null"], "default": None},
+                    "n_symmetries": {"type": "integer", "default": 1},
+                    "occupied_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "n_basis_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "rasscf_inactive_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "rasscf_active_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "inline_basis": {"type": "boolean", "default": True},
+                    "memory_mb": {"type": "integer", "default": 2000},
+                    "max_opt_iterations": {"type": ["integer", "null"], "default": None},
+                    "numerical_gradients": {"type": "boolean", "default": False, "description": "Use NumGrad in ALASKA instead of analytic gradients."},
+                    "iroot_freq": {"type": ["integer", "null"], "default": None, "description": "Pick which RASSCF root MCLR computes the Hessian for (state-averaged cases)."},
+                    "job_name": {"type": ["string", "null"], "default": None},
+                    "write_input_to": {"type": ["string", "null"], "default": None},
+                    "apptainer_sif": {"type": ["string", "null"], "default": None},
+                    "profile": {"type": ["object", "null"], "default": None},
+                    "requested_np": {"type": "integer", "default": 1, "minimum": 1},
+                },
+                "required": ["atoms", "basis"],
+                "additionalProperties": False,
+            },
+        },
         # ----- Documentation -----
         {
             "name": "list_molcas_docs",
@@ -1243,6 +1309,40 @@ def _handle_prepare_molcas_excited_states(arguments: dict[str, Any]) -> dict[str
         imaginary_shift=float(arguments.get("imaginary_shift", 0.1)),
         inline_basis=bool(arguments.get("inline_basis", True)),
         memory_mb=int(arguments.get("memory_mb", 4000)),
+        job_name=arguments.get("job_name"),
+        write_input_to=arguments.get("write_input_to"),
+        apptainer_sif=arguments.get("apptainer_sif"),
+        profile=arguments.get("profile"),
+        requested_np=int(arguments.get("requested_np", 1)),
+    )
+
+
+@_tool("prepare_molcas_opt_freq_workflow")
+def _handle_prepare_molcas_opt_freq_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _prepare_opt_freq_workflow(
+        atoms=arguments["atoms"],
+        charge=int(arguments.get("charge", 0)),
+        multiplicity=int(arguments.get("multiplicity", 1)),
+        basis=arguments["basis"],
+        method=arguments.get("method", "CASSCF"),
+        cas_active_electrons=arguments.get("cas_active_electrons"),
+        cas_active_orbitals=arguments.get("cas_active_orbitals"),
+        do_optimization=bool(arguments.get("do_optimization", True)),
+        do_frequency=bool(arguments.get("do_frequency", True)),
+        transition_state=bool(arguments.get("transition_state", False)),
+        title=arguments.get("title"),
+        geometry_units=arguments.get("geometry_units", "angstrom"),
+        symmetry=arguments.get("symmetry"),
+        n_symmetries=int(arguments.get("n_symmetries", 1)),
+        occupied_per_symmetry=arguments.get("occupied_per_symmetry"),
+        n_basis_per_symmetry=arguments.get("n_basis_per_symmetry"),
+        rasscf_inactive_per_symmetry=arguments.get("rasscf_inactive_per_symmetry"),
+        rasscf_active_per_symmetry=arguments.get("rasscf_active_per_symmetry"),
+        inline_basis=bool(arguments.get("inline_basis", True)),
+        memory_mb=int(arguments.get("memory_mb", 2000)),
+        max_opt_iterations=arguments.get("max_opt_iterations"),
+        numerical_gradients=bool(arguments.get("numerical_gradients", False)),
+        iroot_freq=arguments.get("iroot_freq"),
         job_name=arguments.get("job_name"),
         write_input_to=arguments.get("write_input_to"),
         apptainer_sif=arguments.get("apptainer_sif"),

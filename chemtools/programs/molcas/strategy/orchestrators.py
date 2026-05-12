@@ -1199,3 +1199,298 @@ def prepare_excited_states_workflow(
                 }
             ]
     return result
+
+
+# --- Opt + Freq workflow orchestrator -----------------------------------------
+
+
+def prepare_opt_freq_workflow(
+    *,
+    atoms: list[dict],
+    charge: int,
+    multiplicity: int,
+    basis: str | dict[str, str],
+    method: str = "CASSCF",
+    cas_active_electrons: int | None = None,
+    cas_active_orbitals: int | None = None,
+    do_frequency: bool = True,
+    do_optimization: bool = True,
+    transition_state: bool = False,
+    title: str | None = None,
+    geometry_units: str = "angstrom",
+    symmetry: str | None = None,
+    n_symmetries: int = 1,
+    occupied_per_symmetry: list[int] | None = None,
+    n_basis_per_symmetry: list[int] | None = None,
+    rasscf_inactive_per_symmetry: list[int] | None = None,
+    rasscf_active_per_symmetry: list[int] | None = None,
+    inline_basis: bool = True,
+    memory_mb: int = 2000,
+    max_opt_iterations: int | None = None,
+    numerical_gradients: bool = False,
+    iroot_freq: int | None = None,
+    job_name: str | None = None,
+    write_input_to: str | None = None,
+    apptainer_sif: str | None = None,
+    profile: dict | None = None,
+    requested_np: int = 1,
+) -> dict[str, Any]:
+    """Geometry-optimization + analytical-frequency workflow orchestrator.
+
+    Generates a Molcas input that wraps SEWARD + (SCF on first iter only) +
+    RASSCF + ALASKA + SLAPAF in an EMIL ``>>> Do while <<< / >>> ENDDO <<<``
+    loop. After convergence the optimization exits the loop and (if
+    do_frequency=True) MCKINLEY + MCLR run on the converged geometry to
+    produce analytical second derivatives + harmonic frequencies.
+
+    Supports:
+      * method='SCF' or 'CASSCF' (CASPT2 opt requires GRDT — defer to future)
+      * Single-point freq (do_optimization=False) — just MCKINLEY + MCLR
+      * Transition-state search (transition_state=True) — passes TS to SLAPAF
+      * Constrained / numerical opts via the SLAPAF / ALASKA toggles
+    """
+    from chemtools.programs.molcas.input._utils import (
+        auto_label, normalize_atoms, total_electrons,
+    )
+    from chemtools.programs.molcas.input.seward import render_seward_block
+    from chemtools.programs.molcas.input.scf import render_scf_block
+    from chemtools.programs.molcas.input.rasscf import (
+        compute_active_space_partition, render_rasscf_block,
+    )
+    from chemtools.programs.molcas.input.opt_freq import (
+        render_alaska_block, render_slapaf_block,
+        render_mckinley_block, render_mclr_block,
+        do_while_open, do_while_close,
+        if_iter_one_open, if_iter_one_close,
+    )
+    from chemtools.programs.molcas.input.lint import lint_molcas_input
+
+    if not (do_optimization or do_frequency):
+        return {
+            "verdict": "nothing_to_do",
+            "error": "nothing_to_do",
+            "message": "Set at least one of do_optimization / do_frequency to True.",
+        }
+
+    method_upper = method.upper()
+    if method_upper not in {"SCF", "HF", "CASSCF", "RASSCF"}:
+        return {
+            "verdict": "unsupported_method",
+            "error": "unsupported_method",
+            "message": (
+                f"opt+freq orchestrator currently supports SCF/HF/CASSCF/RASSCF; "
+                f"got {method!r}. CASPT2 opt needs GRDT plumbing — future work."
+            ),
+        }
+    use_cas = method_upper in {"CASSCF", "RASSCF"}
+
+    atoms_norm = auto_label(normalize_atoms(atoms))
+    n_elec = total_electrons(atoms_norm, charge)
+
+    partition = None
+    if use_cas:
+        if cas_active_electrons is None or cas_active_orbitals is None:
+            return {
+                "verdict": "missing_cas_spec",
+                "error": "missing_cas_spec",
+                "message": "CASSCF method needs cas_active_electrons + cas_active_orbitals.",
+            }
+        partition = compute_active_space_partition(
+            n_electrons=n_elec,
+            cas_active_electrons=cas_active_electrons,
+            cas_active_orbitals=cas_active_orbitals,
+            n_symmetries=n_symmetries,
+            n_basis_per_symmetry=n_basis_per_symmetry,
+            n_inactive_per_symmetry=rasscf_inactive_per_symmetry,
+            active_per_symmetry=rasscf_active_per_symmetry,
+        )
+
+    blocks: list[str] = [f">>> Export MOLCAS_MEM={memory_mb}\n"]
+
+    # When optimizing, basis + geom MUST live in &GATEWAY so they persist to
+    # the RunFile and the loop's bare `&SEWARD` calls can find them.
+    # Single-point freq can use a plain &SEWARD block (single integration).
+    blocks.append(
+        render_seward_block(
+            atoms=atoms_norm,
+            basis=basis,
+            title=title or f"{method_upper} opt+freq",
+            symmetry=symmetry,
+            geometry_units=geometry_units,
+            inline_basis=inline_basis,
+            use_gateway=do_optimization,
+        )
+    )
+
+    if do_optimization:
+        blocks.append(do_while_open())
+        # SEWARD re-runs each iteration to re-integrate at the updated geometry
+        blocks.append("&SEWARD\nEnd of input\n")
+        # SCF: for CASSCF opt, gate to iter 1 only (just gives initial orbitals
+        # for RASSCF; subsequent RASSCF iterations warm-start from JobIph). For
+        # SCF-only opt, SCF runs every iteration (recomputes density at the new
+        # geometry, warm-starting from ScfOrb).
+        if use_cas:
+            blocks.append(if_iter_one_open())
+        blocks.append(
+            render_scf_block(
+                n_electrons=n_elec,
+                multiplicity=multiplicity,
+                n_symmetries=n_symmetries,
+                occupied_per_symmetry=occupied_per_symmetry,
+                title=title,
+            )
+        )
+        if use_cas:
+            blocks.append(if_iter_one_close())
+        # RASSCF every iteration (if we're doing CAS opt)
+        if use_cas:
+            blocks.append(
+                render_rasscf_block(
+                    multiplicity=multiplicity,
+                    state_symmetry=1,
+                    nactel=partition["nactel"],
+                    frozen=partition["frozen"],
+                    inactive=partition["inactive"],
+                    ras2=partition["ras2"],
+                    ras1=partition["ras1"],
+                    ras3=partition["ras3"],
+                    title=title,
+                    n_roots=1,
+                )
+            )
+        # Gradients
+        blocks.append(render_alaska_block(numerical=numerical_gradients))
+        # Step + new geometry
+        blocks.append(
+            render_slapaf_block(
+                iterations=max_opt_iterations,
+                transition_state=transition_state,
+            )
+        )
+        blocks.append(do_while_close())
+
+    if do_frequency:
+        # After opt convergence (or for single-point freq), compute the analytic
+        # Hessian. If we ran a full opt loop the RASSCF wave function is
+        # already current at the converged geometry; if not (single-point
+        # freq), we need to run SCF + RASSCF first.
+        if not do_optimization:
+            blocks.append("&SEWARD\nEnd of input\n")
+            blocks.append(
+                render_scf_block(
+                    n_electrons=n_elec,
+                    multiplicity=multiplicity,
+                    n_symmetries=n_symmetries,
+                    occupied_per_symmetry=occupied_per_symmetry,
+                    title=title,
+                )
+            )
+            if use_cas:
+                blocks.append(
+                    render_rasscf_block(
+                        multiplicity=multiplicity,
+                        state_symmetry=1,
+                        nactel=partition["nactel"],
+                        frozen=partition["frozen"],
+                        inactive=partition["inactive"],
+                        ras2=partition["ras2"],
+                        ras1=partition["ras1"],
+                        ras3=partition["ras3"],
+                        title=title,
+                        n_roots=1,
+                    )
+                )
+        blocks.append(render_mckinley_block(title=f"{title or method_upper} second derivatives"))
+        if use_cas:
+            blocks.append(render_mclr_block(iroot=iroot_freq, title="MCLR analytic Hessian"))
+
+    input_text = "".join(blocks)
+    lint_issues = lint_molcas_input(input_text)
+    n_errors = sum(1 for i in lint_issues if i.get("level") == "error")
+
+    result: dict[str, Any] = {
+        "verdict": "ready_to_launch" if n_errors == 0 else "lint_blocked",
+        "workflow_steps": (
+            (["GATEWAY+SEWARD"] +
+             (["Opt loop (SEWARD+SCF+(RASSCF)+ALASKA+SLAPAF)"] if do_optimization else []) +
+             (["MCKINLEY + MCLR (analytic Hessian + frequencies)"] if do_frequency else []))
+        ),
+        "method": method_upper,
+        "active_space": (
+            {"cas_active_electrons": cas_active_electrons,
+             "cas_active_orbitals": cas_active_orbitals,
+             "partition": partition}
+            if use_cas else None
+        ),
+        "do_optimization": do_optimization,
+        "do_frequency": do_frequency,
+        "transition_state": transition_state,
+        "input_text": input_text,
+        "lint_issues": lint_issues,
+        "n_lint_errors": n_errors,
+        "n_lint_warnings": sum(1 for i in lint_issues if i.get("level") == "warning"),
+    }
+
+    target_path: Path | None = None
+    if write_input_to:
+        target_path = Path(write_input_to)
+    elif job_name:
+        target_path = Path.cwd() / f"{job_name}.input"
+    if target_path is not None:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(input_text, encoding="utf-8")
+        result["input_path"] = str(target_path)
+        if n_errors == 0:
+            plan = prepare_launch(
+                str(target_path),
+                profile=profile,
+                requested_np=requested_np,
+                job_name=job_name,
+                apptainer_sif=apptainer_sif,
+            )
+            result["launch_plan"] = plan
+            next_actions = [
+                {
+                    "tool": "shell_execute",
+                    "args": {"command": plan["command_str"], "env": plan["env"]},
+                    "rationale": (
+                        f"Run the {method_upper} "
+                        + ("TS opt" if transition_state else "geometry opt" if do_optimization else "")
+                        + (" + " if do_optimization and do_frequency else "")
+                        + ("analytic-Hessian freq" if do_frequency else "")
+                        + "."
+                    ),
+                },
+            ]
+            if do_optimization:
+                next_actions.append(
+                    {
+                        "tool": "parse_molcas_trajectory",
+                        "args": {"output_file": str(target_path).replace(".input", ".out")},
+                        "rationale": "After completion, inspect the SLAPAF iteration history + converged geometry.",
+                    }
+                )
+            if do_frequency:
+                next_actions.extend([
+                    {
+                        "tool": "parse_molcas_frequencies",
+                        "args": {"output_file": str(target_path).replace(".input", ".out")},
+                        "rationale": "Extract harmonic frequencies + IR intensities + normal modes.",
+                    },
+                    {
+                        "tool": "parse_molcas_thermochem",
+                        "args": {"output_file": str(target_path).replace(".input", ".out")},
+                        "rationale": "Pull ZPVE + S + U + H + G per temperature.",
+                    },
+                ])
+            result["next_actions"] = next_actions
+        else:
+            result["next_actions"] = [
+                {
+                    "tool": "lint_molcas_input",
+                    "args": {"input_text": input_text},
+                    "rationale": f"Fix the {n_errors} lint error(s) before launching.",
+                }
+            ]
+    return result
