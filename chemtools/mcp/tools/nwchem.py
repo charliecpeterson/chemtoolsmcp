@@ -163,6 +163,10 @@ from chemtools.mcp.server import (  # noqa: E402
 )
 from chemtools.mcp import modes as _modes  # noqa: E402
 
+# Eagerly import Molcas tool handlers so their @_tool decorators register
+# with _TOOL_REGISTRY before serve() starts dispatching.
+from chemtools.mcp.tools import molcas as _molcas_tools  # noqa: F401, E402
+
 # Basis library: bundled inside the package at chemtools/data/nwchem/basis_library/
 # Can be overridden at runtime with CHEMTOOLS_BASIS_LIBRARY env var.
 import os  # noqa: E402
@@ -180,6 +184,14 @@ def basis_library_path(path: str | None = None) -> str:
 
 
 def tool_definitions() -> list[dict[str, Any]]:
+    # Importing here keeps the Molcas tool module from being loaded eagerly
+    # while still ensuring molcas-tools registration via the @_tool decorator
+    # has happened (forced by the import below).
+    from chemtools.mcp.tools.molcas import molcas_tool_definitions  # noqa: F401
+    return _nwchem_tool_definitions() + molcas_tool_definitions()
+
+
+def _nwchem_tool_definitions() -> list[dict[str, Any]]:
     return [
         # ------------------------------------------------------------------
         # Server introspection

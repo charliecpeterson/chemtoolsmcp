@@ -135,7 +135,7 @@ embedding search later if needed.
 **Code organization:**
 - `chemtools/core/`: types, program, registry, run_registry, common (with deduped COVALENT_RADII), cube, eval, runner
 - `chemtools/programs/nwchem/`: plugin scaffold + Parser/Strategist wired, docs, forum, protocols, output, runner, parse/{tasks, mos, freq, input, tce}, strategy/diagnose, input/{basis, basis_library, _utils}
-- `chemtools/programs/molcas/`: scaffold + Parser (partial), parse/output
+- `chemtools/programs/molcas/`: full Parser (parse_output / task_index / get_orbitals), Drafter (draft_input / lint_input), parse/{output, scf, rasscf, caspt2, mos}, binary/orbitals (INPORB / RasOrb reader), strategy/active_space (analyze_active_space + validate_caspt2_setup), input/{seward, scf, rasscf, caspt2, draft, lint, basis_library}, docs.py (133 bundled OpenMolcas docs), 91 basis library files
 - `chemtools/programs/molpro/`: scaffold + Parser (partial), parse/output
 - `chemtools/programs/_adapter_helpers.py`: shared TaskSummary / Diagnosis adapters
 - `chemtools/nwchem.py` back-compat shim removed; all callers use direct imports.
@@ -147,7 +147,7 @@ embedding search later if needed.
 |---|---|---|---|---|---|
 | NWCHEM | full (8/8) | full (draft / lint / **patch** all wired) | minimal (4/4) | 8 templates (DFT energy/opt/freq, CCSD(T), open-shell Fe, MCSCF, TDDFT, COSMO) | hessian + movecs |
 | MOLPRO | parse-only (3/8) | — | — | — | — |
-| MOLCAS | stub (2/8) | — | — | — | — |
+| MOLCAS | full (7/8: parse_output / task_index / get_orbitals / get_frequency / get_thermochem / get_geometry / get_trajectory) + RASSI specialty parser | draft + lint (no patch) | — | — | inporb |
 
 - `registry.resolve(file)` correctly dispatches NWChem / Molpro / Molcas outputs (detection window enlarged to 32KB; "echo of input deck" added as an early signal).
 
@@ -175,13 +175,20 @@ template = plugin.examples.find_example(task="energy", methods=["B3LYP"])
 example_text = plugin.examples.read_example(template["name"])
 ```
 
-**Exposed as MCP tools (111 total):**
+**Exposed as MCP tools (129 total: 114 NWChem + 15 Molcas):**
 
 | Tool | What it does |
 |---|---|
 | `summarize_run` | One-call dispatch via `registry.resolve`. Returns combined `ParsedRun + Diagnosis` for any registered program. |
 | `prepare_nwchem_tce_setup` | Thick orchestrator: parse MOs + freeze count + ordering check + swap suggestions + draft routing, with a `Diagnosis` envelope telling the agent exactly what to do next. |
 | `prepare_nwchem_mcscf_setup` | Multireference analogue of the TCE orchestrator. Returns a recommended CAS(M,N) window, frontier-assessment verdict, and routed `next_actions` (draft directly, inspect more orbitals, or fix state mismatch first via vectors swap). |
+| `parse_molcas_output` | Deep Molcas parse: per-module SCF / RASSCF / CASPT2 details + active-space summary + warnings. Primary energy follows MS-CASPT2 > CASPT2 > RASSCF > SCF. |
+| `parse_molcas_inporb` | Greenfield reader for INPORB / RasOrb / ScfOrb / GssOrb / LprOrb / SpdOrb files (named-section format). Returns per-symmetry coefficients + occupations + orbital-energy + typeindex partitioning. |
+| `analyze_molcas_active_space` | NO-occupation classification → healthy/marginal/poor verdict + promote/demote orbital lists + next_actions envelope. Accepts either output OR orbital file. |
+| `validate_molcas_caspt2_setup` | Reference-weight, IPEA / shift, intruder-state checks → healthy/caution/unreliable verdict; flags real intruders (small denom AND large coeff) only. |
+| `draft_molcas_input` | Render a full Molcas input deck (MOLCAS_MEM + SEWARD + SCF + RASSCF + CASPT2 chain) from a single InputSpec. Auto-derives Occupied for C1, applies basis-library defaults, includes auto-lint pass on the result. |
+| `lint_molcas_input` | Validate input string: block-pair consistency, basis library/element existence, RASSCF/CASPT2 Frozen consistency, Nactel sanity, LumOrb provenance, Spin sanity. |
+| `compute_molcas_active_space_partition` | Translate CAS(M,N) → per-symmetry RASSCF directives. Catches "inactive electrons not even" and "frozen+inactive+active exceeds basis" early. |
 
 ### Deferred (need real splits)
 

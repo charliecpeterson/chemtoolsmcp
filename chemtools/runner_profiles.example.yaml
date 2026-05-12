@@ -354,3 +354,82 @@ profiles:
       output_file: "{job_name}.out"
       error_file: "{job_name}.err"
       restart_prefix: "{job_name}"
+
+  # ---------------------------------------------------------------------------
+  # Molcas / OpenMolcas profiles
+  #
+  # Two Molcas-specific fields that the launcher (prepare_molcas_launch) reads:
+  #
+  #   execution.parallel_caspt2_supported  (bool, default true)
+  #       Some Molcas builds segfault in CASPT2's parallel solver because
+  #       Global Arrays was linked against the wrong ARMCI network. The
+  #       robust fix is to rebuild GA with `--with-mpi-ts` and rebuild
+  #       OpenMolcas against that GA. Until then, set this False and the
+  #       launcher will force `-np 1` for any input containing &CASPT2 and
+  #       emit a warning.
+  #
+  #   execution.apptainer_sif              (string, optional)
+  #       Path to a .sif container. If set, the launcher wraps pymolcas with
+  #       `apptainer exec <sif>`. Leave unset for a native install.
+  #
+  # The launcher also sets MOLCAS_PROJECT to the input-file stem (overridable
+  # via job_name) so each run gets isolated scratch — prevents the
+  # `RunHdr%nProcs/=nProcs` abort that bites when interleaving -np values
+  # in the same working directory.
+  # ---------------------------------------------------------------------------
+
+  molcas_local_native:
+    description: "OpenMolcas installed natively on this workstation."
+    launcher:
+      kind: "direct"
+      command: "pymolcas"
+    execution:
+      command_template: "pymolcas -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+      parallel_caspt2_supported: true
+    resources:
+      mpi_ranks: 2
+      omp_threads: 1
+    env: {}
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+
+  molcas_apptainer_known_good:
+    description: "OpenMolcas in an apptainer container where GA was built --with-mpi-ts (parallel CASPT2 works)."
+    launcher:
+      kind: "direct"
+      command: "apptainer exec /path/to/openmolcas-26.02.sif pymolcas"
+    execution:
+      command_template: "apptainer exec /path/to/openmolcas-26.02.sif pymolcas -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+      parallel_caspt2_supported: true
+      apptainer_sif: "/path/to/openmolcas-26.02.sif"
+    resources:
+      mpi_ranks: 4
+      omp_threads: 1
+    env: {}
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+
+  molcas_apptainer_broken_caspt2:
+    description: "OpenMolcas container where parallel CASPT2 SIGSEGVs (GA built with default ARMCI). Launcher auto-forces -np 1 for any &CASPT2 input."
+    launcher:
+      kind: "direct"
+      command: "apptainer exec /path/to/openmolcas-25.02.sif pymolcas"
+    execution:
+      command_template: "apptainer exec /path/to/openmolcas-25.02.sif pymolcas -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
+      working_directory: "{job_dir}"
+      shell: "/bin/bash"
+      parallel_caspt2_supported: false   # <-- the guard rail
+      apptainer_sif: "/path/to/openmolcas-25.02.sif"
+    resources:
+      mpi_ranks: 4
+      omp_threads: 1
+    env: {}
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"

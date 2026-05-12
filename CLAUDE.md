@@ -23,8 +23,11 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
   protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
   eval.py            Case evaluation framework for testing tool quality
   mcp/
-    nwchem.py        NWChem MCP server — 108 tools, thin wrappers over chemtools/
+    nwchem.py        NWChem entry point — multi-program MCP server (NWChem + Molcas tools)
     nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
+    tools/
+      nwchem.py      NWChem tool definitions + handlers (114 tools)
+      molcas.py      Molcas tool definitions + handlers (27 tools)
     # Future: molpro.py, orca.py
 
 test_phase1/         Test suite (Phases 2–6, 244 tests)
@@ -36,7 +39,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 109 (108 NWChem + 1 introspection: `get_server_mode`)
+- Current tool count: 141 (114 NWChem + 27 Molcas; the NWChem total includes `get_server_mode`)
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)
@@ -57,6 +60,57 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | TCE (correlated methods) | 6 | `parse_nwchem_movecs`, `swap_nwchem_movecs`, `validate_nwchem_tce_setup` |
 | Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
+
+### Molcas / OpenMolcas tools (27)
+
+| Tool | Purpose |
+|------|---------|
+| `draft_molcas_input` | Render a full Molcas input deck (MOLCAS_MEM + SEWARD + SCF + RASSCF + CASPT2 chain). Methods: HF/SCF/DFT/CASSCF/RASSCF/CASPT2/RASPT2/MS-CASPT2/XMS-CASPT2/RMS-CASPT2/XDW-CASPT2 |
+| `lint_molcas_input` | Validate Molcas input string. Catches block-pair issues, unknown basis libraries, RASSCF/CASPT2 Frozen mismatches, missing Nactel, suspicious LumOrb without orbital provenance |
+| `compute_molcas_active_space_partition` | CAS(M,N) → per-symmetry RASSCF directives (Nactel, Frozen, Inactive, Ras1/2/3, Secondary) |
+| `list_molcas_basis_sets` | Enumerate bundled basis sets; filter by element; report contractions for a (basis, element) pair |
+| `parse_molcas_output` | Deep parse: per-module SCF / RASSCF / CASPT2 details + active-space summary + warnings |
+| `parse_molcas_tasks` | Cheap module-boundary task index |
+| `get_molcas_orbitals` | Last `++ Molecular orbitals:` block — RASSCF NOs win over SCF MOs |
+| `parse_molcas_inporb` | Read INPORB / RasOrb / ScfOrb / GssOrb / LprOrb / SpdOrb files |
+| `parse_molcas_frequencies` | Last `Harmonic frequencies in cm-1` block from MCLR or numerical-grad. Per-symmetry modes + IR intensity + reduced mass + per-atom displacements; imaginary modes as negative floats |
+| `parse_molcas_thermochem` | Per-temperature ZPVE + S + U + H + G (kcal/mol + au); 298.15 K row hoisted under `standard_298_15` |
+| `extract_molcas_geometry` | Single geometry snapshot — SLAPAF converged geometry preferred, else last `Cartesian coordinates` block |
+| `parse_molcas_trajectory` | SLAPAF Energy Statistics + per-iteration geometries (cumulative table de-duplicated) |
+| `parse_molcas_rassi` | RASSI state-interaction: input states, spin-free + spin-orbit eigenstates (rel + abs energies), SO composition (SF state contributions per SO state), SOC matrix elements above SOCOupling threshold, dipole oscillator strengths in SF + SO bases, NRNATO natural-orbital occupations. Includes SOC stabilization roll-up in cm-1 |
+| `analyze_molcas_active_space` | NO-occupation classification → healthy/marginal/poor verdict + promote/demote orbital lists + next_actions |
+| `validate_molcas_caspt2_setup` | Reference-weight, IPEA / shift, intruder-state checks → healthy/caution/unreliable verdict |
+| `list_molcas_docs` | List 133 bundled OpenMolcas doc files |
+| `search_molcas_docs` | Search docs (programs / tutorials / users_guide / advanced_examples) |
+| `lookup_molcas_module` | Pull the docs page for a Molcas module (rasscf, caspt2, alaska, ...) |
+| `read_molcas_doc_excerpt` | Read a slice of a bundled doc by relative path |
+| `get_molcas_topic_guide` | Curated guidance for high-value topics (rasscf_active_space, caspt2_setup, ipea_shift, xms_caspt2, alaska_gradients, mclr_freq, rassi_state_interaction, inporb_format, scf_setup) |
+| `prepare_molcas_launch` | Build safe `pymolcas` command + env. Auto-downgrades `-np` to 1 for inputs containing `&CASPT2` when `execution.parallel_caspt2_supported=False` (broken GA builds); always isolates scratch via unique `MOLCAS_PROJECT` to prevent `RunHdr%nProcs/=nProcs` cross-run aborts. Does not execute — returns the command for the caller to run. |
+| `swap_molcas_inporb_orbitals` | Swap orbital pairs within a symmetry block of an INPORB / RasOrb file — swaps MO coefficients + occupation + energy + typeindex. Used for active-space tuning workflows (initial RASSCF → inspect orbital character → swap wrong-class orbital with a better candidate → re-run RASSCF with FILEORB). Bit-exact round-trip. |
+| `suggest_molcas_orbital_swaps` | Character-aware swap suggester. Walks the LAST '++ Molecular orbitals:' block, classifies each orbital's space (inactive/active/secondary) from the RASSCF orbital_specs, and matches dominant AO against a target pattern (e.g. 'Cr' + '3d'). Returns suggested (active_orb, swap_with) pairs ready to feed into `swap_molcas_inporb_orbitals`. Diagnostic only — final swap choice still requires chemistry judgment. |
+| `refine_molcas_active_space` | **Thick orchestrator** that closes the active-space-tuning loop in ONE call: parses an existing RASSCF .out, runs occupation + character analyses, applies the suggested swaps to the RasOrb, generates a refined input with FILEORB injected, and returns a launch plan + next_actions envelope. Replaces the manual chain `parse_molcas_output → suggest_molcas_orbital_swaps → swap_molcas_inporb_orbitals → text-edit input → prepare_molcas_launch`. Supports dry-run (`apply_swaps=False`) for inspection-only. |
+| `prepare_molcas_casscf_setup` | **Thick orchestrator** for fresh CASSCF / CASPT2 / MS-CASPT2 calculations. Takes molecule + method spec + (cas_active_electrons, cas_active_orbitals) OR `chemistry_hint='valence_d'`/`'frontier_pair'`. Drafts the input, lints, computes the active-space partition, optionally writes input + builds launch plan, returns a Diagnosis envelope. Auto-corrects parity mismatches in TM hints (e.g. Cr⁰ 3d⁵ + spin-dictated 4s electron). |
+| `prepare_molcas_caspt2_chain` | **Thick orchestrator** that takes a converged RASSCF .out and chains CASPT2 on top. Auto-picks SS vs MS variant from `n_roots`, sets IPEA=0.25 by default, emits imaginary shift 0.1 if active-space verdict is 'marginal', mirrors RASSCF Frozen. Short-circuits to `verdict='needs_active_space_refinement'` if RASSCF active space is 'poor' (points at `refine_molcas_active_space` first). The continuation reads previous RASSCF orbitals via FILEORB so RASSCF re-converges in ~4 iters. |
+| `prepare_molcas_excited_states` | **Thick orchestrator** for multi-state excited-state workflows. Chains SEWARD + SCF + RASSCF over `n_singlets` singlets + RASSCF over `n_triplets` triplets + per-group MS-CASPT2 + optional RASSI for SOC. Handles the EMIL JobIph plumbing: `>>COPY $Project.JobIph JOBxxx` after each RASSCF, then `>>COPY JOBxxx $Project.JobIph` before each per-group CASPT2 (without this swap, all CASPT2 groups silently read the last RASSCF's wave function). Generates the right RASSI block format (no `Title` keyword — Molcas RASSI rejects it). |
+
+Bundled data:
+- 133 Markdown docs at `chemtools/data/molcas/docs/` (programs, tutorials, users_guide, advanced_examples, installation, overview)
+- 91 basis library files at `chemtools/data/molcas/basis_library/` (3-21G, 6-31G family, ANO-RCC, ANO-L, ANO-S, ANO-XS, AUG-CC-PVxZ, etc.)
+
+Plugin layout (`chemtools/programs/molcas/`):
+- `parse/output.py` — module-boundary task index + `parse_output_full` orchestrator
+- `parse/scf.py`, `parse/rasscf.py`, `parse/caspt2.py`, `parse/mos.py` — module-specific parsers
+- `parse/freq.py`, `parse/thermochem.py`, `parse/geometry.py` — MCLR freq + thermochem + SLAPAF trajectory parsers
+- `parse/rassi.py` — RASSI module parser (spin-free + spin-orbit eigenstates, SOC matrix, dipole strengths)
+- `binary/orbitals.py` — INPORB / RasOrb file reader (named-section format)
+- `strategy/active_space.py` — `analyze_active_space` and `validate_caspt2_setup`
+- `input/seward.py`, `input/scf.py`, `input/rasscf.py`, `input/caspt2.py` — block-level builders
+- `input/draft.py` — `draft_molcas_input` orchestrator (InputSpec → full deck)
+- `input/lint.py` — `lint_molcas_input` (block pairs, basis labels, RASSCF↔CASPT2 Frozen consistency, Nactel sanity)
+- `input/basis_library.py` — bundled basis library reader (default contractions, label builder)
+- `docs.py` — bundled docs accessor
+- `runtime.py` — launch-helper (`prepare_launch` returns safe pymolcas command + env, with CASPT2 -np guard rail and scratch isolation)
+- `_plugin_parser.py`, `_plugin_binary.py`, `_plugin_drafter.py` — sub-protocol implementations
 
 ## How to Add a New Tool
 
@@ -91,6 +145,17 @@ Common patterns:
 - **Use campaigns for related runs** — create a campaign first (`create_nwchem_campaign`), then link runs via `campaign_id`; use `get_nwchem_campaign_energies` for sorted energy tables with relative energies in kcal/mol
 - **Workflow DAGs for multi-step protocols** — use `create_nwchem_workflow` for dependent steps (opt→freq), then `advance_nwchem_workflow` to find ready-to-launch steps
 - **Registry is SQLite at `~/.chemtools/registry.db`** — uses stdlib `sqlite3`, no external dependency; override with `CHEMTOOLS_REGISTRY_DB` env var for testing
+
+### Molcas / multi-reference workflow rules
+
+- **Always check active-space quality before CASPT2** — call `analyze_molcas_active_space` after RASSCF; do not run CASPT2 on a `poor` verdict
+- **Reference weight ≥ 0.70 is the trust threshold** — `validate_molcas_caspt2_setup` returns `unreliable` below that; agent should redraft the active space, not the CASPT2 input
+- **Real intruders need both small denominator AND large coefficient** — large coefficient alone is normal chemistry; small denominator alone is a benign near-degeneracy
+- **IPEA shift defaults to 0.25 from Molcas 6.4** — `MOLCAS_NEW_DEFAULTS=YES` switches to 0.0; `parse_molcas_output` reports the actual value used so the agent can flag mismatches with the user's intent
+- **MS / XMS / RMS / XDW for state-mixing** — when SS-CASPT2 has multiple closely-spaced states, `validate_molcas_caspt2_setup` emits the `multistate_hint` warning
+- **Last `++ Molecular orbitals:` block wins** — `get_molcas_orbitals` automatically returns the RASSCF NOs (which override SCF MOs that appeared earlier in the same task); use this to label active orbitals via the `dominant_aos` field
+- **Energy roll-up follows SO-RASSI > RASSI SF > MS-CASPT2 > CASPT2 > RASSCF root 1 > SCF** — `parse_molcas_output` returns `energy_summary.primary_energy_hartree` with the chosen label; SO ground state wins whenever a RASSI SPINorbit run is present
+- **Internal pymolcas modules are filtered** — `last_energy`, `last_atoms`, and `emil` never show up in the task list
 
 ## Runner Profiles
 
@@ -276,9 +341,9 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` | 93 | No NWChem executable available; post-hoc parsing, drafting, planning, registry tracking of runs done elsewhere |
-| `local` | 106 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
-| `hpc` | 109 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+| `analysis` | 125 | No NWChem executable available; post-hoc parsing (NWChem + Molcas), drafting (incl. Molcas inputs), planning, registry tracking of runs done elsewhere |
+| `local` | 138 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 141 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
 
 ### Selecting a mode
 

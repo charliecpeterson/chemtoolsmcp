@@ -1,0 +1,101 @@
+<!-- Source: https://molcas.gitlab.io/OpenMolcas/sphinx/users.guide/ug.html -->
+
+[ ](<../index.html>)
+
+[Molcas Manual (version v26.02-275-g15bc02d80)](<../index.html>)
+
+4\. User’s Guide
+
+[previous](<../tutorials/tut_hints.html> "3.3.29. Some practical hints") | [next](<env-main.html> "4.1. The Molcas environment") | [index](<../genindex.html> "General Index")
+
+# 4\. User’s Guide¶
+
+  * [4.1. The Molcas environment](<env-main.html>)
+    * [4.1.1. Overview](<env-overview.html>)
+    * [4.1.2. Commands and environment variables](<environment.html>)
+    * [4.1.3. General input structure. EMIL commands](<emil.html>)
+  * [4.2. Programs](<programs.html>)
+    * [4.2.1. ALASKA](<programs/alaska.html>)
+    * [4.2.2. AVERD](<programs/averd.html>)
+    * [4.2.3. CASPT2](<programs/caspt2.html>)
+    * [4.2.4. CASVB](<programs/casvb.html>)
+    * [4.2.5. CCSDT](<programs/ccsdt.html>)
+    * [4.2.6. CHCC](<programs/chcc.html>)
+    * [4.2.7. CHT3](<programs/cht3.html>)
+    * [4.2.8. CMOCORR ¤](<programs/cmocorr.html>)
+    * [4.2.9. CPF](<programs/cpf.html>)
+    * [4.2.10. DIMERPERT ¤](<programs/dimerpert.html>)
+    * [4.2.11. DMRGSCF](<programs/dmrgscf.html>)
+    * [4.2.12. DYNAMIX](<programs/dynamix.html>)
+    * [4.2.13. EMBQ ¤](<programs/embq.html>)
+    * [4.2.14. ESPF (+ QM/MM interface)](<programs/espf.html>)
+    * [4.2.15. EXPBAS](<programs/expbas.html>)
+    * [4.2.16. EXTF](<programs/extf.html>)
+    * [4.2.17. FALCON ¤](<programs/falcon.html>)
+    * [4.2.18. FALSE](<programs/false.html>)
+    * [4.2.19. FFPT](<programs/ffpt.html>)
+    * [4.2.20. GATEWAY](<programs/gateway.html>)
+    * [4.2.21. GENANO](<programs/genano.html>)
+    * [4.2.22. GEO ¤](<programs/geo.html>)
+    * [4.2.23. GRID_IT](<programs/grid_it.html>)
+    * [4.2.24. GUESSORB](<programs/guessorb.html>)
+    * [4.2.25. GUGA](<programs/guga.html>)
+    * [4.2.26. GUGACI](<programs/gugaci.html>)
+    * [4.2.27. GUGADRT](<programs/gugadrt.html>)
+    * [4.2.28. LEVEL](<programs/level.html>)
+    * [4.2.29. LOCALISATION](<programs/localisation.html>)
+    * [4.2.30. LOPROP](<programs/loprop.html>)
+    * [4.2.31. MBPT2](<programs/mbpt2.html>)
+    * [4.2.32. MCKINLEY (a.k.a. DENALI)](<programs/mckinley.html>)
+    * [4.2.33. MCLR](<programs/mclr.html>)
+    * [4.2.34. MCPDFT](<programs/mcpdft.html>)
+    * [4.2.35. MKNEMO ¤](<programs/mknemo.html>)
+    * [4.2.36. MOTRA](<programs/motra.html>)
+    * [4.2.37. MPPROP](<programs/mpprop.html>)
+    * [4.2.38. MPSSI](<programs/mpssi.html>)
+    * [4.2.39. MRCI](<programs/mrci.html>)
+    * [4.2.40. MULA](<programs/mula.html>)
+    * [4.2.41. NEMO ¤](<programs/nemo.html>)
+    * [4.2.42. NEVPT2](<programs/nevpt2.html>)
+    * [4.2.43. NUMERICAL_GRADIENT](<programs/numerical_gradient.html>)
+    * [4.2.44. POLY_ANISO](<programs/poly_aniso.html>)
+    * [4.2.45. QMSTAT](<programs/qmstat.html>)
+    * [4.2.46. QUATER](<programs/quater.html>)
+    * [4.2.47. RASSCF](<programs/rasscf.html>)
+    * [4.2.48. RASSI](<programs/rassi.html>)
+    * [4.2.49. RHODYN](<programs/rhodyn.html>)
+    * [4.2.50. RPA](<programs/rpa.html>)
+    * [4.2.51. SCF](<programs/scf.html>)
+    * [4.2.52. SEWARD](<programs/seward.html>)
+    * [4.2.53. SINGLE_ANISO](<programs/single_aniso.html>)
+    * [4.2.54. SLAPAF](<programs/slapaf.html>)
+    * [4.2.55. SURFACEHOP](<programs/surfacehop.html>)
+    * [4.2.56. SYMMETRIZE](<programs/symmetrize.html>)
+    * [4.2.57. VIBROT](<programs/vibrot.html>)
+    * [4.2.58. WFA](<programs/wfa.html>)
+    * [4.2.59. The Basis Set Libraries](<basis_library.html>)
+  * [4.3. GUI](<tools.html>)
+    * [4.3.1. Writing LUSCUS/MOLDEN input](<tools.html#writing-luscus-molden-input>)
+
+
+
+### Table of Contents
+
+  * [1\. Introduction](<../intro.html>)
+  * [2\. Installation Guide](<../installation.guide/ig.html>)
+  * [3\. Short Guide to Molcas](<../tutorials/tut.html>)
+  * 4\. User’s Guide
+    * [4.1. The Molcas environment](<env-main.html>)
+    * [4.2. Programs](<programs.html>)
+    * [4.3. GUI](<tools.html>)
+  * [5\. Advanced Examples and Annexes](<../advanced.examples/ae.html>)
+
+
+
+### Search
+
+[previous](<../tutorials/tut_hints.html> "3.3.29. Some practical hints") | [next](<env-main.html> "4.1. The Molcas environment") | [index](<../genindex.html> "General Index")
+
+[Get PDF](<../../Manual.pdf>) | [Show Source](<../_sources/users.guide/ug.rst.txt>)
+
+(C) Copyright 2017–2025, MOLCAS Team. Created using [Sphinx](<https://www.sphinx-doc.org/>) 4.5.0. 
