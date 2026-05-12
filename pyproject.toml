@@ -13,6 +13,10 @@ dependencies = [
     "numpy",
 ]
 
+[project.optional-dependencies]
+# DIRAC support: reading .h5 checkpoints requires h5py.
+dirac = ["h5py>=3.0"]
+
 [project.urls]
 Repository = "https://github.com/charliecpeterson/chemtoolsmcp"
 Issues     = "https://github.com/charliecpeterson/chemtoolsmcp/issues"
@@ -31,6 +35,7 @@ include = ["chemtools*"]
 # per-program example corpora.
 chemtools = [
     "data/**/*",
+    "programs/*/data/**/*",
     "programs/*/examples/*.nw",
     "programs/*/examples/*.json",
 ]

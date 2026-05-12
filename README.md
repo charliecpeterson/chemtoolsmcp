@@ -5,9 +5,11 @@ Protocol) server that gives Claude (and other MCP clients) structured access to
 quantum chemistry programs — parsing outputs, drafting inputs, managing jobs,
 analyzing active spaces, recovering from failed runs.
 
-Currently supports **NWChem** (97 program-specific tools) and **OpenMolcas**
-(40 tools) plus 36 program-generic tools that auto-detect either program. Molpro,
-ORCA, and others planned.
+Currently supports **NWChem** (97 program-specific tools), **OpenMolcas**
+(40 tools), and **DIRAC** (16 tools, read-only Phase DC — parsers, HDF5
+checkpoint reader, open-shell analyzer, bundled 180-page docs) plus 36
+program-generic tools that auto-detect any of them. Molpro, ORCA, and
+others planned.
 
 ---
 
@@ -146,6 +148,10 @@ program):
 - 91 OpenMolcas basis-set files
 - 29 NWChem documentation pages
 - 133 OpenMolcas documentation pages
+- 180 DIRAC documentation pages
+
+**Optional dependencies**:
+- `pip install chemtools[dirac]` adds `h5py` for reading DIRAC HDF5 checkpoints.
 
 ---
 

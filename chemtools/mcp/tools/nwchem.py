@@ -193,11 +193,16 @@ def basis_library_path(path: str | None = None) -> str:
 
 
 def tool_definitions() -> list[dict[str, Any]]:
-    # Importing here keeps the Molcas tool module from being loaded eagerly
-    # while still ensuring molcas-tools registration via the @_tool decorator
-    # has happened (forced by the import below).
+    # Importing here keeps the per-program tool modules from being loaded
+    # eagerly while still ensuring their @_tool registrations have happened
+    # (forced by the imports below).
     from chemtools.mcp.tools.molcas import molcas_tool_definitions  # noqa: F401
-    return _nwchem_tool_definitions() + molcas_tool_definitions()
+    from chemtools.mcp.tools.dirac import dirac_tool_definitions  # noqa: F401
+    return (
+        _nwchem_tool_definitions()
+        + molcas_tool_definitions()
+        + dirac_tool_definitions()
+    )
 
 
 def _nwchem_tool_definitions() -> list[dict[str, Any]]:

@@ -33,7 +33,7 @@ MODE_CAPABILITIES: dict[str, frozenset[str]] = {
 
 # Known program tags. "generic" is treated specially — generic tools are
 # always visible regardless of the --programs filter.
-KNOWN_PROGRAMS = ("nwchem", "molcas")
+KNOWN_PROGRAMS = ("nwchem", "molcas", "dirac")
 
 # Env var that selects mode explicitly (overrides auto-detect).
 MODE_ENV = "CHEMTOOLS_MODE"
