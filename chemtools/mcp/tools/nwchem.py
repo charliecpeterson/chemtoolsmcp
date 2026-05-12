@@ -485,6 +485,101 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         # ------------------------------------------------------------------
+        # Generic case-analysis / recovery dispatchers (Phase 6a)
+        # ------------------------------------------------------------------
+        {
+            "name": "summarize_output",
+            "description": (
+                "Auto-detecting summary tool. Routes to summarize_nwchem_output "
+                "(compact case summary including method/energy/imaginary modes "
+                "and bullets per task) or summarize_molcas_output (flat "
+                "structured summary with method/energy/active_space/freqs/"
+                "thermochem). Returns the program-specific shape tagged with "
+                "`program`. For a unified ParsedRun, use `parse_output`."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas"]},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "analyze_case",
+            "description": (
+                "Auto-detecting quality analyzer. Routes to analyze_nwchem_case "
+                "(rich review payload with state checks + active-space density) "
+                "or analyze_molcas_case (verdict + issues + next_actions). Use "
+                "this when you want to know 'is this run healthy?' regardless "
+                "of program. Branch on the `program` field in the response to "
+                "interpret the rest of the shape."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas"]},
+                    "input_file": {"type": "string", "description": "NWChem only — matching input file."},
+                    "err_file": {"type": "string", "description": "NWChem only — slurm/scheduler error file."},
+                    "expected_metals": {"type": "array", "items": {"type": "string"}, "description": "NWChem only."},
+                    "expected_somos": {"type": "integer", "description": "NWChem only."},
+                    "detail": {"type": "string", "enum": ["compact", "full"], "default": "compact", "description": "NWChem only."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "suggest_recovery",
+            "description": (
+                "Auto-detecting recovery suggester. Routes to "
+                "suggest_nwchem_recovery (rich SCF + state-recovery strategy "
+                "payloads) or suggest_molcas_recovery (failure-class rule "
+                "engine with fix_recipe + next_actions). Both serve the same "
+                "goal — tell the agent how to recover from a failed run — but "
+                "shapes differ. Branch on the `program` field."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas"]},
+                    "input_file": {"type": "string", "description": "NWChem only."},
+                    "expected_metals": {"type": "array", "items": {"type": "string"}, "description": "NWChem only."},
+                    "expected_somos": {"type": "integer", "description": "NWChem only."},
+                    "mode": {"type": "string", "enum": ["auto", "scf", "state"], "default": "auto", "description": "NWChem only — which strategy to return."},
+                    "return_all_matches": {"type": "boolean", "default": False, "description": "Molcas only — return all rule matches."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "apply_recovery",
+            "description": (
+                "Auto-detecting apply_recovery. Currently only Molcas has a "
+                "mechanical-fix patcher (regex edits on .input files for known "
+                "failure classes). NWChem runs return verdict="
+                "'not_implemented_for_program' — use suggest_recovery for the "
+                "strategy bundle and apply changes via a draft_nwchem_* tool."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string"},
+                    "output_file": {"type": "string", "description": "Either output_file (auto-classify) or recovery dict required for Molcas."},
+                    "recovery": {"type": ["object", "null"], "default": None, "description": "Molcas only — pre-computed recovery dict from suggest_molcas_recovery."},
+                    "write_to": {"type": ["string", "null"], "default": None, "description": "Molcas only — output path for the fixed input."},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas"]},
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        # ------------------------------------------------------------------
         # Workflow planning and geometry setup (start here for new jobs)
         # ------------------------------------------------------------------
         {
@@ -3494,6 +3589,159 @@ def _handle_inspect_geometry_generic(arguments: dict[str, Any]) -> dict[str, Any
         units="angstrom",
     )
     return {"program": plugin.name, **result}
+
+
+# ---------------------------------------------------------------------------
+# Generic case-analysis / recovery dispatchers (Phase 6a)
+# ---------------------------------------------------------------------------
+# Auto-detect program and dispatch to the appropriate program-specific
+# tool. Each returns the per-program shape tagged with "program" so the
+# agent can dispatch its own follow-up logic — the alternative (forcing
+# both programs to a unified shape) would be a much larger refactor and
+# the per-program rich data is genuinely useful where it differs.
+
+
+def _dispatch_to_per_program_tool(
+    arguments: dict[str, Any],
+    handler_by_program: dict[str, "Callable[[dict[str, Any]], dict[str, Any]]"],
+) -> dict[str, Any]:
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+    handler = handler_by_program.get(plugin.name)
+    if handler is None:
+        return {
+            "error": "no_handler_for_program",
+            "message": (
+                f"No {arguments.get('_tool_label', 'handler')} for program "
+                f"{plugin.name!r}. Available programs: "
+                f"{sorted(handler_by_program)}"
+            ),
+        }
+    result = handler(arguments)
+    if isinstance(result, dict):
+        return {"program": plugin.name, **result}
+    return {"program": plugin.name, "result": result}
+
+
+@_tool("summarize_output", program="generic")
+def _handle_summarize_output_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Auto-detecting summarize_output. Routes to summarize_nwchem_output
+    (compact case summary including method/energy/imaginary modes) or
+    summarize_molcas_output (flat structured summary with active_space,
+    frequencies, thermochem). Returns the program-specific shape tagged
+    with `program`."""
+    from chemtools.mcp.tools.molcas import _handle_summarize_molcas_output  # noqa: PLC0415
+    return _dispatch_to_per_program_tool(
+        {**arguments, "_tool_label": "summarize_output"},
+        {
+            "nwchem": _handle_summarize_nwchem_output,
+            "molcas": _handle_summarize_molcas_output,
+        },
+    )
+
+
+@_tool("analyze_case", program="generic")
+def _handle_analyze_case_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Auto-detecting analyze_case. Routes to analyze_nwchem_case (rich
+    case-review payload with state checks + active-space density) or
+    analyze_molcas_case (verdict / issues / next_actions envelope). Both
+    surface quality assessment for an output; the agent should branch on
+    `program` to interpret the shape."""
+    from chemtools.mcp.tools.molcas import _handle_analyze_molcas_case  # noqa: PLC0415
+    return _dispatch_to_per_program_tool(
+        {**arguments, "_tool_label": "analyze_case"},
+        {
+            "nwchem": _handle_analyze_nwchem_case,
+            "molcas": _handle_analyze_molcas_case,
+        },
+    )
+
+
+@_tool("suggest_recovery", program="generic")
+def _handle_suggest_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Auto-detecting recovery suggester. Routes to suggest_nwchem_recovery
+    (rich SCF + state strategy payloads) or suggest_molcas_recovery
+    (failure-class rule engine with fix_recipe + next_actions). NWChem's
+    output is strategy-bundle-shaped; Molcas's is rule-engine-shaped.
+    Both serve the same goal: tell the agent how to recover from a
+    failed run. The `program` field in the response indicates which
+    shape to expect."""
+    from chemtools.mcp.tools.molcas import _handle_suggest_molcas_recovery  # noqa: PLC0415
+    return _dispatch_to_per_program_tool(
+        {**arguments, "_tool_label": "suggest_recovery"},
+        {
+            "nwchem": _handle_suggest_nwchem_recovery,
+            "molcas": _handle_suggest_molcas_recovery,
+        },
+    )
+
+
+@_tool("apply_recovery", program="generic")
+def _handle_apply_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Auto-detecting apply_recovery. Currently only Molcas has a
+    mechanical-fix patcher (apply_molcas_recovery — regex edits on
+    .input files for known failure classes). NWChem has no equivalent
+    yet, so this dispatcher returns a not_implemented envelope for
+    NWChem runs and the agent should fall back to the rich strategy
+    payload from suggest_recovery.
+
+    Program detection priority: explicit `program` arg > output_file
+    sniff > input_file sniff (`&SEWARD`/`&GATEWAY`→molcas, `geometry`/
+    `task`→nwchem).
+    """
+    from chemtools.mcp.tools.molcas import _handle_apply_molcas_recovery  # noqa: PLC0415
+    from chemtools.core import registry as _registry
+
+    program = arguments.get("program")
+    if program is None:
+        # Prefer detecting from output_file (richer signal); fall back to
+        # input deck sniffing.
+        if arguments.get("output_file"):
+            program = _registry.detect_from_file(arguments["output_file"])
+        if program is None and arguments.get("input_file"):
+            try:
+                head = open(arguments["input_file"], "r", encoding="utf-8",
+                            errors="replace").read(4096)
+                lo = head.lower()
+                if "&seward" in lo or "&gateway" in lo or "&rasscf" in lo:
+                    program = "molcas"
+                elif "geometry" in lo and ("end" in lo or "task " in lo):
+                    program = "nwchem"
+            except OSError:
+                pass
+    if program is None:
+        return {
+            "error": "program_detection_failed",
+            "message": (
+                "Could not auto-detect program for apply_recovery. Pass "
+                "`program='nwchem'` or `program='molcas'` explicitly, or "
+                "provide an output_file that hints at the program."
+            ),
+        }
+
+    def _nwchem_not_implemented(_args: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "verdict": "not_implemented_for_program",
+            "message": (
+                "apply_recovery does not currently have an NWChem patcher. "
+                "Use suggest_recovery to get the strategy bundle and apply "
+                "the recommended changes manually (or via a draft_nwchem_* "
+                "tool with the suggested overrides)."
+            ),
+        }
+    dispatch = {
+        "nwchem": _nwchem_not_implemented,
+        "molcas": _handle_apply_molcas_recovery,
+    }
+    handler = dispatch.get(program)
+    if handler is None:
+        return {
+            "error": "no_handler_for_program",
+            "message": f"No apply_recovery handler for program {program!r}.",
+        }
+    result = handler(arguments)
+    return {"program": program, **(result if isinstance(result, dict) else {"result": result})}
 
 
 @_tool("parse_nwchem_output")
