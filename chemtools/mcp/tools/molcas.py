@@ -79,6 +79,9 @@ from chemtools.programs.molcas.strategy.reaction_energy import (
     compute_reaction_energy as _compute_reaction_energy,
     check_active_space_consistency as _check_active_space_consistency,
 )
+from chemtools.programs.molcas.strategy.atomization import (
+    prepare_atomization_calculation as _prepare_atomization_calculation,
+)
 from chemtools.programs.molcas.docs import (
     list_docs as _list_docs,
     search_docs as _search_docs,
@@ -848,6 +851,68 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "prepare_molcas_atomization",
+            "description": (
+                "Thick orchestrator for atomization-energy / binding-energy workflows. "
+                "Takes a molecule + chemistry context and generates: (1) the molecule "
+                "input at consistent CAS (auto-summed from atomic fragments by default), "
+                "(2) one input per unique atomic element at its bundled ground state + "
+                "recommended CAS, all at uniform theory level (same basis, same DKH "
+                "setting). Returns launch plans for every species PLUS a post-hoc "
+                "next_actions list calling check_molcas_active_space_consistency + "
+                "compute_molcas_reaction_energy. Handles three CrO-class workflow "
+                "traps: (a) auto-sums molecule CAS to span atomic fragments; (b) "
+                "applies Relativistic R02O02 uniformly when any element needs it (TM "
+                "atoms); (c) skips the &SCF block on high-spin TM atoms (Cr ⁷S, Mn ⁶S, "
+                "Fe ⁵D, etc.) because Molcas ROHF doesn't converge from GuessOrb for "
+                "them. Atomic CAS comes from a bundled ground-state table (Z=1..30)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "atoms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string"},
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "z": {"type": "number"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["symbol", "x", "y", "z"],
+                        },
+                    },
+                    "charge": {"type": "integer", "default": 0},
+                    "multiplicity": {"type": "integer", "minimum": 1},
+                    "basis": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "object", "additionalProperties": {"type": "string"}},
+                        ],
+                        "description": "Either a single basis name (all elements) or per-element dict like {'Cr': 'ANO-RCC', 'O': 'ANO-S'}.",
+                    },
+                    "method": {"type": "string", "enum": ["CASSCF", "CASPT2", "MS-CASPT2"], "default": "CASSCF"},
+                    "cas_active_electrons": {"type": ["integer", "null"], "default": None, "description": "Molecule CAS active electrons. If null AND cas_active_orbitals is null, auto-summed from atomic fragments."},
+                    "cas_active_orbitals": {"type": ["integer", "null"], "default": None},
+                    "atomic_cas_strategy": {"type": "string", "enum": ["minimal", "valence"], "default": "minimal", "description": "'minimal' = SOMOs + open valence shell (matches what the molecule usually treats as active); 'valence' = full valence shell."},
+                    "relativistic": {"type": "string", "enum": ["auto", "always", "never"], "default": "auto", "description": "'auto' = enable Relativistic R02O02 if any element needs DKH per the bundled table."},
+                    "output_dir": {"type": "string", "default": "."},
+                    "base_job_name": {"type": ["string", "null"], "default": None},
+                    "inline_basis": {"type": "boolean", "default": True},
+                    "memory_mb": {"type": "integer", "default": 4000},
+                    "title": {"type": ["string", "null"], "default": None},
+                    "geometry_units": {"type": "string", "enum": ["angstrom", "bohr"], "default": "angstrom"},
+                    "apptainer_sif": {"type": ["string", "null"], "default": None},
+                    "profile": {"type": ["object", "null"], "default": None},
+                    "requested_np": {"type": "integer", "default": 1, "minimum": 1},
+                },
+                "required": ["atoms", "multiplicity", "basis"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "compute_molcas_reaction_energy",
             "description": (
                 "Compute a reaction energy from converged Molcas outputs. "
@@ -1431,6 +1496,30 @@ def _handle_prepare_molcas_opt_freq_workflow(arguments: dict[str, Any]) -> dict[
         iroot_freq=arguments.get("iroot_freq"),
         job_name=arguments.get("job_name"),
         write_input_to=arguments.get("write_input_to"),
+        apptainer_sif=arguments.get("apptainer_sif"),
+        profile=arguments.get("profile"),
+        requested_np=int(arguments.get("requested_np", 1)),
+    )
+
+
+@_tool("prepare_molcas_atomization")
+def _handle_prepare_molcas_atomization(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _prepare_atomization_calculation(
+        atoms=arguments["atoms"],
+        charge=int(arguments.get("charge", 0)),
+        multiplicity=int(arguments["multiplicity"]),
+        basis=arguments["basis"],
+        method=arguments.get("method", "CASSCF"),
+        cas_active_electrons=arguments.get("cas_active_electrons"),
+        cas_active_orbitals=arguments.get("cas_active_orbitals"),
+        atomic_cas_strategy=arguments.get("atomic_cas_strategy", "minimal"),
+        relativistic=arguments.get("relativistic", "auto"),
+        output_dir=arguments.get("output_dir", "."),
+        base_job_name=arguments.get("base_job_name"),
+        inline_basis=bool(arguments.get("inline_basis", True)),
+        memory_mb=int(arguments.get("memory_mb", 4000)),
+        title=arguments.get("title"),
+        geometry_units=arguments.get("geometry_units", "angstrom"),
         apptainer_sif=arguments.get("apptainer_sif"),
         profile=arguments.get("profile"),
         requested_np=int(arguments.get("requested_np", 1)),

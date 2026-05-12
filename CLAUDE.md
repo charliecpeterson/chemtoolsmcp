@@ -27,7 +27,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
     nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
     tools/
       nwchem.py      NWChem tool definitions + handlers (114 tools)
-      molcas.py      Molcas tool definitions + handlers (30 tools)
+      molcas.py      Molcas tool definitions + handlers (31 tools)
     # Future: molpro.py, orca.py
 
 test_phase1/         Test suite (Phases 2–6, 244 tests)
@@ -39,7 +39,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 144 (114 NWChem + 30 Molcas; the NWChem total includes `get_server_mode`)
+- Current tool count: 145 (114 NWChem + 31 Molcas; the NWChem total includes `get_server_mode`)
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)
@@ -61,7 +61,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
-### Molcas / OpenMolcas tools (30)
+### Molcas / OpenMolcas tools (31)
 
 | Tool | Purpose |
 |------|---------|
@@ -95,6 +95,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | `prepare_molcas_opt_freq_workflow` | **Thick orchestrator** for geometry-optimization + analytic-frequency runs. Wraps SEWARD + (SCF on iter 1 only) + RASSCF (CASSCF mode) + ALASKA + SLAPAF in an EMIL `>>> Do while <<<` ... `>>> ENDDO <<<` loop, followed by MCKINLEY + MCLR for analytic Hessian + harmonic frequencies. Supports SCF/HF/CASSCF/RASSCF, minimum or transition-state search (`transition_state=True` → adds `TS` to SLAPAF), freq-only single points (`do_optimization=False`), numerical-gradient fallback, and `iroot_freq` for state-averaged frequencies. |
 | `compute_molcas_reaction_energy` | Post-hoc reaction-energy calculator. Takes signed stoichiometric coefficients on converged outputs (products + reactants) and returns ΔE in au / kcal/mol / eV. For atomization (1 molecule reactant, N atomic products) auto-emits `binding_energy_*` and `is_bound` fields. Honors `energy_kind` (primary / scf / rasscf / caspt2 / ms_caspt2 / rassi_sf / rassi_so) so the agent can force consistent level across species. |
 | `check_molcas_active_space_consistency` | Diagnostic for multireference reaction energies. Compares a molecule's CAS dimensions (n_active_electrons, n_active_orbitals) to the SUM of its dissociation-fragment CASes. Verdicts: `consistent` / `molecule_undersized` / `fragments_undersized` / `char_mismatch`. If undersized, returns `suggested_cas=(M,N)` ready to feed into `prepare_molcas_casscf_setup`. Optional character check counts e.g. 'Cr 3d' active orbitals in molecule vs. fragments. Catches the textbook "CASSCF says CrO is unbound" trap before computing the energy. |
+| `prepare_molcas_atomization` | **Thick orchestrator** for atomization / binding-energy workflows. Generates the molecule input + one input per unique atomic element at consistent CAS theory. Auto-sums molecule's CAS to span the atomic fragments by default (so `check_molcas_active_space_consistency` passes by construction). Applies `Relativistic R02O02` uniformly when any element requires DKH (TMs Z>=19). Drops the `&SCF` block on high-spin TM atoms (Cr ⁷S, Mn ⁶S, Fe ⁵D, V ⁴F, Co ⁴F) where Molcas ROHF won't converge from GuessOrb — RASSCF starts from GuessOrb directly. Bundled ground-state table (Z=1..30) supplies multiplicity + recommended CAS per element. Returns launch plans + `next_actions` that chain through `check_molcas_active_space_consistency` + `compute_molcas_reaction_energy`. |
 
 Bundled data:
 - 133 Markdown docs at `chemtools/data/molcas/docs/` (programs, tutorials, users_guide, advanced_examples, installation, overview)
@@ -347,9 +348,9 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` | 128 | No NWChem executable available; post-hoc parsing (NWChem + Molcas), drafting (incl. Molcas inputs), planning, registry tracking of runs done elsewhere |
-| `local` | 141 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
-| `hpc` | 144 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+| `analysis` | 129 | No NWChem executable available; post-hoc parsing (NWChem + Molcas), drafting (incl. Molcas inputs), planning, registry tracking of runs done elsewhere |
+| `local` | 142 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 145 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
 
 ### Selecting a mode
 
@@ -371,7 +372,7 @@ Each tool is tagged via `@_tool("name", needs="...")`. Valid tags:
 
 | Tag | Modes exposing it | Tools |
 |---|---|---|
-| `none` (default) | analysis, local, hpc | 87 pure-Python tools (parsing, drafting, suggest, docs, eval) |
+| `none` (default) | analysis, local, hpc | 88 pure-Python tools (parsing, drafting, suggest, docs, eval) |
 | `registry` | analysis, local, hpc | 9 SQLite registry/campaign/workflow tools |
 | `runner_profile` | local, hpc | 2 profile inspection/validation tools |
 | `executable_or_scheduler` | local, hpc | 5 resource advisors that adapt to `launcher.kind` |
