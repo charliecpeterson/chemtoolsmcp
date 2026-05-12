@@ -1801,3 +1801,367 @@ def prepare_irc_workflow(
                 }
             ]
     return result
+
+
+# --- PES scan workflow orchestrator -------------------------------------------
+
+
+_VALID_SCAN_KINDS = {"bond": 2, "angle": 3, "dihedral": 4}
+_DEFAULT_SCAN_UNITS = {"bond": "angstrom", "angle": "degree", "dihedral": "degree"}
+
+
+def _render_constraint_block(
+    *,
+    kind: str,
+    atom_labels: list[str],
+    value: float,
+    unit: str,
+    constraint_name: str = "R1",
+) -> list[str]:
+    """Render the Molcas Constraint block lines for a single constrained
+    coordinate.
+
+    Format (from the SLAPAF docs / ex-rp.md example):
+
+        Constraint
+        R1 = Bond H3 O1
+        Value
+        R1 = 2.0 angstrom
+        End of Constraint
+    """
+    kind_lower = kind.lower()
+    if kind_lower not in _VALID_SCAN_KINDS:
+        raise ValueError(
+            f"scan_coordinate.kind must be one of {sorted(_VALID_SCAN_KINDS)}; "
+            f"got {kind!r}"
+        )
+    expected = _VALID_SCAN_KINDS[kind_lower]
+    if len(atom_labels) != expected:
+        raise ValueError(
+            f"{kind.capitalize()} constraint needs {expected} atom labels; got "
+            f"{len(atom_labels)} ({atom_labels!r})."
+        )
+    kind_kw = kind_lower.capitalize()  # Bond / Angle / Dihedral
+    return [
+        "Constraint",
+        f"{constraint_name} = {kind_kw} {' '.join(atom_labels)}",
+        "Value",
+        f"{constraint_name} = {value:g} {unit}",
+        "End of Constraint",
+    ]
+
+
+def _resolve_scan_atom_labels(
+    atoms: list[dict],
+    scan_coordinate: dict[str, Any],
+) -> list[str]:
+    """Resolve atom_labels OR atom_indices from scan_coordinate against the
+    auto-labelled atom list.
+    """
+    from chemtools.programs.molcas.input._utils import auto_label, normalize_atoms
+
+    labeled = auto_label(normalize_atoms(atoms))
+    label_index = {a["label"]: a["label"] for a in labeled}
+
+    if "atom_labels" in scan_coordinate and scan_coordinate["atom_labels"]:
+        labels = list(scan_coordinate["atom_labels"])
+        missing = [l for l in labels if l not in label_index]
+        if missing:
+            available = sorted(label_index)
+            raise ValueError(
+                f"scan_coordinate.atom_labels references unknown labels: {missing}. "
+                f"Available: {available}"
+            )
+        return labels
+    if "atom_indices" in scan_coordinate and scan_coordinate["atom_indices"]:
+        idx = list(scan_coordinate["atom_indices"])  # 1-based
+        out: list[str] = []
+        for i in idx:
+            if not (1 <= int(i) <= len(labeled)):
+                raise ValueError(
+                    f"atom_indices entry {i} out of range (1..{len(labeled)})."
+                )
+            out.append(labeled[int(i) - 1]["label"])
+        return out
+    raise ValueError(
+        "scan_coordinate must provide either atom_labels (list of strings) "
+        "or atom_indices (list of 1-based ints)."
+    )
+
+
+def prepare_scan_workflow(
+    *,
+    atoms: list[dict],
+    charge: int = 0,
+    multiplicity: int,
+    basis: str | dict[str, str],
+    method: str = "SCF",
+    cas_active_electrons: int | None = None,
+    cas_active_orbitals: int | None = None,
+    scan_coordinate: dict[str, Any],
+    title: str | None = None,
+    geometry_units: str = "angstrom",
+    symmetry: str | None = None,
+    n_symmetries: int = 1,
+    occupied_per_symmetry: list[int] | None = None,
+    n_basis_per_symmetry: list[int] | None = None,
+    rasscf_inactive_per_symmetry: list[int] | None = None,
+    rasscf_active_per_symmetry: list[int] | None = None,
+    inline_basis: bool = True,
+    memory_mb: int = 2000,
+    max_opt_iterations: int | None = None,
+    chain_orbitals: bool = True,
+    base_job_name: str = "scan",
+    output_dir: str = ".",
+    apptainer_sif: str | None = None,
+    profile: dict | None = None,
+    requested_np: int = 1,
+) -> dict[str, Any]:
+    """Constrained-geometry PES scan orchestrator.
+
+    For each value in ``scan_coordinate["values"]``, generates a Molcas input
+    that optimizes the molecule with that one internal coordinate locked.
+    Returns N launch plans + a post-hoc next_actions chain to harvest the
+    converged energies.
+
+    scan_coordinate
+        Dict with keys:
+          kind          'bond' | 'angle' | 'dihedral'
+          atom_labels   list of atom labels (auto-generated; e.g. ['C1', 'H1'])
+                        OR atom_indices: list of 1-based ints
+          values        list of constraint target values
+          unit          'angstrom' | 'bohr' (bond) /
+                        'degree' | 'radian' (angle, dihedral).
+                        Defaults to angstrom for bond, degree for angle/dihedral.
+    chain_orbitals
+        If True, each scan-point input after the first uses LumOrb +
+        FILEORB pointing at the previous point's RasOrb (or ScfOrb if SCF).
+        Faster convergence + smoother PES (no orbital flipping between points).
+
+    Returns dict with:
+      verdict           "ready_to_launch" | "lint_blocked"
+      scan_points       list of {value, input_path, log_path, launch_plan, lint_issues}
+      next_actions      sequential launch plan + a final parser chain
+    """
+    from chemtools.programs.molcas.input._utils import (
+        auto_label, normalize_atoms, total_electrons,
+    )
+    from chemtools.programs.molcas.input.seward import render_seward_block
+    from chemtools.programs.molcas.input.scf import render_scf_block
+    from chemtools.programs.molcas.input.rasscf import (
+        compute_active_space_partition, render_rasscf_block,
+    )
+    from chemtools.programs.molcas.input.opt_freq import (
+        render_alaska_block, render_slapaf_block,
+        do_while_open, do_while_close, if_iter_one_open, if_iter_one_close,
+    )
+    from chemtools.programs.molcas.input.lint import lint_molcas_input
+
+    method_upper = method.upper()
+    if method_upper not in {"SCF", "HF", "CASSCF", "RASSCF"}:
+        return {
+            "verdict": "unsupported_method",
+            "error": "unsupported_method",
+            "message": (
+                f"PES scan orchestrator supports SCF/HF/CASSCF/RASSCF; "
+                f"got {method!r}. CASPT2 scans need GRDT — separate dogfood."
+            ),
+        }
+    use_cas = method_upper in {"CASSCF", "RASSCF"}
+
+    # Validate scan_coordinate structure
+    if not isinstance(scan_coordinate, dict):
+        return {"verdict": "bad_scan_spec", "error": "bad_scan_spec",
+                "message": "scan_coordinate must be a dict."}
+    if "kind" not in scan_coordinate or "values" not in scan_coordinate:
+        return {"verdict": "bad_scan_spec", "error": "bad_scan_spec",
+                "message": "scan_coordinate needs 'kind' and 'values' fields."}
+    kind = str(scan_coordinate["kind"]).lower()
+    values: list[float] = [float(v) for v in scan_coordinate["values"]]
+    if not values:
+        return {"verdict": "bad_scan_spec", "error": "bad_scan_spec",
+                "message": "scan_coordinate.values cannot be empty."}
+    unit = scan_coordinate.get("unit") or _DEFAULT_SCAN_UNITS.get(kind, "angstrom")
+    try:
+        atom_labels = _resolve_scan_atom_labels(atoms, scan_coordinate)
+    except ValueError as exc:
+        return {"verdict": "bad_scan_spec", "error": "bad_scan_spec", "message": str(exc)}
+
+    atoms_norm = auto_label(normalize_atoms(atoms))
+    n_elec = total_electrons(atoms_norm, charge)
+
+    partition = None
+    if use_cas:
+        if cas_active_electrons is None or cas_active_orbitals is None:
+            return {
+                "verdict": "missing_cas_spec", "error": "missing_cas_spec",
+                "message": "CASSCF method needs cas_active_electrons + cas_active_orbitals.",
+            }
+        partition = compute_active_space_partition(
+            n_electrons=n_elec,
+            cas_active_electrons=cas_active_electrons,
+            cas_active_orbitals=cas_active_orbitals,
+            n_symmetries=n_symmetries,
+            n_basis_per_symmetry=n_basis_per_symmetry,
+            n_inactive_per_symmetry=rasscf_inactive_per_symmetry,
+            active_per_symmetry=rasscf_active_per_symmetry,
+        )
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    scan_points: list[dict[str, Any]] = []
+    total_errors = 0
+
+    for i, value in enumerate(values):
+        point_name = f"{base_job_name}_p{i+1:02d}"
+        point_title = (
+            (title or f"{method_upper} scan") +
+            f" — point {i+1}/{len(values)}: {kind} {' '.join(atom_labels)} = {value:g} {unit}"
+        )
+
+        constraint_lines = _render_constraint_block(
+            kind=kind,
+            atom_labels=atom_labels,
+            value=value,
+            unit=unit,
+        )
+
+        blocks: list[str] = [f">>> Export MOLCAS_MEM={memory_mb}\n"]
+        blocks.append(
+            render_seward_block(
+                atoms=atoms_norm,
+                basis=basis,
+                title=point_title,
+                symmetry=symmetry,
+                geometry_units=geometry_units,
+                inline_basis=inline_basis,
+                use_gateway=True,
+                gateway_extras=constraint_lines,
+            )
+        )
+        # Opt loop: SEWARD re-integrates → SCF (iter 1 for CAS, every iter for SCF-only) → RASSCF → ALASKA → SLAPAF
+        blocks.append(do_while_open())
+        blocks.append("&SEWARD\nEnd of input\n")
+        if use_cas:
+            blocks.append(if_iter_one_open())
+        blocks.append(
+            render_scf_block(
+                n_electrons=n_elec,
+                multiplicity=multiplicity,
+                n_symmetries=n_symmetries,
+                occupied_per_symmetry=occupied_per_symmetry,
+                title=point_title,
+            )
+        )
+        if use_cas:
+            blocks.append(if_iter_one_close())
+        if use_cas:
+            rasscf_extras: list[str] = []
+            # Orbital chaining: from point 2 onwards, read RasOrb of previous point
+            if chain_orbitals and i > 0:
+                prev_point = scan_points[-1]
+                prev_orb = prev_point["input_path"].replace(".input", ".RasOrb")
+                rasscf_extras.append(f"FILEORB\n {prev_orb}")
+            blocks.append(
+                render_rasscf_block(
+                    multiplicity=multiplicity,
+                    state_symmetry=1,
+                    nactel=partition["nactel"],
+                    frozen=partition["frozen"],
+                    inactive=partition["inactive"],
+                    ras2=partition["ras2"],
+                    ras1=partition["ras1"],
+                    ras3=partition["ras3"],
+                    title=point_title,
+                    n_roots=1,
+                    extra_keywords=rasscf_extras or None,
+                )
+            )
+        blocks.append(render_alaska_block())
+        blocks.append(
+            render_slapaf_block(
+                iterations=max_opt_iterations,
+            )
+        )
+        blocks.append(do_while_close())
+
+        input_text = "".join(blocks)
+        input_path = out_dir / f"{point_name}.input"
+        input_path.write_text(input_text, encoding="utf-8")
+
+        lint_issues = lint_molcas_input(input_text)
+        n_errors = sum(1 for x in lint_issues if x.get("level") == "error")
+        total_errors += n_errors
+
+        plan = None
+        if n_errors == 0:
+            plan = prepare_launch(
+                str(input_path),
+                profile=profile,
+                requested_np=requested_np,
+                job_name=point_name,
+                apptainer_sif=apptainer_sif,
+            )
+
+        scan_points.append({
+            "index": i + 1,
+            "value": value,
+            "unit": unit,
+            "input_path": str(input_path),
+            "log_path": str(input_path).replace(".input", ".log"),
+            "lint_issues": lint_issues,
+            "n_lint_errors": n_errors,
+            "launch_plan": plan,
+        })
+
+    verdict = "ready_to_launch" if total_errors == 0 else "lint_blocked"
+
+    next_actions: list[dict] = []
+    if verdict == "ready_to_launch":
+        for sp in scan_points:
+            plan = sp["launch_plan"]
+            next_actions.append({
+                "tool": "shell_execute",
+                "args": {"command": plan["command_str"], "env": plan["env"]},
+                "rationale": (
+                    f"Run scan point {sp['index']}/{len(values)}: "
+                    f"{kind} {' '.join(atom_labels)} = {sp['value']:g} {unit}."
+                ),
+            })
+        # Final aggregation step
+        next_actions.append({
+            "tool": "compute_molcas_reaction_energy",
+            "rationale": (
+                "Optional: after all scan points converge, build a relative-energy "
+                "table by harvesting each .log's primary energy. The orchestrator "
+                "doesn't auto-aggregate, but compute_molcas_reaction_energy or "
+                "parse_molcas_output on each point recovers the data."
+            ),
+        })
+    else:
+        next_actions.append({
+            "tool": "lint_molcas_input",
+            "rationale": f"Fix the {total_errors} lint error(s) across scan points before launching.",
+        })
+
+    return {
+        "verdict": verdict,
+        "method": method_upper,
+        "scan_coordinate": {
+            "kind": kind,
+            "atom_labels": atom_labels,
+            "values": values,
+            "unit": unit,
+        },
+        "n_points": len(values),
+        "active_space": (
+            {"cas_active_electrons": cas_active_electrons,
+             "cas_active_orbitals": cas_active_orbitals,
+             "partition": partition}
+            if use_cas else None
+        ),
+        "chain_orbitals": chain_orbitals,
+        "scan_points": scan_points,
+        "next_actions": next_actions,
+    }

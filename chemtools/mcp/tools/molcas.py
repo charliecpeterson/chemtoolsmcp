@@ -75,6 +75,7 @@ from chemtools.programs.molcas.strategy.orchestrators import (
     prepare_excited_states_workflow as _prepare_excited_states_workflow,
     prepare_opt_freq_workflow as _prepare_opt_freq_workflow,
     prepare_irc_workflow as _prepare_irc_workflow,
+    prepare_scan_workflow as _prepare_scan_workflow,
 )
 from chemtools.programs.molcas.strategy.reaction_energy import (
     compute_reaction_energy as _compute_reaction_energy,
@@ -856,6 +857,88 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "prepare_molcas_scan_workflow",
+            "description": (
+                "Constrained-geometry PES scan orchestrator. For each value in "
+                "scan_coordinate.values, generates a Molcas input that optimizes "
+                "the molecule with the chosen bond/angle/dihedral locked at that "
+                "value (via GATEWAY Constraint + SLAPAF). Supports SCF/HF/"
+                "CASSCF/RASSCF. Optional orbital chaining: each point after the "
+                "first reads the previous point's converged orbitals via FILEORB, "
+                "giving faster convergence + smoother PES (no orbital flipping). "
+                "Returns N inputs + a sequential launch plan. Warning: scans "
+                "that traverse a bent↔linear transition (e.g. H-C-N as r(C-H) "
+                "grows) trip SLAPAF's BMtrx error — use angle or non-collinear "
+                "scans for those cases."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "atoms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string"},
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "z": {"type": "number"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["symbol", "x", "y", "z"],
+                        },
+                    },
+                    "charge": {"type": "integer", "default": 0},
+                    "multiplicity": {"type": "integer", "minimum": 1},
+                    "basis": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "object", "additionalProperties": {"type": "string"}},
+                        ],
+                    },
+                    "method": {"type": "string", "enum": ["SCF", "HF", "CASSCF", "RASSCF"], "default": "SCF"},
+                    "cas_active_electrons": {"type": ["integer", "null"], "default": None},
+                    "cas_active_orbitals": {"type": ["integer", "null"], "default": None},
+                    "scan_coordinate": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["bond", "angle", "dihedral"]},
+                            "atom_labels": {
+                                "type": "array", "items": {"type": "string"},
+                                "description": "Auto-generated atom labels (e.g. ['C1', 'H1']). Use atom_indices instead if you don't know the labels.",
+                            },
+                            "atom_indices": {
+                                "type": "array", "items": {"type": "integer", "minimum": 1},
+                                "description": "1-based indices into atoms list. Mutually exclusive with atom_labels.",
+                            },
+                            "values": {"type": "array", "items": {"type": "number"}, "minItems": 1},
+                            "unit": {"type": "string", "enum": ["angstrom", "bohr", "degree", "radian"]},
+                        },
+                        "required": ["kind", "values"],
+                    },
+                    "title": {"type": ["string", "null"], "default": None},
+                    "geometry_units": {"type": "string", "enum": ["angstrom", "bohr"], "default": "angstrom"},
+                    "symmetry": {"type": ["string", "null"], "default": None},
+                    "n_symmetries": {"type": "integer", "default": 1},
+                    "occupied_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "n_basis_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "rasscf_inactive_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "rasscf_active_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "inline_basis": {"type": "boolean", "default": True},
+                    "memory_mb": {"type": "integer", "default": 2000},
+                    "max_opt_iterations": {"type": ["integer", "null"], "default": None},
+                    "chain_orbitals": {"type": "boolean", "default": True, "description": "If True, each scan point after the first uses FILEORB from the previous point's RasOrb/ScfOrb for warm-start convergence."},
+                    "base_job_name": {"type": "string", "default": "scan"},
+                    "output_dir": {"type": "string", "default": "."},
+                    "apptainer_sif": {"type": ["string", "null"], "default": None},
+                    "profile": {"type": ["object", "null"], "default": None},
+                    "requested_np": {"type": "integer", "default": 1, "minimum": 1},
+                },
+                "required": ["atoms", "multiplicity", "basis", "scan_coordinate"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "prepare_molcas_irc_workflow",
             "description": (
                 "Intrinsic reaction coordinate (IRC) orchestrator. Takes a "
@@ -1616,6 +1699,37 @@ def _handle_prepare_molcas_excited_states(arguments: dict[str, Any]) -> dict[str
         memory_mb=int(arguments.get("memory_mb", 4000)),
         job_name=arguments.get("job_name"),
         write_input_to=arguments.get("write_input_to"),
+        apptainer_sif=arguments.get("apptainer_sif"),
+        profile=arguments.get("profile"),
+        requested_np=int(arguments.get("requested_np", 1)),
+    )
+
+
+@_tool("prepare_molcas_scan_workflow")
+def _handle_prepare_molcas_scan_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _prepare_scan_workflow(
+        atoms=arguments["atoms"],
+        charge=int(arguments.get("charge", 0)),
+        multiplicity=int(arguments["multiplicity"]),
+        basis=arguments["basis"],
+        method=arguments.get("method", "SCF"),
+        cas_active_electrons=arguments.get("cas_active_electrons"),
+        cas_active_orbitals=arguments.get("cas_active_orbitals"),
+        scan_coordinate=arguments["scan_coordinate"],
+        title=arguments.get("title"),
+        geometry_units=arguments.get("geometry_units", "angstrom"),
+        symmetry=arguments.get("symmetry"),
+        n_symmetries=int(arguments.get("n_symmetries", 1)),
+        occupied_per_symmetry=arguments.get("occupied_per_symmetry"),
+        n_basis_per_symmetry=arguments.get("n_basis_per_symmetry"),
+        rasscf_inactive_per_symmetry=arguments.get("rasscf_inactive_per_symmetry"),
+        rasscf_active_per_symmetry=arguments.get("rasscf_active_per_symmetry"),
+        inline_basis=bool(arguments.get("inline_basis", True)),
+        memory_mb=int(arguments.get("memory_mb", 2000)),
+        max_opt_iterations=arguments.get("max_opt_iterations"),
+        chain_orbitals=bool(arguments.get("chain_orbitals", True)),
+        base_job_name=arguments.get("base_job_name", "scan"),
+        output_dir=arguments.get("output_dir", "."),
         apptainer_sif=arguments.get("apptainer_sif"),
         profile=arguments.get("profile"),
         requested_np=int(arguments.get("requested_np", 1)),

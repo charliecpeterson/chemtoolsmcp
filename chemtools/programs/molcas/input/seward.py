@@ -37,6 +37,7 @@ def render_seward_block(
     extra_keywords: list[str] | None = None,
     use_gateway: bool = False,
     inline_basis: bool = False,
+    gateway_extras: list[str] | None = None,
 ) -> str:
     """Build the SEWARD (or GATEWAY+SEWARD) input block.
 
@@ -69,6 +70,10 @@ def render_seward_block(
         the bundled basis library) into the input. The result is portable
         across Molcas builds with different bundled libraries. Default False
         emits the library-reference form ``H.ANO-S...4s3p.``.
+    gateway_extras
+        Extra lines to append inside the GATEWAY block (after basis blocks,
+        before "End of input"). Use this to inject Constraint blocks for
+        constrained optimizations / scans. Only honored when use_gateway=True.
     """
     atoms_norm = auto_label(normalize_atoms(atoms))
     elements = list(dict.fromkeys(a["symbol"] for a in atoms_norm))
@@ -135,7 +140,10 @@ def render_seward_block(
         seward_extras.extend(extra_keywords)
 
     if use_gateway:
-        gateway = ["&GATEWAY", *coord_block_lines, "End of input", ""]
+        gateway_lines = [*coord_block_lines]
+        if gateway_extras:
+            gateway_lines.extend(gateway_extras)
+        gateway = ["&GATEWAY", *gateway_lines, "End of input", ""]
         seward = ["&SEWARD"]
         if seward_extras:
             seward.extend(seward_extras)
