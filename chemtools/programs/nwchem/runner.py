@@ -1428,76 +1428,14 @@ def review_nwchem_mcscf_followup_outcome(
 
 
 # ---------------------------------------------------------------------------
-# Session log helpers
+# Session log helpers + input versioning — relocated to core/session.py
+# (Phase 6b). Re-exported here so existing callers via
+# `from chemtools.programs.nwchem.runner import init_session_log` keep
+# working. New code should import from `chemtools.core.session` directly.
 # ---------------------------------------------------------------------------
 
-def init_session_log(
-    log_path: str,
-    session_title: str = "NWChem Session",
-    working_dir: str | None = None,
-) -> dict[str, Any]:
-    """Create (or overwrite) a session log Markdown file."""
-    import datetime
-    from pathlib import Path as _P
-
-    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    header = (
-        f"# {session_title}\n\n"
-        f"**Started:** {ts}  \n"
-        f"**Working directory:** {working_dir or 'unknown'}  \n\n"
-        "---\n\n"
-    )
-    _P(log_path).write_text(header, encoding="utf-8")
-    return {"log_path": log_path, "created": True, "timestamp": ts}
-
-
-def append_session_log(
-    log_path: str,
-    entry_type: str,
-    content: str,
-) -> dict[str, Any]:
-    """Append an entry to the session log.
-
-    entry_type: one of "step", "result", "error", "note", "summary"
-    """
-    import datetime
-    from pathlib import Path as _P
-
-    ts = datetime.datetime.now().strftime("%H:%M:%S")
-    _TYPE_EMOJI = {
-        "step": "▶",
-        "result": "✓",
-        "error": "✗",
-        "note": "◆",
-        "summary": "★",
-    }
-    marker = _TYPE_EMOJI.get(entry_type, "•")
-    entry = f"## {marker} [{ts}] {entry_type.title()}\n\n{content.strip()}\n\n---\n\n"
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(entry)
-    return {"log_path": log_path, "appended": True, "timestamp": ts}
-
-
-# ---------------------------------------------------------------------------
-# Input versioning helper
-# ---------------------------------------------------------------------------
-
-def next_versioned_path(path: str) -> str:
-    """Return path with _v2, _v3, ... appended (before extension) if the file exists.
-
-    e.g. "fe.nw" → "fe_v2.nw" if fe.nw exists, "fe_v3.nw" if fe_v2.nw also exists.
-    """
-    from pathlib import Path as _P
-    p = _P(path)
-    if not p.exists():
-        return path
-    stem = p.stem
-    # Strip any existing _vN suffix to normalize
-    import re as _re
-    base_stem = _re.sub(r"_v\d+$", "", stem)
-    n = 2
-    while True:
-        candidate = p.parent / f"{base_stem}_v{n}{p.suffix}"
-        if not candidate.exists():
-            return str(candidate)
-        n += 1
+from chemtools.core.session import (  # noqa: F401, E402
+    init_session_log,
+    append_session_log,
+    next_versioned_path,
+)

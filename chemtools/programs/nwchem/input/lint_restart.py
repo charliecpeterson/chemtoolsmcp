@@ -30,8 +30,11 @@ from chemtools.programs.nwchem.parse.input import (
     inspect_nwchem_input,
     inspect_all_nwchem_basis_blocks,
     inspect_nwchem_ecp_block,
+    inspect_nwchem_module_vectors,
     extract_nwchem_geometry_block,
+    parse_start_blocks,
 )
+from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS
 from chemtools.programs.nwchem.input.basis_library import (
     resolve_mixed_basis_assignments,
     resolve_mixed_ecp_assignments,

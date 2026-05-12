@@ -15,14 +15,17 @@ parameters:
                                      based on element Z values and
                                      selected basis sets.
 
-The data tables that these functions depend on (transition-metal
-d-counts, ligand-field classification, Pople basis patterns, DK basis
-patterns, relativistic method blocks, relativistic-importance Z
-thresholds) currently live in their previous neighbour modules
-(plausibility.py for the spin-state tables, resources.py for the
-relativistic tables) where the original api_strategy.py block put
-them. We import them here; a follow-up cleanup will consolidate the
-constants under this module instead.
+The data tables these advisors lean on (transition-metal d-counts,
+ligand-field classification, Pople / DK basis patterns, relativistic
+method blocks, relativistic-importance Z thresholds) live in their
+neighbour modules (``plausibility.py`` for the spin-state tables,
+``resources.py`` for the relativistic tables) — they were positioned
+near their primary consumers when ``api_strategy.py`` was split, and
+we re-import them here.
+
+``suggest_basis_set`` itself was moved to ``chemtools.core.basis_advisor``
+in Phase 6b so future programs can reuse it; the re-export below keeps
+existing callers (and the public API) working unchanged.
 """
 
 from __future__ import annotations
@@ -184,100 +187,10 @@ def suggest_spin_state(
 # Basis set advisor
 # ---------------------------------------------------------------------------
 
-def suggest_basis_set(
-    elements: list[str],
-    purpose: str = "geometry",
-    library_path: str | None = None,
-) -> dict[str, Any]:
-    """Suggest an appropriate basis set (and ECP when needed) for a molecule.
-
-    Args:
-        elements: Element symbols present in the molecule.
-        purpose: One of "geometry" (fast opt), "single_point" (DFT energy),
-                 "correlated" (MP2/CCSD), or "heavy_elements" (post-Kr metals).
-        library_path: Optional path to basis library (used only for validation note).
-
-    Returns dict with 'basis_assignments', 'ecp_assignments', 'recommended_basis',
-    and 'notes' ready to pass to create_nwchem_input.
-    """
-    norm = list(dict.fromkeys(e[0].upper() + e[1:].lower() for e in elements))
-    heavy = [e for e in norm if ELEMENT_TO_Z.get(e, 0) > 36]
-    has_heavy = bool(heavy)
-    has_tm = any(e in _TRANSITION_METALS for e in norm)
-    has_lanthanides = any(57 <= ELEMENT_TO_Z.get(e, 0) <= 71 for e in norm)
-
-    p = purpose.strip().lower()
-
-    if p in ("geometry", "opt", "optimization"):
-        basis = "def2-svp"
-        ecp = "def2-ecp" if has_heavy else None
-        explanation = (
-            "def2-SVP for geometry optimization — balanced speed and accuracy. "
-            + ("def2-ECP applied to heavy elements (Z>36). " if has_heavy else "")
-        )
-        alternatives = ["def2-tzvp", "6-31gs"]
-    elif p in ("single_point", "sp", "energy", "dft"):
-        basis = "def2-tzvp"
-        ecp = "def2-ecp" if has_heavy else None
-        explanation = (
-            "def2-TZVP for production DFT single-point energies. "
-            + ("def2-ECP for heavy elements (Z>36). " if has_heavy else "")
-        )
-        alternatives = ["def2-svp", "cc-pvtz"]
-    elif p in ("correlated", "ccsd", "mp2", "post-hf", "wft"):
-        if has_heavy or has_tm:
-            basis = "def2-tzvp"
-            ecp = "def2-ecp" if has_heavy else None
-            explanation = (
-                "def2-TZVP for correlated calculations with transition metals. "
-                + ("def2-ECP for heavy elements. " if has_heavy else "")
-                + "For pure main-group systems, cc-pVTZ is preferred."
-            )
-            alternatives = ["cc-pvtz", "def2-svp"]
-        else:
-            basis = "cc-pvtz"
-            ecp = None
-            explanation = (
-                "cc-pVTZ for correlated methods (MP2, CCSD, CCSD(T)) on main-group elements. "
-                "Designed for systematic basis-set convergence."
-            )
-            alternatives = ["cc-pvdz", "aug-cc-pvtz", "def2-tzvp"]
-    elif p in ("heavy", "heavy_elements", "lanthanides", "actinides"):
-        basis = "def2-tzvp"
-        ecp = "def2-ecp"
-        explanation = "def2-TZVP + Stuttgart def2-ECP for relativistic treatment of heavy elements."
-        if has_lanthanides:
-            explanation += " Note: lanthanides may need dedicated f-basis (e.g. ano-rcc or cc-pVTZ-PP)."
-        alternatives = ["def2-svp", "crenbl"]
-    else:
-        basis = "def2-svp"
-        ecp = "def2-ecp" if has_heavy else None
-        explanation = f"Unknown purpose '{purpose}'; defaulting to def2-SVP."
-        alternatives = ["def2-tzvp"]
-
-    basis_assignments = {e: basis for e in norm}
-    ecp_assignments: dict[str, str] | None = None
-    if ecp:
-        ecp_assignments = {e: ecp for e in heavy}
-        if not ecp_assignments:
-            ecp_assignments = None
-
-    return {
-        "elements": norm,
-        "purpose": p,
-        "has_heavy_elements": has_heavy,
-        "has_transition_metals": has_tm,
-        "recommended_basis": basis,
-        "recommended_ecp": ecp,
-        "explanation": explanation.strip(),
-        "alternatives": alternatives,
-        "basis_assignments": basis_assignments,
-        "ecp_assignments": ecp_assignments,
-        "usage_note": (
-            "Pass basis_assignments (and ecp_assignments if not None) directly to "
-            "create_nwchem_input or create_nwchem_dft_workflow_input."
-        ),
-    }
+# Relocated to chemtools.core.basis_advisor (Phase 6b). Re-exported here
+# so existing callers keep working; new code should import from
+# chemtools.core.basis_advisor directly.
+from chemtools.core.basis_advisor import suggest_basis_set  # noqa: F401
 
 
 # ---------------------------------------------------------------------------

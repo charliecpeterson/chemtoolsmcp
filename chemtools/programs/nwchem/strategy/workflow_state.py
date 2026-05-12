@@ -129,7 +129,7 @@ def preflight_check(
     """
     import re
     from pathlib import Path
-    from .api_input import lint_nwchem_input
+    from chemtools.api_input import lint_nwchem_input
     from chemtools.core.runner import load_runner_profiles, _resolve_profile
 
     checks: list[dict[str, Any]] = []

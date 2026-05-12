@@ -68,6 +68,8 @@ def _analyze_job_size(input_file: str) -> dict[str, Any]:
 
 
 def _basis_scale(basis: str) -> float:
+    # Lazy import — avoids a resources↔input_advisors circular import.
+    from chemtools.programs.nwchem.strategy.input_advisors import _BASIS_SCALE
     b = basis.strip().lower()
     if b in _BASIS_SCALE:
         return _BASIS_SCALE[b]

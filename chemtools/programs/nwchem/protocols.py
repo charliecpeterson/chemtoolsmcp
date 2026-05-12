@@ -1,20 +1,22 @@
-"""Pre-baked calculation protocols for NWChem workflows.
+"""NWChem protocol library + tool-name bindings for the generic DAG engine.
 
-Protocols encode multi-step calculation recipes so a model (even a cheap one)
-can drive the full workflow without understanding NWChem internals.  The model
-calls ``plan_calculation`` to get the step list, then executes each step.
+The PROTOCOLS dict below is the NWChem-specific recipe library; the
+engine that walks it (``plan_calculation``, ``list_protocols``) lives in
+``chemtools.core.workflow`` and is program-agnostic. This module just
+hands the engine the NWChem protocol library, the NWChem tool-name
+mapping, and the NWChem dynamic-step generators.
 
-TODO(multi-program): the DAG engine (plan_calculation, list_protocols, the
-step / depends_on / post_actions schema) is generic and a future
-core/workflow.py would let other programs reuse it. The PROTOCOLS dict
-itself stays program-specific — each protocol references NWChem methods
-and tool names.
+A future Molcas protocol library would be a parallel file
+(``programs/molcas/protocols.py``) wrapping the same core engine.
 """
 from __future__ import annotations
 
-import re
-from pathlib import Path
 from typing import Any
+
+from chemtools.core.workflow import (
+    list_protocols as _core_list_protocols,
+    plan_calculation as _core_plan_calculation,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -172,12 +174,20 @@ PROTOCOLS: dict[str, dict[str, Any]] = {
 }
 
 
+# NWChem tool-name mapping for the core/workflow engine.
+_NWCHEM_TOOL_NAMES: dict[str, str] = {
+    "check_freq": "check_nwchem_freq_plausibility",
+    "check_geom": "check_nwchem_geometry_plausibility",
+    "workflow_state": "get_nwchem_workflow_state",
+    "extract_geom": "extract_nwchem_geometry",
+    "input_variant": "create_nwchem_input_variant",
+    "launch": "launch_nwchem_run",
+}
+
+
 def list_protocols() -> list[dict[str, str]]:
-    """Return a summary of all available protocols."""
-    return [
-        {"name": name, "description": proto["description"]}
-        for name, proto in PROTOCOLS.items()
-    ]
+    """Return a summary of all available NWChem protocols."""
+    return _core_list_protocols(PROTOCOLS)
 
 
 def plan_calculation(
@@ -187,131 +197,25 @@ def plan_calculation(
     output_dir: str | None = None,
     overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Given a molecule input and a protocol name, generate a step-by-step plan.
+    """Given a molecule input and a protocol name, build a step-by-step plan.
 
-    Returns a workflow plan with step descriptions and the tool calls needed
-    to execute each step.  The model follows the plan sequentially (or in
-    parallel where ``parallel_independent`` is True).
+    Thin wrapper over ``chemtools.core.workflow.plan_calculation`` that
+    injects the NWChem protocol library, tool-name mapping, and dynamic
+    step generators.
     """
-    if protocol not in PROTOCOLS:
-        available = ", ".join(sorted(PROTOCOLS.keys()))
-        raise ValueError(f"Unknown protocol '{protocol}'. Available: {available}")
-
-    proto = PROTOCOLS[protocol]
-    inp = Path(input_file)
-    if output_dir is None:
-        output_dir = str(inp.parent)
-    base_stem = re.sub(r"_v\d+$", "", inp.stem)
-    overrides = overrides or {}
-
-    # Build steps
-    steps = proto.get("steps", [])
-    if proto.get("dynamic"):
-        gen = proto.get("dynamic_generator")
-        if gen == "spin_states":
-            steps = _generate_spin_scan_steps(input_file, overrides)
-        elif gen == "reaction_species":
-            steps = _generate_reaction_steps(input_file, overrides)
-        # else: keep static steps
-
-    plan_steps: list[dict[str, Any]] = []
-    for step in steps:
-        step_id = step["id"]
-        task_str = step.get("task", "dft energy")
-        depends = step.get("depends_on")
-
-        step_input = input_file if depends is None else f"<from step '{depends}'>"
-        step_output = str(Path(output_dir) / f"{base_stem}_{step_id}.out")
-
-        tool_params: dict[str, Any] = {
-            "input_file": step_input,
-            "profile": profile,
-        }
-        if step.get("basis_override"):
-            tool_params["basis_override"] = step["basis_override"]
-
-        auto_input_action = step.get("auto_input")
-        pre_actions: list[dict[str, Any]] = []
-        if auto_input_action and depends:
-            if "extract_geometry" in auto_input_action:
-                pre_actions.append({
-                    "tool": "extract_nwchem_geometry",
-                    "params": {"output_file": f"<output of step '{depends}'>", "frame": "best"},
-                    "purpose": "Get optimized geometry for next step",
-                })
-            if "freq" in auto_input_action:
-                pre_actions.append({
-                    "tool": "create_nwchem_input_variant",
-                    "params": {
-                        "source_input": input_file,
-                        "changes": {"task": task_str},
-                        "reason": f"Switch task to {task_str} for protocol step '{step_id}'",
-                    },
-                    "purpose": f"Create input for {task_str}",
-                })
-
-        plan_steps.append({
-            "step_id": step_id,
-            "task": task_str,
-            "depends_on": depends,
-            "expected_output": step_output,
-            "pre_actions": pre_actions,
-            "launch_action": {
-                "tool": "launch_nwchem_run",
-                "params": tool_params,
-            },
-            "post_actions": _post_actions_for_step(step, proto, step_output, input_file),
-        })
-
-    # Post-process checks
-    post_checks: list[dict[str, Any]] = []
-    for check_name in proto.get("post_process", []):
-        post_checks.append({
-            "tool": check_name,
-            "params": {"output_file": "<final output>"},
-        })
-
-    return {
-        "protocol": protocol,
-        "description": proto["description"],
-        "input_file": input_file,
-        "output_dir": output_dir,
-        "profile": profile,
-        "n_steps": len(plan_steps),
-        "parallel_independent": proto.get("parallel_independent", False),
-        "steps": plan_steps,
-        "post_checks": post_checks,
-        "on_imaginary_modes": proto.get("on_imaginary_modes"),
-    }
-
-
-def _post_actions_for_step(
-    step: dict[str, Any],
-    proto: dict[str, Any],
-    output_file: str,
-    input_file: str,
-) -> list[dict[str, Any]]:
-    """Build post-completion actions for a step."""
-    actions: list[dict[str, Any]] = []
-    task = step.get("task", "")
-    if "freq" in task:
-        actions.append({
-            "tool": "check_nwchem_freq_plausibility",
-            "params": {"output_file": output_file},
-            "purpose": "Verify frequencies are physically reasonable",
-        })
-    elif "optimize" in task:
-        actions.append({
-            "tool": "check_nwchem_geometry_plausibility",
-            "params": {"output_file": output_file},
-            "purpose": "Verify optimized geometry is reasonable",
-        })
-    actions.append({
-        "tool": "get_nwchem_workflow_state",
-        "params": {"input_file": input_file, "output_file": output_file},
-        "purpose": "Check workflow state and determine if step succeeded",
-    })
-    return actions
+    return _core_plan_calculation(
+        PROTOCOLS,
+        input_file=input_file,
+        protocol=protocol,
+        profile=profile,
+        output_dir=output_dir,
+        overrides=overrides,
+        tool_names=_NWCHEM_TOOL_NAMES,
+        dynamic_generators={
+            "spin_states": _generate_spin_scan_steps,
+            "reaction_species": _generate_reaction_steps,
+        },
+    )
 
 
 def _generate_spin_scan_steps(
