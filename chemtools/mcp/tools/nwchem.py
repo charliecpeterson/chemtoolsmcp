@@ -2630,11 +2630,49 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         },
         # --- Phase 3: Campaign / scale management ---
         {
+            "name": "register_run",
+            "description": (
+                "Register a run in the persistent registry with a program tag "
+                "(nwchem / molcas / molpro / ...). Generic version of "
+                "register_nwchem_run — same schema plus a ``program`` field. "
+                "Use this when registering Molcas runs or building cross-"
+                "program campaigns (e.g. CrO atomization with Cr at NWChem "
+                "CCSD(T) + CrO at Molcas CASPT2). Returns a run_id."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "molpro"],
+                                "description": "QC program that produced this run."},
+                    "job_name": {"type": "string"},
+                    "input_file": {"type": "string"},
+                    "output_file": {"type": "string"},
+                    "profile": {"type": "string"},
+                    "method": {"type": "string"},
+                    "functional": {"type": "string"},
+                    "basis": {"type": "string"},
+                    "n_atoms": {"type": "integer"},
+                    "elements": {"type": "array", "items": {"type": "string"}},
+                    "charge": {"type": "integer"},
+                    "multiplicity": {"type": "integer"},
+                    "mpi_ranks": {"type": "integer"},
+                    "campaign_id": {"type": "integer"},
+                    "workflow_id": {"type": "integer"},
+                    "workflow_step_id": {"type": "string"},
+                    "parent_run_id": {"type": "integer"},
+                    "tags": {"type": "object"},
+                },
+                "required": ["job_name"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "register_nwchem_run",
             "description": (
-                "Register a new run in the persistent run registry. "
-                "Call this when submitting a job to track it across sessions. "
-                "Returns a run_id for later updates. Optionally link to a campaign or workflow."
+                "Legacy: register a new NWChem run in the persistent run "
+                "registry (pre-fills program='nwchem'). Equivalent to "
+                "register_run(..., program='nwchem'). New code should use "
+                "register_run directly so the registry stays program-aware."
             ),
             "inputSchema": {
                 "type": "object",
@@ -5538,9 +5576,40 @@ def _handle_summarize_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]
 # Handlers — run registry, campaigns, workflows, batch generation
 # ---------------------------------------------------------------------------
 
+@_tool("register_run", program="generic", needs="registry")
+def _handle_register_run_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Generic registry — tags the run with whichever program is passed."""
+    return register_run(
+        program=arguments.get("program"),
+        job_name=arguments["job_name"],
+        input_file=arguments.get("input_file"),
+        output_file=arguments.get("output_file"),
+        profile=arguments.get("profile"),
+        method=arguments.get("method"),
+        functional=arguments.get("functional"),
+        basis=arguments.get("basis"),
+        n_atoms=arguments.get("n_atoms"),
+        elements=arguments.get("elements"),
+        charge=arguments.get("charge"),
+        multiplicity=arguments.get("multiplicity"),
+        mpi_ranks=arguments.get("mpi_ranks"),
+        campaign_id=arguments.get("campaign_id"),
+        workflow_id=arguments.get("workflow_id"),
+        workflow_step_id=arguments.get("workflow_step_id"),
+        parent_run_id=arguments.get("parent_run_id"),
+        tags=arguments.get("tags"),
+    )
+
+
 @_tool("register_nwchem_run", needs="registry")
 def _handle_register_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy NWChem-tagged registry — pre-fills program='nwchem'.
+
+    Equivalent to ``register_run(..., program='nwchem')``. Kept for one
+    release so older agents/tests don't break.
+    """
     return register_run(
+        program="nwchem",
         job_name=arguments["job_name"],
         input_file=arguments.get("input_file"),
         output_file=arguments.get("output_file"),

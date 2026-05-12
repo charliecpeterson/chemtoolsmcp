@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS workflows (
 
 CREATE TABLE IF NOT EXISTS runs (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    program             TEXT,       -- 'nwchem' / 'molcas' / 'molpro' / ... (Phase 4b)
     job_name            TEXT NOT NULL,
     input_file          TEXT,
     output_file         TEXT,
@@ -98,11 +99,29 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_campaign ON runs(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_workflow ON runs(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_runs_program ON runs(program);
 """
+
+
+def _migrate_add_program_column(conn: sqlite3.Connection) -> None:
+    """Idempotent migration: add `program` column to runs table if missing.
+
+    Existing databases pre-dating Phase 4b have a runs table without the
+    `program` column; new schema includes it. ALTER TABLE ADD COLUMN
+    leaves existing rows with NULL — that's fine since pre-Phase-4b runs
+    were all NWChem.
+    """
+    cur = conn.execute("PRAGMA table_info(runs)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "program" not in cols:
+        conn.execute("ALTER TABLE runs ADD COLUMN program TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_program ON runs(program)")
+        conn.commit()
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(_SCHEMA_SQL)
+    _migrate_add_program_column(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -129,24 +148,31 @@ def register_run(
     workflow_step_id: str | None = None,
     parent_run_id: int | None = None,
     tags: dict[str, Any] | None = None,
+    program: str | None = None,
     db_path: str | None = None,
 ) -> dict[str, Any]:
-    """Register a new run in the registry. Returns the run_id."""
+    """Register a new run in the registry. Returns the run_id.
+
+    ``program`` (since Phase 4b) tags the run with which QC program produced
+    it (``'nwchem'``, ``'molcas'``, ``'molpro'``, ...). Pre-Phase-4b runs
+    have NULL here; the legacy register_nwchem_run MCP wrapper now passes
+    'nwchem' explicitly.
+    """
     conn = _connect(db_path)
     now = datetime.now(timezone.utc).isoformat()
     try:
         cur = conn.execute(
             """INSERT INTO runs (
-                job_name, input_file, output_file, profile,
+                program, job_name, input_file, output_file, profile,
                 method, functional, basis, n_atoms, elements,
                 charge, multiplicity, status, submitted_at,
                 mpi_ranks, node_memory_mb, cpu_arch,
                 campaign_id, workflow_id, workflow_step_id,
                 parent_run_id, tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?,
                       ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                job_name, input_file, output_file, profile,
+                program, job_name, input_file, output_file, profile,
                 method, functional, basis, n_atoms,
                 json.dumps(elements) if elements else None,
                 charge, multiplicity, now,
@@ -158,7 +184,7 @@ def register_run(
         )
         conn.commit()
         run_id = cur.lastrowid
-        return {"run_id": run_id, "job_name": job_name, "status": "submitted"}
+        return {"run_id": run_id, "job_name": job_name, "status": "submitted", "program": program}
     finally:
         conn.close()
 
@@ -219,10 +245,11 @@ def list_runs(
     workflow_id: int | None = None,
     status: str | None = None,
     method: str | None = None,
+    program: str | None = None,
     limit: int = 50,
     db_path: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List runs, optionally filtered by campaign, workflow, status, or method."""
+    """List runs, optionally filtered by campaign, workflow, status, method, or program."""
     conn = _connect(db_path)
     try:
         wheres: list[str] = []
@@ -239,6 +266,9 @@ def list_runs(
         if method is not None:
             wheres.append("UPPER(method) = ?")
             vals.append(method.upper())
+        if program is not None:
+            wheres.append("LOWER(program) = ?")
+            vals.append(program.lower())
 
         where_clause = (" WHERE " + " AND ".join(wheres)) if wheres else ""
         vals.append(limit)
@@ -399,7 +429,7 @@ def get_campaign_energies(
             return {"error": "Campaign not found."}
 
         rows = conn.execute(
-            """SELECT id, job_name, method, basis, charge, multiplicity,
+            """SELECT id, program, job_name, method, basis, charge, multiplicity,
                       energy_hartree, h_hartree, g_hartree, imaginary_modes, status
                FROM runs WHERE campaign_id = ? AND energy_hartree IS NOT NULL
                ORDER BY energy_hartree""",
