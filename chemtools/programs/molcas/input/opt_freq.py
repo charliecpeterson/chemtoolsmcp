@@ -39,17 +39,68 @@ def render_slapaf_block(
     transition_state: bool = False,
     constraints: list[str] | None = None,
     title: str | None = None,
+    irc: bool = False,
+    n_irc_points: int | None = None,
+    irc_step_size: float | None = None,
+    irc_step_size_unit: str = "bohr",
+    irc_algorithm: str | None = None,
+    reaction_vector: list[list[float]] | None = None,
 ) -> str:
     """Render an &SLAPAF block.
 
     Defaults (empty block) work for minimum optimization with Schlegel
     convergence thresholds and BFGS Hessian update.
+
+    IRC parameters (see Molcas SLAPAF docs):
+      irc                 If True, emit the IRC keyword. Requires a starting
+                          TS geometry + Hessian (from MCKINLEY+MCLR) already
+                          in the input.
+      n_irc_points        NIRC — max number of IRC points per direction.
+                          Default Molcas behaviour follows until E increases.
+      irc_step_size       IRCStep / MEPStep — step length (default 0.1 au
+                          mass-weighted).
+      irc_step_size_unit  "bohr" or "angstrom" — unit suffix for IRCStep.
+      irc_algorithm       "GS" (default, González–Schlegel) or "MB" (Müller–Brown).
+      reaction_vector     Explicit Cartesian reaction vector for IRC, as a
+                          list of [x, y, z] rows (one per atom, in input
+                          order). When set, emits the REACtion vector
+                          keyword + the row block. Required when the prior
+                          RUNFILE is not in the same scratch dir.
     """
     body: list[str] = ["&SLAPAF &END"]
     if title:
         body.append(f"* {title}")
     if transition_state:
         body.append("TS")
+    if irc:
+        body.append("IRC")
+        if n_irc_points is not None:
+            body.append("NIRC")
+            body.append(f" {int(n_irc_points)}")
+        if irc_step_size is not None:
+            unit = irc_step_size_unit.strip().lower()
+            if unit not in {"bohr", "angstrom"}:
+                raise ValueError(
+                    f"irc_step_size_unit must be 'bohr' or 'angstrom'; got {unit!r}"
+                )
+            body.append("IRCStep")
+            body.append(f" {irc_step_size:g} {unit.upper()}")
+        if irc_algorithm:
+            alg = irc_algorithm.strip().upper()
+            if alg not in {"GS", "MB"}:
+                raise ValueError(
+                    f"irc_algorithm must be 'GS' or 'MB'; got {irc_algorithm!r}"
+                )
+            body.append("IRCAlgorithm")
+            body.append(f" {alg}")
+        if reaction_vector is not None:
+            body.append("REACtion vector")
+            for row in reaction_vector:
+                if len(row) != 3:
+                    raise ValueError(
+                        f"reaction_vector rows must be [x, y, z]; got {row!r}"
+                    )
+                body.append(f" {row[0]:14.8f} {row[1]:14.8f} {row[2]:14.8f}")
     if iterations is not None:
         body.append("Iterations")
         body.append(f" {int(iterations)}")

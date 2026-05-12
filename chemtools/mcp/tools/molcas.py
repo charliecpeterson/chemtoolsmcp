@@ -74,6 +74,7 @@ from chemtools.programs.molcas.strategy.orchestrators import (
     prepare_caspt2_chain as _prepare_caspt2_chain,
     prepare_excited_states_workflow as _prepare_excited_states_workflow,
     prepare_opt_freq_workflow as _prepare_opt_freq_workflow,
+    prepare_irc_workflow as _prepare_irc_workflow,
 )
 from chemtools.programs.molcas.strategy.reaction_energy import (
     compute_reaction_energy as _compute_reaction_energy,
@@ -855,6 +856,81 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "prepare_molcas_irc_workflow",
+            "description": (
+                "Intrinsic reaction coordinate (IRC) orchestrator. Takes a "
+                "converged TS geometry + reaction vector (parsed from a prior "
+                "TS opt+freq .log via ts_output_file, OR passed explicitly) and "
+                "generates a Molcas input that walks the reaction coordinate in "
+                "both directions from the TS until energy rises or NIRC points "
+                "are reached. Output: $Project.mep.molden trajectory + per-point "
+                "geometries. Validates the TS connects the right reactant + product. "
+                "Note: bohr coordinates are recommended (the prior TS log's "
+                "'Nuclear coordinates for the next iteration' section is in bohr — "
+                "so set geometry_units='bohr' to pass them verbatim)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "ts_atoms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string"},
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "z": {"type": "number"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["symbol", "x", "y", "z"],
+                        },
+                    },
+                    "charge": {"type": "integer", "default": 0},
+                    "multiplicity": {"type": "integer", "minimum": 1},
+                    "basis": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "object", "additionalProperties": {"type": "string"}},
+                        ],
+                    },
+                    "method": {"type": "string", "enum": ["SCF", "HF", "CASSCF", "RASSCF"], "default": "SCF"},
+                    "cas_active_electrons": {"type": ["integer", "null"], "default": None},
+                    "cas_active_orbitals": {"type": ["integer", "null"], "default": None},
+                    "reaction_vector": {
+                        "type": ["array", "null"], "default": None,
+                        "items": {"type": "array", "items": {"type": "number"}},
+                        "description": "Explicit Cartesian reaction vector — list of [x, y, z] rows, one per atom in ts_atoms order. Mutually exclusive with ts_output_file.",
+                    },
+                    "ts_output_file": {
+                        "type": ["string", "null"], "default": None,
+                        "description": "Path to a prior TS opt+freq .log. The orchestrator parses 'The Cartesian Reaction vector' section. Mutually exclusive with reaction_vector.",
+                    },
+                    "n_irc_points": {"type": "integer", "default": 20, "minimum": 1, "description": "NIRC — max points per direction."},
+                    "irc_step_size": {"type": ["number", "null"], "default": None, "description": "IRCStep — step length in mass-weighted coordinates. Default Molcas value is 0.1 au."},
+                    "irc_step_size_unit": {"type": "string", "enum": ["bohr", "angstrom"], "default": "bohr"},
+                    "irc_algorithm": {"type": "string", "enum": ["GS", "MB"], "default": "GS"},
+                    "title": {"type": ["string", "null"], "default": None},
+                    "geometry_units": {"type": "string", "enum": ["angstrom", "bohr"], "default": "angstrom"},
+                    "symmetry": {"type": ["string", "null"], "default": None},
+                    "n_symmetries": {"type": "integer", "default": 1},
+                    "occupied_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "n_basis_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "rasscf_inactive_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "rasscf_active_per_symmetry": {"type": ["array", "null"], "items": {"type": "integer"}, "default": None},
+                    "inline_basis": {"type": "boolean", "default": True},
+                    "memory_mb": {"type": "integer", "default": 2000},
+                    "job_name": {"type": ["string", "null"], "default": None},
+                    "write_input_to": {"type": ["string", "null"], "default": None},
+                    "apptainer_sif": {"type": ["string", "null"], "default": None},
+                    "profile": {"type": ["object", "null"], "default": None},
+                    "requested_np": {"type": "integer", "default": 1, "minimum": 1},
+                },
+                "required": ["ts_atoms", "multiplicity", "basis"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "prepare_molcas_atomization",
             "description": (
                 "Thick orchestrator for atomization-energy / binding-energy workflows. "
@@ -1538,6 +1614,40 @@ def _handle_prepare_molcas_excited_states(arguments: dict[str, Any]) -> dict[str
         imaginary_shift=float(arguments.get("imaginary_shift", 0.1)),
         inline_basis=bool(arguments.get("inline_basis", True)),
         memory_mb=int(arguments.get("memory_mb", 4000)),
+        job_name=arguments.get("job_name"),
+        write_input_to=arguments.get("write_input_to"),
+        apptainer_sif=arguments.get("apptainer_sif"),
+        profile=arguments.get("profile"),
+        requested_np=int(arguments.get("requested_np", 1)),
+    )
+
+
+@_tool("prepare_molcas_irc_workflow")
+def _handle_prepare_molcas_irc_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _prepare_irc_workflow(
+        ts_atoms=arguments["ts_atoms"],
+        charge=int(arguments.get("charge", 0)),
+        multiplicity=int(arguments["multiplicity"]),
+        basis=arguments["basis"],
+        method=arguments.get("method", "SCF"),
+        cas_active_electrons=arguments.get("cas_active_electrons"),
+        cas_active_orbitals=arguments.get("cas_active_orbitals"),
+        reaction_vector=arguments.get("reaction_vector"),
+        ts_output_file=arguments.get("ts_output_file"),
+        n_irc_points=int(arguments.get("n_irc_points", 20)),
+        irc_step_size=arguments.get("irc_step_size"),
+        irc_step_size_unit=arguments.get("irc_step_size_unit", "bohr"),
+        irc_algorithm=arguments.get("irc_algorithm", "GS"),
+        title=arguments.get("title"),
+        geometry_units=arguments.get("geometry_units", "angstrom"),
+        symmetry=arguments.get("symmetry"),
+        n_symmetries=int(arguments.get("n_symmetries", 1)),
+        occupied_per_symmetry=arguments.get("occupied_per_symmetry"),
+        n_basis_per_symmetry=arguments.get("n_basis_per_symmetry"),
+        rasscf_inactive_per_symmetry=arguments.get("rasscf_inactive_per_symmetry"),
+        rasscf_active_per_symmetry=arguments.get("rasscf_active_per_symmetry"),
+        inline_basis=bool(arguments.get("inline_basis", True)),
+        memory_mb=int(arguments.get("memory_mb", 2000)),
         job_name=arguments.get("job_name"),
         write_input_to=arguments.get("write_input_to"),
         apptainer_sif=arguments.get("apptainer_sif"),

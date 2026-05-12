@@ -208,3 +208,39 @@ def _extract_floats(
     if len(out) != expected_n:
         return None
     return out
+
+
+def parse_cartesian_reaction_vector(text: str) -> list[list[float]] | None:
+    """Pull the `Cartesian Reaction vector` block from a SLAPAF/MCLR output.
+
+    Returns a list of [x, y, z] rows (one per atom, input order) or None
+    if no such block is present.
+
+    Pattern (from prior TS-search SLAPAF output):
+        *********************************************************
+        * The Cartesian Reaction vector                         *
+        *********************************************************
+         ATOM              X               Y               Z
+         N1              -0.016339        0.000000       -0.003290
+         C1               0.030853        0.000000       -0.015361
+         H1              -0.140347        0.000000        0.228620
+    """
+    import re
+    m = re.search(
+        r"\*\s*The Cartesian Reaction vector\s*\*[\s\S]+?ATOM\s+X\s+Y\s+Z\s*\n([\s\S]+?)\n\s*\n",
+        text, re.IGNORECASE,
+    )
+    if not m:
+        return None
+    rows: list[list[float]] = []
+    for line in m.group(1).splitlines():
+        toks = line.split()
+        # Expected: <label> x y z — last 3 must be floats
+        if len(toks) < 4:
+            continue
+        try:
+            x, y, z = float(toks[-3]), float(toks[-2]), float(toks[-1])
+        except ValueError:
+            continue
+        rows.append([x, y, z])
+    return rows or None

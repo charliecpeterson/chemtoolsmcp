@@ -175,7 +175,7 @@ template = plugin.examples.find_example(task="energy", methods=["B3LYP"])
 example_text = plugin.examples.read_example(template["name"])
 ```
 
-**Exposed as MCP tools (147 total: 114 NWChem + 33 Molcas):**
+**Exposed as MCP tools (148 total: 114 NWChem + 34 Molcas):**
 
 | Tool | What it does |
 |---|---|

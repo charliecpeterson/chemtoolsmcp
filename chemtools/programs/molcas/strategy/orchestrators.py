@@ -1494,3 +1494,310 @@ def prepare_opt_freq_workflow(
                 }
             ]
     return result
+
+
+# --- IRC workflow orchestrator ------------------------------------------------
+
+
+def prepare_irc_workflow(
+    *,
+    ts_atoms: list[dict],
+    charge: int = 0,
+    multiplicity: int,
+    basis: str | dict[str, str],
+    method: str = "SCF",
+    cas_active_electrons: int | None = None,
+    cas_active_orbitals: int | None = None,
+    reaction_vector: list[list[float]] | None = None,
+    ts_output_file: str | None = None,
+    n_irc_points: int = 20,
+    irc_step_size: float | None = None,
+    irc_step_size_unit: str = "bohr",
+    irc_algorithm: str = "GS",
+    title: str | None = None,
+    geometry_units: str = "angstrom",
+    symmetry: str | None = None,
+    n_symmetries: int = 1,
+    occupied_per_symmetry: list[int] | None = None,
+    n_basis_per_symmetry: list[int] | None = None,
+    rasscf_inactive_per_symmetry: list[int] | None = None,
+    rasscf_active_per_symmetry: list[int] | None = None,
+    inline_basis: bool = True,
+    memory_mb: int = 2000,
+    job_name: str | None = None,
+    write_input_to: str | None = None,
+    apptainer_sif: str | None = None,
+    profile: dict | None = None,
+    requested_np: int = 1,
+) -> dict[str, Any]:
+    """Intrinsic reaction coordinate workflow.
+
+    Takes a converged TS geometry + method spec; generates a Molcas input that:
+
+      1. &GATEWAY with TS geometry + basis (basis persists to RunFile)
+      2. &SEWARD initial integrals
+      3. &SCF + (optional) &RASSCF — wave function at the TS
+      4. &MCKINLEY + &MCLR — analytic Hessian at the TS (the IRC starting point)
+      5. >>> Do while <<<
+           &SEWARD (re-integrate at the new IRC point)
+           &SCF (every iter for SCF-only) / RASSCF
+           &ALASKA — gradients
+           &SLAPAF IRC NIRC=n_irc_points ... — follow reaction coord one step
+         >>> ENDDO <<<
+
+    SLAPAF IRC follows the imaginary-mode (reaction coordinate) in BOTH
+    directions from the TS until the energy increases or NIRC is reached.
+    Result lands in MD_IRC.molden + h_ts.structure files.
+
+    Note: IRC requires the starting geometry to actually be a TS. If you
+    have only a guess, run prepare_molcas_opt_freq_workflow with
+    transition_state=True first, then feed its converged geometry here.
+
+    Parameters
+    ----------
+    ts_atoms
+        Converged TS coordinates. Same list-of-dicts format as the other
+        orchestrators.
+    n_irc_points
+        NIRC — maximum number of IRC points per direction (default 20).
+        SLAPAF stops earlier if the energy starts rising.
+    irc_step_size
+        IRCStep — step length in mass-weighted coords. Default Molcas value
+        is 0.1 au.
+    irc_step_size_unit
+        "bohr" (default) or "angstrom".
+    irc_algorithm
+        "GS" (González–Schlegel, default) or "MB" (Müller–Brown).
+    method
+        "SCF" or "CASSCF"/"RASSCF". CASPT2 IRC isn't supported (requires
+        analytic CASPT2 gradients via GRDT — separate dogfood).
+    Other parameters mirror prepare_opt_freq_workflow.
+    """
+    from chemtools.programs.molcas.input._utils import (
+        auto_label, normalize_atoms, total_electrons,
+    )
+    from chemtools.programs.molcas.input.seward import render_seward_block
+    from chemtools.programs.molcas.input.scf import render_scf_block
+    from chemtools.programs.molcas.input.rasscf import (
+        compute_active_space_partition, render_rasscf_block,
+    )
+    from chemtools.programs.molcas.input.opt_freq import (
+        render_alaska_block, render_slapaf_block,
+        do_while_open, do_while_close,
+    )
+    from chemtools.programs.molcas.input.lint import lint_molcas_input
+    from chemtools.programs.molcas.parse.freq import parse_cartesian_reaction_vector
+    from chemtools.core.common import read_text
+
+    method_upper = method.upper()
+    if method_upper not in {"SCF", "HF", "CASSCF", "RASSCF"}:
+        return {
+            "verdict": "unsupported_method",
+            "error": "unsupported_method",
+            "message": (
+                f"IRC orchestrator currently supports SCF/HF/CASSCF/RASSCF; "
+                f"got {method!r}. CASPT2 IRC needs analytic CASPT2 gradients "
+                f"(GRDT path) — not yet dogfooded."
+            ),
+        }
+    use_cas = method_upper in {"CASSCF", "RASSCF"}
+
+    atoms_norm = auto_label(normalize_atoms(ts_atoms))
+    n_elec = total_electrons(atoms_norm, charge)
+
+    # Resolve the reaction vector. Priority: explicit arg > parse from
+    # ts_output_file. SLAPAF IRC needs this — without it the run aborts with
+    # "IRC calculation but no IRC vector".
+    if reaction_vector is None:
+        if ts_output_file is not None:
+            ts_text = read_text(ts_output_file)
+            reaction_vector = parse_cartesian_reaction_vector(ts_text)
+            if reaction_vector is None:
+                return {
+                    "verdict": "missing_reaction_vector",
+                    "error": "missing_reaction_vector",
+                    "message": (
+                        f"Could not parse 'Cartesian Reaction vector' from "
+                        f"{ts_output_file}. Pass reaction_vector explicitly as a "
+                        f"list of [x,y,z] rows (one per atom)."
+                    ),
+                }
+        else:
+            return {
+                "verdict": "missing_reaction_vector",
+                "error": "missing_reaction_vector",
+                "message": (
+                    "IRC requires a reaction vector. Either pass reaction_vector "
+                    "as a list of [x,y,z] rows (one per atom in input order), or "
+                    "pass ts_output_file pointing to a prior TS opt+freq .log "
+                    "(the orchestrator will parse 'The Cartesian Reaction vector')."
+                ),
+            }
+
+    if len(reaction_vector) != len(atoms_norm):
+        return {
+            "verdict": "mismatched_reaction_vector",
+            "error": "mismatched_reaction_vector",
+            "message": (
+                f"reaction_vector has {len(reaction_vector)} rows but ts_atoms "
+                f"has {len(atoms_norm)} atoms — must match."
+            ),
+        }
+
+    partition = None
+    if use_cas:
+        if cas_active_electrons is None or cas_active_orbitals is None:
+            return {
+                "verdict": "missing_cas_spec",
+                "error": "missing_cas_spec",
+                "message": "CASSCF method needs cas_active_electrons + cas_active_orbitals.",
+            }
+        partition = compute_active_space_partition(
+            n_electrons=n_elec,
+            cas_active_electrons=cas_active_electrons,
+            cas_active_orbitals=cas_active_orbitals,
+            n_symmetries=n_symmetries,
+            n_basis_per_symmetry=n_basis_per_symmetry,
+            n_inactive_per_symmetry=rasscf_inactive_per_symmetry,
+            active_per_symmetry=rasscf_active_per_symmetry,
+        )
+
+    blocks: list[str] = [f">>> Export MOLCAS_MEM={memory_mb}\n"]
+
+    # GATEWAY (basis + TS geometry persisted to RunFile so loop SEWARDs find them)
+    blocks.append(
+        render_seward_block(
+            atoms=atoms_norm,
+            basis=basis,
+            title=title or f"{method_upper} IRC from TS",
+            symmetry=symmetry,
+            geometry_units=geometry_units,
+            inline_basis=inline_basis,
+            use_gateway=True,
+        )
+    )
+
+    # IRC loop — SLAPAF follows the imaginary mode in both directions.
+    # The reaction vector is supplied explicitly via REACtion in SLAPAF, so
+    # no MCKINLEY+MCLR is needed in this input. Wave function modules above
+    # establish the starting orbitals once; the loop re-converges them at
+    # each IRC point.
+    blocks.append(do_while_open())
+    blocks.append("&SEWARD\nEnd of input\n")
+    blocks.append(
+        render_scf_block(
+            n_electrons=n_elec,
+            multiplicity=multiplicity,
+            n_symmetries=n_symmetries,
+            occupied_per_symmetry=occupied_per_symmetry,
+            title=title,
+        )
+    )
+    if use_cas:
+        blocks.append(
+            render_rasscf_block(
+                multiplicity=multiplicity,
+                state_symmetry=1,
+                nactel=partition["nactel"],
+                frozen=partition["frozen"],
+                inactive=partition["inactive"],
+                ras2=partition["ras2"],
+                ras1=partition["ras1"],
+                ras3=partition["ras3"],
+                title=title,
+                n_roots=1,
+            )
+        )
+    blocks.append(render_alaska_block())
+    blocks.append(
+        render_slapaf_block(
+            irc=True,
+            n_irc_points=n_irc_points,
+            irc_step_size=irc_step_size,
+            irc_step_size_unit=irc_step_size_unit,
+            irc_algorithm=irc_algorithm,
+            reaction_vector=reaction_vector,
+        )
+    )
+    blocks.append(do_while_close())
+
+    input_text = "".join(blocks)
+    lint_issues = lint_molcas_input(input_text)
+    n_errors = sum(1 for i in lint_issues if i.get("level") == "error")
+
+    result: dict[str, Any] = {
+        "verdict": "ready_to_launch" if n_errors == 0 else "lint_blocked",
+        "method": method_upper,
+        "workflow_steps": [
+            "GATEWAY (basis + TS geom)",
+            f"IRC loop: SEWARD + {'SCF + RASSCF' if use_cas else 'SCF'} + ALASKA + SLAPAF IRC (REACtion vector supplied, NIRC={n_irc_points}, alg={irc_algorithm})",
+        ],
+        "active_space": (
+            {"cas_active_electrons": cas_active_electrons,
+             "cas_active_orbitals": cas_active_orbitals,
+             "partition": partition}
+            if use_cas else None
+        ),
+        "n_irc_points": n_irc_points,
+        "irc_step_size": irc_step_size,
+        "irc_algorithm": irc_algorithm,
+        "input_text": input_text,
+        "lint_issues": lint_issues,
+        "n_lint_errors": n_errors,
+        "n_lint_warnings": sum(1 for i in lint_issues if i.get("level") == "warning"),
+    }
+
+    target_path: Path | None = None
+    if write_input_to:
+        target_path = Path(write_input_to)
+    elif job_name:
+        target_path = Path.cwd() / f"{job_name}.input"
+    if target_path is not None:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(input_text, encoding="utf-8")
+        result["input_path"] = str(target_path)
+        if n_errors == 0:
+            plan = prepare_launch(
+                str(target_path),
+                profile=profile,
+                requested_np=requested_np,
+                job_name=job_name,
+                apptainer_sif=apptainer_sif,
+            )
+            result["launch_plan"] = plan
+            result["next_actions"] = [
+                {
+                    "tool": "shell_execute",
+                    "args": {"command": plan["command_str"], "env": plan["env"]},
+                    "rationale": (
+                        f"Run the IRC analysis. SLAPAF will follow the imaginary "
+                        f"mode in both directions from the TS until energy rises "
+                        f"or NIRC={n_irc_points} is reached. Reactant + product "
+                        f"endpoint geometries will land in MD_IRC.molden + "
+                        f"{job_name}.structure."
+                    ),
+                },
+                {
+                    "tool": "parse_molcas_trajectory",
+                    "args": {"output_file": str(target_path).replace(".input", ".out")},
+                    "rationale": (
+                        "After completion, parse the per-iteration SLAPAF energy + "
+                        "geometry trajectory. The IRC produces a sequence of points "
+                        "tracing reactant → TS → product."
+                    ),
+                },
+                {
+                    "tool": "extract_molcas_geometry",
+                    "args": {"output_file": str(target_path).replace(".input", ".out")},
+                    "rationale": "Pull the final IRC endpoint geometries.",
+                },
+            ]
+        else:
+            result["next_actions"] = [
+                {
+                    "tool": "lint_molcas_input",
+                    "args": {"input_text": input_text},
+                    "rationale": f"Fix the {n_errors} lint error(s) before launching.",
+                }
+            ]
+    return result
