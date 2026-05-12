@@ -203,30 +203,92 @@ def analyze_open_shell_quality(
     }
 
 
+# j-character parity (gerade/ungerade) follows orbital angular momentum:
+#   s, d, g (even L) → gerade   (DIRAC fermion ircop 1 / E1g)
+#   p, f, h (odd L)  → ungerade (DIRAC fermion ircop 2 / E1u)
+_GERADE_LABELS = frozenset({"s", "d", "g", "i"})
+_UNGERADE_LABELS = frozenset({"p", "f", "h", "k"})
+
+
+def _character_parity(character: str) -> str | None:
+    """Return ``'gerade'``, ``'ungerade'``, or None for an unknown j-character.
+
+    Accepts both raw j-labels (``"s"``, ``"d"``, ``"f"``) and the formatted
+    character strings the VECPOP classifier emits (``"f 5/2"``).
+    """
+    if not character:
+        return None
+    head = character.split()[0].lower()
+    if head in _GERADE_LABELS:
+        return "gerade"
+    if head in _UNGERADE_LABELS:
+        return "ungerade"
+    return None
+
+
 def suggest_orbital_swaps(
     output_path: str,
     target_character: list[str],
     *,
     n_candidates: int = 6,
 ) -> dict[str, Any]:
-    """Find candidate MOs with the target character to swap into the open
-    shell.
+    """Find candidate MOs with the target character to swap into the open shell.
 
-    Walks VECPOP, identifies (a) the current open-shell MOs (which need to
-    be swapped OUT if they have wrong character) and (b) virtual or closed
-    MOs with the target character (candidates to swap IN).
+    Walks VECPOP to identify (a) current open-shell MOs whose character is
+    NOT in ``target_character`` (wrong-character open MOs to swap OUT) and
+    (b) virtual / closed MOs with the target character in the SAME fermion
+    ircop (candidates to swap IN).
 
-    Returns suggested ``.REORDER`` candidates — pairs of
-    (current_index, target_index) per fermion ircop, plus the rationale.
+    Returns explicit, actionable swap pairings WITHIN each ircop plus a
+    pre-rendered ``.REORDER MO`` spec ready for ``apply_dirac_reorder_to_input``.
+    Also detects the **parity-incompatible** case (target character lives in
+    a different ircop than the current open shell) — in that case .REORDER
+    can't help and the agent must redraft the ``.OPEN SHELL`` spec instead.
+
+    Possible verdicts:
+      - ``no_action_needed``       — open shell already has target character
+      - ``swaps_available``        — intra-ircop swaps are actionable;
+                                     ``per_ircop_orders`` is ready to apply
+      - ``parity_incompatible``    — wrong-char open and target-char candidates
+                                     are in DIFFERENT ircops; need .OPEN SHELL
+                                     redraft, not a .REORDER
+      - ``no_candidates_found``    — target character not present in this run
+                                     at all (suggests the chemistry hint is
+                                     wrong, or basis is too small)
     """
     with open(output_path, encoding="utf-8", errors="replace") as f:
         text = f.read()
     vecpop = parse_vecpop(text)
     targets = set(target_character)
 
+    target_parities: set[str] = set()
+    for c in targets:
+        p = _character_parity(c)
+        if p:
+            target_parities.add(p)
+
     suggestions: dict[str, dict[str, Any]] = {}
+    ircop_order = list(vecpop["ircops"].keys())
+
+    # Stable ircop → fermion-symmetry index mapping (1-based, matches DIRAC).
+    # The VECPOP block iteration order follows the output's print order:
+    # fsym 1 first (E1g / gerade), then fsym 2 (E1u / ungerade), then any
+    # extras. For atomic / linear systems this is the canonical pairing.
+    ircop_fsym_idx: dict[str, int] = {
+        name: i + 1 for i, name in enumerate(ircop_order)
+    }
+
+    # Map ircop name → parity, using the DIRAC convention.
+    ircop_parity: dict[str, str] = {}
+    for name in ircop_order:
+        u = name.upper()
+        if "U" in u or "ungerade" in name.lower():
+            ircop_parity[name] = "ungerade"
+        else:
+            ircop_parity[name] = "gerade"
+
     for ircop, mos in vecpop["ircops"].items():
-        # Current open shell — wrong character → these are the ones to swap out
+        n_orbitals_in_ircop = len(mos)
         wrong_open: list[dict[str, Any]] = []
         for mo in mos:
             if not (1e-4 < mo["occupation"] < 1.0 - 1e-4):
@@ -238,8 +300,9 @@ def suggest_orbital_swaps(
                     "energy_hartree": mo["energy_hartree"],
                     "character": c,
                 })
+        # Sort wrong-open by index for stable pairing.
+        wrong_open.sort(key=lambda m: m["eigenvalue_index"])
 
-        # Candidates with target character among virtuals + low-energy closed
         candidates: list[dict[str, Any]] = []
         for mo in mos:
             occ = mo["occupation"]
@@ -254,28 +317,132 @@ def suggest_orbital_swaps(
                     "character": c,
                     "currently": "closed" if occ >= 1.0 - 1e-4 else "virtual",
                 })
-
+        # Sort candidates by energy ascending — lowest-energy candidates are
+        # the closest to the open-shell window, most chemically sensible.
         candidates.sort(key=lambda m: m["energy_hartree"])
-        candidates = candidates[:n_candidates]
+        candidates_truncated = candidates[:n_candidates]
+
+        # Build explicit swap pairings (wrong[i] ↔ candidate[i]) within
+        # this ircop. Limit to min(len(wrong), len(candidates)).
+        swap_pairs: list[tuple[int, int]] = []
+        if wrong_open and candidates:
+            n_pairs = min(len(wrong_open), len(candidates))
+            for i in range(n_pairs):
+                swap_pairs.append((
+                    wrong_open[i]["eigenvalue_index"],
+                    candidates[i]["eigenvalue_index"],
+                ))
+
+        # Render the per-ircop REORDER spec when swaps are actionable.
+        reorder_spec: str | None = None
+        if swap_pairs:
+            from chemtools.programs.dirac.strategy.reorder import swaps_to_reorder_spec
+            reorder_spec = swaps_to_reorder_spec(n_orbitals_in_ircop, swap_pairs)
 
         suggestions[ircop] = {
+            "fsym_index": ircop_fsym_idx[ircop],
+            "parity": ircop_parity[ircop],
+            "n_orbitals_in_ircop": n_orbitals_in_ircop,
             "wrong_open_shell": wrong_open,
-            "candidates_with_target_character": candidates,
+            "candidates_with_target_character": candidates_truncated,
+            "n_candidates_available": len(candidates),
+            "suggested_swaps": [
+                {"wrong_eigenvalue_index": a, "candidate_eigenvalue_index": b}
+                for a, b in swap_pairs
+            ],
+            "reorder_spec": reorder_spec,
         }
 
+    # Cross-ircop synthesis: figure out the verdict + per-ircop spec list
     n_wrong = sum(len(v["wrong_open_shell"]) for v in suggestions.values())
-    n_cand = sum(len(v["candidates_with_target_character"]) for v in suggestions.values())
+    n_cand_actionable = sum(
+        len(v["suggested_swaps"]) for v in suggestions.values()
+    )
+    n_cand_total = sum(
+        v["n_candidates_available"] for v in suggestions.values()
+    )
+
+    # Identify ircop parities of wrong-open vs candidates
+    wrong_parities = {
+        suggestions[ic]["parity"] for ic in suggestions
+        if suggestions[ic]["wrong_open_shell"]
+    }
+    cand_parities = {
+        suggestions[ic]["parity"] for ic in suggestions
+        if suggestions[ic]["candidates_with_target_character"]
+    }
+
+    verdict: str
+    explanation: str
+    next_actions: list[dict[str, Any]] = []
+
+    if n_wrong == 0:
+        verdict = "no_action_needed"
+        explanation = "Open shell already has target character — no reorder needed."
+    elif n_cand_total == 0:
+        verdict = "no_candidates_found"
+        explanation = (
+            f"No MOs with character {sorted(targets)} found anywhere in the "
+            f"electronic spectrum. The chemistry hint may be wrong, the "
+            f"basis may not span the target shell (e.g. you asked for d "
+            f"character on a basis with only s + p), or the run hasn't "
+            f"yet been converged enough to expose virtuals of that kind."
+        )
+        next_actions.append({
+            "tool": "list_dirac_docs",
+            "rationale": "Confirm basis library has functions for the target shell.",
+        })
+    elif n_cand_actionable == 0:
+        # Wrong-open and candidates exist but never share an ircop.
+        verdict = "parity_incompatible"
+        explanation = (
+            f"The current open shell sits in ircop(s) {sorted(wrong_parities)} "
+            f"but target character {sorted(targets)} lives in ircop(s) "
+            f"{sorted(cand_parities)}. ``.REORDER MO`` only reorders within a "
+            f"fermion ircop, so a reorder cannot bridge the parity gap. "
+            f"What the agent should do instead: redraft the ``.OPEN SHELL`` "
+            f"spec to put the open electrons in the correct-parity manifold "
+            f"(e.g. ``2/10,0`` for a gerade d-shell with 2 electrons in 10 "
+            f"spinors of fsym 1, vs. ``2/0,14`` for an ungerade f-shell)."
+        )
+        next_actions.append({
+            "tool": "draft_dirac_input",
+            "rationale": (
+                "Redraft the input with the .OPEN SHELL spec moved into the "
+                f"correct-parity ircop ({sorted(cand_parities)})."
+            ),
+        })
+    else:
+        verdict = "swaps_available"
+        per_ircop_orders = [
+            suggestions[ic].get("reorder_spec") or "1..oo"
+            for ic in ircop_order
+        ]
+        explanation = (
+            f"Found {n_cand_actionable} actionable intra-ircop swaps. "
+            f"Apply via ``apply_dirac_reorder_to_input`` with "
+            f"per_ircop_orders={per_ircop_orders}."
+        )
+        next_actions.append({
+            "tool": "apply_dirac_reorder_to_input",
+            "rationale": "Insert the .REORDER MO block to swap wrong-character open MOs with target-character candidates.",
+            "args": {"per_ircop_orders": per_ircop_orders},
+        })
 
     return {
         "target_character": target_character,
+        "verdict": verdict,
+        "explanation": explanation,
         "ircops": suggestions,
+        "ircop_order": ircop_order,
         "wrong_open_shell_total": n_wrong,
-        "candidates_total": n_cand,
-        "recommendation": (
-            "Use the MCP tool `draft_dirac_reorder_block` to render a "
-            ".REORDER spec swapping each wrong_open_shell entry with a "
-            "candidate of matching character, then `apply_dirac_reorder_to_input`."
-        ) if n_wrong else (
-            "Open shell already has target character — no reorder needed."
+        "candidates_total": n_cand_total,
+        "actionable_swaps_total": n_cand_actionable,
+        "wrong_open_parities": sorted(wrong_parities),
+        "candidate_parities": sorted(cand_parities),
+        "next_actions": next_actions,
+        "per_ircop_orders": (
+            [suggestions[ic].get("reorder_spec") or "1..oo" for ic in ircop_order]
+            if verdict == "swaps_available" else None
         ),
     }
