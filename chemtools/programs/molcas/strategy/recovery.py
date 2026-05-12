@@ -882,3 +882,180 @@ def apply_recovery(
             },
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# try_run_with_recovery — full auto-loop (local-mode tool)
+# ---------------------------------------------------------------------------
+
+
+def try_run_with_recovery(
+    input_file: str,
+    *,
+    pymolcas_command: list[str] | None = None,
+    apptainer_sif: str | None = None,
+    np_processes: int = 1,
+    max_retries: int = 3,
+    extra_env: dict[str, str] | None = None,
+    timeout_per_attempt: float = 600.0,
+) -> dict[str, Any]:
+    """Run a Molcas input via pymolcas; on failure, auto-classify + apply
+    recovery + re-run, up to ``max_retries`` times.
+
+    This is a local-mode tool — it spawns pymolcas as a subprocess. Use only
+    when the agent's environment can execute Molcas directly.
+
+    Parameters
+    ----------
+    input_file
+        Path to the .input deck to run.
+    pymolcas_command
+        Override the pymolcas invocation (default: ``['pymolcas']`` if no
+        apptainer_sif, else apptainer-wrapped).
+    apptainer_sif
+        Path to an apptainer .sif image. If set, pymolcas is invoked via
+        ``apptainer exec <sif> pymolcas``.
+    np_processes
+        ``-np N`` for pymolcas. Default 1 (safest against GA/MPI issues).
+    max_retries
+        Max number of recovery cycles before giving up. Default 3.
+    extra_env
+        Extra environment vars to pass to pymolcas (e.g. MOLCAS_PROJECT for
+        scratch isolation).
+    timeout_per_attempt
+        Seconds per pymolcas attempt before SIGKILL.
+
+    Returns dict with:
+      verdict           "converged" | "max_retries_exhausted" | "non_recoverable_failure"
+      attempts          list of {attempt, input_path, log_path, suggest, apply, exit_code}
+      final_input       path to the input that produced the converged run (if converged)
+      final_log         path to the converged .log
+      recovery_history  list of failure_class strings applied across attempts
+    """
+    import os
+    import subprocess
+
+    in_path = Path(input_file)
+    if not in_path.is_file():
+        raise FileNotFoundError(f"Input file not found: {input_file}")
+
+    if pymolcas_command is None:
+        if apptainer_sif:
+            pymolcas_command = ["apptainer", "exec", apptainer_sif, "pymolcas"]
+        else:
+            pymolcas_command = ["pymolcas"]
+
+    env = {**os.environ, **(extra_env or {})}
+
+    attempts: list[dict[str, Any]] = []
+    recovery_history: list[str] = []
+    current_input = in_path
+
+    for attempt_idx in range(max_retries + 1):  # +1 because attempt 0 is the initial run
+        log_path = Path(str(current_input).replace(".input", ".log"))
+        # pymolcas -f writes to <stem>.log automatically
+        cmd = pymolcas_command + ["-np", str(np_processes), "-f", str(current_input)]
+        try:
+            proc = subprocess.run(
+                cmd, env=env, capture_output=True, text=True,
+                timeout=timeout_per_attempt, cwd=str(current_input.parent),
+            )
+            exit_code = proc.returncode
+        except subprocess.TimeoutExpired:
+            exit_code = -1
+            proc = None  # type: ignore[assignment]
+
+        record: dict[str, Any] = {
+            "attempt": attempt_idx + 1,
+            "input_path": str(current_input),
+            "log_path": str(log_path),
+            "exit_code": exit_code,
+        }
+
+        # Classify the result
+        if log_path.is_file():
+            diag = suggest_recovery(str(log_path))
+        else:
+            diag = {
+                "verdict": "unknown_failure",
+                "failure_class": None,
+                "last_module": None,
+                "last_rc": None,
+                "recovery": None,
+                "note": "No log file produced — pymolcas likely failed to start or hit timeout.",
+            }
+        record["suggest_verdict"] = diag["verdict"]
+        record["failure_class"] = diag.get("failure_class")
+
+        if diag["verdict"] == "success_no_recovery_needed":
+            attempts.append(record)
+            return {
+                "verdict": "converged",
+                "attempts": attempts,
+                "final_input": str(current_input),
+                "final_log": str(log_path),
+                "recovery_history": recovery_history,
+            }
+
+        if diag["verdict"] == "unknown_failure":
+            attempts.append(record)
+            return {
+                "verdict": "non_recoverable_failure",
+                "attempts": attempts,
+                "final_input": str(current_input),
+                "final_log": str(log_path),
+                "recovery_history": recovery_history,
+                "reason": (
+                    "Diagnosis returned 'unknown_failure' — the failure pattern "
+                    "doesn't match any of the 11 known rules. Inspect the log "
+                    "manually."
+                ),
+            }
+
+        # recovery_suggested — try to apply the mechanical fix
+        if attempt_idx >= max_retries:
+            attempts.append(record)
+            return {
+                "verdict": "max_retries_exhausted",
+                "attempts": attempts,
+                "final_input": str(current_input),
+                "final_log": str(log_path),
+                "recovery_history": recovery_history,
+                "last_recovery": diag["recovery"],
+            }
+
+        # Apply the recovery
+        apply_result = apply_recovery(
+            input_file=str(current_input),
+            recovery=diag["recovery"],
+        )
+        record["apply_verdict"] = apply_result["verdict"]
+        record["apply_changes"] = apply_result.get("changes_applied", [])
+
+        if apply_result["verdict"] != "fix_applied":
+            attempts.append(record)
+            return {
+                "verdict": "non_recoverable_failure",
+                "attempts": attempts,
+                "final_input": str(current_input),
+                "final_log": str(log_path),
+                "recovery_history": recovery_history,
+                "reason": (
+                    f"Classification was '{diag['failure_class']}' but the fix "
+                    f"requires manual intervention "
+                    f"(verdict={apply_result['verdict']}). "
+                    + str(apply_result.get("reason") or "")
+                ),
+            }
+
+        recovery_history.append(diag["failure_class"])
+        attempts.append(record)
+        current_input = Path(apply_result["input_path"])
+
+    # Shouldn't reach here normally
+    return {
+        "verdict": "max_retries_exhausted",
+        "attempts": attempts,
+        "final_input": str(current_input),
+        "recovery_history": recovery_history,
+    }

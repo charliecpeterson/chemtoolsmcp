@@ -87,6 +87,7 @@ from chemtools.programs.molcas.strategy.atomization import (
 from chemtools.programs.molcas.strategy.recovery import (
     suggest_recovery as _suggest_recovery,
     apply_recovery as _apply_recovery,
+    try_run_with_recovery as _try_run_with_recovery,
 )
 from chemtools.programs.molcas.docs import (
     list_docs as _list_docs,
@@ -846,6 +847,7 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                     "max_opt_iterations": {"type": ["integer", "null"], "default": None},
                     "numerical_gradients": {"type": "boolean", "default": False, "description": "Use NumGrad in ALASKA instead of analytic gradients."},
                     "iroot_freq": {"type": ["integer", "null"], "default": None, "description": "Pick which RASSCF root MCLR computes the Hessian for (state-averaged cases)."},
+                    "compute_initial_hessian": {"type": ["boolean", "null"], "default": None, "description": "Emit MCKINLEY+MCLR BEFORE the opt loop so SLAPAF starts from an analytic Hessian. Default ON for transition_state=True (TS searches need a real Hessian to follow modes), OFF for minima (BFGS init is fine)."},
                     "job_name": {"type": ["string", "null"], "default": None},
                     "write_input_to": {"type": ["string", "null"], "default": None},
                     "apptainer_sif": {"type": ["string", "null"], "default": None},
@@ -1202,6 +1204,32 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "try_molcas_run_with_recovery",
+            "description": (
+                "Full auto-retry loop in local mode. Spawns pymolcas as a "
+                "subprocess; on failure, calls suggest_molcas_recovery + "
+                "apply_molcas_recovery + re-runs, up to max_retries times. "
+                "Returns verdict=converged | max_retries_exhausted | "
+                "non_recoverable_failure with the full attempt history + "
+                "recovery_history (failure_classes auto-applied). Local-mode "
+                "only — this is the only Molcas tool that directly executes "
+                "pymolcas (others return launch plans for the agent to run)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string"},
+                    "apptainer_sif": {"type": ["string", "null"], "default": None, "description": "If set, wraps pymolcas in `apptainer exec <sif>`."},
+                    "np_processes": {"type": "integer", "default": 1, "minimum": 1, "description": "pymolcas -np N. Default 1 (safest against GA/MPI quirks)."},
+                    "max_retries": {"type": "integer", "default": 3, "minimum": 0},
+                    "extra_env": {"type": ["object", "null"], "default": None, "description": "Extra env vars (e.g. MOLCAS_PROJECT for scratch isolation)."},
+                    "timeout_per_attempt": {"type": "number", "default": 600.0},
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "suggest_molcas_recovery",
             "description": (
                 "Classify a Molcas failure (or suspicious success) and emit a "
@@ -1290,8 +1318,13 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "Curated guidance for high-value Molcas topics. Recognized topics: "
                 "rasscf_active_space, caspt2_setup, ipea_shift, xms_caspt2, "
                 "alaska_gradients, mclr_freq, rassi_state_interaction, inporb_format, "
-                "scf_setup. Returns a short summary plus relevant docs excerpts and "
-                "the linked module page."
+                "scf_setup, atomization_workflow, caspt2_intruder_protection, "
+                "ts_search_procedure, irc_followup, character_aware_active_space, "
+                "recovery_patterns, pes_scan, tm_atom_setup. Returns a short summary "
+                "plus relevant docs excerpts and the linked module page. The "
+                "workflow-named topics bake in lessons from real dogfooding (CrO "
+                "atomization, HCN↔HNC TS+IRC, H2O scans + opt+freq, recovery on "
+                "11 failure modes) so the agent doesn't rediscover them each session."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1796,6 +1829,7 @@ def _handle_prepare_molcas_opt_freq_workflow(arguments: dict[str, Any]) -> dict[
         max_opt_iterations=arguments.get("max_opt_iterations"),
         numerical_gradients=bool(arguments.get("numerical_gradients", False)),
         iroot_freq=arguments.get("iroot_freq"),
+        compute_initial_hessian=arguments.get("compute_initial_hessian"),
         job_name=arguments.get("job_name"),
         write_input_to=arguments.get("write_input_to"),
         apptainer_sif=arguments.get("apptainer_sif"),
@@ -1848,6 +1882,18 @@ def _handle_check_molcas_active_space_consistency(arguments: dict[str, Any]) -> 
         fragments=arguments["fragments"],
         target_character_atom=arguments.get("target_character_atom"),
         target_character_ao=arguments.get("target_character_ao"),
+    )
+
+
+@_tool("try_molcas_run_with_recovery", needs="executable")
+def _handle_try_molcas_run_with_recovery(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _try_run_with_recovery(
+        arguments["input_file"],
+        apptainer_sif=arguments.get("apptainer_sif"),
+        np_processes=int(arguments.get("np_processes", 1)),
+        max_retries=int(arguments.get("max_retries", 3)),
+        extra_env=arguments.get("extra_env"),
+        timeout_per_attempt=float(arguments.get("timeout_per_attempt", 600.0)),
     )
 
 

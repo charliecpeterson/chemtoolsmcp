@@ -300,6 +300,146 @@ _TOPICS: dict[str, dict[str, Any]] = {
         "search": "SCF charge spin UHF ROHF GuessOrb",
         "modules": ("scf",),
     },
+    "atomization_workflow": {
+        "summary": (
+            "Atomization / binding-energy workflow at CASSCF / CASPT2: (1) Call "
+            "prepare_molcas_atomization with molecule + multiplicity + basis. The "
+            "orchestrator generates 1 molecule input + 1 atomic-reference input per "
+            "unique element at consistent CAS theory (auto-summed dimensions so "
+            "check_molcas_active_space_consistency passes). DKH is applied uniformly "
+            "when any element is Z>=19, and &SCF is dropped on high-spin TM atoms "
+            "(Cr ⁷S, Mn ⁶S, Fe ⁵D) where ROHF won't converge from GuessOrb. "
+            "(2) Run all N inputs (small atoms first). (3) Call "
+            "check_molcas_active_space_consistency to verify CAS sums + character. "
+            "(4) Call compute_molcas_reaction_energy(products=atoms, reactants=[mol], "
+            "energy_kind='rasscf' or 'caspt2') for the binding energy. Validated "
+            "end-to-end on CrO: D_e(CASSCF) = 47 kcal/mol, D_e(CASPT2) = 95 kcal/mol "
+            "(experimental 108). H₂O atomization: 193 / 180 D_e/D_0 at CASSCF(8,6)."
+        ),
+        "search": "atomization binding energy dissociation",
+        "modules": ("rasscf", "caspt2"),
+    },
+    "caspt2_intruder_protection": {
+        "summary": (
+            "CASPT2 on TM / DKH systems frequently hits intruder states — small "
+            "denominators on excitations into the diffuse virtual space blow up "
+            "the amplitudes. Symptom: _RC_NOT_CONVERGED_ in CASPT2 + reference "
+            "weight < 0.7. Fix: add `Imaginary 0.1` (or 0.05 for mild cases) to the "
+            "&CASPT2 block. Validated on CrO CAS(10,9): no shift → ref_weight 0.0002, "
+            "abort; with imag=0.1 → ref_weight 0.87, converged. The atomization + "
+            "caspt2_chain orchestrators auto-set imaginary_shift=0.1 when DKH is on. "
+            "Reference weight ≥ 0.70 is the trust threshold; < 0.85 is caution band."
+        ),
+        "search": "CASPT2 intruder imaginary shift reference weight denominator",
+        "modules": ("caspt2",),
+    },
+    "ts_search_procedure": {
+        "summary": (
+            "Transition-state search via prepare_molcas_opt_freq_workflow with "
+            "transition_state=True. Workflow: (1) Pick a starting geometry close to "
+            "the TS (bond breaking ~midway, key angle distorted). (2) The "
+            "orchestrator emits MCKINLEY+MCLR BEFORE the SLAPAF loop by default "
+            "(compute_initial_hessian=True for TS) so SLAPAF identifies the imaginary "
+            "mode to follow. (3) SLAPAF TS uses eigenvector-following. (4) After "
+            "convergence, MCKINLEY+MCLR re-runs to verify exactly one imaginary "
+            "frequency at the saddle. (5) Confirm the imaginary mode IS the "
+            "reaction coordinate via the 'Angle/Bond X1 Y1 Z1' label in the freq "
+            "table. Validated on HCN→HNC: i1202 cm⁻¹ = N-C-H bend. Watch for "
+            "spurious small-magnitude imaginary modes (i<70 cm⁻¹) in the final-freq "
+            "table — those are unprojected translation/rotation, harmless."
+        ),
+        "search": "SLAPAF TS transition state FindTS PRFC saddle imaginary",
+        "modules": ("slapaf", "mckinley", "mclr"),
+    },
+    "irc_followup": {
+        "summary": (
+            "IRC verifies a TS connects the expected reactant + product. "
+            "Workflow: (1) Run prepare_molcas_opt_freq_workflow(transition_state=True) "
+            "to get the TS + its imaginary mode. (2) Call prepare_molcas_irc_workflow "
+            "with ts_output_file pointing at the prior log — orchestrator parses "
+            "'The Cartesian Reaction vector' section and emits REACtion vector in "
+            "SLAPAF IRC. (3) Run the IRC input; it walks both directions until "
+            "energy rises. (4) Inspect $Project.mep.molden + Opt.xyz for endpoint "
+            "geometries. Critical gotcha: 'Nuclear coordinates for the next "
+            "iteration' in the prior log is in BOHR — pass geometry_units='bohr' "
+            "when forwarding those coords. Validated on HCN→HNC: TS @ -92.829 "
+            "→ descended monotonically over 4 hypersphere points, H atom migrated "
+            "from C side to N side."
+        ),
+        "search": "IRC intrinsic reaction coordinate MEP SLAPAF REACtion vector",
+        "modules": ("slapaf",),
+    },
+    "character_aware_active_space": {
+        "summary": (
+            "RASSCF active spaces from GuessOrb on TM atoms often grab the wrong "
+            "shells (4s + 3 of 4p instead of 3d×5 + 4s). Detection: "
+            "suggest_molcas_orbital_swaps with target_atom_pattern='Cr' + "
+            "target_ao_pattern='3d' compares each active orbital's dominant AO to "
+            "the target; returns swap candidates ranked by character match score. "
+            "Recovery: refine_molcas_active_space applies the swaps to RasOrb + "
+            "writes a refined input with FILEORB injected. Validated on CrO atomic "
+            "reference: wrong CAS at -1039.96 au → swapped → correct CAS at "
+            "-1040.72 au (480 kcal/mol lower). The atomization orchestrator now "
+            "auto-handles this for TM atoms by skipping SCF (lets GuessOrb feed "
+            "directly into RASSCF)."
+        ),
+        "search": "active orbital swap RasOrb INPORB FILEORB 3d character",
+        "modules": ("rasscf",),
+    },
+    "recovery_patterns": {
+        "summary": (
+            "When a Molcas run fails, suggest_molcas_recovery walks a "
+            "priority-ordered rule engine (11 failure modes) and returns failure_class "
+            "+ root_cause + fix_recipe + next_actions. apply_molcas_recovery then "
+            "regex-edits the input to fix mechanical failures: drop &SCF for "
+            "scf_no_convergence + scf_single_electron; bump RASSCF Iteration to "
+            "(100,50) for rasscf_no_convergence; add Imaginary 0.1 for "
+            "caspt2_intruder / caspt2_low_ref_weight; 2× MOLCAS_MEM for "
+            "memory_exceeded; &SEWARD → &GATEWAY for missing_basis_in_loop; bump "
+            "SLAPAF Iterations for slapaf_no_convergence. Manual-only fixes "
+            "(routed via verdict=manual_intervention_required): jobiph_missing → "
+            "prepare_molcas_excited_states, ga_segfault → rebuild GA with "
+            "--with-mpi-ts OR force -np 1, nactel_parity → "
+            "compute_molcas_active_space_partition, seward_angstrom_symmetry → "
+            "regenerate via draft_molcas_input (auto Angstrom→bohr internally)."
+        ),
+        "search": "recovery failure SCF convergence RASSCF CASPT2 intruder",
+        "modules": ("scf", "rasscf", "caspt2"),
+    },
+    "pes_scan": {
+        "summary": (
+            "Constrained-geometry PES scans via prepare_molcas_scan_workflow. "
+            "Generates one optimization input per scan point, with the chosen "
+            "bond/angle/dihedral locked via &GATEWAY Constraint + SLAPAF. "
+            "chain_orbitals=True (default) uses FILEORB from the previous point's "
+            "RasOrb/ScfOrb for warm-start. Watch out for bent↔linear transitions "
+            "(e.g. r(C-H) on HCN past 1.4 Å) which trip SLAPAF's "
+            "'BMtrx_internal: nq < nQQ' error because 3N-6 internals collapse to "
+            "3N-5 at linearity. Use angle coordinates or perturb off-axis for "
+            "those systems. Validated on H₂O O-H bond scan: 4 points from 0.85 "
+            "to 1.15 Å, clean potential well with minimum at 0.95 Å (experimental "
+            "0.957)."
+        ),
+        "search": "Constraint Value SLAPAF scan PES potential energy surface bond angle dihedral",
+        "modules": ("slapaf", "gateway"),
+    },
+    "tm_atom_setup": {
+        "summary": (
+            "Transition-metal atomic references (Cr ⁷S, Mn ⁶S, Fe ⁵D, V ⁴F, "
+            "Co ⁴F) need three special considerations: (1) ROHF doesn't converge "
+            "from GuessOrb — drop the &SCF block and let RASSCF use GuessOrb "
+            "directly. (2) ANO-RCC basis sets are contracted for relativistic "
+            "eigenfunctions; absolute energies need DKH (`Relativistic R02O02` in "
+            "SEWARD). Mixing DKH and non-DKH across reaction species is a bug. "
+            "(3) GuessOrb's energy-based ordering puts 3p and 3d at similar "
+            "depths; RASSCF can pick wrong shells in active. Always run "
+            "suggest_molcas_orbital_swaps after RASSCF converges on TM atoms. "
+            "The atomization orchestrator bakes all three rules in via skip_scf "
+            "+ relativistic='auto' + the bundled ATOMIC_GROUND_STATES table."
+        ),
+        "search": "transition metal Cr 3d 4s ROHF Charge GuessOrb DKH Relativistic",
+        "modules": ("rasscf", "seward"),
+    },
 }
 
 

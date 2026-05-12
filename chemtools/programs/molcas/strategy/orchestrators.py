@@ -1229,6 +1229,13 @@ def prepare_opt_freq_workflow(
     max_opt_iterations: int | None = None,
     numerical_gradients: bool = False,
     iroot_freq: int | None = None,
+    compute_initial_hessian: bool | None = None,
+    n_roots: int = 1,
+    state_average_weights: list[float] | None = None,
+    root_for_optimization: int | None = None,
+    caspt2_ipea_shift: float | None = 0.25,
+    caspt2_imaginary_shift: float | None = None,
+    caspt2_target_root: int | None = None,
     job_name: str | None = None,
     write_input_to: str | None = None,
     apptainer_sif: str | None = None,
@@ -1248,6 +1255,11 @@ def prepare_opt_freq_workflow(
       * Single-point freq (do_optimization=False) — just MCKINLEY + MCLR
       * Transition-state search (transition_state=True) — passes TS to SLAPAF
       * Constrained / numerical opts via the SLAPAF / ALASKA toggles
+      * compute_initial_hessian: emit MCKINLEY+MCLR BEFORE the opt loop so
+        SLAPAF starts with a proper analytic Hessian. Default is True when
+        transition_state=True (TS searches typically need a real Hessian to
+        identify the mode to follow), False for ground-state minima (the
+        BFGS/HMF initialization is fine).
     """
     from chemtools.programs.molcas.input._utils import (
         auto_label, normalize_atoms, total_electrons,
@@ -1263,6 +1275,7 @@ def prepare_opt_freq_workflow(
         do_while_open, do_while_close,
         if_iter_one_open, if_iter_one_close,
     )
+    from chemtools.programs.molcas.input.caspt2 import render_caspt2_block
     from chemtools.programs.molcas.input.lint import lint_molcas_input
 
     if not (do_optimization or do_frequency):
@@ -1273,16 +1286,17 @@ def prepare_opt_freq_workflow(
         }
 
     method_upper = method.upper()
-    if method_upper not in {"SCF", "HF", "CASSCF", "RASSCF"}:
+    if method_upper not in {"SCF", "HF", "CASSCF", "RASSCF", "CASPT2", "MS-CASPT2"}:
         return {
             "verdict": "unsupported_method",
             "error": "unsupported_method",
             "message": (
-                f"opt+freq orchestrator currently supports SCF/HF/CASSCF/RASSCF; "
-                f"got {method!r}. CASPT2 opt needs GRDT plumbing — future work."
+                f"opt+freq orchestrator supports SCF/HF/CASSCF/RASSCF/CASPT2/"
+                f"MS-CASPT2; got {method!r}."
             ),
         }
-    use_cas = method_upper in {"CASSCF", "RASSCF"}
+    use_cas = method_upper in {"CASSCF", "RASSCF", "CASPT2", "MS-CASPT2"}
+    use_caspt2 = method_upper in {"CASPT2", "MS-CASPT2"}
 
     atoms_norm = auto_label(normalize_atoms(atoms))
     n_elec = total_electrons(atoms_norm, charge)
@@ -1305,6 +1319,22 @@ def prepare_opt_freq_workflow(
             active_per_symmetry=rasscf_active_per_symmetry,
         )
 
+    # CASPT2 helper: emit a CASPT2 block with GRDT enabled (analytic
+    # gradient path). Always SS-CASPT2 internally — MS-CASPT2 opt is more
+    # complex. caspt2_target_root picks which root to optimize / freq for
+    # state-averaged setups.
+    def _emit_caspt2(*, grdt: bool, title_hint: str = "") -> str:
+        imag = caspt2_imaginary_shift if caspt2_imaginary_shift is not None else 0.0
+        return render_caspt2_block(
+            title=f"{title or method_upper} CASPT2 {title_hint}".strip(),
+            variant="SS",
+            n_roots=n_roots,
+            target_root=caspt2_target_root,
+            ipea_shift=caspt2_ipea_shift,
+            imaginary_shift=imag,
+            grdt=grdt,
+        )
+
     blocks: list[str] = [f">>> Export MOLCAS_MEM={memory_mb}\n"]
 
     # When optimizing, basis + geom MUST live in &GATEWAY so they persist to
@@ -1321,6 +1351,50 @@ def prepare_opt_freq_workflow(
             use_gateway=do_optimization,
         )
     )
+
+    # Resolve compute_initial_hessian default
+    if compute_initial_hessian is None:
+        # Default ON for TS searches; default OFF for minima (BFGS init is fine).
+        compute_initial_hessian = transition_state and do_optimization
+
+    # Compute initial analytic Hessian BEFORE the opt loop. Useful (often
+    # required) for TS searches: SLAPAF needs to identify the imaginary mode
+    # to follow, and the BFGS-initialized Hessian starts from a positive-
+    # definite approximation that hides the saddle direction.
+    if do_optimization and compute_initial_hessian:
+        blocks.append("&SEWARD\nEnd of input\n")
+        blocks.append(
+            render_scf_block(
+                n_electrons=n_elec,
+                multiplicity=multiplicity,
+                n_symmetries=n_symmetries,
+                occupied_per_symmetry=occupied_per_symmetry,
+                title=title,
+            )
+        )
+        if use_cas:
+            blocks.append(
+                render_rasscf_block(
+                    multiplicity=multiplicity,
+                    state_symmetry=1,
+                    nactel=partition["nactel"],
+                    frozen=partition["frozen"],
+                    inactive=partition["inactive"],
+                    ras2=partition["ras2"],
+                    ras1=partition["ras1"],
+                    ras3=partition["ras3"],
+                    title=title,
+                    n_roots=n_roots,
+                    state_average_weights=state_average_weights,
+                    root_for_optimization=root_for_optimization,
+                    iterations=(200, 50),
+                )
+            )
+            if use_caspt2:
+                blocks.append(_emit_caspt2(grdt=False, title_hint="initial Hessian"))
+        blocks.append(render_mckinley_block(title="Initial analytic Hessian"))
+        if use_cas:
+            blocks.append(render_mclr_block(title="Initial MCLR Hessian"))
 
     if do_optimization:
         blocks.append(do_while_open())
@@ -1356,9 +1430,19 @@ def prepare_opt_freq_workflow(
                     ras1=partition["ras1"],
                     ras3=partition["ras3"],
                     title=title,
-                    n_roots=1,
+                    n_roots=n_roots,
+                    state_average_weights=state_average_weights,
+                    root_for_optimization=root_for_optimization,
+                    iterations=(200, 50),
                 )
             )
+        if use_caspt2:
+            # CASPT2 with GRDT precomputes quantities used by MCLR / ALASKA
+            # for the analytic CASPT2 gradient. The opt loop chain is then
+            # CASPT2 (GRDT) → ALASKA → SLAPAF. MCLR isn't separately emitted
+            # because ALASKA invokes MCLR's response solver internally for
+            # CASPT2 gradients when GRDT is set.
+            blocks.append(_emit_caspt2(grdt=True, title_hint="opt iter"))
         # Gradients
         blocks.append(render_alaska_block(numerical=numerical_gradients))
         # Step + new geometry
@@ -1374,9 +1458,9 @@ def prepare_opt_freq_workflow(
         # After opt convergence (or for single-point freq), compute the analytic
         # Hessian. If we ran a full opt loop the RASSCF wave function is
         # already current at the converged geometry; if not (single-point
-        # freq), we need to run SCF + RASSCF first.
+        # freq), we just need SCF + RASSCF — the top-level SEWARD block
+        # already carried the basis + integrals.
         if not do_optimization:
-            blocks.append("&SEWARD\nEnd of input\n")
             blocks.append(
                 render_scf_block(
                     n_electrons=n_elec,
@@ -1398,9 +1482,14 @@ def prepare_opt_freq_workflow(
                         ras1=partition["ras1"],
                         ras3=partition["ras3"],
                         title=title,
-                        n_roots=1,
+                        n_roots=n_roots,
+                        state_average_weights=state_average_weights,
+                        root_for_optimization=root_for_optimization,
+                        iterations=(200, 50),
                     )
                 )
+                if use_caspt2:
+                    blocks.append(_emit_caspt2(grdt=False, title_hint="freq SP"))
         blocks.append(render_mckinley_block(title=f"{title or method_upper} second derivatives"))
         if use_cas:
             blocks.append(render_mclr_block(iroot=iroot_freq, title="MCLR analytic Hessian"))
