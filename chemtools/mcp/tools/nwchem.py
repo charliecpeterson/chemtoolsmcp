@@ -339,6 +339,127 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         # ------------------------------------------------------------------
+        # Generic auto-detect parsers — Phase 4
+        # These dispatch to the appropriate program plugin via
+        # registry.resolve(path=output_file). Each program-prefixed sibling
+        # (extract_molcas_geometry, parse_nwchem_thermochem, etc.) still
+        # exists for callers that want the program-specific shape; the
+        # generic version returns whatever the plugin's parser protocol
+        # method emits.
+        # ------------------------------------------------------------------
+        {
+            "name": "extract_geometry",
+            "description": (
+                "Auto-detecting geometry extractor. Dispatches to the program "
+                "plugin's parser.get_geometry() — for NWChem this returns the "
+                "last converged geometry, for Molcas the SLAPAF converged or "
+                "last 'Cartesian coordinates' block. Atoms list with "
+                "{symbol, x, y, z} dicts. Pass `program` to override the auto-"
+                "detect from the file head."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "task_index": {"type": ["integer", "null"], "default": None,
+                        "description": "0-indexed task. None = primary task (final geometry for opt, input for energy/freq)."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_thermochem",
+            "description": (
+                "Auto-detecting thermochemistry parser. Returns ZPE, thermal "
+                "corrections, S, Cv, H, G at per-temperature granularity. "
+                "Routes to the plugin's parser.get_thermochem(). NWChem returns "
+                "a single converged thermochem block; Molcas returns per-"
+                "temperature blocks with a 'standard_298_15' shortcut."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "task_index": {"type": ["integer", "null"], "default": None},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_frequencies",
+            "description": (
+                "Auto-detecting harmonic-frequency parser. Returns normal "
+                "modes (cm⁻¹, IR intensities, reduced mass) and ZPVE. Dispatches "
+                "to the plugin's parser.get_frequency(). Imaginary modes encoded "
+                "as negative cm⁻¹ values."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "task_index": {"type": ["integer", "null"], "default": None},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_trajectory",
+            "description": (
+                "Auto-detecting trajectory parser for geometry optimizations / "
+                "MD. Returns per-iteration energy + gradient norm + step + "
+                "geometry. Dispatches to the plugin's parser.get_trajectory()."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "task_index": {"type": ["integer", "null"], "default": None},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "inspect_geometry",
+            "description": (
+                "Auto-detecting geometry inspector. Pulls the geometry via the "
+                "plugin's parser.get_geometry(), normalizes to Å, then computes "
+                "formula + bond lengths (≤2.5 Å) + bond angles (through bonded "
+                "triples) + close contacts (<0.6 Å) + fragments + center of "
+                "mass. Optional `measurements` dict {distances, angles, "
+                "dihedrals} for explicit 1-based-index measurements. Uses "
+                "core.geometry.inspect_geometry under the hood — same math as "
+                "the program-specific inspect_*_geometry tools."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "max_bond_length": {"type": "number", "default": 2.5},
+                    "min_safe_distance": {"type": "number", "default": 0.6},
+                    "covalent_tolerance": {"type": "number", "default": 1.20},
+                    "measurements": {
+                        "type": ["object", "null"], "default": None,
+                        "properties": {
+                            "distances": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+                            "angles": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+                            "dihedrals": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+                        },
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        # ------------------------------------------------------------------
         # Workflow planning and geometry setup (start here for new jobs)
         # ------------------------------------------------------------------
         {
@@ -3024,6 +3145,138 @@ def _handle_summarize_run(arguments: dict[str, Any]) -> dict[str, Any]:
         "parsed": parsed,
         "diagnosis": diagnosis,
     }
+
+
+# ---------------------------------------------------------------------------
+# Generic auto-detect tool dispatchers (Phase 4)
+# ---------------------------------------------------------------------------
+
+def _resolve_plugin_or_error(arguments: dict[str, Any]):
+    """Shared dispatch logic: resolve plugin from `program` override or auto-
+    detect from `output_file`. Returns (plugin, None) on success or
+    (None, error_dict) on failure."""
+    from chemtools.core import registry as _registry
+    output_file = arguments["output_file"]
+    program = arguments.get("program")
+    try:
+        plugin = _registry.resolve(program=program, path=output_file)
+        return plugin, None
+    except _registry.ProgramDetectionFailed as e:
+        return None, {
+            "error": "program_detection_failed",
+            "message": str(e),
+            "registered_programs": _registry.list_programs(),
+        }
+    except _registry.ProgramNotRegistered as e:
+        return None, {
+            "error": "program_not_registered",
+            "message": str(e),
+            "registered_programs": _registry.list_programs(),
+        }
+
+
+@_tool("extract_geometry", program="generic")
+def _handle_extract_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+    geom = plugin.parser.get_geometry(
+        arguments["output_file"], task_index=arguments.get("task_index"),
+    )
+    return {"program": plugin.name, "atoms": geom} if isinstance(geom, list) else {"program": plugin.name, **(geom or {})}
+
+
+@_tool("parse_thermochem", program="generic")
+def _handle_parse_thermochem_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+    payload = plugin.parser.get_thermochem(
+        arguments["output_file"], task_index=arguments.get("task_index"),
+    )
+    return {"program": plugin.name, **(payload or {})}
+
+
+@_tool("parse_frequencies", program="generic")
+def _handle_parse_frequencies_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+    payload = plugin.parser.get_frequency(
+        arguments["output_file"], task_index=arguments.get("task_index"),
+    )
+    return {"program": plugin.name, **(payload or {})}
+
+
+@_tool("parse_trajectory", program="generic")
+def _handle_parse_trajectory_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+    payload = plugin.parser.get_trajectory(
+        arguments["output_file"], task_index=arguments.get("task_index"),
+    )
+    return {"program": plugin.name, **(payload or {})}
+
+
+@_tool("inspect_geometry", program="generic")
+def _handle_inspect_geometry_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.core.geometry import inspect_geometry as _core_inspect
+    from chemtools.core.units import ANGSTROM_PER_BOHR
+
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+
+    # Pull the geometry — plugin.parser.get_geometry returns either a list of
+    # atom dicts (NWChem: {element, x, y, z}; Molcas via list form: {symbol,
+    # x, y, z, label}) OR a {"atoms": [...], "units": ...} dict.
+    raw = plugin.parser.get_geometry(arguments["output_file"])
+    if isinstance(raw, list):
+        atoms_raw = raw
+        source_units = "angstrom"  # both plugins return Å for list-form
+    elif isinstance(raw, dict):
+        atoms_raw = list(raw.get("atoms") or [])
+        source_units = (raw.get("units") or "angstrom").lower()
+    else:
+        return {
+            "error": "no_geometry",
+            "message": f"Plugin {plugin.name} returned no geometry for {arguments['output_file']}.",
+        }
+    if not atoms_raw:
+        return {
+            "error": "no_geometry",
+            "message": f"Plugin {plugin.name} returned an empty geometry for {arguments['output_file']}.",
+        }
+
+    # Normalize key shapes: NWChem's GeometryAtom uses `element`, Molcas uses
+    # `symbol`. core.geometry.inspect_geometry consumes `symbol`.
+    def _to_symbol_form(a: dict) -> dict:
+        if "symbol" in a:
+            return a
+        return {
+            **a,
+            "symbol": a.get("element") or a.get("Element"),
+        }
+    atoms = [_to_symbol_form(a) for a in atoms_raw]
+
+    if source_units == "bohr":
+        atoms = [
+            {**a, "x": a["x"] * ANGSTROM_PER_BOHR,
+                  "y": a["y"] * ANGSTROM_PER_BOHR,
+                  "z": a["z"] * ANGSTROM_PER_BOHR}
+            for a in atoms
+        ]
+
+    result = _core_inspect(
+        atoms,
+        max_bond_length=float(arguments.get("max_bond_length", 2.5)),
+        min_safe_distance=float(arguments.get("min_safe_distance", 0.6)),
+        covalent_tolerance=float(arguments.get("covalent_tolerance", 1.20)),
+        measurements=arguments.get("measurements"),
+        units="angstrom",
+    )
+    return {"program": plugin.name, **result}
 
 
 @_tool("parse_nwchem_output")

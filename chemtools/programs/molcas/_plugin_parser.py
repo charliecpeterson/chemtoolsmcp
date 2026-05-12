@@ -161,10 +161,17 @@ class _MolcasParser:
         return block
 
     def get_geometry(self, path: str, task_index: int | None = None) -> list[GeometryAtom]:
-        """Return the converged geometry (SLAPAF final, or last Cartesian block)."""
+        """Return the converged geometry, ALWAYS in Angstrom.
+
+        SLAPAF's "Nuclear coordinates for the next iteration" section is in
+        bohr; this method normalizes to Å so generic callers (the Phase 4
+        ``inspect_geometry`` MCP tool, etc.) can rely on a single unit
+        regardless of where the geometry came from in the .out.
+        """
+        from chemtools.core.units import ANGSTROM_PER_BOHR
+
         contents = read_text(path)
         if task_index is not None:
-            # Pull the i-th `Cartesian coordinates` block in source order
             blocks = _parse_cartesian_blocks(contents)
             if not blocks:
                 raise ValueError(f"No Cartesian coordinates blocks found in {path}")
@@ -172,11 +179,23 @@ class _MolcasParser:
                 raise IndexError(
                     f"task_index={task_index} out of range; have {len(blocks)} geometry blocks"
                 )
-            return blocks[task_index]["atoms"]  # type: ignore[return-value]
-        final = _parse_final_geometry(contents)
-        if final is None:
-            raise ValueError(f"No geometry found in {path}")
-        return final["atoms"]  # type: ignore[return-value]
+            block = blocks[task_index]
+        else:
+            block = _parse_final_geometry(contents)
+            if block is None:
+                raise ValueError(f"No geometry found in {path}")
+
+        atoms = block["atoms"]
+        units = (block.get("units") or "angstrom").lower()
+        if units == "bohr":
+            atoms = [
+                {**a,
+                 "x": a["x"] * ANGSTROM_PER_BOHR,
+                 "y": a["y"] * ANGSTROM_PER_BOHR,
+                 "z": a["z"] * ANGSTROM_PER_BOHR}
+                for a in atoms
+            ]
+        return atoms  # type: ignore[return-value]
 
 
 MOLCAS_PARSER = _MolcasParser()
