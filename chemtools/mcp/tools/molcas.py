@@ -82,6 +82,9 @@ from chemtools.programs.molcas.strategy.reaction_energy import (
 from chemtools.programs.molcas.strategy.atomization import (
     prepare_atomization_calculation as _prepare_atomization_calculation,
 )
+from chemtools.programs.molcas.strategy.recovery import (
+    suggest_recovery as _suggest_recovery,
+)
 from chemtools.programs.molcas.docs import (
     list_docs as _list_docs,
     search_docs as _search_docs,
@@ -1001,6 +1004,36 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "suggest_molcas_recovery",
+            "description": (
+                "Classify a Molcas failure (or suspicious success) and emit a "
+                "step-by-step recovery plan. Walks a priority-ordered rule engine "
+                "against the .out / .log text + parsed metadata; covers 11 failure "
+                "modes surfaced by real dogfooding: seward_angstrom_symmetry, "
+                "missing_basis_in_loop (Do-while SEWARD without GATEWAY), "
+                "scf_single_electron (H-atom-style ROHF abort), scf_no_convergence "
+                "(TM atoms from GuessOrb), rasscf_no_convergence (iter budget too "
+                "tight), caspt2_intruder (small denominators on diffuse virtuals), "
+                "caspt2_low_ref_weight (caution band), jobiph_missing (excited-states "
+                "COPY plumbing), ga_segfault (parallel CASPT2 on broken GA build), "
+                "memory_exceeded, slapaf_no_convergence, nactel_parity. Returns "
+                "failure_class + severity + root_cause + step-by-step fix_recipe + "
+                "agent-actionable next_actions chained into the right orchestrator."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "return_all_matches": {
+                        "type": "boolean", "default": False,
+                        "description": "If True, return ALL matching rules under all_matches (still picks the highest-priority as primary). Debug aid for the rule engine itself.",
+                    },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
         # ----- Documentation -----
         {
             "name": "list_molcas_docs",
@@ -1553,6 +1586,14 @@ def _handle_check_molcas_active_space_consistency(arguments: dict[str, Any]) -> 
         fragments=arguments["fragments"],
         target_character_atom=arguments.get("target_character_atom"),
         target_character_ao=arguments.get("target_character_ao"),
+    )
+
+
+@_tool("suggest_molcas_recovery")
+def _handle_suggest_molcas_recovery(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _suggest_recovery(
+        arguments["output_file"],
+        return_all_matches=bool(arguments.get("return_all_matches", False)),
     )
 
 
