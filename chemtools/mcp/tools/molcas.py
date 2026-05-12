@@ -80,6 +80,10 @@ from chemtools.programs.molcas.strategy.orchestrators import (
 from chemtools.programs.molcas.parse.xmldump import (
     parse_xmldump_file as _parse_xmldump_file,
 )
+from chemtools.programs.molcas.strategy.case_analysis import (
+    summarize_molcas_output as _summarize_molcas_output,
+    analyze_molcas_case as _analyze_molcas_case,
+)
 from chemtools.programs.molcas.strategy.reaction_energy import (
     compute_reaction_energy as _compute_reaction_energy,
     check_active_space_consistency as _check_active_space_consistency,
@@ -256,6 +260,50 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                         "default": False,
                         "description": "Include AO coefficients in the per-task MO blocks (heavy; default off).",
                     },
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "summarize_molcas_output",
+            "description": (
+                "Single-dispatch summary of a Molcas .out / .log. Returns a flat "
+                "structured dict: method, primary_energy_au, modules_run, "
+                "active_space, geometry + bond_lengths (small systems), "
+                "frequencies_cm1, imaginary_frequencies_cm1, ZPVE, thermochem "
+                "at 298.15 K (if freq), CASPT2 reference weight (if CASPT2), "
+                "warnings. Saves the agent from chaining parse_molcas_output + "
+                "parse_molcas_frequencies + parse_molcas_thermochem + "
+                "extract_molcas_geometry by hand to answer 'what's in this "
+                "run?'."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "analyze_molcas_case",
+            "description": (
+                "Quality-assessment dispatcher. Runs summarize_molcas_output + "
+                "validate_molcas_caspt2_setup (if CASPT2) + analyze_molcas_active_space "
+                "(if RASSCF) + cross-checks (charge/spin parity, imaginary "
+                "frequencies, warning count). Returns the full summary plus "
+                "verdict (healthy / caution / problematic), an issues list "
+                "(each with severity + message + hint), and recommended "
+                "next_actions. Use this as the first call when reviewing any "
+                "Molcas run for quality, not just for failures (suggest_molcas_recovery "
+                "is for failed runs only)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
                 },
                 "required": ["output_file"],
                 "additionalProperties": False,
@@ -1459,6 +1507,16 @@ def _handle_parse_molcas_output(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("parse_molcas_xmldump")
 def _handle_parse_molcas_xmldump(arguments: dict[str, Any]) -> dict[str, Any]:
     return _parse_xmldump_file(arguments["xmldump_path"])
+
+
+@_tool("summarize_molcas_output")
+def _handle_summarize_molcas_output(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _summarize_molcas_output(arguments["output_file"])
+
+
+@_tool("analyze_molcas_case")
+def _handle_analyze_molcas_case(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _analyze_molcas_case(arguments["output_file"])
 
 
 @_tool("parse_molcas_tasks")
