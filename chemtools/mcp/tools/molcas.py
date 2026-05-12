@@ -84,6 +84,7 @@ from chemtools.programs.molcas.strategy.atomization import (
 )
 from chemtools.programs.molcas.strategy.recovery import (
     suggest_recovery as _suggest_recovery,
+    apply_recovery as _apply_recovery,
 )
 from chemtools.programs.molcas.docs import (
     list_docs as _list_docs,
@@ -1005,6 +1006,43 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "apply_molcas_recovery",
+            "description": (
+                "Apply a recovery fix to a failed Molcas input. Pairs with "
+                "suggest_molcas_recovery to close the auto-fix loop. Two ways "
+                "to call: pass output_file to auto-classify + apply the fix, "
+                "or pass a pre-computed recovery dict. Handles mechanical fixes "
+                "(drop &SCF block; bump RASSCF Iteration; add Imaginary 0.1 to "
+                "&CASPT2; bump MOLCAS_MEM; replace opening &SEWARD with &GATEWAY; "
+                "bump SLAPAF Iterations). Returns verdict=fix_applied with the new "
+                "input path + a ready-to-run next_actions chain, OR "
+                "verdict=manual_intervention_required for failure classes that "
+                "need chemistry judgment (jobiph_missing, ga_segfault, nactel_parity, "
+                "seward_angstrom_symmetry — those route back to draft_molcas_input "
+                "or prepare_molcas_excited_states)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string"},
+                    "output_file": {
+                        "type": ["string", "null"], "default": None,
+                        "description": "Path to the failed .out/.log — passed through suggest_molcas_recovery to classify. Mutually exclusive with `recovery`.",
+                    },
+                    "recovery": {
+                        "type": ["object", "null"], "default": None,
+                        "description": "Pre-computed recovery dict (from suggest_molcas_recovery's `recovery` field). Mutually exclusive with `output_file`.",
+                    },
+                    "write_to": {
+                        "type": ["string", "null"], "default": None,
+                        "description": "Output path for the fixed input. Defaults to inserting '_recovered' before the .input suffix.",
+                    },
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "suggest_molcas_recovery",
             "description": (
                 "Classify a Molcas failure (or suspicious success) and emit a "
@@ -1594,6 +1632,16 @@ def _handle_suggest_molcas_recovery(arguments: dict[str, Any]) -> dict[str, Any]
     return _suggest_recovery(
         arguments["output_file"],
         return_all_matches=bool(arguments.get("return_all_matches", False)),
+    )
+
+
+@_tool("apply_molcas_recovery")
+def _handle_apply_molcas_recovery(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _apply_recovery(
+        arguments["input_file"],
+        output_file=arguments.get("output_file"),
+        recovery=arguments.get("recovery"),
+        write_to=arguments.get("write_to"),
     )
 
 

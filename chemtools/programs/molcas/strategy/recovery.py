@@ -638,3 +638,247 @@ def suggest_recovery(
     if return_all_matches:
         result["all_matches"] = matches
     return result
+
+
+# ---------------------------------------------------------------------------
+# apply_recovery — auto-fix the input file based on a recovery classification
+# ---------------------------------------------------------------------------
+
+
+# Failure classes whose fix is a mechanical regex edit on the input deck.
+_MECHANICAL_FIX_CLASSES = {
+    "scf_no_convergence",
+    "scf_single_electron",
+    "rasscf_no_convergence",
+    "caspt2_intruder",
+    "caspt2_low_ref_weight",
+    "memory_exceeded",
+    "missing_basis_in_loop",
+    "slapaf_no_convergence",
+}
+
+
+def _drop_scf_block(text: str) -> tuple[str, str]:
+    """Remove the &SCF ... End of input block. Returns (new_text, message)."""
+    new = re.sub(r"&SCF &END.*?End of input\n+", "", text, flags=re.DOTALL, count=1)
+    if new == text:
+        return text, "no &SCF block found to drop"
+    return new, "dropped &SCF block — RASSCF will start from GuessOrb"
+
+
+def _bump_rasscf_iterations(text: str, new_iters: tuple[int, int] = (100, 50)) -> tuple[str, str]:
+    """Increase the `Iteration N,M` line inside &RASSCF."""
+    new_line = f" {new_iters[0]},{new_iters[1]}"
+    # Pattern: `Iteration\n NN,MM`
+    pat = re.compile(r"(Iteration\n)\s*\d+\s*,\s*\d+", re.IGNORECASE)
+    if not pat.search(text):
+        return text, "no &RASSCF Iteration line found"
+    new = pat.sub(rf"\g<1>{new_line}", text, count=1)
+    return new, f"bumped &RASSCF Iteration to {new_iters[0]},{new_iters[1]}"
+
+
+def _add_imaginary_shift(text: str, shift: float = 0.1) -> tuple[str, str]:
+    """Add or update the `Imaginary` keyword in &CASPT2."""
+    # If already present, update value
+    pat_existing = re.compile(r"(Imaginary\n)\s*[0-9.]+", re.IGNORECASE)
+    if pat_existing.search(text):
+        new = pat_existing.sub(rf"\g<1> {shift:.3f}", text, count=1)
+        return new, f"updated Imaginary shift to {shift}"
+    # Else inject before the `End of input` of the &CASPT2 block
+    pat_caspt2_end = re.compile(
+        r"(&CASPT2[\s\S]*?)(End of input\n)", re.IGNORECASE,
+    )
+    m = pat_caspt2_end.search(text)
+    if not m:
+        return text, "no &CASPT2 block found to add Imaginary shift to"
+    new = (
+        text[: m.start(2)]
+        + f"Imaginary\n {shift:.3f}\n"
+        + text[m.start(2):]
+    )
+    return new, f"added Imaginary {shift} to &CASPT2 block"
+
+
+def _bump_molcas_mem(text: str, new_mb: int) -> tuple[str, str]:
+    """Bump the `>>> Export MOLCAS_MEM=...` line."""
+    pat = re.compile(r"(MOLCAS_MEM\s*=\s*)\d+", re.IGNORECASE)
+    if not pat.search(text):
+        # Inject at top
+        new = f">>> Export MOLCAS_MEM={new_mb}\n" + text
+        return new, f"injected >>> Export MOLCAS_MEM={new_mb} at top"
+    new = pat.sub(rf"\g<1>{new_mb}", text, count=1)
+    return new, f"bumped MOLCAS_MEM to {new_mb} MB"
+
+
+def _seward_to_gateway(text: str) -> tuple[str, str]:
+    """Replace the first `&SEWARD &END` block opening with `&GATEWAY`.
+
+    For an opt loop, the leading basis-carrying block must be &GATEWAY so
+    the basis persists to RunFile for inner-loop &SEWARD calls.
+    """
+    pat = re.compile(r"&SEWARD &END", re.IGNORECASE)
+    if not pat.search(text):
+        return text, "no &SEWARD &END opening found"
+    new = pat.sub("&GATEWAY", text, count=1)
+    return new, "replaced opening &SEWARD &END with &GATEWAY"
+
+
+def _bump_slapaf_iterations(text: str, new_iters: int = 100) -> tuple[str, str]:
+    """Add or bump the `Iterations N` keyword inside &SLAPAF."""
+    # First check if Iterations already present in SLAPAF block
+    pat_existing = re.compile(
+        r"(&SLAPAF[\s\S]*?Iterations\n)\s*\d+",
+        re.IGNORECASE,
+    )
+    m = pat_existing.search(text)
+    if m:
+        new = pat_existing.sub(rf"\g<1> {new_iters}", text, count=1)
+        return new, f"bumped &SLAPAF Iterations to {new_iters}"
+    # Inject inside SLAPAF before End of input
+    pat_slapaf = re.compile(r"(&SLAPAF[\s\S]*?)(End of input)", re.IGNORECASE)
+    m = pat_slapaf.search(text)
+    if not m:
+        return text, "no &SLAPAF block found"
+    new = text[: m.start(2)] + f"Iterations\n {new_iters}\n" + text[m.start(2):]
+    return new, f"injected Iterations {new_iters} into &SLAPAF block"
+
+
+def apply_recovery(
+    input_file: str,
+    *,
+    output_file: str | None = None,
+    recovery: dict | None = None,
+    write_to: str | None = None,
+) -> dict[str, Any]:
+    """Apply a recovery fix to a Molcas input file.
+
+    Two ways to call:
+      apply_recovery(input_file, output_file=path_to_failed_out)
+        → auto-classifies the failure via suggest_recovery, then applies the fix.
+      apply_recovery(input_file, recovery={'failure_class': ..., ...})
+        → use a pre-computed recovery dict (avoids re-parsing).
+
+    Parameters
+    ----------
+    input_file
+        Path to the .input file that produced the failure.
+    output_file
+        Path to the failed .out/.log to classify. Mutually exclusive with
+        ``recovery``.
+    recovery
+        Pre-computed recovery dict (e.g. from suggest_recovery's `recovery`
+        field). Mutually exclusive with ``output_file``.
+    write_to
+        Path to write the fixed input. If None, defaults to inserting
+        ``_recovered`` before the .input suffix.
+
+    Returns dict with:
+      verdict           "fix_applied" | "manual_intervention_required" | "no_recovery_needed" | "unknown_failure"
+      failure_class     str | None
+      changes_applied   list[str] — human-readable per-edit description
+      input_path        path to the new (fixed) input file (if fix_applied)
+      diagnostics       full recovery dict (preserved for the agent)
+      next_actions      ready-to-run launch command(s) if fix_applied
+    """
+    in_path = Path(input_file)
+    if not in_path.is_file():
+        raise FileNotFoundError(f"Input file not found: {input_file}")
+
+    if recovery is None and output_file is None:
+        raise ValueError(
+            "Pass either output_file (to auto-classify) or recovery (pre-computed dict)."
+        )
+    if recovery is None:
+        diag = suggest_recovery(output_file)  # type: ignore[arg-type]
+        if diag["verdict"] == "success_no_recovery_needed":
+            return {
+                "verdict": "no_recovery_needed",
+                "failure_class": None,
+                "changes_applied": [],
+                "input_path": str(in_path),
+                "diagnostics": diag,
+                "next_actions": [],
+            }
+        if diag["verdict"] == "unknown_failure":
+            return {
+                "verdict": "unknown_failure",
+                "failure_class": None,
+                "changes_applied": [],
+                "input_path": str(in_path),
+                "diagnostics": diag,
+                "next_actions": diag.get("next_actions", []),
+            }
+        recovery = diag["recovery"]
+
+    failure_class = recovery.get("failure_class")  # type: ignore[union-attr]
+    if failure_class not in _MECHANICAL_FIX_CLASSES:
+        return {
+            "verdict": "manual_intervention_required",
+            "failure_class": failure_class,
+            "changes_applied": [],
+            "input_path": str(in_path),
+            "diagnostics": {"recovery": recovery},
+            "reason": (
+                f"Failure class '{failure_class}' requires chemistry judgment or a "
+                "rebuild step that cannot be automated by a regex edit on the input. "
+                "See recovery.fix_recipe for the steps to take manually."
+            ),
+            "next_actions": recovery.get("next_actions", []),  # type: ignore[union-attr]
+        }
+
+    text = in_path.read_text(encoding="utf-8")
+    changes: list[str] = []
+
+    if failure_class in {"scf_no_convergence", "scf_single_electron"}:
+        text, msg = _drop_scf_block(text)
+        changes.append(msg)
+    elif failure_class == "rasscf_no_convergence":
+        text, msg = _bump_rasscf_iterations(text, new_iters=(100, 50))
+        changes.append(msg)
+    elif failure_class in {"caspt2_intruder", "caspt2_low_ref_weight"}:
+        text, msg = _add_imaginary_shift(text, shift=0.1)
+        changes.append(msg)
+    elif failure_class == "memory_exceeded":
+        current = recovery.get("current_memory_mb") or 4000  # type: ignore[union-attr]
+        new_mb = current * 2
+        text, msg = _bump_molcas_mem(text, new_mb=new_mb)
+        changes.append(msg)
+    elif failure_class == "missing_basis_in_loop":
+        text, msg = _seward_to_gateway(text)
+        changes.append(msg)
+    elif failure_class == "slapaf_no_convergence":
+        text, msg = _bump_slapaf_iterations(text, new_iters=100)
+        changes.append(msg)
+
+    # Write the fixed input
+    if write_to:
+        out_path = Path(write_to)
+    else:
+        suffix = in_path.suffix or ".input"
+        stem = in_path.stem
+        out_path = in_path.parent / f"{stem}_recovered{suffix}"
+    out_path.write_text(text, encoding="utf-8")
+
+    return {
+        "verdict": "fix_applied",
+        "failure_class": failure_class,
+        "changes_applied": changes,
+        "input_path": str(out_path),
+        "original_input_path": str(in_path),
+        "diagnostics": {"recovery": recovery},
+        "next_actions": [
+            {
+                "tool": "prepare_molcas_launch",
+                "args": {"input_file": str(out_path)},
+                "rationale": (
+                    f"Recovered from '{failure_class}' by: {'; '.join(changes)}. "
+                    "Re-run the fixed input."
+                ),
+            },
+            {
+                "tool": "suggest_molcas_recovery",
+                "args": {"output_file": str(out_path).replace(".input", ".log")},
+                "rationale": "After the rerun, classify again — some failures are layered.",
+            },
+        ],
+    }
