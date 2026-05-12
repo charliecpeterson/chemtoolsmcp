@@ -211,6 +211,31 @@ def _build_scf_subsection(scf: dict[str, Any]) -> list[str]:
             else:
                 lines.append(f" {n_e}/{spec_str}")
 
+    # ----- .KPSELE: atomic supersymmetry for hard-converging AOC -----
+    # Format (per converging_atoms.md):
+    #   .KPSELE
+    #    <n_kappa>
+    #    <kappa_1> <kappa_2> ... <kappa_n>
+    #    <closed_per_kappa_1> ... <closed_per_kappa_n>
+    #    <open_shell_1 spinors per kappa>
+    #    <open_shell_2 spinors per kappa>
+    #    ...
+    # kappa convention: -1=s1/2, +1=p1/2, -2=p3/2, +2=d3/2, -3=d5/2,
+    #                   +3=f5/2, -4=f7/2, etc.
+    # Required for actinide/lanthanide AOC where 5f/4f orbitals are
+    # near-degenerate; DIRAC's inner RELSCF loop oscillates without it.
+    kpsele = scf.get("kpsele")
+    if kpsele:
+        kappas = kpsele["kappas"]
+        closed_kappa = kpsele["closed"]
+        shells_kappa = kpsele.get("shells", [])
+        lines.append(".KPSELE")
+        lines.append(f" {len(kappas)}")
+        lines.append(" " + "  ".join(f"{int(k):>2d}" for k in kappas))
+        lines.append(" " + " ".join(f"{int(n):>2d}" for n in closed_kappa))
+        for shell_row in shells_kappa:
+            lines.append(" " + " ".join(f"{int(n):>2d}" for n in shell_row))
+
     reorder = scf.get("reorder")
     if reorder:
         lines.append(".REORDER MO")

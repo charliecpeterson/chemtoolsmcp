@@ -117,17 +117,78 @@ _ATOMIC_GROUND_STATES: dict[str, dict[str, Any]] = {
     "Yb": {"closed_shell": [32, 38]},
     "Lu": {"closed_shell": [32, 38], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
     "Rn": {"closed_shell": [42, 44]},
-    # Period 7 actinides — Rn core (42,44) + 7s/5f/6d
+    # Period 7 actinides — Rn core (42,44) + 7s/5f/6d.
+    # Heavy actinides need .KPSELE for AOC convergence (5f near-degenerate
+    # spinors otherwise oscillate the RELSCF inner loop). Configs from
+    # converging_atoms.md: closed core = Rn + 7s^2 spread across 7 kappas
+    # (s1/2, p1/2, p3/2, d3/2, d5/2, f5/2, f7/2). 5f open shell rows
+    # carry 6 in f5/2 + 8 in f7/2; 6d rows carry 4 in d3/2 + 6 in d5/2.
     "Fr": {"closed_shell": [42, 44], "open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
     "Ra": {"closed_shell": [44, 44]},
-    "Ac": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
-    "Th": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
-    "Pa": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 3, "spinors": "10,14"}]},
-    "U":  {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 4, "spinors": "10,14"}]},
-    "Np": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 5, "spinors": "10,14"}]},
-    "Pu": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 6, "spinors": "0,14"}]},
-    "Am": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 7, "spinors": "0,14"}]},
-    "Cm": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 8, "spinors": "10,14"}]},
+    "Ac": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 1, "spinors": "10,0"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 4, 6, 0, 0]],  # 6d^1
+           }},
+    "Th": {"closed_shell": [44, 44], "open_shell": [{"n_electrons": 2, "spinors": "10,0"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 4, 6, 0, 0]],  # 6d^2
+           }},
+    # 5f^N 6d^1 7s^2 — split into TWO open shells (5f + 6d) for KPSELE.
+    "Pa": {"closed_shell": [44, 44],
+           "open_shell": [{"n_electrons": 2, "spinors": "0,14"},
+                          {"n_electrons": 1, "spinors": "10,0"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 0, 0, 6, 8],  # 5f^2
+                          [0, 0, 0, 4, 6, 0, 0]],  # 6d^1
+           }},
+    "U":  {"closed_shell": [44, 44],
+           "open_shell": [{"n_electrons": 3, "spinors": "0,14"},
+                          {"n_electrons": 1, "spinors": "10,0"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 0, 0, 6, 8],
+                          [0, 0, 0, 4, 6, 0, 0]],
+           }},
+    "Np": {"closed_shell": [44, 44],
+           "open_shell": [{"n_electrons": 4, "spinors": "0,14"},
+                          {"n_electrons": 1, "spinors": "10,0"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 0, 0, 6, 8],
+                          [0, 0, 0, 4, 6, 0, 0]],
+           }},
+    # Pure 5f^N (no 6d) — single open shell.
+    "Pu": {"closed_shell": [44, 44],
+           "open_shell": [{"n_electrons": 6, "spinors": "0,14"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 0, 0, 6, 8]],
+           }},
+    "Am": {"closed_shell": [44, 44],
+           "open_shell": [{"n_electrons": 7, "spinors": "0,14"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 0, 0, 6, 8]],
+           }},
+    "Cm": {"closed_shell": [44, 44],
+           "open_shell": [{"n_electrons": 7, "spinors": "0,14"},
+                          {"n_electrons": 1, "spinors": "10,0"}],
+           "kpsele": {
+               "kappas": [-1, 1, -2, 2, -3, 3, -4],
+               "closed": [14, 10, 20, 12, 18, 6, 8],
+               "shells": [[0, 0, 0, 0, 0, 6, 8],
+                          [0, 0, 0, 4, 6, 0, 0]],
+           }},
 }
 
 
