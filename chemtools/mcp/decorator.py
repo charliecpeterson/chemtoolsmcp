@@ -43,6 +43,10 @@ ACTIVE_MODE: str = "analysis"
 # Per-tool state. Decorator below populates these dicts.
 _TOOL_REGISTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 _TOOL_CAPABILITIES: dict[str, str] = {}
+# Program ownership tag per tool. "generic" means no program affiliation
+# (always visible). Used by the --programs filter to select which subset of
+# tools is exposed at tools/list time.
+_TOOL_PROGRAMS: dict[str, str] = {}
 
 _VALID_CAPABILITIES = {
     "none",
@@ -54,11 +58,26 @@ _VALID_CAPABILITIES = {
 }
 
 
-def _tool(name: str, *, needs: str = "none") -> Callable:
-    """Decorator that registers a handler function under *name* with a capability tag.
+def _tool(
+    name: str,
+    *,
+    needs: str = "none",
+    program: str = "generic",
+) -> Callable:
+    """Decorator that registers a handler function under *name*.
 
-    Tools registered with `needs="none"` (the default) are always visible.
-    Other tags drive the mode-based filter in `chemtools/mcp/modes.py`.
+    Parameters
+    ----------
+    needs
+        Capability tag. Tools with ``needs="none"`` (the default) are visible
+        in every server mode; other tags (``registry``, ``runner_profile``,
+        ``executable_or_scheduler``, ``executable``, ``scheduler``) drive
+        mode-based filtering in ``chemtools/mcp/modes.py``.
+    program
+        Program affiliation tag. ``"generic"`` (the default) means the tool
+        works across programs and is always visible. Otherwise, the tool is
+        only exposed when its program is in the active ``--programs`` filter
+        (or no filter is set).
     """
     if needs not in _VALID_CAPABILITIES:
         raise ValueError(
@@ -69,6 +88,7 @@ def _tool(name: str, *, needs: str = "none") -> Callable:
     def decorator(fn: Callable) -> Callable:
         _TOOL_REGISTRY[name] = fn
         _TOOL_CAPABILITIES[name] = needs
+        _TOOL_PROGRAMS[name] = program
         return fn
 
     return decorator

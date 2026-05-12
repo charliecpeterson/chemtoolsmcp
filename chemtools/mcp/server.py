@@ -134,7 +134,7 @@ def make_response(
 
 
 def build_arg_parser(prog: str, description: str) -> argparse.ArgumentParser:
-    """Standard --mode / --list-tools / --show-mode arg parser.
+    """Standard --mode / --programs / --list-tools / --show-mode arg parser.
 
     Per-program entry points should use this to keep their CLI surface
     consistent.
@@ -152,14 +152,24 @@ def build_arg_parser(prog: str, description: str) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--programs",
+        default=None,
+        help=(
+            "Comma-separated list of programs whose tools should be loaded "
+            "(e.g. 'molcas' or 'nwchem,molcas'). Generic tools are always "
+            "visible. Default: read CHEMTOOLS_PROGRAMS, else no filter "
+            "(all programs)."
+        ),
+    )
+    parser.add_argument(
         "--list-tools",
         action="store_true",
-        help="Print the tool names visible in the resolved mode and exit.",
+        help="Print the tool names visible in the resolved mode + programs and exit.",
     )
     parser.add_argument(
         "--show-mode",
         action="store_true",
-        help="Print the resolved mode and reason and exit.",
+        help="Print the resolved mode, program filter, and reasons and exit.",
     )
     return parser
 

@@ -44,7 +44,14 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.core.common import read_text
-from chemtools.mcp.decorator import _tool
+from chemtools.mcp.decorator import _tool as _raw_tool
+
+
+def _tool(name: str, *, needs: str = "none", program: str = "molcas"):
+    """Program-scoped @_tool wrapper for Molcas. All tools in this module
+    are tagged with program='molcas' by default — set program='generic'
+    on the decorator call to register a cross-program tool here."""
+    return _raw_tool(name, needs=needs, program=program)
 from chemtools.programs.molcas.parse.output import (
     parse_tasks as _parse_tasks,
     parse_output_full as _parse_output_full,

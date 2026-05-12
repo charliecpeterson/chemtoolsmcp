@@ -463,7 +463,7 @@ duplication across programs).
 
 | Phase | Status |
 |---|---|
-| Phase 1: rename + filter | not started |
+| Phase 1: rename + filter | **DONE 2026-05-12** — `chemtools` binary + `--programs` flag + `CHEMTOOLS_PROGRAMS` env var. Legacy `chemtools-nwchem` aliased for backward compat. 12 new tests in `test_modes.py` (30 total, all passing). |
 | Phase 2: pure math to core/ | not started (geometry.py, thermochem.py, reaction_energy.py) |
 | Phase 3: framework promotion | not started |
 | Phase 4: generic MCP tools | not started |

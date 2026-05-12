@@ -149,13 +149,22 @@ from chemtools.programs.nwchem.forum import search_forum as forum_search  # noqa
 from chemtools.mcp.decorator import (  # noqa: E402
     _TOOL_REGISTRY,
     _TOOL_CAPABILITIES,
-    _tool,
+    _TOOL_PROGRAMS,
+    _tool as _raw_tool,
     log_event,
     ACTIVE_MODE,
     SERVER_NAME,
     SERVER_VERSION,
     DEFAULT_PROTOCOL_VERSION,
 )
+
+
+def _tool(name: str, *, needs: str = "none", program: str = "nwchem"):
+    """Program-scoped @_tool wrapper for NWChem. All tools in this module
+    are tagged with program='nwchem' by default — pass program='generic'
+    on tools that work across programs (basis advisors, session log,
+    reaction energy, etc.)."""
+    return _raw_tool(name, needs=needs, program=program)
 from chemtools.mcp.server import (  # noqa: E402
     make_response,
     make_success_result,
@@ -2937,9 +2946,18 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
 # Handlers — frontier orbital / vectors-swap workflow
 # ---------------------------------------------------------------------------
 
-@_tool("get_server_mode")
+@_tool("get_server_mode", program="generic")
 def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _modes.summarize_mode(ACTIVE_MODE, _TOOL_CAPABILITIES, tool_definitions())
+    # Pull the runtime program filter if main() set it; otherwise None
+    # (no filter active — all programs visible).
+    try:
+        from chemtools.mcp.nwchem import ACTIVE_PROGRAMS as _active_programs  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        _active_programs = None
+    return _modes.summarize_mode(
+        ACTIVE_MODE, _TOOL_CAPABILITIES, tool_definitions(),
+        programs=_active_programs, program_tags=_TOOL_PROGRAMS,
+    )
 
 
 @_tool("prepare_nwchem_mcscf_setup")
@@ -2971,7 +2989,7 @@ def _handle_prepare_nwchem_tce_setup(arguments: dict[str, Any]) -> dict[str, Any
     )
 
 
-@_tool("summarize_run")
+@_tool("summarize_run", program="generic")
 def _handle_summarize_run(arguments: dict[str, Any]) -> dict[str, Any]:
     """Flagship plugin-dispatch tool — combines parser + strategist for any program."""
     from chemtools.core import registry as _registry
@@ -3036,7 +3054,7 @@ def _handle_plan_nwchem_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("draft_initial_geometry")
+@_tool("draft_initial_geometry", program="generic")
 def _handle_draft_initial_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
     return draft_initial_geometry(
         atoms=arguments["atoms"],
@@ -3063,7 +3081,7 @@ def _handle_draft_nwchem_atom_input(arguments: dict[str, Any]) -> dict[str, Any]
     )
 
 
-@_tool("compute_reaction_energy")
+@_tool("compute_reaction_energy", program="generic")
 def _handle_compute_reaction_energy(arguments: dict[str, Any]) -> dict[str, Any]:
     return compute_reaction_energy(
         species=arguments["species"],
@@ -3110,7 +3128,7 @@ def _handle_track_spin_state(arguments: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-@_tool("suggest_relativistic_correction")
+@_tool("suggest_relativistic_correction", program="generic")
 def _handle_suggest_relativistic_correction(arguments: dict[str, Any]) -> dict[str, Any]:
     return suggest_relativistic_correction(
         elements=arguments["elements"],
@@ -3120,7 +3138,7 @@ def _handle_suggest_relativistic_correction(arguments: dict[str, Any]) -> dict[s
     )
 
 
-@_tool("suggest_spin_state")
+@_tool("suggest_spin_state", program="generic")
 def _handle_suggest_spin_state(arguments: dict[str, Any]) -> dict[str, Any]:
     return suggest_spin_state(
         elements=arguments["elements"],
@@ -3129,7 +3147,7 @@ def _handle_suggest_spin_state(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("suggest_basis_set")
+@_tool("suggest_basis_set", program="generic")
 def _handle_suggest_basis_set(arguments: dict[str, Any]) -> dict[str, Any]:
     return suggest_basis_set(
         elements=arguments["elements"],
@@ -3137,7 +3155,7 @@ def _handle_suggest_basis_set(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("suggest_memory")
+@_tool("suggest_memory", program="generic")
 def _handle_suggest_memory(arguments: dict[str, Any]) -> dict[str, Any]:
     return suggest_memory(
         n_atoms=arguments["n_atoms"],
@@ -3147,7 +3165,7 @@ def _handle_suggest_memory(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("suggest_resources", needs="executable_or_scheduler")
+@_tool("suggest_resources", program="generic", needs="executable_or_scheduler")
 def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
     hw = arguments.get("hw_specs")
     if not hw and arguments.get("profile"):
@@ -3339,7 +3357,7 @@ def _handle_parse_nwchem_scf(arguments: dict[str, Any]) -> dict[str, Any]:
     return parse_scf(arguments["file_path"])
 
 
-@_tool("parse_cube_file")
+@_tool("parse_cube_file", program="generic")
 def _handle_parse_cube_file(arguments: dict[str, Any]) -> dict[str, Any]:
     if arguments.get("summarize", False):
         return summarize_cube(
@@ -3386,7 +3404,7 @@ def _handle_inspect_nwchem_runner_profiles(arguments: dict[str, Any]) -> dict[st
     return inspect_runner_profiles(arguments.get("profiles_path"))
 
 
-@_tool("preflight_check", needs="runner_profile")
+@_tool("preflight_check", program="generic", needs="runner_profile")
 def _handle_preflight_check(arguments: dict[str, Any]) -> dict[str, Any]:
     return preflight_check(
         input_file=arguments["input_file"],
@@ -3412,7 +3430,7 @@ def _handle_find_nwchem_restart_assets(arguments: dict[str, Any]) -> dict[str, A
 # Handlers — runner / job management
 # ---------------------------------------------------------------------------
 
-@_tool("render_job_script", needs="scheduler")
+@_tool("render_job_script", program="generic", needs="scheduler")
 def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
     return render_job_script(
         input_path=arguments["input_file"],
@@ -5047,7 +5065,7 @@ def _handle_suggest_nwchem_tce_freeze(arguments: dict[str, Any]) -> dict[str, An
 # Handlers — parallel job monitoring, session log, input versioning
 # ---------------------------------------------------------------------------
 
-@_tool("watch_multiple_runs", needs="executable")
+@_tool("watch_multiple_runs", program="generic", needs="executable")
 def _handle_watch_multiple_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     return watch_multiple_nwchem_runs(
         jobs=arguments["jobs"],
@@ -5058,7 +5076,7 @@ def _handle_watch_multiple_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("init_session_log")
+@_tool("init_session_log", program="generic")
 def _handle_init_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
     return init_session_log(
         log_path=arguments["log_path"],
@@ -5067,7 +5085,7 @@ def _handle_init_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("append_session_log")
+@_tool("append_session_log", program="generic")
 def _handle_append_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
     return append_session_log(
         log_path=arguments["log_path"],
@@ -5076,7 +5094,7 @@ def _handle_append_session_log(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("next_versioned_path")
+@_tool("next_versioned_path", program="generic")
 def _handle_next_versioned_path(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"path": next_versioned_path(arguments["path"])}
 
@@ -5167,7 +5185,7 @@ def _handle_create_nwchem_dft_input_from_request(arguments: dict[str, Any]) -> d
 # Handlers — gap-fill tools (Phase 5)
 # ---------------------------------------------------------------------------
 
-@_tool("basis_library_summary")
+@_tool("basis_library_summary", program="generic")
 def _handle_basis_library_summary(arguments: dict[str, Any]) -> dict[str, Any]:
     return basis_library_summary(
         library_path=basis_library_path(arguments.get("library_path")),

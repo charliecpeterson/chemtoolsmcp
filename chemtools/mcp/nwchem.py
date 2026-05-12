@@ -27,6 +27,7 @@ if not any("chemtools" in p for p in sys.path):
 from chemtools.mcp.decorator import (  # noqa: E402
     _TOOL_REGISTRY,
     _TOOL_CAPABILITIES,
+    _TOOL_PROGRAMS,
     log_event,
     set_active_mode,
 )
@@ -47,8 +48,10 @@ from chemtools.mcp.tools.nwchem import (  # noqa: E402, F401
     _TOOL_ALIASES,
 )
 
-# Active mode mirror — main() updates the decorator-module canonical copy.
+# Active mode + program filter mirrors — main() updates the decorator-module
+# canonical copies via set_active_mode + set_active_programs.
 ACTIVE_MODE: str = "analysis"
+ACTIVE_PROGRAMS: set[str] | None = None
 
 
 def serve() -> None:
@@ -69,32 +72,55 @@ def serve() -> None:
             break
 
 
-def _build_arg_parser():
+def _build_arg_parser(prog: str = "chemtools"):
     return build_arg_parser(
-        prog="chemtools-nwchem",
-        description="NWChem MCP server. Tool exposure depends on --mode.",
+        prog=prog,
+        description=(
+            "chemtools MCP server (NWChem + Molcas + future). Tool exposure "
+            "depends on --mode and --programs."
+        ),
     )
 
 
-def main() -> None:
-    """Entry point registered by pyproject.toml — `chemtools-nwchem` command."""
-    global ACTIVE_MODE
-    args = _build_arg_parser().parse_args()
-    mode, reason = _modes.resolve_mode(args.mode)
+def main(prog: str = "chemtools") -> None:
+    """Entry point registered by pyproject.toml.
+
+    Default binary name is ``chemtools``; the legacy ``chemtools-nwchem``
+    binary aliases to ``main(prog="chemtools-nwchem")`` for backward compat.
+    """
+    global ACTIVE_MODE, ACTIVE_PROGRAMS
+    args = _build_arg_parser(prog=prog).parse_args()
+
+    mode, mode_reason = _modes.resolve_mode(args.mode)
     ACTIVE_MODE = mode
     set_active_mode(mode)  # Keep canonical mcp.decorator copy in sync.
 
-    summary = _modes.summarize_mode(mode, _TOOL_CAPABILITIES, tool_definitions())
+    programs, programs_reason = _modes.resolve_programs(args.programs)
+    ACTIVE_PROGRAMS = programs
+
+    summary = _modes.summarize_mode(
+        mode, _TOOL_CAPABILITIES, tool_definitions(),
+        programs=programs, program_tags=_TOOL_PROGRAMS,
+    )
     log_event(
-        f"resolved mode={mode} reason={reason} "
+        f"resolved mode={mode} ({mode_reason}) "
+        f"programs={programs or 'all'} ({programs_reason}) "
         f"tools={summary['available_tool_count']}/{summary['total_tool_count']}"
     )
 
     if args.show_mode:
-        print(json.dumps({"mode": mode, "reason": reason, **summary}, indent=2))
+        print(json.dumps({
+            "mode": mode, "mode_reason": mode_reason,
+            "programs": sorted(programs) if programs else None,
+            "programs_reason": programs_reason,
+            **summary,
+        }, indent=2))
         return
     if args.list_tools:
-        visible = _modes.filter_tools(tool_definitions(), _TOOL_CAPABILITIES, mode)
+        visible = _modes.filter_tools(
+            tool_definitions(), _TOOL_CAPABILITIES, mode,
+            programs=programs, program_tags=_TOOL_PROGRAMS,
+        )
         for d in visible:
             print(d["name"])
         return
@@ -102,11 +128,26 @@ def main() -> None:
     # Tell stderr (visible in the client transcript on stderr capture) what mode
     # we are running in. Stdout is reserved for the JSON-RPC stream.
     sys.stderr.write(
-        f"chemtools-nwchem: mode={mode} ({reason}); "
+        f"{prog}: mode={mode} ({mode_reason}); "
+        f"programs={sorted(programs) if programs else 'all'} ({programs_reason}); "
         f"{summary['available_tool_count']}/{summary['total_tool_count']} tools exposed\n"
     )
     sys.stderr.flush()
     serve()
+
+
+def main_legacy_nwchem() -> None:
+    """Backward-compat alias for the renamed ``chemtools-nwchem`` binary.
+
+    Identical behavior to ``main()`` — just keeps the old script name working
+    for one release. Emits a stderr deprecation hint.
+    """
+    sys.stderr.write(
+        "chemtools-nwchem: this binary will be renamed to 'chemtools' in a "
+        "future release. Update your MCP configs.\n"
+    )
+    sys.stderr.flush()
+    main(prog="chemtools-nwchem")
 
 
 if __name__ == "__main__":

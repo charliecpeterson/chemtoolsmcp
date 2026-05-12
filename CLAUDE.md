@@ -364,7 +364,7 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 ### Selecting a mode
 
 Priority order:
-1. `chemtools-nwchem --mode {analysis|local|hpc}` CLI flag
+1. `chemtools --mode {analysis|local|hpc}` CLI flag
 2. `CHEMTOOLS_MODE` env var
 3. **Auto-detect** (default):
    - `CHEMTOOLS_RUNNER_PROFILES` not set → `analysis`
@@ -374,6 +374,31 @@ Priority order:
 
 Auto-detect means most users never configure mode explicitly; the existing
 `CHEMTOOLS_RUNNER_PROFILES` env var carries the signal.
+
+### Selecting which programs are loaded
+
+Tools are tagged with a program (`nwchem`, `molcas`, or `generic`). The
+`--programs` filter restricts which subset is exposed at `tools/list`
+time so a session loads only the tools it needs (context-cost matters as
+we add more programs). Priority order:
+
+1. `chemtools --programs molcas` (or `--programs nwchem,molcas`) CLI flag
+2. `CHEMTOOLS_PROGRAMS` env var (comma-separated)
+3. No filter (all programs visible) — current behaviour when nothing is set
+
+Generic tools (e.g. `compute_reaction_energy`, `init_session_log`,
+`render_job_script`) are always visible regardless of filter — they're
+program-agnostic by design.
+
+Typical MCP client config for a Molcas-only session:
+```
+"mcpServers": {
+  "chemtools-molcas": {
+    "command": "chemtools",
+    "env": {"CHEMTOOLS_PROGRAMS": "molcas"}
+  }
+}
+```
 
 ### Capability tags
 
@@ -394,10 +419,15 @@ also the right answer for the majority of tools.
 ### CLI debugging
 
 ```
-chemtools-nwchem --show-mode        # print resolved mode + reason + blocked tools, exit
-chemtools-nwchem --list-tools       # print tool names visible in the resolved mode, exit
-chemtools-nwchem --mode analysis    # force analysis mode (e.g. profiles configured but doing post-hoc work)
+chemtools --show-mode                          # mode + reason + program filter + blocked tools (JSON)
+chemtools --list-tools                         # tool names visible under the active filters
+chemtools --mode analysis                      # force analysis mode (post-hoc work)
+chemtools --programs molcas                    # only Molcas tools (+ generics) loaded
+chemtools --mode local --programs nwchem,molcas  # local executable, both programs
 ```
+
+The legacy binary `chemtools-nwchem` still works as an alias for `chemtools`
+(prints a deprecation hint on stderr).
 
 At runtime, agents can call `get_server_mode` to introspect which mode they are in
 and which tools are blocked — useful when a tool fails with a "not available in mode"
@@ -406,7 +436,7 @@ error or before recommending a workflow that needs HPC submission.
 ## Development Environment
 
 - Install in editable mode: `pip install -e .`
-- Entry points: `chemtools-nwchem`, `chemtools-nwchem-docs`
+- Entry points: `chemtools` (primary), `chemtools-nwchem` (legacy alias), `chemtools-nwchem-docs`
 - Basis library: bundled at `chemtools/data/nwchem/basis_library/` (auto-detected after install)
 - NWChem docs: bundled at `chemtools/data/nwchem/docs/` (29 text files, always available)
 - Runner profiles: set `CHEMTOOLS_RUNNER_PROFILES` to your local YAML/JSON file
