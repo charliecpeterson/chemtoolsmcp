@@ -39,7 +39,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 195 (97 NWChem + 40 Molcas + 22 DIRAC + 36 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
+- Current tool count: 199 (97 NWChem + 40 Molcas + 26 DIRAC + 36 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)

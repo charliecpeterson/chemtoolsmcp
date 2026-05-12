@@ -35,6 +35,14 @@ Phase DC ships the read-only tool surface:
     apply_dirac_reorder_to_input       insert/replace `.REORDER MO` in an existing .inp
     parse_dirac_reorder_block          extract any existing `.REORDER MO` spec
 
+  Input drafting + atomic-start (Phase DF):
+    draft_dirac_input                  render a `.inp` from a structured spec
+    draft_dirac_mol                    render a `.mol` from atoms + per-element basis
+    prepare_dirac_atomic_start         orchestrator: per-element atom jobs → molecule with --copy
+
+  Launcher (Phase DG):
+    prepare_dirac_launch               build the apptainer + pam-dirac command line
+
   Documentation:
     list_dirac_docs                enumerate bundled DIRAC docs (180 files)
     search_dirac_docs              substring search across the doc corpus
@@ -91,6 +99,14 @@ from chemtools.programs.dirac.strategy.reorder import (  # noqa: E402
     draft_reorder_block as _draft_reorder_block,
     apply_reorder_to_input as _apply_reorder_to_input,
     parse_reorder_block as _parse_reorder_block,
+)
+from chemtools.programs.dirac.input.inp import draft_inp as _draft_inp  # noqa: E402
+from chemtools.programs.dirac.input.mol import draft_mol as _draft_mol  # noqa: E402
+from chemtools.programs.dirac.input.atomic_start import (  # noqa: E402
+    prepare_atomic_start as _prepare_atomic_start,
+)
+from chemtools.programs.dirac.runtime import (  # noqa: E402
+    prepare_launch as _prepare_launch,
 )
 
 
@@ -409,6 +425,125 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {"input_file": {"type": "string"}},
                 "required": ["input_file"],
+            },
+        },
+
+        # ----- Phase DF: input + mol drafters + atomic-start orchestrator -----
+        {
+            "name": "draft_dirac_input",
+            "description": (
+                "Render a DIRAC ``.inp`` file from a structured spec. Supported "
+                "wave_function values: scf, dft, mp2, ccsd, cosci. Spec keys: "
+                "title, wave_function, analyze (list, e.g. ['mulpop']), "
+                "properties (bool), hamiltonian (e.g. {'x2c': True, 'spinfree': "
+                "True, 'dft_functional': 'B3LYP', 'ecp': True, 'amfi': True}), "
+                "integrals (e.g. {'uncontract': True}), scf "
+                "({closed_shell: [n_fsym1, n_fsym2], open_shell: [{n_electrons, "
+                "spinors}], reorder: ['1..oo', '1..oo'], max_iter, resolve}), "
+                "extra_sections (list of [name, body] for power users). "
+                "Returns the text — caller writes to disk."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "spec":        {"type": "object"},
+                    "output_path": {"type": "string", "description": "Optional — write the text here."},
+                },
+                "required": ["spec"],
+            },
+        },
+        {
+            "name": "draft_dirac_mol",
+            "description": (
+                "Render a DIRAC ``.mol`` file from a structured spec. Required: "
+                "atoms (list of {label, x, y, z, [nuclear_charge | element]}). "
+                "Optional: basis ({element_symbol_or_Z: basis_name} mapping), "
+                "default_basis, units ('bohr'|'angstrom'), title, symmetry "
+                "('auto'|'C1'|list of generators). Returns the text — caller "
+                "writes to disk."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "atoms":         {"type": "array", "items": {"type": "object"}},
+                    "basis":         {"type": "object"},
+                    "default_basis": {"type": "string"},
+                    "units":         {"type": "string", "default": "bohr"},
+                    "title":         {"type": "string"},
+                    "symmetry":      {"description": "'auto', 'C1', or list of generators."},
+                    "output_path":   {"type": "string"},
+                },
+                "required": ["atoms"],
+            },
+        },
+        {
+            "name": "prepare_dirac_atomic_start",
+            "description": (
+                "**Thick orchestrator** for the atomic-start workflow: for each "
+                "unique element in ``molecule_atoms``, build a per-atom .inp + "
+                ".mol using the element's ground-state AOC config (table covers "
+                "H..Zn + key lanthanides + actinides through Cm); also build "
+                "the molecular .inp + .mol; return a launch plan listing each "
+                "atomic job in order followed by the molecule with the right "
+                "``--copy=`` files. The agent runs each atomic job, copies its "
+                ".h5 to ``<Element>.h5`` in the molecule's run directory, then "
+                "launches the molecule with prepare_dirac_launch. Used to seed "
+                "difficult heavy-element / open-shell molecular SCFs."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "molecule_atoms": {"type": "array", "items": {"type": "object"}},
+                    "basis":          {"type": "object"},
+                    "default_basis":  {"type": "string"},
+                    "hamiltonian":    {"type": "object"},
+                    "integrals":      {"type": "object"},
+                    "use_x2c":        {"type": "boolean", "default": True},
+                    "output_dir":     {"type": "string"},
+                    "molecule_name":  {"type": "string", "default": "molecule"},
+                    "molecule_scf":   {"type": "object"},
+                    "molecule_units": {"type": "string", "default": "bohr"},
+                    "write_files":    {
+                        "type": "boolean", "default": False,
+                        "description": "If True, write each .inp/.mol in the plan to disk under output_dir.",
+                    },
+                },
+                "required": ["molecule_atoms"],
+            },
+        },
+
+        # ----- Phase DG: pam-dirac launcher -----
+        {
+            "name": "prepare_dirac_launch",
+            "description": (
+                "Build the pam-dirac command an agent should execute. Does NOT "
+                "execute it. Supports apptainer / singularity containers via "
+                "``container_sif``. Flags: ``--mpi=N`` for ranks, "
+                "``--mw=N --nw=N`` for master/node memory in MB, "
+                "``--copy=\"a.h5 b.h5\"`` for atomic-start checkpoint chains, "
+                "``--outcmo`` to keep MO coefficients, ``--get=NAME`` for "
+                "Fortran-binary artifact retrieval (e.g. DFACMO, DFCOEF, "
+                "DFPCMO). Returns the command list + shell-quoted string + "
+                "expected output file paths."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file":     {"type": "string"},
+                    "mol_file":       {"type": "string"},
+                    "mpi":            {"type": "integer"},
+                    "mw":             {"type": "integer"},
+                    "nw":             {"type": "integer"},
+                    "copy_files":     {"type": "array", "items": {"type": "string"}},
+                    "outcmo":         {"type": "boolean", "default": False},
+                    "get_files":      {"type": "array", "items": {"type": "string"}},
+                    "container_sif":  {"type": "string"},
+                    "pam_dirac_binary": {"type": "string", "default": "pam-dirac"},
+                    "apptainer_binary": {"type": "string", "default": "apptainer"},
+                    "work_dir":       {"type": "string"},
+                    "extra_args":     {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["input_file", "mol_file"],
             },
         },
 
@@ -743,6 +878,97 @@ def _handle_parse_dirac_reorder_block(arguments: dict[str, Any]) -> dict[str, An
     if r is None:
         return {"present": False, "input_file": arguments["input_file"]}
     return {"present": True, **r}
+
+
+@_tool("draft_dirac_input")
+def _handle_draft_dirac_input(arguments: dict[str, Any]) -> dict[str, Any]:
+    text = _draft_inp(arguments["spec"])
+    out = {"input_text": text, "n_lines": len(text.splitlines())}
+    if arguments.get("output_path"):
+        from pathlib import Path
+        Path(arguments["output_path"]).write_text(text, encoding="utf-8")
+        out["output_file"] = arguments["output_path"]
+    return out
+
+
+@_tool("draft_dirac_mol")
+def _handle_draft_dirac_mol(arguments: dict[str, Any]) -> dict[str, Any]:
+    # Normalize basis keys (JSON delivers ints as strings sometimes).
+    raw_basis = arguments.get("basis")
+    basis: dict[Any, str] | None = None
+    if raw_basis:
+        basis = {}
+        for k, v in raw_basis.items():
+            try:
+                basis[int(k)] = v
+            except (TypeError, ValueError):
+                basis[k] = v
+    text = _draft_mol(
+        atoms=arguments["atoms"],
+        basis=basis,
+        default_basis=arguments.get("default_basis"),
+        units=arguments.get("units", "bohr"),
+        title=arguments.get("title", "DIRAC mol file generated by chemtools"),
+        symmetry=arguments.get("symmetry", "auto"),
+    )
+    out = {"mol_text": text, "n_lines": len(text.splitlines())}
+    if arguments.get("output_path"):
+        from pathlib import Path
+        Path(arguments["output_path"]).write_text(text, encoding="utf-8")
+        out["output_file"] = arguments["output_path"]
+    return out
+
+
+@_tool("prepare_dirac_atomic_start")
+def _handle_prepare_dirac_atomic_start(arguments: dict[str, Any]) -> dict[str, Any]:
+    raw_basis = arguments.get("basis")
+    basis: dict[Any, str] | None = None
+    if raw_basis:
+        basis = {}
+        for k, v in raw_basis.items():
+            try:
+                basis[int(k)] = v
+            except (TypeError, ValueError):
+                basis[k] = v
+    result = _prepare_atomic_start(
+        molecule_atoms=arguments["molecule_atoms"],
+        basis=basis,
+        default_basis=arguments.get("default_basis"),
+        hamiltonian=arguments.get("hamiltonian"),
+        integrals=arguments.get("integrals"),
+        use_x2c=bool(arguments.get("use_x2c", True)),
+        output_dir=arguments.get("output_dir"),
+        molecule_name=arguments.get("molecule_name", "molecule"),
+        molecule_scf=arguments.get("molecule_scf"),
+        molecule_units=arguments.get("molecule_units", "bohr"),
+    )
+    if arguments.get("write_files"):
+        from pathlib import Path
+        for p in result["plan"]:
+            Path(p["inp_path"]).parent.mkdir(parents=True, exist_ok=True)
+            Path(p["inp_path"]).write_text(p["inp_text"], encoding="utf-8")
+            Path(p["mol_path"]).write_text(p["mol_text"], encoding="utf-8")
+        result["files_written"] = True
+    return result
+
+
+@_tool("prepare_dirac_launch")
+def _handle_prepare_dirac_launch(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _prepare_launch(
+        input_file=arguments["input_file"],
+        mol_file=arguments["mol_file"],
+        mpi=arguments.get("mpi"),
+        mw=arguments.get("mw"),
+        nw=arguments.get("nw"),
+        copy_files=arguments.get("copy_files"),
+        outcmo=bool(arguments.get("outcmo", False)),
+        get_files=arguments.get("get_files"),
+        container_sif=arguments.get("container_sif"),
+        pam_dirac_binary=arguments.get("pam_dirac_binary", "pam-dirac"),
+        apptainer_binary=arguments.get("apptainer_binary", "apptainer"),
+        work_dir=arguments.get("work_dir"),
+        extra_args=arguments.get("extra_args"),
+    )
 
 
 @_tool("list_dirac_docs")
