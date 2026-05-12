@@ -159,6 +159,11 @@ def extract_nwchem_geometry(
         for f in frames
     ]
 
+    atoms_out = [
+        {"element": elem, "label": lbl, "x": pos[0], "y": pos[1], "z": pos[2]}
+        for elem, lbl, pos in zip(elements, labels, positions)
+    ]
+
     return {
         "available": True,
         "optimization_status": opt_status,
@@ -177,6 +182,7 @@ def extract_nwchem_geometry(
         "nwchem_geometry_block": nw_block,
         "atom_count": len(positions),
         "elements": elements,
+        "atoms": atoms_out,
         "all_frames_summary": frames_summary,
     }
 

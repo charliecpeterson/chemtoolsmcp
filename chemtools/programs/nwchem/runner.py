@@ -1183,7 +1183,7 @@ def review_nwchem_followup_outcome(
     base_name: str | None = None,
 ) -> dict[str, Any]:
     # Lazy import to break circular dependency with api_input
-    from .api_input import prepare_nwchem_next_step
+    from chemtools.api_input import prepare_nwchem_next_step
     comparison = compare_nwchem_runs(
         reference_output_path=reference_output_path,
         candidate_output_path=candidate_output_path,
@@ -1275,7 +1275,7 @@ def review_nwchem_mcscf_followup_outcome(
     base_name: str | None = None,
 ) -> dict[str, Any]:
     # Lazy import to break circular dependency with api_input
-    from .api_input import draft_nwchem_mcscf_retry_input
+    from chemtools.api_input import draft_nwchem_mcscf_retry_input
     _review_nwchem_mcscf_case = _get_review_nwchem_mcscf_case()
     reference = _review_nwchem_mcscf_case(
         output_path=reference_output_path,

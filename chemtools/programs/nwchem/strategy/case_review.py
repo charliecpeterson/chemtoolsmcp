@@ -24,6 +24,7 @@ _review_mcscf_* trio).
 
 from __future__ import annotations
 import math
+from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import read_text
@@ -304,7 +305,7 @@ def summarize_nwchem_case(
     compact: bool = False,
 ) -> dict[str, Any]:
     # Lazy import to break circular dependency with api_input
-    from .api_input import prepare_nwchem_next_step, lint_nwchem_input, find_restart_assets
+    from chemtools.api_input import prepare_nwchem_next_step, lint_nwchem_input, find_restart_assets
     from chemtools.core.common import read_text
 
     # Read the output file once — reused by all downstream parsers to avoid redundant I/O

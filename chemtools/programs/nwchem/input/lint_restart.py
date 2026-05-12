@@ -26,6 +26,14 @@ import re
 from pathlib import Path
 from typing import Any
 
+
+def _normalize_stem_for_match(stem: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", stem.lower())
+
+
+def _stem_tokens(stem: str) -> list[str]:
+    return [token for token in re.split(r"[^a-z0-9]+", stem.lower()) if token]
+
 from chemtools.programs.nwchem.parse.input import (
     inspect_nwchem_input,
     inspect_all_nwchem_basis_blocks,

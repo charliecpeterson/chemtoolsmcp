@@ -336,6 +336,21 @@ def analyze_molcas_case(output_file: str) -> dict[str, Any]:
                 )
                 coll.add(**parity_issue)
 
+    # ----- Promote verdict for high/fatal-severity parsed warnings -----
+    # parse_molcas_output emits warnings with severity ∈ {low, medium, high, fatal};
+    # a high or fatal warning (e.g. module_failed with rc≠0, ga_segfault) is a
+    # problematic finding regardless of how many other checks passed.
+    _SEVERITY_PROMOTE = {"high": "problematic", "fatal": "problematic", "medium": "caution"}
+    for w in summary.get("warnings") or []:
+        target = _SEVERITY_PROMOTE.get((w.get("severity") or "").lower())
+        if not target:
+            continue
+        coll.add(
+            target,
+            f"{w.get('code', 'warning')}: {w.get('message', '(no message)')}",
+            hint="Run suggest_recovery for fix recommendations.",
+        )
+
     # ----- Lots of warnings is itself a caution -----
     n_warn = summary.get("n_warnings", 0)
     if n_warn >= 10:
