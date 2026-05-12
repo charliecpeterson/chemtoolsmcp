@@ -2699,12 +2699,38 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        # --- Generic registry tools (program-agnostic, Phase 4b/c) ---
+        {
+            "name": "update_run_status",
+            "description": (
+                "Update a registered run's status and optionally its results "
+                "(energy, H, G, imaginary modes, walltime). Generic version — "
+                "works on any registered run regardless of program. Call after "
+                "a job completes, fails, or is cancelled."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer", "description": "The run_id from register_run."},
+                    "status": {"type": "string", "enum": ["submitted", "running", "completed", "failed", "timelimited", "oom", "cancelled"]},
+                    "energy_hartree": {"type": "number"},
+                    "h_hartree": {"type": "number", "description": "Enthalpy H(T) in Hartree."},
+                    "g_hartree": {"type": "number", "description": "Gibbs G(T) in Hartree."},
+                    "imaginary_modes": {"type": "integer"},
+                    "walltime_used_sec": {"type": "number"},
+                    "sec_per_gradient": {"type": "number"},
+                    "output_file": {"type": "string"},
+                },
+                "required": ["run_id", "status"],
+                "additionalProperties": False,
+            },
+        },
         {
             "name": "update_nwchem_run_status",
             "description": (
-                "Update a registered run's status and optionally its results "
-                "(energy, H, G, imaginary modes, walltime). "
-                "Call after a job completes, fails, or is cancelled."
+                "Legacy alias for `update_run_status`. New code should call "
+                "`update_run_status` directly — the underlying behavior is "
+                "program-agnostic (selects by run_id)."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2724,10 +2750,11 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "list_nwchem_runs",
+            "name": "list_runs",
             "description": (
-                "List registered runs, optionally filtered by campaign, workflow, status, or method. "
-                "Returns the most recent runs first."
+                "List registered runs, optionally filtered by campaign, "
+                "workflow, status, method, or **program** (nwchem / molcas / "
+                "molpro / ...). Generic version. Returns most recent first."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2736,16 +2763,38 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                     "workflow_id": {"type": "integer"},
                     "status": {"type": "string"},
                     "method": {"type": "string"},
+                    "program": {"type": "string", "description": "Filter by QC program tag."},
                     "limit": {"type": "integer", "description": "Max results (default 50)."},
                 },
                 "additionalProperties": False,
             },
         },
         {
-            "name": "get_nwchem_run_summary",
+            "name": "list_nwchem_runs",
             "description": (
-                "Get detailed info for a single registered run, including its restart chain. "
-                "Look up by run_id or job_name."
+                "Legacy: list registered runs. Auto-filters to program='nwchem' "
+                "when no explicit program is given (preserves the historical "
+                "NWChem-only return)."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {"type": "integer"},
+                    "workflow_id": {"type": "integer"},
+                    "status": {"type": "string"},
+                    "method": {"type": "string"},
+                    "program": {"type": "string"},
+                    "limit": {"type": "integer"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_run_summary",
+            "description": (
+                "Get detailed info for a single registered run, including its "
+                "restart chain. Generic version — runs are addressable by "
+                "run_id or job_name regardless of program."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2757,12 +2806,40 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "create_nwchem_campaign",
+            "name": "get_nwchem_run_summary",
+            "description": "Legacy alias for `get_run_summary`.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer"},
+                    "job_name": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "create_campaign",
             "description": (
-                "Create a campaign to group related runs (e.g. a ligand screen, "
-                "basis set convergence study, or conformer scan). "
-                "Returns a campaign_id to pass when registering runs."
+                "Create a campaign to group related runs across one or more "
+                "QC programs. E.g. a cross-program atomization study with Cr "
+                "atom at NWChem CCSD(T) and CrO at Molcas CASPT2 — both share "
+                "the campaign_id and `get_campaign_energies` returns a "
+                "sortable program-tagged energy table. Returns a campaign_id."
             ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "tags": {"type": "object"},
+                },
+                "required": ["name"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "create_nwchem_campaign",
+            "description": "Legacy alias for `create_campaign`. Campaigns are cross-program by design.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2775,10 +2852,40 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "get_nwchem_campaign_status",
+            "name": "get_campaign_status",
             "description": (
-                "Get aggregate status for a campaign: total/completed/running/failed counts, "
-                "completion percentage, and estimated remaining time."
+                "Get aggregate status for a campaign: total/completed/running/"
+                "failed counts, completion percentage, estimated remaining "
+                "time. Generic version."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {"type": "integer"},
+                    "name": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_nwchem_campaign_status",
+            "description": "Legacy alias for `get_campaign_status`.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {"type": "integer"},
+                    "name": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_campaign_energies",
+            "description": (
+                "Energy table for all completed runs in a campaign, sorted by "
+                "energy with relative energies in kcal/mol. Each row carries "
+                "the run's program tag so cross-program campaigns are "
+                "self-labeled. Includes H(T) and G(T) if available."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2791,11 +2898,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         },
         {
             "name": "get_nwchem_campaign_energies",
-            "description": (
-                "Get an energy table for all completed runs in a campaign, "
-                "sorted by energy with relative energies in kcal/mol. "
-                "Includes H(T) and G(T) if available."
-            ),
+            "description": "Legacy alias for `get_campaign_energies`.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2806,12 +2909,41 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "create_nwchem_workflow",
+            "name": "create_workflow",
             "description": (
-                "Create a workflow DAG with step dependencies. Each step can depend on "
-                "a previous step. Use advance_nwchem_workflow to check which steps are "
-                "ready to launch. Steps: [{id, depends_on, input_file, profile, auto_input}]."
+                "Create a workflow DAG with step dependencies. Generic version. "
+                "Workflows can span programs — each step's auto_input dict can "
+                "target whichever QC program is appropriate. Use "
+                "`advance_workflow` to find ready-to-launch steps."
             ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "depends_on": {"type": "string"},
+                                "input_file": {"type": "string"},
+                                "profile": {"type": "string"},
+                                "auto_input": {"type": "object"},
+                            },
+                            "required": ["id"],
+                        },
+                    },
+                    "protocol": {"type": "string"},
+                    "campaign_id": {"type": "integer"},
+                },
+                "required": ["name", "steps"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "create_nwchem_workflow",
+            "description": "Legacy alias for `create_workflow`.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2829,7 +2961,6 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                             },
                             "required": ["id"],
                         },
-                        "description": "Workflow steps with dependencies.",
                     },
                     "protocol": {"type": "string"},
                     "campaign_id": {"type": "integer"},
@@ -2839,12 +2970,25 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "advance_nwchem_workflow",
+            "name": "advance_workflow",
             "description": (
-                "Check a workflow's progress and return which steps are ready to launch. "
-                "Does not launch jobs — the caller decides. Returns the workflow state, "
-                "completed/running/failed steps, and a list of unblocked steps."
+                "Check a workflow's progress and return which steps are ready "
+                "to launch. Does not launch jobs — the caller decides. Generic "
+                "version. Returns workflow state, completed/running/failed "
+                "steps, and unblocked steps."
             ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workflow_id": {"type": "integer"},
+                },
+                "required": ["workflow_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "advance_nwchem_workflow",
+            "description": "Legacy alias for `advance_workflow`.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -5630,8 +5774,8 @@ def _handle_register_run(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("update_nwchem_run_status", needs="registry")
-def _handle_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
+# --- Registry: per-run status + lookup ---
+def _do_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
     return update_run_status(
         run_id=arguments["run_id"],
         status=arguments["status"],
@@ -5645,27 +5789,65 @@ def _handle_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("list_nwchem_runs", needs="registry")
-def _handle_list_runs(arguments: dict[str, Any]) -> dict[str, Any]:
+@_tool("update_run_status", program="generic", needs="registry")
+def _handle_update_run_status_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_update_run_status(arguments)
+
+
+@_tool("update_nwchem_run_status", needs="registry")
+def _handle_update_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy alias for update_run_status. Run-status updates aren't
+    program-specific; the run_id selects the row to modify."""
+    return _do_update_run_status(arguments)
+
+
+def _do_list_runs(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"runs": list_runs(
         campaign_id=arguments.get("campaign_id"),
         workflow_id=arguments.get("workflow_id"),
         status=arguments.get("status"),
         method=arguments.get("method"),
+        program=arguments.get("program"),
         limit=arguments.get("limit", 50),
     )}
 
 
-@_tool("get_nwchem_run_summary", needs="registry")
-def _handle_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
+@_tool("list_runs", program="generic", needs="registry")
+def _handle_list_runs_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_list_runs(arguments)
+
+
+@_tool("list_nwchem_runs", needs="registry")
+def _handle_list_runs(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy: list runs. Pre-fills program='nwchem' if no program filter
+    is given (preserves the historical NWChem-only return for callers
+    that haven't migrated)."""
+    args = dict(arguments)
+    if args.get("program") is None:
+        args["program"] = "nwchem"
+    return _do_list_runs(args)
+
+
+def _do_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_run_summary(
         run_id=arguments.get("run_id"),
         job_name=arguments.get("job_name"),
     )
 
 
-@_tool("create_nwchem_campaign", needs="registry")
-def _handle_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
+@_tool("get_run_summary", program="generic", needs="registry")
+def _handle_get_run_summary_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_get_run_summary(arguments)
+
+
+@_tool("get_nwchem_run_summary", needs="registry")
+def _handle_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy alias — fetches by run_id or job_name; program-agnostic."""
+    return _do_get_run_summary(arguments)
+
+
+# --- Registry: campaigns ---
+def _do_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
     return create_campaign(
         name=arguments["name"],
         description=arguments.get("description"),
@@ -5673,24 +5855,56 @@ def _handle_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@_tool("get_nwchem_campaign_status", needs="registry")
-def _handle_get_campaign_status(arguments: dict[str, Any]) -> dict[str, Any]:
+@_tool("create_campaign", program="generic", needs="registry")
+def _handle_create_campaign_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_create_campaign(arguments)
+
+
+@_tool("create_nwchem_campaign", needs="registry")
+def _handle_create_campaign(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy alias. Campaigns are cross-program by design — no program tag
+    on campaigns themselves; runs inside the campaign carry their own."""
+    return _do_create_campaign(arguments)
+
+
+def _do_get_campaign_status(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_campaign_status(
         campaign_id=arguments.get("campaign_id"),
         name=arguments.get("name"),
     )
 
 
-@_tool("get_nwchem_campaign_energies", needs="registry")
-def _handle_get_campaign_energies(arguments: dict[str, Any]) -> dict[str, Any]:
+@_tool("get_campaign_status", program="generic", needs="registry")
+def _handle_get_campaign_status_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_get_campaign_status(arguments)
+
+
+@_tool("get_nwchem_campaign_status", needs="registry")
+def _handle_get_campaign_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy alias."""
+    return _do_get_campaign_status(arguments)
+
+
+def _do_get_campaign_energies(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_campaign_energies(
         campaign_id=arguments.get("campaign_id"),
         name=arguments.get("name"),
     )
 
 
-@_tool("create_nwchem_workflow", needs="registry")
-def _handle_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+@_tool("get_campaign_energies", program="generic", needs="registry")
+def _handle_get_campaign_energies_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_get_campaign_energies(arguments)
+
+
+@_tool("get_nwchem_campaign_energies", needs="registry")
+def _handle_get_campaign_energies(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy alias. Each returned row now includes the run's program tag."""
+    return _do_get_campaign_energies(arguments)
+
+
+# --- Registry: workflows ---
+def _do_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     return create_workflow(
         name=arguments["name"],
         steps=arguments["steps"],
@@ -5699,11 +5913,31 @@ def _handle_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@_tool("create_workflow", program="generic", needs="registry")
+def _handle_create_workflow_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_create_workflow(arguments)
+
+
+@_tool("create_nwchem_workflow", needs="registry")
+def _handle_create_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Legacy alias. Workflows themselves are cross-program; the per-step
+    `program` field inside the steps_json controls each run."""
+    return _do_create_workflow(arguments)
+
+
+def _do_advance_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    return advance_workflow(workflow_id=arguments["workflow_id"])
+
+
+@_tool("advance_workflow", program="generic", needs="registry")
+def _handle_advance_workflow_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _do_advance_workflow(arguments)
+
+
 @_tool("advance_nwchem_workflow", needs="registry")
 def _handle_advance_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
-    return advance_workflow(
-        workflow_id=arguments["workflow_id"],
-    )
+    """Legacy alias."""
+    return _do_advance_workflow(arguments)
 
 
 @_tool("generate_nwchem_input_batch", needs="executable_or_scheduler")
