@@ -50,7 +50,10 @@ from chemtools.programs.molcas.input._utils import normalize_atoms
 
 ATOMIC_GROUND_STATES: dict[str, dict[str, Any]] = {
     # Z=1-18 (main-group: 1s, 2s/2p, 3s/3p)
-    "H":  {"term": "2S", "config": "1s¹",        "multiplicity": 2, "minimal_cas": (1, 1), "valence_cas": (1, 1), "requires_dkh": False, "skip_scf": False},
+    # H has only 1 electron — Molcas SCF aborts with "Current implementation
+    # only allows double occupations". Skip SCF and let RASSCF run from
+    # GuessOrb. Same skip_scf=True policy as high-spin TM atoms.
+    "H":  {"term": "2S", "config": "1s¹",        "multiplicity": 2, "minimal_cas": (1, 1), "valence_cas": (1, 1), "requires_dkh": False, "skip_scf": True},
     "He": {"term": "1S", "config": "1s²",        "multiplicity": 1, "minimal_cas": (2, 1), "valence_cas": (2, 1), "requires_dkh": False, "skip_scf": False},
     "Li": {"term": "2S", "config": "[He]2s¹",    "multiplicity": 2, "minimal_cas": (1, 1), "valence_cas": (1, 1), "requires_dkh": False, "skip_scf": False},
     "Be": {"term": "1S", "config": "[He]2s²",    "multiplicity": 1, "minimal_cas": (2, 1), "valence_cas": (2, 1), "requires_dkh": False, "skip_scf": False},

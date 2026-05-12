@@ -955,6 +955,13 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                         "default": "primary",
                         "description": "Which energy field to use. 'primary' follows the parser hierarchy (CASPT2 > RASSCF > SCF). For reaction energies, force a consistent level (e.g. 'rasscf' or 'caspt2') across all species.",
                     },
+                    "include_thermochem": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "If True, also compute ΔZPVE, D_0, ΔH(T), ΔG(T), ΔS(T). Pulls ZPVE + thermal corrections from each species' Molcas thermochem block (requires MCLR freq calc). For monoatomic species without parsed thermochem, falls back to ideal-gas Sackur-Tetrode + electronic-degeneracy entropy.",
+                    },
+                    "temperature_k": {"type": "number", "default": 298.15},
+                    "pressure_atm": {"type": "number", "default": 1.0},
                     "label": {"type": ["string", "null"], "default": None},
                 },
                 "required": ["products", "reactants"],
@@ -1533,6 +1540,9 @@ def _handle_compute_molcas_reaction_energy(arguments: dict[str, Any]) -> dict[st
         reactants=arguments["reactants"],
         energy_kind=arguments.get("energy_kind", "primary"),
         label=arguments.get("label"),
+        include_thermochem=bool(arguments.get("include_thermochem", False)),
+        temperature_k=float(arguments.get("temperature_k", 298.15)),
+        pressure_atm=float(arguments.get("pressure_atm", 1.0)),
     )
 
 
