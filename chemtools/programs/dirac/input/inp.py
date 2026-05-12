@@ -251,6 +251,26 @@ def _build_scf_subsection(scf: dict[str, Any]) -> list[str]:
     # keywords, not *SCF subsection ones — DIRAC rejects them inside
     # *SCF. draft_inp() emits them at the right level via a callback.
 
+    # ----- SCF convergence aids (damping, level shift) -----
+    # .DAMPFC <factor> — Fock-matrix damping. Range typically 0.1-0.5;
+    # smaller value = more aggressive damping, slower but more stable.
+    # Useful when SCF oscillates (heavy-element AOC, near-degenerate
+    # open shells).
+    if scf.get("dampfc") is not None:
+        lines.append(".DAMPFC")
+        lines.append(f" {float(scf['dampfc'])}")
+    # .LSHIFT <value_au> — level shift on virtual orbitals (positive Hartree).
+    # Pushes virtuals up in energy; prevents orbital mixing during SCF
+    # iterations. Typical values 0.1 - 1.0 Hartree.
+    if scf.get("lshift") is not None:
+        lines.append(".LSHIFT")
+        lines.append(f" {float(scf['lshift'])}")
+    # .NODAMP / .NODIIS — disable default damping / DIIS (rare; for debugging).
+    if scf.get("nodamp"):
+        lines.append(".NODAMP")
+    if scf.get("nodiis"):
+        lines.append(".NODIIS")
+
     # ----- ΔSCF core-ionization flags (per DIRAC core-IP tutorial) -----
     # .OPENFAC <factor> — fractional occupation factor for the open shell.
     # Usually 1.0 to keep the open electron at full single-spinor occupation.

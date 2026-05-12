@@ -640,7 +640,8 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     "molecule_atoms":    {"type": "array", "items": {"type": "object"}},
                     "basis":             {"type": "object"},
                     "default_basis":     {"type": "string", "default": "dyall.2zp"},
-                    "reference_element": {"type": "string", "default": "Ce"},
+                    "reference_element": {"type": "string",
+                                          "description": "Surrogate reference atom. Default: Pu for Cm/Bk/Cf/Es/Fm/Md/No/Lr (chemically closer + converges with KPSELE in DIRAC 25); Ce for legacy CmF.md compatibility."},
                     "output_dir":        {"type": "string"},
                     "molecule_name":     {"type": "string", "default": "molecule"},
                     "molecule_units":    {"type": "string", "default": "bohr"},
@@ -1132,7 +1133,7 @@ def _handle_prepare_dirac_cm_class_workflow(arguments: dict[str, Any]) -> dict[s
         molecule_atoms=arguments["molecule_atoms"],
         basis=basis,
         default_basis=arguments.get("default_basis", "dyall.2zp"),
-        reference_element=arguments.get("reference_element", "Ce"),
+        reference_element=arguments.get("reference_element"),  # None → auto-pick
         output_dir=arguments.get("output_dir"),
         molecule_name=arguments.get("molecule_name", "molecule"),
         molecule_units=arguments.get("molecule_units", "bohr"),

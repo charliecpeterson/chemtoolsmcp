@@ -32,15 +32,42 @@ from chemtools.programs.dirac.input.mol import draft_mol
 
 
 # Elements where the simple AOC + .KPSELE path is known to oscillate.
-# (Empirical: my container's DIRAC 25.0 with dyall.2zp gets only to ~50
-# iterations on Cm before TOO MANY SCF ITERATIONS. The CmF.md doc
-# specifically mentions Cm as the hard case.)
+# Empirical observations in DIRAC 25.0 with dyall.2zp:
+#   - Pu (5f^6):  converges with KPSELE in ~48 iters
+#   - Cm (5f^7):  oscillates in [-28380, -28390] Ha, hits 50-iter cap
+#   - Bk (5f^9):  similar to Cm
+# The published CmF.md tutorial cites "13 iterations" with DIRAC 21 —
+# DIRAC 25's defaults appear different, and the RELSCF inner-loop cap
+# of 50 is hardcoded (.MAXITR / .MAXIT2 don't override it for AOC).
 _CM_CLASS_ELEMENTS = frozenset({"Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"})
+
+
+# Recommended surrogate reference for each hard actinide. Pu (Z=94) is
+# the closest converging element to Cm/Bk in the periodic table — its 5f^6
+# orbitals project onto Cm's 5f^7 manifold much better than Ce's 4f^1
+# (which the doc CmF.md uses for legacy reasons; Pu is preferred in
+# DIRAC 25). For very late actinides where Pu still fails, fall back to Ce.
+_RECOMMENDED_REFERENCE: dict[str, str] = {
+    "Cm": "Pu",
+    "Bk": "Pu",
+    "Cf": "Pu",
+    "Es": "Pu",
+    "Fm": "Pu",
+    "Md": "Pu",
+    "No": "Pu",
+    "Lr": "Pu",
+}
 
 
 def is_cm_class(element: str) -> bool:
     """True iff this element typically needs the multi-step workflow."""
     return (element or "").capitalize() in _CM_CLASS_ELEMENTS
+
+
+def recommended_reference(element: str) -> str:
+    """Return a chemically appropriate surrogate reference atom for the
+    given hard actinide. Defaults to Pu for the heavy 5f^6+ block."""
+    return _RECOMMENDED_REFERENCE.get(element.capitalize(), "Ce")
 
 
 def prepare_cm_class_workflow(
@@ -49,7 +76,7 @@ def prepare_cm_class_workflow(
     *,
     basis: dict[str, str] | None = None,
     default_basis: str | None = None,
-    reference_element: str = "Ce",
+    reference_element: str | None = None,
     output_dir: str | None = None,
     molecule_name: str = "molecule",
     molecule_units: str = "bohr",
@@ -65,9 +92,12 @@ def prepare_cm_class_workflow(
     molecule_atoms
         Full molecule geometry (passed through to draft_mol).
     reference_element
-        A LIGHTER actinide / lanthanide with similar 5f/4f structure
-        used as the reference for the initial atomic checkpoint.
-        Default ``Ce`` (per Mochizuki JCP 2003 / CmF.md).
+        A surrogate actinide / lanthanide used to generate the initial
+        atomic checkpoint. If None, defaults to ``recommended_reference
+        (central_element)`` — currently **Pu** for Cm/Bk/Cf/Es/Fm/Md/No/
+        Lr (chemically closer than Ce, and Pu converges cleanly with
+        KPSELE in DIRAC 25). Override to ``"Ce"`` for legacy
+        compatibility with the CmF.md tutorial example.
     n_5f_electrons
         Open-shell f-electron count (7 for Cm^3+ /Cm^0 GS; varies
         for other elements). Used in the placeholder .FROZEN comment.
@@ -92,6 +122,8 @@ def prepare_cm_class_workflow(
         )
 
     out_dir = Path(output_dir or ".").resolve()
+    if reference_element is None:
+        reference_element = recommended_reference(central_element)
     central_basis = _basis_lookup(central_element, basis, default_basis)
     reference_basis = _basis_lookup(reference_element, basis, default_basis)
 
