@@ -69,10 +69,14 @@ class _MolcasParser:
         primary_idx = pick_primary(merged_tasks)
         derived = compute_derived(merged_tasks, [])
         # Hoist the cross-task energy summary so downstream consumers get the
-        # canonical "primary_energy" pick (MS-CASPT2 > CASPT2 > RASSCF > SCF)
+        # canonical "primary_energy" pick (MS-CASPT2 > CASPT2 > RASSCF > SCF).
+        # Also expose under `final_energy_hartree` (Phase 5 standardization)
+        # so generic tools that consume ParsedRun see the same key name as
+        # NWChem's derived dict.
         if (es := full.get("energy_summary")) and es.get("primary_energy_hartree") is not None:
             derived["primary_energy_hartree"] = es["primary_energy_hartree"]
             derived["primary_energy_label"] = es.get("primary_label")
+            derived.setdefault("final_energy_hartree", es["primary_energy_hartree"])
         if full.get("active_space_summary"):
             derived["active_space"] = full["active_space_summary"]
 

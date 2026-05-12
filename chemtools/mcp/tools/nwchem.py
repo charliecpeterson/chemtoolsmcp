@@ -339,7 +339,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         # ------------------------------------------------------------------
-        # Generic auto-detect parsers — Phase 4
+        # Generic auto-detect parsers — Phase 4 / 5
         # These dispatch to the appropriate program plugin via
         # registry.resolve(path=output_file). Each program-prefixed sibling
         # (extract_molcas_geometry, parse_nwchem_thermochem, etc.) still
@@ -347,6 +347,31 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         # generic version returns whatever the plugin's parser protocol
         # method emits.
         # ------------------------------------------------------------------
+        {
+            "name": "parse_output",
+            "description": (
+                "Auto-detecting cross-program parser. Returns the unified "
+                "ParsedRun shape: program, program_version, file, "
+                "file_size_bytes, tasks (list of TaskSummary dicts with "
+                "kind/method/basis/energy/outcome), primary_task_index, "
+                "derived (scalars: final_energy_hartree, primary_energy_hartree, "
+                "n_tasks, n_imaginary_modes, ...), diagnostics, diagnosis. "
+                "Compact by design — fits in context for huge outputs. For "
+                "program-specific rich data (per-module SCF/CASPT2/etc. "
+                "details, MO coefficients, active-space summary), call the "
+                "program-prefixed parse_nwchem_output / parse_molcas_output."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"],
+                                "description": "Optional program override; auto-detected from file head if omitted."},
+                },
+                "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
         {
             "name": "extract_geometry",
             "description": (
@@ -3355,6 +3380,16 @@ def _resolve_plugin_or_error(arguments: dict[str, Any]):
             "message": str(e),
             "registered_programs": _registry.list_programs(),
         }
+
+
+@_tool("parse_output", program="generic")
+def _handle_parse_output_generic(arguments: dict[str, Any]) -> dict[str, Any]:
+    plugin, err = _resolve_plugin_or_error(arguments)
+    if err is not None:
+        return err
+    parsed = plugin.parser.parse_output(arguments["output_file"])
+    # ParsedRun is a TypedDict; cast to plain dict for the JSON return.
+    return dict(parsed)
 
 
 @_tool("extract_geometry", program="generic")
