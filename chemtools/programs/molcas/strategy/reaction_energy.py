@@ -19,33 +19,24 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import read_text
+from chemtools.core.units import HARTREE_TO_KCAL_PER_MOL, HARTREE_TO_EV
+from chemtools.core.thermochem import (
+    ATOMIC_MASSES_AMU as _ATOMIC_MASSES_AMU,
+    atomic_ideal_gas_thermochem as _core_atomic_ideal_gas_thermochem,
+)
 from chemtools.programs.molcas.parse.output import parse_output_full
 from chemtools.programs.molcas.parse.mos import parse_last_mo_block
 from chemtools.programs.molcas.parse.thermochem import parse_thermochem_block
 from chemtools.programs.molcas.parse.geometry import parse_final_geometry
 
 
-HARTREE_TO_KCAL_PER_MOL = 627.5094740631
-HARTREE_TO_EV = 27.211386245988
-HARTREE_TO_J_PER_MOL = 2625500.0
-KCAL_TO_AU = 1.0 / HARTREE_TO_KCAL_PER_MOL
-KCAL_PER_MOL_K_TO_AU_PER_K = KCAL_TO_AU  # entropy unit: kcal/mol/K → au/K
-
-
-# Atomic mass table (amu), used for Sackur-Tetrode translational entropy on atomic
-# species when their Molcas output has no parsed thermochem (atoms have no
-# vibrations so Molcas can't emit a thermochem block).
-_ATOMIC_MASSES_AMU = {
-    "H": 1.00794, "He": 4.002602,
-    "Li": 6.941, "Be": 9.012182, "B": 10.811, "C": 12.0107,
-    "N": 14.0067, "O": 15.9994, "F": 18.9984032, "Ne": 20.1797,
-    "Na": 22.98977, "Mg": 24.305, "Al": 26.9815386, "Si": 28.0855,
-    "P": 30.973762, "S": 32.065, "Cl": 35.453, "Ar": 39.948,
-    "K": 39.0983, "Ca": 40.078,
-    "Sc": 44.955912, "Ti": 47.867, "V": 50.9415, "Cr": 51.9961,
-    "Mn": 54.938045, "Fe": 55.845, "Co": 58.933195, "Ni": 58.6934,
-    "Cu": 63.546, "Zn": 65.38,
-}
+# Re-export for callers that imported these as module-level constants from
+# this module (geometry_inspector imported _ATOMIC_MASSES_AMU).
+__all__ = [
+    "_ATOMIC_MASSES_AMU",
+    "compute_reaction_energy",
+    "check_active_space_consistency",
+]
 
 
 def _atomic_ideal_gas_thermochem(
@@ -54,60 +45,15 @@ def _atomic_ideal_gas_thermochem(
     temperature_k: float,
     pressure_atm: float,
 ) -> dict[str, float]:
-    """Translational (Sackur-Tetrode) + electronic ideal-gas thermochem for one
-    atom in mol⁻¹ units. Vibrational and rotational contributions are zero.
+    """Thin wrapper around core.thermochem.atomic_ideal_gas_thermochem.
 
-    Outputs are in au unless suffixed (matches parse_molcas_thermochem shapes
-    where convenient).
-
-    S_trans = R × {ln[(2πmkT/h²)^1.5 × kT/p] + 5/2}
-    S_elec  = R × ln(2S+1)               (assumes ground-state degeneracy = multiplicity)
-    U_trans = (3/2)RT
-    H_trans = (5/2)RT = U_trans + RT
+    Retained as a private module-level name because callers inside this
+    file pass it around as a callable. The actual math lives in
+    ``chemtools/core/thermochem.py``.
     """
-    import math
-    R_J = 8.31446261815324  # J/mol/K
-    k_B = 1.380649e-23      # J/K
-    h = 6.62607015e-34      # J·s
-    N_A = 6.02214076e23
-    AMU = 1.66053906660e-27 # kg
-    p_pa = pressure_atm * 101325.0
-    T = temperature_k
-
-    m = _ATOMIC_MASSES_AMU[element.capitalize()] * AMU
-
-    # Sackur-Tetrode translational entropy
-    arg = (2 * math.pi * m * k_B * T / h**2) ** 1.5 * (k_B * T / p_pa)
-    S_trans_J = R_J * (math.log(arg) + 2.5)             # J/mol/K
-    S_elec_J = R_J * math.log(multiplicity)             # J/mol/K, from ground-state degeneracy
-
-    S_total_J = S_trans_J + S_elec_J
-    U_trans_J = 1.5 * R_J * T                            # J/mol
-    H_trans_J = 2.5 * R_J * T                            # J/mol = U + RT
-    # G = H - TS (full thermodynamic), but for an atom with no ZPVE the
-    # reference is just the electronic energy.
-
-    # Convert to au
-    J_to_au = 1.0 / HARTREE_TO_J_PER_MOL
-    return {
-        "zpve_au": 0.0,
-        "zpve_kcal_per_mol": 0.0,
-        "thermal_internal_energy_au": U_trans_J * J_to_au,         # contribution above E_elec
-        "thermal_internal_energy_kcal_per_mol": U_trans_J * J_to_au * HARTREE_TO_KCAL_PER_MOL,
-        "thermal_enthalpy_au": H_trans_J * J_to_au,
-        "thermal_enthalpy_kcal_per_mol": H_trans_J * J_to_au * HARTREE_TO_KCAL_PER_MOL,
-        "entropy_total_J_per_mol_K": S_total_J,
-        "entropy_total_kcal_per_mol_K": S_total_J / 4184.0,
-        "thermal_gibbs_au": (H_trans_J - T * S_total_J) * J_to_au,
-        "thermal_gibbs_kcal_per_mol": (H_trans_J - T * S_total_J) * J_to_au * HARTREE_TO_KCAL_PER_MOL,
-        "source": "ideal_gas_atomic",
-        "components": {
-            "S_trans_kcal_per_mol_K": S_trans_J / 4184.0,
-            "S_elec_kcal_per_mol_K": S_elec_J / 4184.0,
-            "S_rot_kcal_per_mol_K": 0.0,
-            "S_vib_kcal_per_mol_K": 0.0,
-        },
-    }
+    return _core_atomic_ideal_gas_thermochem(
+        element, multiplicity, temperature_k, pressure_atm,
+    )
 
 
 def _extract_thermochem(
