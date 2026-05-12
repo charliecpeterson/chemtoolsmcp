@@ -27,7 +27,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
     nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
     tools/
       nwchem.py      NWChem tool definitions + handlers (114 tools)
-      molcas.py      Molcas tool definitions + handlers (36 tools)
+      molcas.py      Molcas tool definitions + handlers (37 tools)
     # Future: molpro.py, orca.py
 
 test_phase1/         Test suite (Phases 2–6, 244 tests)
@@ -39,7 +39,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 150 (114 NWChem + 36 Molcas; the NWChem total includes `get_server_mode`)
+- Current tool count: 151 (114 NWChem + 37 Molcas; the NWChem total includes `get_server_mode`)
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)
@@ -61,7 +61,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
-### Molcas / OpenMolcas tools (36)
+### Molcas / OpenMolcas tools (37)
 
 | Tool | Purpose |
 |------|---------|
@@ -71,6 +71,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 | `list_molcas_basis_sets` | Enumerate bundled basis sets; filter by element; report contractions for a (basis, element) pair |
 | `parse_molcas_output` | Deep parse: per-module SCF / RASSCF / CASPT2 details + active-space summary + warnings |
 | `parse_molcas_tasks` | Cheap module-boundary task index |
+| `parse_molcas_xmldump` | Parser for the XML dump Molcas writes alongside the .log. Per-module structured data: SCF total energy, kinetic / virial / one-electron / two-electron / nuclear-repulsion energies, basis counts, dipole moment, formal charge, spin. Returns module_counts (workflow-structure verification) + energy_trace (SCF energy per iter, for opt-loop progression). Robust to .log text-format changes. |
 | `get_molcas_orbitals` | Last `++ Molecular orbitals:` block — RASSCF NOs win over SCF MOs |
 | `parse_molcas_inporb` | Read INPORB / RasOrb / ScfOrb / GssOrb / LprOrb / SpdOrb files |
 | `parse_molcas_frequencies` | Last `Harmonic frequencies in cm-1` block from MCLR or numerical-grad. Per-symmetry modes + IR intensity + reduced mass + per-atom displacements; imaginary modes as negative floats |
@@ -353,9 +354,9 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` | 133 | No NWChem executable available; post-hoc parsing (NWChem + Molcas), drafting (incl. Molcas inputs), planning, registry tracking of runs done elsewhere |
-| `local` | 147 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
-| `hpc` | 150 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+| `analysis` | 134 | No NWChem executable available; post-hoc parsing (NWChem + Molcas), drafting (incl. Molcas inputs), planning, registry tracking of runs done elsewhere |
+| `local` | 148 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 151 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
 
 ### Selecting a mode
 

@@ -77,6 +77,9 @@ from chemtools.programs.molcas.strategy.orchestrators import (
     prepare_irc_workflow as _prepare_irc_workflow,
     prepare_scan_workflow as _prepare_scan_workflow,
 )
+from chemtools.programs.molcas.parse.xmldump import (
+    parse_xmldump_file as _parse_xmldump_file,
+)
 from chemtools.programs.molcas.strategy.reaction_energy import (
     compute_reaction_energy as _compute_reaction_energy,
     check_active_space_consistency as _check_active_space_consistency,
@@ -255,6 +258,31 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                     },
                 },
                 "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "parse_molcas_xmldump",
+            "description": (
+                "Parse the structured XML dump Molcas writes alongside the .log "
+                "($Project.../xmldump or in the working dir). Each Molcas module "
+                "appends a `<module>...</module>` fragment with per-call summary "
+                "data: SCF total energy, kinetic / virial / one-electron / "
+                "two-electron / nuclear-repulsion energies, basis counts, dipole "
+                "moment, formal charge, spin. Returns the parsed module list + "
+                "module_counts + energy_trace (SCF energy per iter, useful for "
+                "opt-loop progression). Complements parse_molcas_output by giving "
+                "a workflow-structure view (how many of each module ran) that's "
+                "robust to log text-format changes. Note: empty `<module>` tags "
+                "for some modules (CASPT2, MCLR, ALASKA) are normal — Molcas "
+                "doesn't emit per-call data for every module."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "xmldump_path": {"type": "string", "description": "Path to the xmldump file. Typically lives in the input file's directory after Molcas finishes."},
+                },
+                "required": ["xmldump_path"],
                 "additionalProperties": False,
             },
         },
@@ -1426,6 +1454,11 @@ def _handle_parse_molcas_output(arguments: dict[str, Any]) -> dict[str, Any]:
         contents,
         parse_mo_coefficients=bool(arguments.get("include_mo_coefficients", False)),
     )
+
+
+@_tool("parse_molcas_xmldump")
+def _handle_parse_molcas_xmldump(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _parse_xmldump_file(arguments["xmldump_path"])
 
 
 @_tool("parse_molcas_tasks")
