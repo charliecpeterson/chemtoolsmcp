@@ -127,6 +127,12 @@ def prepare_launch(
     if extra_args:
         cmd.extend(extra_args)
 
+    # pam-dirac output naming: <inp_stem>_<mol_stem>.{out,h5} unless the
+    # two stems are identical, in which case it deduplicates to <stem>.{out,h5}.
+    inp_stem = Path(inp_path).stem
+    mol_stem = Path(mol_path).stem
+    out_stem = inp_stem if inp_stem == mol_stem else f"{inp_stem}_{mol_stem}"
+
     return {
         "command":     cmd,
         "command_str": _shell_quote_list(cmd),
@@ -134,8 +140,8 @@ def prepare_launch(
         "work_dir":    str(work),
         "warnings":    warnings,
         "expected_outputs": {
-            "out": str(work / f"{Path(inp_path).stem}_{Path(mol_path).stem}.out"),
-            "h5":  str(work / f"{Path(inp_path).stem}_{Path(mol_path).stem}.h5"),
+            "out": str(work / f"{out_stem}.out"),
+            "h5":  str(work / f"{out_stem}.h5"),
         },
     }
 

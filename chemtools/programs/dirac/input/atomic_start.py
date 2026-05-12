@@ -33,10 +33,25 @@ from chemtools.programs.dirac.input.mol import draft_mol
 # closed_per_ircop omits an `open_shell` when the ground state is a
 # closed-shell singlet. n_ircops=1 in atoms with no inversion symmetry
 # under the default DIRAC behavior; the AOC spec carries through.
+#
+# AOC "spinors" spec convention: ``"<fsym1_count>,<fsym2_count>"`` where
+# fsym 1 is the GERADE block (E1g) and fsym 2 is the UNGERADE block (E1u).
+# Atomic angular-momentum parities:
+#   s, d, g (even L) → gerade  → fsym 1
+#   p, f, h (odd L)  → ungerade → fsym 2
+#
+# 1s → 2 spinors in fsym 1   → "2,0"
+# 2p → 6 spinors in fsym 2   → "0,6"
+# 3d → 10 spinors in fsym 1  → "10,0"
+# 4f → 14 spinors in fsym 2  → "0,14"
+# 5f → 14 spinors in fsym 2  → "0,14"
+#
 _ATOMIC_GROUND_STATES: dict[str, dict[str, Any]] = {
-    "H":  {"closed_shell": [],  "open_shell": [{"n_electrons": 1, "spinors": "0,2"}]},
+    # Period 1 (1s — gerade)
+    "H":  {"open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
     "He": {"closed_shell": [1]},
-    "Li": {"closed_shell": [1], "open_shell": [{"n_electrons": 1, "spinors": "0,2"}]},
+    # Period 2 (2s gerade, 2p ungerade)
+    "Li": {"open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
     "Be": {"closed_shell": [2]},
     "B":  {"open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
     "C":  {"open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
@@ -44,7 +59,8 @@ _ATOMIC_GROUND_STATES: dict[str, dict[str, Any]] = {
     "O":  {"open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
     "F":  {"open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
     "Ne": {"closed_shell": [5]},
-    "Na": {"open_shell": [{"n_electrons": 1, "spinors": "0,2"}]},
+    # Period 3 (3s gerade, 3p ungerade)
+    "Na": {"open_shell": [{"n_electrons": 1, "spinors": "2,0"}]},
     "Mg": {"closed_shell": [6]},
     "Al": {"open_shell": [{"n_electrons": 1, "spinors": "0,6"}]},
     "Si": {"open_shell": [{"n_electrons": 2, "spinors": "0,6"}]},
@@ -52,32 +68,30 @@ _ATOMIC_GROUND_STATES: dict[str, dict[str, Any]] = {
     "S":  {"open_shell": [{"n_electrons": 4, "spinors": "0,6"}]},
     "Cl": {"open_shell": [{"n_electrons": 5, "spinors": "0,6"}]},
     "Ar": {"closed_shell": [9]},
-    # Transition metals: 4d/3d open shell config
-    "Sc": {"open_shell": [{"n_electrons": 1, "spinors": "0,10"}]},
-    "Ti": {"open_shell": [{"n_electrons": 2, "spinors": "0,10"}]},
-    "V":  {"open_shell": [{"n_electrons": 3, "spinors": "0,10"}]},
-    "Cr": {"open_shell": [{"n_electrons": 5, "spinors": "0,10"}]},
-    "Mn": {"open_shell": [{"n_electrons": 5, "spinors": "0,10"}]},
-    "Fe": {"open_shell": [{"n_electrons": 6, "spinors": "0,10"}]},
-    "Co": {"open_shell": [{"n_electrons": 7, "spinors": "0,10"}]},
-    "Ni": {"open_shell": [{"n_electrons": 8, "spinors": "0,10"}]},
-    "Cu": {"open_shell": [{"n_electrons": 10, "spinors": "0,10"}]},
+    # Period 4 transition metals (3d — gerade, fsym 1)
+    "Sc": {"open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Ti": {"open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
+    "V":  {"open_shell": [{"n_electrons": 3, "spinors": "10,0"}]},
+    "Cr": {"open_shell": [{"n_electrons": 5, "spinors": "10,0"}]},
+    "Mn": {"open_shell": [{"n_electrons": 5, "spinors": "10,0"}]},
+    "Fe": {"open_shell": [{"n_electrons": 6, "spinors": "10,0"}]},
+    "Co": {"open_shell": [{"n_electrons": 7, "spinors": "10,0"}]},
+    "Ni": {"open_shell": [{"n_electrons": 8, "spinors": "10,0"}]},
+    "Cu": {"open_shell": [{"n_electrons": 10, "spinors": "10,0"}]},
     "Zn": {"closed_shell": [15]},
-    # Heavy elements that often need atomic-start. Open shells track the
-    # ground-state d/f electron count; the spinor count is the d-shell (10)
-    # or f-shell (14) Kramers-paired manifold.
-    "Y":  {"open_shell": [{"n_electrons": 1, "spinors": "0,10"}]},
-    "Zr": {"open_shell": [{"n_electrons": 2, "spinors": "0,10"}]},
-    "Mo": {"open_shell": [{"n_electrons": 6, "spinors": "0,10"}]},
-    "Ru": {"open_shell": [{"n_electrons": 7, "spinors": "0,10"}]},
-    "Rh": {"open_shell": [{"n_electrons": 8, "spinors": "0,10"}]},
-    "Pd": {"open_shell": [{"n_electrons": 10, "spinors": "0,10"}]},
+    # Period 5 transition metals (4d — gerade, fsym 1)
+    "Y":  {"open_shell": [{"n_electrons": 1, "spinors": "10,0"}]},
+    "Zr": {"open_shell": [{"n_electrons": 2, "spinors": "10,0"}]},
+    "Mo": {"open_shell": [{"n_electrons": 6, "spinors": "10,0"}]},
+    "Ru": {"open_shell": [{"n_electrons": 7, "spinors": "10,0"}]},
+    "Rh": {"open_shell": [{"n_electrons": 8, "spinors": "10,0"}]},
+    "Pd": {"open_shell": [{"n_electrons": 10, "spinors": "10,0"}]},
     "Ag": {"closed_shell": [23]},
-    # Lanthanides (4f^n) — partial coverage; extend as needed.
+    # Lanthanides (4f — ungerade, fsym 2) — partial coverage.
     "Ce": {"open_shell": [{"n_electrons": 1, "spinors": "0,14"}]},
     "Eu": {"open_shell": [{"n_electrons": 7, "spinors": "0,14"}]},
     "Gd": {"open_shell": [{"n_electrons": 8, "spinors": "0,14"}]},
-    # Actinides (5f^n) — partial coverage.
+    # Actinides (5f — ungerade, fsym 2) — partial coverage.
     "Th": {"open_shell": [{"n_electrons": 2, "spinors": "0,14"}]},
     "U":  {"open_shell": [{"n_electrons": 4, "spinors": "0,14"}]},
     "Np": {"open_shell": [{"n_electrons": 5, "spinors": "0,14"}]},
@@ -139,6 +153,11 @@ def prepare_atomic_start(
     if use_x2c:
         hamiltonian.setdefault("x2c", True)
     integrals = dict(integrals or {})
+    # X2C / AMFI require decontracted basis sets (DIRAC aborts otherwise with
+    # "AMFI: only decontracted basis sets can be used"). Force .UNCONTRACT
+    # unless the caller has explicitly set it.
+    if hamiltonian.get("x2c") or hamiltonian.get("amfi"):
+        integrals.setdefault("uncontract", True)
 
     out_dir = Path(output_dir or ".").resolve()
 
@@ -185,10 +204,13 @@ def prepare_atomic_start(
             "integrals": integrals,
             "scf": gs,
         })
-        # pam-dirac default output naming is <inp_stem>_<mol_stem>.{out,h5}
+        # pam-dirac output naming: <inp_stem>_<mol_stem> joined unless
+        # identical (then deduped). Atomic jobs use Sym.inp + Sym.mol so
+        # the .h5 lands as Sym.h5 — that's the basename the molecule's
+        # --copy= chain expects.
         inp_path = out_dir / f"{sym}.inp"
         mol_path = out_dir / f"{sym}.mol"
-        h5_output = out_dir / f"{sym}_{sym}.h5"
+        h5_output = out_dir / f"{sym}.h5"
         plan.append({
             "name": f"{sym}_atom",
             "kind": "atomic",
@@ -223,7 +245,7 @@ def prepare_atomic_start(
     )
     mol_inp_path = out_dir / f"{molecule_name}.inp"
     mol_mol_path = out_dir / f"{molecule_name}.mol"
-    mol_h5_path = out_dir / f"{molecule_name}_{molecule_name}.h5"
+    mol_h5_path = out_dir / f"{molecule_name}.h5"
     plan.append({
         "name": molecule_name,
         "kind": "molecule",

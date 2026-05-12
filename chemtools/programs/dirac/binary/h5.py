@@ -92,7 +92,12 @@ def read_metadata(path: str) -> dict[str, Any]:
 
 
 def read_geometry(path: str) -> dict[str, Any]:
-    """Read molecule geometry from a DIRAC .h5. Coordinates are returned in bohr."""
+    """Read molecule geometry from a DIRAC .h5. Coordinates are returned in angstrom.
+
+    DIRAC stores ``input/molecule/geometry`` in angstrom regardless of the
+    .mol file's input units flag — verified against a 25.0 run where the
+    .mol declared bohr coords and the h5 stored the bohr→Å-converted values.
+    """
     _require_h5py()
     with h5py.File(path, "r") as f:
         mol = f["input/molecule"]
@@ -125,7 +130,7 @@ def read_geometry(path: str) -> dict[str, Any]:
             "path": path,
             "n_atoms": n_atoms,
             "atoms": atoms,
-            "units": "bohr",
+            "units": "angstrom",
         }
 
 
@@ -174,23 +179,40 @@ def read_orbital_summary(
         n_po_per_fsym = mb["n_po"][:].tolist()
 
         # The flat orbital array is ordered: fsym 1 (all MOs), fsym 2 (all MOs), ...
-        # Within each fsym, negative-energy first (n_neg = n_mo - n_po), then positive-energy.
+        # Within each fsym, negative-energy (positronic / Dirac-sea) orbitals
+        # appear first when DIRAC tracks them separately (n_po < n_mo).
+        # However, for atomic runs (and other cases) DIRAC writes n_po=0
+        # for ALL fermion symmetries even though every orbital is electronic.
+        # Physics-based fallback: anything with eigenvalue < -2c² (≈ -37500 Ha
+        # in a.u.) is positronic; everything above is electronic.
+        # Speed-of-light squared in atomic units:
+        _NEG_ENERGY_THRESHOLD = -2.0 * (137.035999084 ** 2)  # ≈ -37557.7 Ha
+
         results: list[dict[str, Any]] = []
         global_idx = 0
         for fs_idx in range(n_fsym):
             n_mo = n_mo_per_fsym[fs_idx]
             n_po = n_po_per_fsym[fs_idx]
-            n_neg = n_mo - n_po
+            n_neg_index = n_mo - n_po if n_po > 0 else 0
+            pos_counter = 0
             for local in range(n_mo):
-                is_negative = local < n_neg
-                # Per-symmetry index (1-based) within positive-energy block,
-                # matching what DIRAC's RESOLVE output prints.
-                pos_index = (local - n_neg) + 1 if not is_negative else None
-
                 e = float(energies[global_idx])
                 o = float(occs[global_idx])
                 s = int(sym[global_idx])
                 sh = int(shell[global_idx])
+
+                # Primary classifier: index-based when DIRAC reports n_po > 0.
+                # Fallback: energy threshold for atomic-style runs where n_po=0.
+                if n_po > 0:
+                    is_negative = local < n_neg_index
+                else:
+                    is_negative = e < _NEG_ENERGY_THRESHOLD
+
+                if not is_negative:
+                    pos_counter += 1
+                    pos_index = pos_counter
+                else:
+                    pos_index = None
 
                 global_idx += 1
 
