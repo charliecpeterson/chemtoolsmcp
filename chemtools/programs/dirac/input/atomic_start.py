@@ -199,7 +199,7 @@ def prepare_atomic_start(
     default_basis: str | None = None,
     hamiltonian: dict[str, Any] | None = None,
     integrals: dict[str, Any] | None = None,
-    use_x2c: bool = True,
+    use_x2c: bool = False,
     output_dir: str | None = None,
     molecule_name: str = "molecule",
     molecule_scf: dict[str, Any] | None = None,
@@ -218,8 +218,9 @@ def prepare_atomic_start(
     default_basis
         Fallback basis if an element isn't in ``basis``.
     hamiltonian, integrals
-        Forwarded to ``draft_inp`` for all jobs. ``use_x2c=True`` adds
-        ``.X2C`` to the hamiltonian (recommended for heavy elements).
+        Forwarded to ``draft_inp`` for all jobs. Default is 4-component
+        Dirac-Coulomb (``use_x2c=False``). Pass ``use_x2c=True`` to request
+        X2C; note X2C has a convergence pathology in DIRAC 25 for Z ≥ 96.
     output_dir
         Where the launch plan suggests writing files. Defaults to cwd.
     molecule_name
@@ -243,12 +244,10 @@ def prepare_atomic_start(
     hamiltonian = dict(hamiltonian or {})
     integrals = dict(integrals or {})
 
-    # Determine the heaviest element in this molecule — drives whether
-    # X2C is safe. For Z ≥ 96 (Cm, Bk, Cf, ...) X2C has a numerical /
-    # convergence pathology in DIRAC 25 + dyall.2zp; the full 4-component
-    # Dirac-Coulomb Hamiltonian converges cleanly in 13 outer iters.
-    # Detected experimentally: Cm X2C oscillates at -28385 Ha (~2950 Ha
-    # off the true value), Cm 4c converges to -31332.50 Ha.
+    # Safety guard: even if the caller explicitly requested X2C, override to
+    # 4c for Z ≥ 96. X2C has a convergence pathology in DIRAC 25 + dyall.2zp
+    # at very heavy actinides (Cm X2C oscillates at -28385 Ha, ~2950 Ha off
+    # the true -31332.50 Ha; 4c converges cleanly in 13 iters).
     max_z = 0
     for a in molecule_atoms:
         z = _atom_z(a)
@@ -256,7 +255,6 @@ def prepare_atomic_start(
             max_z = max(max_z, z)
 
     if use_x2c and max_z >= 96:
-        # Auto-switch to 4c for the heavy-actinide block.
         use_x2c = False
     if use_x2c:
         hamiltonian.setdefault("x2c", True)
@@ -412,6 +410,194 @@ def prepare_atomic_start(
                     "input_file": plan[-1]["inp_path"],
                     "mol_file":   plan[-1]["mol_path"],
                     "copy_files": copy_args,
+                },
+            },
+        ],
+    }
+
+
+def prepare_x2c_bootstrap(
+    element: str,
+    *,
+    basis: dict[str, str] | None = None,
+    default_basis: str | None = None,
+    hamiltonian: dict[str, Any] | None = None,
+    integrals: dict[str, Any] | None = None,
+    output_dir: str | None = None,
+) -> dict[str, Any]:
+    """Two-step plan: converge in 4c, then restart X2C from those orbitals.
+
+    Useful when X2C alone oscillates (e.g. Cm/Bk/Cf in DIRAC 25 + dyall.2zp)
+    but the full 4c calculation is too expensive for production work.
+
+    Step 1: Atomic SCF with full 4-component Dirac-Coulomb. Retrieves the
+            CHECKPOINT.h5 (DIRAC's natural HDF5 checkpoint) via
+            ``--get="CHECKPOINT.h5"``. After the run, rename it to
+            ``{element}_4c.h5``.
+    Step 2: Atomic SCF with X2C, reading the 4c orbitals as the starting
+            guess via ``--copy="{element}_4c.h5"``. If 4c orbitals project
+            well onto the X2C orbital space, this may break the wrong-fixed-
+            point trap that kills direct X2C convergence.
+
+    Note: ``--outcmo`` is NOT used for step 1. In DIRAC 25, ``--outcmo``
+    tries to construct an HDF5 DFCOEF file and fails for 4c runs with
+    "Could not construct hdf5 checkpoint file". Use ``--get="CHECKPOINT.h5"``
+    and rename the result instead.
+
+    Returns
+    -------
+    dict with:
+      ``plan``: list of 2 step dicts (step 1 = 4c, step 2 = x2c_from_4c)
+      ``next_actions``: launch hints with correct pam flags
+      ``element``, ``step1_h5``, ``step2_h5``,
+      ``step1_checkpoint_name``: the name CHECKPOINT.h5 lands as after
+                                 retrieval (rename this to step1_h5 name)
+    """
+    out_dir = Path(output_dir or ".").resolve()
+    ham = dict(hamiltonian or {})
+    intg = dict(integrals or {})
+
+    sym = element.capitalize()
+    gs = _ATOMIC_GROUND_STATES.get(sym)
+    if gs is None:
+        raise ValueError(f"No ground-state config for element {sym!r}")
+    gs = dict(gs)
+    if gs.get("open_shell"):
+        gs.setdefault("max_iter", 200)
+        gs.setdefault("resolve", True)
+
+    elem_basis = _basis_for_element(sym, basis, default_basis)
+
+    mol_text = draft_mol(
+        atoms=[{"label": sym, "x": 0.0, "y": 0.0, "z": 0.0, "element": sym}],
+        basis={sym: elem_basis},
+        units="bohr",
+        symmetry="auto",
+        title=f"{sym} atom (4c → X2C bootstrap)",
+    )
+    mol_path = str(out_dir / f"{sym}.mol")
+
+    # ---- Step 1: 4-component Dirac-Coulomb ----
+    ham4c = dict(ham)
+    ham4c.pop("x2c", None)       # explicitly no X2C
+    intg4c = dict(intg)
+    intg4c.setdefault("uncontract", True)
+
+    inp4c_text = draft_inp({
+        "title": f"{sym} atom 4c SCF (bootstrap step 1)",
+        "wave_function": "scf",
+        "analyze": ["mulpop"],
+        "analyze_vecpop_ranges": ["1..oo", "1..oo"],
+        "hamiltonian": ham4c,
+        "integrals": intg4c,
+        "scf": gs,
+    })
+    inp4c_path = str(out_dir / f"{sym}_4c.inp")
+    h5_4c = str(out_dir / f"{sym}_4c.h5")
+
+    # ---- Step 2: X2C starting from 4c orbitals (--incmo) ----
+    ham_x2c = dict(ham)
+    ham_x2c["x2c"] = True
+    intg_x2c = dict(intg)
+    intg_x2c["uncontract"] = True
+
+    inp_x2c_text = draft_inp({
+        "title": f"{sym} atom X2C SCF (bootstrap step 2, started from 4c orbitals)",
+        "wave_function": "scf",
+        "analyze": ["mulpop"],
+        "analyze_vecpop_ranges": ["1..oo", "1..oo"],
+        "hamiltonian": ham_x2c,
+        "integrals": intg_x2c,
+        "scf": gs,
+    })
+    inp_x2c_path = str(out_dir / f"{sym}_x2c_from4c.inp")
+    h5_x2c = str(out_dir / f"{sym}_x2c_from4c.h5")
+
+    plan = [
+        {
+            "step": 1,
+            "name": f"{sym}_4c",
+            "kind": "4c_atomic",
+            "element": sym,
+            "inp_path": inp4c_path,
+            "mol_path": mol_path,
+            "inp_text": inp4c_text,
+            "mol_text": mol_text,
+            "h5_output": h5_4c,
+            # --get="CHECKPOINT.h5" retrieves DIRAC's natural HDF5 checkpoint.
+            # --outcmo fails for 4c runs in DIRAC 25 ("Could not construct hdf5
+            # checkpoint file"). After pam-dirac completes, rename CHECKPOINT.h5
+            # to <element>_4c.h5 so step 2 can find it via --copy.
+            "pam_extra_flags": ['--get="CHECKPOINT.h5"'],
+            "post_run_rename": {"from": "CHECKPOINT.h5", "to": f"{sym}_4c.h5"},
+            "description": (
+                "Full 4-component Dirac-Coulomb SCF. Retrieves CHECKPOINT.h5 "
+                f"from scratch via --get. After run: rename CHECKPOINT.h5 → {sym}_4c.h5."
+            ),
+        },
+        {
+            "step": 2,
+            "name": f"{sym}_x2c_from4c",
+            "kind": "x2c_from_4c",
+            "element": sym,
+            "inp_path": inp_x2c_path,
+            "mol_path": mol_path,
+            "inp_text": inp_x2c_text,
+            "mol_text": mol_text,
+            "h5_output": h5_x2c,
+            # --copy feeds the 4c checkpoint as starting MOs for X2C.
+            # DIRAC will project the 4c orbitals into the X2C orbital space.
+            "pam_extra_flags": [f'--copy="{sym}_4c.h5"'],
+            "prerequisite_h5": h5_4c,
+            "description": (
+                f"X2C SCF seeded from 4c orbitals via --copy={sym}_4c.h5. "
+                "DIRAC projects the 4c MOs into the X2C space as starting guess."
+            ),
+        },
+    ]
+
+    return {
+        "plan": plan,
+        "element": sym,
+        "step1_h5": h5_4c,
+        "step2_h5": h5_x2c,
+        "hypothesis": (
+            "DIRAC 25 X2C oscillates at a wrong fixed-point for Cm/Bk/Cf (Z≥96). "
+            "If the 4c orbitals are a good starting guess, X2C should escape the "
+            "pathological fixed-point and converge to the correct solution. "
+            "Empirical result (2026-05-12): this does NOT work. The X2C SCF "
+            "shows iter 1 = 0.0 (4c checkpoint silently ignored — incompatible "
+            "4c/2c orbital spaces) and then oscillates at -28385 Ha — the same "
+            "wrong fixed-point as direct X2C. Conclusion: the pathological "
+            "fixed-point is intrinsic to X2C+dyall.2zp+Z≥96, independent of "
+            "starting guess. Use 4c (the default) for Z≥96 actinides."
+        ),
+        "next_actions": [
+            {
+                "tool": "prepare_dirac_launch",
+                "step": 1,
+                "rationale": (
+                    f"Run the 4c SCF. After completion, rename CHECKPOINT.h5 → {sym}_4c.h5. "
+                    "Do NOT use --outcmo (fails for 4c in DIRAC 25)."
+                ),
+                "args": {
+                    "input_file": inp4c_path,
+                    "mol_file": mol_path,
+                    "extra_pam_args": ['--get="CHECKPOINT.h5"'],
+                },
+                "post_run": f"mv CHECKPOINT.h5 {sym}_4c.h5",
+            },
+            {
+                "tool": "prepare_dirac_launch",
+                "step": 2,
+                "rationale": (
+                    f"Run X2C with --copy={sym}_4c.h5 to seed from 4c orbitals. "
+                    "DIRAC will project the 4c MOs into the X2C space."
+                ),
+                "args": {
+                    "input_file": inp_x2c_path,
+                    "mol_file": mol_path,
+                    "copy_files": [f"{sym}_4c.h5"],
                 },
             },
         ],

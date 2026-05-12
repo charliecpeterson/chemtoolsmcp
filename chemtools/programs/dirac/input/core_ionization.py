@@ -140,7 +140,7 @@ def prepare_core_ionization(
     n_total_electrons: int,
     basis: dict[str, str] | None = None,
     default_basis: str | None = None,
-    use_x2c: bool = True,
+    use_x2c: bool = False,
     output_dir: str | None = None,
     molecule_name: str = "molecule",
     molecule_units: str = "bohr",
@@ -164,7 +164,8 @@ def prepare_core_ionization(
     basis, default_basis
         Per-element basis assignments (passed through to draft_mol).
     use_x2c
-        Default True. X2C + .UNCONTRACT is standard for core-level work.
+        Default False (full 4c Dirac-Coulomb). Set True for X2C approximation;
+        note X2C has convergence issues for Z≥96 in DIRAC 25.
     closed_shell_per_ircop
         Caller-supplied per-fsym closed counts for the neutral state.
         Default: assume NFSYM=1 (no inversion) and put all electrons in
@@ -195,9 +196,10 @@ def prepare_core_ionization(
         )
     n_kpair_total = n_total_electrons // 2
 
-    # Hamiltonian + integrals — X2C requires .UNCONTRACT.
+    # Hamiltonian + integrals — both X2C and 4c need .UNCONTRACT for accurate
+    # small-component representation (DIRAC aborts without it for X2C/AMFI).
     hamiltonian: dict[str, Any] = {"x2c": True} if use_x2c else {}
-    integrals: dict[str, Any] = {"uncontract": True} if use_x2c else {}
+    integrals: dict[str, Any] = {"uncontract": True}
 
     # ----- Build the .mol once (same geometry for all jobs) -----
     mol_text = draft_mol(

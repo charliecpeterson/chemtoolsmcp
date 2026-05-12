@@ -116,6 +116,7 @@ from chemtools.programs.dirac.input.inp import draft_inp as _draft_inp  # noqa: 
 from chemtools.programs.dirac.input.mol import draft_mol as _draft_mol  # noqa: E402
 from chemtools.programs.dirac.input.atomic_start import (  # noqa: E402
     prepare_atomic_start as _prepare_atomic_start,
+    prepare_x2c_bootstrap as _prepare_x2c_bootstrap,
 )
 from chemtools.programs.dirac.input.cm_class import (  # noqa: E402
     prepare_cm_class_workflow as _prepare_cm_class_workflow,
@@ -531,7 +532,8 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     "default_basis":  {"type": "string"},
                     "hamiltonian":    {"type": "object"},
                     "integrals":      {"type": "object"},
-                    "use_x2c":        {"type": "boolean", "default": True},
+                    "use_x2c":        {"type": "boolean", "default": False,
+                                       "description": "Use X2C approximation. Default False (full 4c Dirac-Coulomb). Set True only when explicitly needed; X2C has convergence issues for Z≥96 in DIRAC 25."},
                     "output_dir":     {"type": "string"},
                     "molecule_name":  {"type": "string", "default": "molecule"},
                     "molecule_scf":   {"type": "object"},
@@ -542,6 +544,37 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     },
                 },
                 "required": ["molecule_atoms"],
+            },
+        },
+
+        # ----- 4c → X2C bootstrap workflow -----
+        {
+            "name": "prepare_dirac_x2c_bootstrap",
+            "description": (
+                "Two-step plan for bootstrapping X2C convergence from 4-component "
+                "Dirac-Coulomb orbitals. Useful when X2C alone oscillates at a "
+                "wrong fixed-point (e.g. Cm, Bk, Cf in DIRAC 25 + dyall.2zp).\n\n"
+                "Step 1: Converge a full 4c atomic SCF, save orbitals via --outcmo.\n"
+                "Step 2: Run X2C atomic SCF using --incmo from the 4c checkpoint.\n\n"
+                "Hypothesis: the 4c orbitals are a good enough starting guess for "
+                "X2C that the SCF escapes the wrong fixed-point. If successful, "
+                "X2C energy will be close to the 4c energy (within ~1 Ha; different "
+                "Hamiltonians so not exact). This would enable X2C for production "
+                "molecular work on heavy actinides without the cost of full 4c.\n\n"
+                "Returns plan (2 steps) + next_actions with the correct --outcmo / "
+                "--incmo pam flags to thread between steps."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "element":       {"type": "string", "description": "Element symbol (e.g. 'Cm')."},
+                    "basis":         {"type": "object"},
+                    "default_basis": {"type": "string"},
+                    "hamiltonian":   {"type": "object"},
+                    "integrals":     {"type": "object"},
+                    "output_dir":    {"type": "string"},
+                },
+                "required": ["element"],
             },
         },
 
@@ -579,7 +612,8 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                     "n_total_electrons": {"type": "integer"},
                     "basis":             {"type": "object"},
                     "default_basis":     {"type": "string"},
-                    "use_x2c":           {"type": "boolean", "default": True},
+                    "use_x2c":           {"type": "boolean", "default": False,
+                                         "description": "Use X2C approximation. Default False (full 4c). Set True only when explicitly needed."},
                     "output_dir":        {"type": "string"},
                     "molecule_name":     {"type": "string", "default": "molecule"},
                     "molecule_units":    {"type": "string", "default": "bohr"},
@@ -1077,7 +1111,7 @@ def _handle_prepare_dirac_atomic_start(arguments: dict[str, Any]) -> dict[str, A
         default_basis=arguments.get("default_basis"),
         hamiltonian=arguments.get("hamiltonian"),
         integrals=arguments.get("integrals"),
-        use_x2c=bool(arguments.get("use_x2c", True)),
+        use_x2c=bool(arguments.get("use_x2c", False)),
         output_dir=arguments.get("output_dir"),
         molecule_name=arguments.get("molecule_name", "molecule"),
         molecule_scf=arguments.get("molecule_scf"),
@@ -1093,6 +1127,22 @@ def _handle_prepare_dirac_atomic_start(arguments: dict[str, Any]) -> dict[str, A
     return result
 
 
+@_tool("prepare_dirac_x2c_bootstrap")
+def _handle_prepare_dirac_x2c_bootstrap(arguments: dict[str, Any]) -> dict[str, Any]:
+    raw_basis = arguments.get("basis")
+    basis: dict[str, str] | None = None
+    if raw_basis:
+        basis = {str(k): v for k, v in raw_basis.items()}
+    return _prepare_x2c_bootstrap(
+        element=arguments["element"],
+        basis=basis,
+        default_basis=arguments.get("default_basis"),
+        hamiltonian=arguments.get("hamiltonian"),
+        integrals=arguments.get("integrals"),
+        output_dir=arguments.get("output_dir"),
+    )
+
+
 @_tool("prepare_dirac_core_ionization")
 def _handle_prepare_dirac_core_ionization(arguments: dict[str, Any]) -> dict[str, Any]:
     raw_basis = arguments.get("basis")
@@ -1105,7 +1155,7 @@ def _handle_prepare_dirac_core_ionization(arguments: dict[str, Any]) -> dict[str
         n_total_electrons=int(arguments["n_total_electrons"]),
         basis=basis,
         default_basis=arguments.get("default_basis"),
-        use_x2c=bool(arguments.get("use_x2c", True)),
+        use_x2c=bool(arguments.get("use_x2c", False)),
         output_dir=arguments.get("output_dir"),
         molecule_name=arguments.get("molecule_name", "molecule"),
         molecule_units=arguments.get("molecule_units", "bohr"),
