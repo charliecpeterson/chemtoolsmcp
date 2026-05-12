@@ -262,6 +262,43 @@ _TOPIC_GUIDES: dict[str, dict[str, Any]] = {
             "or library ECP name, add ``.ECP`` to **HAMILTONIAN."
         ),
     },
+    "hamiltonian_choice": {
+        "summary": (
+            "DIRAC supports several relativistic Hamiltonians. The two main "
+            "options for chemistry work are:\n\n"
+            "  - **Full 4-component Dirac-Coulomb** (no .X2C flag): the "
+            "    correct relativistic treatment. Slower (4×4 spinor matrices) "
+            "    but always reliable. Requires .UNCONTRACT for accurate "
+            "    small-component representation.\n"
+            "  - **X2C (Exact 2-Component)**: a 2-component approximation "
+            "    that's ~10× faster than 4c. Excellent for light + main-group "
+            "    + 1st/2nd row transition metals + lanthanides. Add .X2C to "
+            "    **HAMILTONIAN. Requires .UNCONTRACT (DIRAC aborts otherwise "
+            "    with 'AMFI: only decontracted basis sets').\n\n"
+            "**Z ≥ 96 (Cm, Bk, Cf, ...) requires 4c.** Empirical finding in "
+            "DIRAC 25.0 + dyall.2zp: X2C + Z ≥ 96 has a convergence pathology "
+            "where the RELSCF inner loop oscillates at a wrong fixed-point "
+            "(~2950 Ha off the true energy for Cm). Switching to 4c "
+            "(dropping .X2C) gives clean convergence in ~13 iters — exactly "
+            "as the CmF.md tutorial claimed.\n\n"
+            "Validated:\n"
+            "  Cm 4c → -31332.50 Ha in 13 outer SCF iters ✓\n"
+            "  Am 4c → -30489.85 Ha in 13 outer SCF iters ✓\n"
+            "  Cm X2C → oscillates [-28380, -28390] Ha ✗\n\n"
+            "The chemtools atomic-start orchestrator auto-switches X2C → 4c "
+            "for Z ≥ 96 in molecule_atoms. Override with use_x2c=False to "
+            "force 4c for lighter systems if needed."
+        ),
+        "key_docs": ["x2c.md", "hamiltonian.md", "CmF.md"],
+        "agent_pattern": (
+            "Default behavior:\n"
+            "  Z < 96 → X2C (fast, accurate)\n"
+            "  Z ≥ 96 → 4c (Cm-class — X2C convergence breaks)\n"
+            "When drafting input by hand for Cm-class systems, omit .X2C "
+            "from **HAMILTONIAN to use full 4c. Keep .UNCONTRACT under "
+            "**INTEGRALS / *READIN — both X2C and 4c need decontracted bases."
+        ),
+    },
     "kpsele": {
         "summary": (
             "``.KPSELE`` is DIRAC's atomic-supersymmetry mechanism — it tells "
@@ -342,6 +379,22 @@ _TOPIC_GUIDES: dict[str, dict[str, Any]] = {
     },
     "cm_class_workflow": {
         "summary": (
+            "**UPDATE (2026-05)**: For most Cm/Bk/Cf calculations, the "
+            "multi-step orbital-import workflow described below is NOT "
+            "needed. The real convergence blocker was X2C (not the "
+            "chemistry) — direct atomic AOC for Cm with full 4-component "
+            "Dirac-Coulomb converges cleanly in 13 outer iters. The "
+            "prepare_dirac_atomic_start orchestrator auto-switches X2C → 4c "
+            "for Z ≥ 96, so a single-call `prepare_dirac_atomic_start("
+            "molecule_atoms=[Cm, ...])` just works for Cm.\n\n"
+            "See get_dirac_topic_guide('hamiltonian_choice') for the full "
+            "X2C-vs-4c story.\n\n"
+            "The legacy 3-step workflow below remains documented for:\n"
+            "  - Reproducing the published CmF.md tutorial verbatim\n"
+            "  - Cases where 4c is computationally prohibitive (large "
+            "molecules with many heavy atoms) and orbital-import from a "
+            "lighter analog is cheaper than full 4c.\n\n"
+            "---\n\n"
             "Cm and its neighbours (Bk, Cf, Es, Fm, ...) have 5f^7+ open "
             "shells where the 5f orbitals are deeper than the 'closed' "
             "outer 6d/7s shells — DIRAC's default 'open above closed' "

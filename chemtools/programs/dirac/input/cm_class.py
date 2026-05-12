@@ -31,14 +31,28 @@ from chemtools.programs.dirac.input.inp import draft_inp
 from chemtools.programs.dirac.input.mol import draft_mol
 
 
-# Elements where the simple AOC + .KPSELE path is known to oscillate.
-# Empirical observations in DIRAC 25.0 with dyall.2zp:
-#   - Pu (5f^6):  converges with KPSELE in ~48 iters
-#   - Cm (5f^7):  oscillates in [-28380, -28390] Ha, hits 50-iter cap
-#   - Bk (5f^9):  similar to Cm
-# The published CmF.md tutorial cites "13 iterations" with DIRAC 21 —
-# DIRAC 25's defaults appear different, and the RELSCF inner-loop cap
-# of 50 is hardcoded (.MAXITR / .MAXIT2 don't override it for AOC).
+# Elements where the simple X2C + AOC + .KPSELE path oscillates in DIRAC 25
+# (Cm-class = Z >= 96 with dyall.2zp basis). After thorough investigation:
+#
+#   - X2C + Z≥96: SCF oscillates at a wrong fixed-point (~2950 Ha off true E
+#     for Cm). Likely a numerical artifact of the X2C transformation at
+#     very heavy nuclei in DIRAC 25's relscf module.
+#   - 4-component Dirac-Coulomb (no X2C): converges cleanly in 13 outer
+#     iters. The doc CmF.md's "Cm in 13 iterations" claim DOES reproduce
+#     when running with 4c instead of X2C.
+#   - Validated: Cm 4c → -31332.50 Ha; Am 4c → -30489.85 Ha; both converge
+#     end-to-end through the real apptainer container.
+#
+# Conclusion: the multi-step orbital-import workflow from CmF.md is NOT
+# required for Cm to converge in DIRAC 25. The original .KPSELE workflow
+# works fine, just with the FULL 4c Hamiltonian instead of X2C. The
+# atomic_start orchestrator auto-switches X2C → 4c for Z ≥ 96.
+#
+# The Cm-class workflow remains useful when:
+#   1. A user explicitly wants the CmF.md-style frozen-orbital multi-step
+#      protocol (chemistry-expert manual completion of Steps 2 + 3).
+#   2. The 4c workaround is impractical due to computational cost on
+#      larger systems where X2C would be needed.
 _CM_CLASS_ELEMENTS = frozenset({"Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"})
 
 

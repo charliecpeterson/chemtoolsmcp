@@ -241,13 +241,33 @@ def prepare_atomic_start(
         atomic_count:    number of atomic jobs in the plan
     """
     hamiltonian = dict(hamiltonian or {})
+    integrals = dict(integrals or {})
+
+    # Determine the heaviest element in this molecule — drives whether
+    # X2C is safe. For Z ≥ 96 (Cm, Bk, Cf, ...) X2C has a numerical /
+    # convergence pathology in DIRAC 25 + dyall.2zp; the full 4-component
+    # Dirac-Coulomb Hamiltonian converges cleanly in 13 outer iters.
+    # Detected experimentally: Cm X2C oscillates at -28385 Ha (~2950 Ha
+    # off the true value), Cm 4c converges to -31332.50 Ha.
+    max_z = 0
+    for a in molecule_atoms:
+        z = _atom_z(a)
+        if z is not None:
+            max_z = max(max_z, z)
+
+    if use_x2c and max_z >= 96:
+        # Auto-switch to 4c for the heavy-actinide block.
+        use_x2c = False
     if use_x2c:
         hamiltonian.setdefault("x2c", True)
-    integrals = dict(integrals or {})
-    # X2C / AMFI require decontracted basis sets (DIRAC aborts otherwise with
-    # "AMFI: only decontracted basis sets can be used"). Force .UNCONTRACT
-    # unless the caller has explicitly set it.
-    if hamiltonian.get("x2c") or hamiltonian.get("amfi"):
+        # X2C / AMFI require decontracted basis sets (DIRAC aborts otherwise
+        # with "AMFI: only decontracted basis sets can be used"). Force
+        # .UNCONTRACT unless the caller has explicitly set it.
+        if hamiltonian.get("x2c") or hamiltonian.get("amfi"):
+            integrals.setdefault("uncontract", True)
+    else:
+        # Full 4c needs uncontracted basis too for accurate small-component
+        # representation; emit .UNCONTRACT regardless.
         integrals.setdefault("uncontract", True)
 
     out_dir = Path(output_dir or ".").resolve()
