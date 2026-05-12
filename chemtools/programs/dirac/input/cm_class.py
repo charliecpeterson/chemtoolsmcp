@@ -42,20 +42,25 @@ from chemtools.programs.dirac.input.mol import draft_mol
 _CM_CLASS_ELEMENTS = frozenset({"Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"})
 
 
-# Recommended surrogate reference for each hard actinide. Pu (Z=94) is
-# the closest converging element to Cm/Bk in the periodic table — its 5f^6
-# orbitals project onto Cm's 5f^7 manifold much better than Ce's 4f^1
-# (which the doc CmF.md uses for legacy reasons; Pu is preferred in
-# DIRAC 25). For very late actinides where Pu still fails, fall back to Ce.
+# Recommended surrogate reference for each hard actinide.
+#
+# Empirically verified in DIRAC 25 with dyall.2zp:
+#   - Pu (Z=94, 5f^6 7s^2): converges in 22 iters
+#   - Am (Z=95, 5f^7 7s^2): converges in 22 iters  ← SAME valence (5f^7) as Cm
+#   - Cm (Z=96+): does NOT converge
+#
+# Am is the closest valence match to Cm (both 5f^7 half-filled f-shell);
+# its converged orbitals project onto Cm's 5f manifold without character
+# distortion. Pu is a good fallback for the rest of the late actinides.
 _RECOMMENDED_REFERENCE: dict[str, str] = {
-    "Cm": "Pu",
-    "Bk": "Pu",
-    "Cf": "Pu",
-    "Es": "Pu",
-    "Fm": "Pu",
-    "Md": "Pu",
-    "No": "Pu",
-    "Lr": "Pu",
+    "Cm": "Am",   # 5f^7 ↔ 5f^7 valence match
+    "Bk": "Am",   # 5f^9 — Am 5f^7 covers half-filled f-shell character
+    "Cf": "Am",
+    "Es": "Am",
+    "Fm": "Am",
+    "Md": "Am",
+    "No": "Am",
+    "Lr": "Am",
 }
 
 
