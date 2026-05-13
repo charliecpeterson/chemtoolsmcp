@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS workflows (
 
 CREATE TABLE IF NOT EXISTS runs (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    program             TEXT,       -- 'nwchem' / 'molcas' / 'molpro' / ... (Phase 4b)
+    program             TEXT,       -- 'nwchem' / 'molcas' / 'dirac' / 'grasp' / ... (Phase 4b)
     job_name            TEXT NOT NULL,
     input_file          TEXT,
     output_file         TEXT,
@@ -154,7 +154,7 @@ def register_run(
     """Register a new run in the registry. Returns the run_id.
 
     ``program`` (since Phase 4b) tags the run with which QC program produced
-    it (``'nwchem'``, ``'molcas'``, ``'molpro'``, ...). Pre-Phase-4b runs
+    it (``'nwchem'``, ``'molcas'``, ``'dirac'``, ``'grasp'``, ...). Pre-Phase-4b runs
     have NULL here; the legacy register_nwchem_run MCP wrapper now passes
     'nwchem' explicitly.
     """

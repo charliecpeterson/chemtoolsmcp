@@ -777,7 +777,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                     },
                     "program": {
                         "type": "string",
-                        "enum": ["nwchem", "molpro", "molcas"],
+                        "enum": ["nwchem", "molcas", "dirac", "grasp"],
                         "description": "Optional program override; if omitted, auto-detect from the file head.",
                     },
                 },
@@ -803,7 +803,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"],
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"],
                                 "description": "Optional program override; auto-detected from file head if omitted."},
                 },
                 "required": ["output_file"],
@@ -824,7 +824,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
                     "task_index": {"type": ["integer", "null"], "default": None,
                         "description": "0-indexed task. None = primary task (final geometry for opt, input for energy/freq)."},
                 },
@@ -845,7 +845,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
                     "task_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
@@ -864,7 +864,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
                     "task_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
@@ -882,7 +882,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
                     "task_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
@@ -905,7 +905,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molpro", "molcas"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
                     "max_bond_length": {"type": "number", "default": 2.5},
                     "min_safe_distance": {"type": "number", "default": 0.6},
                     "covalent_tolerance": {"type": "number", "default": 1.20},
@@ -1385,7 +1385,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
             "name": "register_run",
             "description": (
                 "Register a run in the persistent registry with a program tag "
-                "(nwchem / molcas / molpro / ...). Generic version of "
+                "(nwchem / molcas / dirac / grasp / ...). Generic version of "
                 "register_nwchem_run — same schema plus a ``program`` field. "
                 "Use this when registering Molcas runs or building cross-"
                 "program campaigns (e.g. CrO atomization with Cr at NWChem "
@@ -1394,7 +1394,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "molpro"],
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"],
                                 "description": "QC program that produced this run."},
                     "job_name": {"type": "string"},
                     "input_file": {"type": "string"},
@@ -1448,7 +1448,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
             "description": (
                 "List registered runs, optionally filtered by campaign, "
                 "workflow, status, method, or **program** (nwchem / molcas / "
-                "molpro / ...). Generic version. Returns most recent first."
+                "grasp / ...). Generic version. Returns most recent first."
             ),
             "inputSchema": {
                 "type": "object",

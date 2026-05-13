@@ -150,7 +150,7 @@ class ParsedRun(TypedDict, total=False):
     n_atoms, final_geometry_xyz, walltime_used_sec, etc. Programs may add
     their own keys; namespaced keys (e.g. "nwchem:tce_freeze_count") are fine.
     """
-    program: str                    # "nwchem" | "molpro" | "molcas" | ...
+    program: str                    # "nwchem" | "molcas" | "dirac" | "grasp" | ...
     program_version: str | None
     file: str                       # absolute path to the output file
     file_size_bytes: int

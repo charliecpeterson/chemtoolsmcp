@@ -9,7 +9,7 @@ in each program package) reuse these helpers.
 The generic_tasks shape is:
 
     {
-        "program":       str,                # "nwchem" | "molpro" | "molcas"
+        "program":       str,                # "nwchem" | "molcas" | "dirac" | "grasp"
         "kind":          str,                # operation label
         "label":         str,                # human-friendly name
         "energy_hartree": float | None,

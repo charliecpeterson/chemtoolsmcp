@@ -1,28 +1,21 @@
 """NWChem MCP-tool wrappers for output parsing.
 
 Companion to programs/nwchem/runner.py — this module is the layer between
-the MCP server (chemtools/mcp/nwchem.py) and the per-section parsers in
+the MCP server (chemtools/mcp/cli.py) and the per-section parsers in
 programs/nwchem/parse/. Includes orchestrators (parse_output,
 diagnose_output, summarize_output) plus thin dispatchers for each section.
 
 Two cross-program functions live here for historical reasons:
-parse_tasks() and parse_mos() use detect_program to route between nwchem/
-molpro/molcas parsers. They moved with the file rather than being carved
+parse_tasks() and parse_mos() use detect_program to route between nwchem
+and molcas parsers. They moved with the file rather than being carved
 out into a neutral location, since the rest of the file is NWChem-specific
 and an empty cross-program module would not earn its keep yet.
 
 TODO(multi-program):
 
   * Lift parse_tasks(), parse_mos(), and _dispatch_parse_mos() to a future
-    chemtools/mcp/tools/shared.py (or chemtools/core/output.py) once a
-    second program has substantive output coverage.
-
-  * The remainder of this file is MCP wrappers and belongs in
-    chemtools/mcp/tools/nwchem.py once mcp/nwchem.py is split out of the
-    monolith.
-
-For now this is a verbatim move from chemtools/api_output.py; public
-symbols and call signatures are unchanged.
+    chemtools/core/output.py once a second program has substantive output
+    coverage.
 """
 
 from __future__ import annotations
@@ -53,7 +46,6 @@ from chemtools.programs.nwchem.parse.freq import (
     parse_trajectory as _parse_trajectory_raw,
 )
 from chemtools.programs.molcas.parse import output as molcas
-from chemtools.programs.molpro.parse import output as molpro
 
 
 def _dispatch_parse_mos(
@@ -61,9 +53,9 @@ def _dispatch_parse_mos(
     include_all_orbitals: bool = False,
 ) -> dict[str, Any]:
     """Dispatch parse_mos to the correct program module."""
-    program = detect_program(contents)
-    if program == "molpro":
-        return molpro.parse_mos(path, contents, top_n=top_n, include_coefficients=include_coefficients)
+    # Currently NWChem-only; other programs supply parse_mos via their own
+    # plugin sub-protocols (Molcas: get_molcas_orbitals, DIRAC: VECPOP
+    # tools, GRASP: rmcdhf .sum subshells).
     return _parse_mos_raw(
         path, contents, top_n=top_n, include_coefficients=include_coefficients,
         include_all_orbitals=include_all_orbitals,
@@ -73,10 +65,6 @@ def _dispatch_parse_mos(
 def parse_tasks(path: str) -> dict[str, Any]:
     contents = read_text(path)
     program = detect_program(contents)
-    if program == "nwchem":
-        return _parse_tasks_raw(path, contents)
-    if program == "molpro":
-        return molpro.parse_tasks(path, contents)
     if program == "molcas":
         return molcas.parse_tasks(path, contents)
     return _parse_tasks_raw(path, contents)

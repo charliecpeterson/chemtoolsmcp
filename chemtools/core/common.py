@@ -36,8 +36,6 @@ def split_tokens(line: str) -> list[str]:
 
 def detect_program(contents: str) -> str | None:
     upper = contents.upper()
-    if "PROGRAM SYSTEM MOLPRO" in upper or "***  PROGRAM SYSTEM MOLPRO  ***" in upper:
-        return "molpro"
     if (
         "THIS RUN OF MOLCAS IS USING THE PYMOLCAS DRIVER" in upper
         or "OPENMOLCASOP" in upper

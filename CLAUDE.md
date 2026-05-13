@@ -30,7 +30,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
       molcas.py      Molcas tool definitions + handlers (40 tools)
       dirac.py       DIRAC tool definitions + handlers (34 tools)
       grasp.py       GRASP2018 tool definitions + handlers (26 tools)
-    # Future: molpro.py, orca.py
+    # Future: orca.py
 
 test_phase1/         Test suite (Phases 2–6 + parser tests; gitignored)
 ```
