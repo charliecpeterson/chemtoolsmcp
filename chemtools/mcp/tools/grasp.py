@@ -59,6 +59,18 @@ from chemtools.programs.grasp.strategy.workflows import (
     plan_hf_bootstrap_workflow as _plan_hf_bootstrap_workflow,
 )
 from chemtools.programs.grasp.strategy.runner import run_workflow as _run_workflow
+from chemtools.programs.grasp.docs import (
+    list_docs as _list_grasp_docs,
+    search_docs as _search_grasp_docs,
+    lookup_section as _lookup_grasp_section,
+    read_doc_excerpt as _read_grasp_doc_excerpt,
+    list_topics as _list_grasp_topics,
+    get_topic_guide as _get_grasp_topic_guide,
+)
+from chemtools.programs.grasp.strategy.diagnose import (
+    analyze_grasp_case as _analyze_grasp_case,
+    suggest_grasp_recovery as _suggest_grasp_recovery,
+)
 
 
 def grasp_tool_definitions() -> list[dict[str, Any]]:
@@ -342,6 +354,66 @@ def _handle_parse_sum(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("parse_grasp_rmcdhf_log", program="grasp")
 def _handle_parse_rmcdhf_log(arguments: dict[str, Any]) -> dict[str, Any]:
     return _parse_rmcdhf_log(arguments["path"])
+
+
+# =============================================================================
+# Diagnosis / recovery tools (analysis-safe)
+# =============================================================================
+
+@_tool("analyze_grasp_case", program="grasp")
+def _handle_analyze_grasp_case(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _analyze_grasp_case(arguments["working_dir"])
+
+
+@_tool("suggest_grasp_recovery", program="grasp")
+def _handle_suggest_grasp_recovery(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _suggest_grasp_recovery(
+        working_dir=arguments.get("working_dir"),
+        error_text=arguments.get("error_text"),
+    )
+
+
+# =============================================================================
+# Documentation tools (analysis-safe)
+# =============================================================================
+
+@_tool("list_grasp_docs", program="grasp")
+def _handle_list_grasp_docs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {"docs": _list_grasp_docs()}
+
+
+@_tool("search_grasp_docs", program="grasp")
+def _handle_search_grasp_docs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _search_grasp_docs(
+        arguments["query"],
+        max_hits=arguments.get("max_hits", 8),
+        context_lines=arguments.get("context_lines", 2),
+    )
+
+
+@_tool("lookup_grasp_section", program="grasp")
+def _handle_lookup_grasp_section(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _lookup_grasp_section(
+        arguments["section"],
+        max_results=arguments.get("max_results", 5),
+    )
+
+
+@_tool("read_grasp_doc_excerpt", program="grasp")
+def _handle_read_grasp_doc_excerpt(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _read_grasp_doc_excerpt(
+        arguments["name"],
+        start_line=arguments.get("start_line", 1),
+        end_line=arguments.get("end_line"),
+    )
+
+
+@_tool("get_grasp_topic_guide", program="grasp")
+def _handle_get_grasp_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
+    topic = arguments.get("topic")
+    if topic is None:
+        return {"available_topics": _list_grasp_topics()}
+    return _get_grasp_topic_guide(topic)
 
 
 # =============================================================================
@@ -856,6 +928,111 @@ _DEFS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {"path": {"type": "string"}},
             "required": ["path"],
+        },
+    },
+    # ----- Diagnosis / recovery ---------------------------------------------
+    {
+        "name": "analyze_grasp_case",
+        "description": (
+            "Inspect a GRASP working directory and report status of each "
+            "workflow step (rnucleus, rcsfgenerate, rangular, rwfnestimate, "
+            "rmcdhf, ...). Returns verdict (healthy/partial/failed/"
+            "not_started) + per-step artifact audit + SCF convergence "
+            "summary + issues + next_actions."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"working_dir": {"type": "string"}},
+            "required": ["working_dir"],
+        },
+    },
+    {
+        "name": "suggest_grasp_recovery",
+        "description": (
+            "Classify a GRASP failure and suggest recovery. Provide either "
+            "`working_dir` (auto-reads session log + rmcdhf output) or "
+            "`error_text` (raw stderr/stdout chunk). Recognized failure "
+            "classes: tfwave_divergence (→ hf-bootstrap), "
+            "block_level_mismatch (→ fix block selections), "
+            "premature_eof (→ stdin missing prompts), missing_input_file, "
+            "orbital_divergence (→ non-rel warm-up), max_iter_exhausted."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "working_dir": {"type": "string"},
+                "error_text": {"type": "string"},
+            },
+        },
+    },
+    # ----- Documentation tools ----------------------------------------------
+    {
+        "name": "list_grasp_docs",
+        "description": "List the 15 bundled GRASP2018 manual files (4 parts: overview, CSF generation, sample runs, convergence).",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "search_grasp_docs",
+        "description": (
+            "Full-text search across the bundled GRASP2018 manual. Returns "
+            "up to max_hits matches with surrounding context lines."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_hits": {"type": "integer", "default": 8},
+                "context_lines": {"type": "integer", "default": 2},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "lookup_grasp_section",
+        "description": (
+            "Look up a GRASP exe / section / keyword (e.g. 'rmcdhf', "
+            "'rcsfgenerate', 'Breit', 'convergence', 'csf'). Returns top "
+            "doc files most likely to document it (filename + heading match)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "section": {"type": "string"},
+                "max_results": {"type": "integer", "default": 5},
+            },
+            "required": ["section"],
+        },
+    },
+    {
+        "name": "read_grasp_doc_excerpt",
+        "description": (
+            "Read a slice of a bundled GRASP doc. `name` is the relative "
+            "path returned by list_grasp_docs (e.g. "
+            "'part_iii_sample_runs/01_Running_the_application_programs.md')."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "start_line": {"type": "integer", "default": 1},
+                "end_line": {"type": "integer"},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "get_grasp_topic_guide",
+        "description": (
+            "Curated cheatsheet for high-value GRASP topics. Pass `topic` "
+            "as one of: 'csf_generation', 'convergence_debugging', "
+            "'nonrel_limit', 'hf_bootstrap', 'level_interpretation'. "
+            "Omit `topic` to list available topics."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string"},
+            },
         },
     },
     # ----- Session log + container ------------------------------------------
