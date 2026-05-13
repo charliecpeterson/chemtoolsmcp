@@ -1,9 +1,10 @@
 """DIRAC docs accessor — search / lookup / read bundled documentation.
 
-180 Markdown files under ``chemtools/programs/dirac/data/docs/`` carry the
-official DIRAC user-guide content (basis, COSCI, AOC, ECP, RECP, atomic
-start, checkpoint, HDF5 schema, etc.). This module mirrors the
-``programs/molcas/docs.py`` pattern: list, search, look up, read excerpts.
+179 Markdown files under ``chemtools/data/dirac/docs/`` carry the official
+DIRAC user-guide content (basis, COSCI, AOC, ECP, RECP, atomic start,
+checkpoint, HDF5 schema, etc.). This module mirrors the
+``programs/molcas/docs.py`` and ``programs/grasp/docs.py`` patterns:
+list, search, look up, read excerpts.
 """
 
 from __future__ import annotations
@@ -13,7 +14,10 @@ from pathlib import Path
 from typing import Any
 
 
-_DOCS_DIR = Path(__file__).parent / "data" / "docs"
+# Docs live at the package-wide bundled-data location (consistent with
+# NWChem/Molcas/GRASP at chemtools/data/<program>/docs/). Path resolves
+# from this module's location: programs/dirac/docs.py → ../../data/dirac/docs.
+_DOCS_DIR = Path(__file__).parents[2] / "data" / "dirac" / "docs"
 
 
 def _iter_doc_files() -> list[Path]:
