@@ -1,23 +1,35 @@
-# NWChem Calculations — Local Workstation
+# Local Workstation — All 4 QC Programs
 
-This project runs NWChem quantum chemistry calculations on a local workstation
-using the chemtools-nwchem agent toolkit. Jobs run as foreground processes
-and are monitored by PID.
+This project runs quantum chemistry calculations on a local workstation
+using the chemtools agent toolkit. Jobs run as foreground processes (or
+inside an apptainer container) and are monitored by PID.
 
 ## Computing environment
 
-| Item | Value |
+| Program | Local execution |
 |---|---|
-| NWChem | Set `nwchem_executable` in your runner profile |
-| MPI launcher | `mpirun -np {mpi_ranks}` (or `mpiexec`, `srun` for local SLURM) |
-| Cores | Set `mpi_ranks` to your available core count |
+| NWChem | `nwchem_executable` in runner profile, or apptainer container via `runner_profiles.yaml` |
+| Molcas | Apptainer container at `~/mycontainers/openmolcas-26.02.sif` (or override via `CHEMTOOLS_MOLCAS_CONTAINER`) |
+| DIRAC  | Apptainer container at `~/mycontainers/dirac-25.0.sif` (or override via `CHEMTOOLS_DIRAC_CONTAINER`) |
+| GRASP  | Apptainer container at `~/mycontainers/grasp2018.sif` (or override via `CHEMTOOLS_GRASP_CONTAINER`) |
+
+GRASP / Molcas / DIRAC use an env-var fallback for the container path —
+you don't need a runner profile if you have the container at the default
+location. NWChem needs a runner profile (it doesn't have an apptainer
+default).
 
 ## Runner profiles
+
+NWChem-only profiles (in `runner_profiles.yaml`):
 
 | Profile | Description |
 |---|---|
 | `local` | Single-process NWChem (no MPI). Good for small test jobs. |
 | `local_mpirun` | MPI-parallel NWChem via `mpirun`. Set `mpi_ranks` to your core count. |
+| `local_apptainer` | NWChem inside apptainer container with `mpirun -np N`. |
+
+Molcas / DIRAC / GRASP execute via their respective `CHEMTOOLS_*_CONTAINER`
+env vars — no profile entry needed for basic execution.
 
 ## Standard workflow
 

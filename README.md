@@ -5,16 +5,21 @@ Protocol) server that gives Claude (and other MCP clients) structured access to
 quantum chemistry programs — parsing outputs, drafting inputs, managing jobs,
 analyzing active spaces, recovering from failed runs.
 
-Currently supports **NWChem** (97 program-specific tools), **OpenMolcas**
-(40 tools), and **DIRAC** (29 tools: parsers, HDF5 checkpoint reader,
-VECPOP per-MO j-character classifier, open-shell quality analyzer, MO
-reorder block drafter + input patcher, `.inp` + `.mol` drafters,
-atomic-start orchestrator with `--copy` chain, pam-dirac/apptainer
-launcher, `.KPSELE` atomic-supersymmetry support for actinide AOC,
-Cm-class multi-step convergence workflow scaffolding, ΔSCF core-
-ionization workflow validated against DIRAC's CO 1s tutorial,
-bundled 180-page docs) plus 36 program-generic tools that auto-detect
-any of them. Molpro, ORCA, and others planned.
+Currently supports four QC programs with end-to-end MCP tooling (input
+drafting, output parsing, recovery diagnosis, job submission to local
+subprocess or HPC scheduler):
+
+| Program | Tools | Highlights |
+|---|---|---|
+| **NWChem** | 97 | Input drafting, TCE/MCSCF parsers, frequency restart, full HPC submission, runner-profile auto-resource sizing, 29 bundled docs |
+| **OpenMolcas** | 44 | CASSCF/CASPT2 chain orchestrators, active-space refinement loop, recovery rule engine (11 failure modes), 133 bundled docs |
+| **DIRAC** | 38 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, basis browser (Dyall), 179 bundled docs |
+| **GRASP2018** | 37 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
+
+Plus 36 program-generic tools (auto-detect any program from its output)
+and a multi-program eval framework with 15 reference cases. ORCA planned.
+
+**Total: 252 MCP tools.**
 
 ---
 
@@ -56,13 +61,13 @@ Add to your MCP servers config:
 }
 ```
 
-That's the minimum config — it gets you analysis mode with all 173 tools
+That's the minimum config — it gets you analysis mode with all 209 tools
 exposed. The sections below show how to scope the tool list, switch modes,
 and wire up a runner profile for job submission.
 
 ### Restricting to one program
 
-Loading both NWChem and Molcas means 173 tool definitions in your agent's
+Loading all four programs means 252 tool definitions in your agent's
 context. For a session focused on one program, filter:
 
 ```json
@@ -72,17 +77,17 @@ context. For a session focused on one program, filter:
 }
 ```
 
-`CHEMTOOLS_PROGRAMS=molcas` exposes Molcas + the 36 generic tools (76 total).
-Set to `nwchem` for the NWChem-focused 133. Comma-separate for multiple
+`CHEMTOOLS_PROGRAMS=molcas` exposes Molcas + the 36 generic tools.
+Other choices: `nwchem`, `dirac`, `grasp`. Comma-separate for multiple
 (`nwchem,molcas`).
 
 ### Server modes
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 156 | Post-hoc parsing, drafting, planning — no chemistry executable needed |
-| `local` | 170 | NWChem / OpenMolcas installed on this machine as a subprocess |
-| `hpc` | 173 | Submit to SLURM/PBS/LSF on an HPC cluster |
+| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 209 | Post-hoc parsing, drafting, planning — no chemistry executable needed |
+| `local` | 249 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
+| `hpc` | 252 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
 
 Mode is auto-detected from your runner profile (see below). Override with
 `CHEMTOOLS_MODE=analysis` or the `--mode` flag.
@@ -233,7 +238,8 @@ chemtools/
       data/                      bundled basis library + docs
       _plugin_*.py               sub-protocol implementations
     molcas/                      OpenMolcas plugin (mirrors nwchem/)
-    molpro/                      stub for future Molpro plugin
+    dirac/                       DIRAC plugin (4c / X2C / AOC / KPSELE)
+    grasp/                       GRASP2018 plugin (multi-exe atomic workflows)
   mcp/
     decorator.py                 @_tool registration with program / needs tags
     modes.py                     mode + program filtering

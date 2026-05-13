@@ -1,50 +1,73 @@
 # chemtoolsmcp — MCP Development Workspace
 
-This is the source repository for the chemtoolsmcp NWChem AI agent toolkit.
-Work here is about **developing and improving the MCP** — adding tools, fixing parsers, updating logic.
+This is the source repository for the chemtoolsmcp computational-chemistry
+AI agent toolkit. Currently supports four QC programs (NWChem, OpenMolcas,
+DIRAC, GRASP2018) plus a program-agnostic generic dispatch layer.
+
+Work here is about **developing and improving the MCP** — adding tools,
+fixing parsers, updating logic.
 
 ## Architecture
 
 ```
-chemtools/           Core Python library — all parsing, analysis, and input generation
-  api.py             Public API entry point (re-exports from api_*.py modules)
-  api_input.py       Input drafting functions
-  api_output.py      Output parsing functions
-  api_strategy.py    High-level case analysis, recovery strategies
-  api_runner.py      Job launch, status, watch, terminate
-  api_basis.py       Basis/ECP library resolution and rendering
-  nwchem_tce.py      TCE output parser, movecs binary tools, freeze count advisor
-  nwchem_tasks.py    Task boundary detection and energy extraction
-  nwchem_mos.py      MO analysis parser
-  nwchem_input.py    Input file parsing utilities
-  diagnostics.py     High-level diagnosis functions
-  data/nwchem/       Bundled NWChem data (basis library — 608 files, docs — 29 files)
-  registry.py       SQLite-backed run registry, campaigns, workflows, batch generation
-  protocols.py       Pre-baked calculation protocols (thermochem, basis convergence, etc.)
-  eval.py            Case evaluation framework for testing tool quality
+chemtools/
+  core/                          Program-agnostic infrastructure
+    registry.py                  QC-program plugin registry (auto-detect from output)
+    program.py                   Parser / Drafter / Strategist / BinaryReader protocols
+    runner.py                    Generic SLURM/PBS submit + render_*_run + watch + status
+    run_registry.py              SQLite registry (runs, campaigns, workflows)
+    eval.py                      Multi-program case evaluator (NWChem + Molcas + DIRAC + GRASP)
+    types.py                     ParsedRun / TaskSummary / GeometryAtom typed dicts
+    common.py, cube.py, ...      Shared utilities (program detection, cube parsing, etc.)
+  programs/
+    nwchem/                      NWChem plugin (parser, drafter, strategist, runner)
+      parse/, input/, strategy/, binary/, runner.py, docs.py, output.py, ...
+    molcas/                      OpenMolcas plugin (CASSCF / CASPT2 / RASSI / SLAPAF)
+      parse/, input/, strategy/, binary/, runtime.py, docs.py, scheduler.py
+    dirac/                       DIRAC plugin (4c / X2C / AOC / KPSELE / Cm-class)
+      parse/, input/, strategy/, binary/, runtime.py, docs.py, basis.py, scheduler.py
+    grasp/                       GRASP2018 plugin (multi-exe workflows + scheduler)
+      parse/, input/, strategy/, runtime.py, docs.py, scheduler.py, _plugin_parser.py
+  data/                          Bundled per-program data (basis libraries + docs)
+    nwchem/basis_library/        608 files
+    nwchem/docs/                 29 files
+    molcas/basis_library/        91 files
+    molcas/docs/                 133 files
+    dirac/docs/                  179 files
+    grasp/docs/                  15 files
   mcp/
-    nwchem.py        NWChem entry point — multi-program MCP server (NWChem + Molcas tools)
-    nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
-    tools/
-      nwchem.py      NWChem tool definitions + handlers (~92 tools)
-      molcas.py      Molcas tool definitions + handlers (40 tools)
-      dirac.py       DIRAC tool definitions + handlers (34 tools)
-      grasp.py       GRASP2018 tool definitions + handlers (26 tools)
-    # Future: orca.py
+    cli.py                       Entry point — main() / serve() / arg parsing
+    server.py                    JSON-RPC transport (read_message / write_message)
+    dispatch.py                  tool_definitions() aggregator + dispatch_tool + handle_request
+    decorator.py                 @_tool decorator + shared registries (_TOOL_REGISTRY etc.)
+    modes.py                     Mode + program-filter logic (filter_tools, resolve_mode)
+    nwchem.py                    Back-compat shim re-exporting from cli + decorator
+    tools/                       Per-program MCP tool modules
+      generic.py                 36 program-agnostic tools (parse_output, register_run, ...)
+      nwchem.py                  97 NWChem tools
+      molcas.py                  44 Molcas tools
+      dirac.py                   38 DIRAC tools
+      grasp.py                   37 GRASP tools
 
-test_phase1/         Test suite (Phases 2–6 + parser tests; gitignored)
+test_phase1/                     Test suite (gitignored — local training corpus)
+  test_modes.py                  Capability filter + mode tests (65)
+  test_phase2-6.py               NWChem feature suites (52 + 70 + 66 + 25 + 40)
+  test_{molcas,dirac,grasp}_parsers.py  Per-program parser tests (42 + 39 + 39)
+examples/
+  local_workstation/             Example local runner_profiles.yaml (apptainer containers)
+  tacc_stampede3/                Example TACC scheduler profiles (all 4 programs)
+  molcas/, dirac/, grasp/        Eval case bundles (case.json + outputs, gitignored)
 ```
 
 ## MCP Tool Architecture
 
-- Domain logic lives in `chemtools/*.py`
-- Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
-- MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
-- Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 233 (92 NWChem + 40 Molcas + 34 DIRAC + 26 GRASP + 41 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
+- Domain logic lives in `chemtools/programs/<program>/` and `chemtools/core/`
+- MCP handlers in `chemtools/mcp/tools/<program>.py` — one `@_tool(name)` decorated function per tool
+- Tool naming convention: `verb_<program>_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute, run, plan, apply, terminate, summarize, validate, check, extract, refine, prepare, evaluate, displace, init, append, search, lookup, read, basis, append, try}
+- **Current tool count: 252** (97 NWChem + 44 Molcas + 38 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program.
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
-### Tool categories (108 tools)
+### NWChem tool categories (97 tools)
 
 | Category | Count | Examples |
 |----------|-------|---------|
@@ -63,7 +86,11 @@ test_phase1/         Test suite (Phases 2–6 + parser tests; gitignored)
 | Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
-### Molcas / OpenMolcas tools (40)
+### Molcas / OpenMolcas tools (44)
+
+Adds 4 scheduler-submit tools to the existing 40: `launch_molcas_run`,
+`get_molcas_run_status`, `watch_molcas_run`, `terminate_molcas_run` —
+parallel to the NWChem pattern, all tagged `needs="executable"`.
 
 | Tool | Purpose |
 |------|---------|
@@ -127,7 +154,11 @@ Plugin layout (`chemtools/programs/molcas/`):
 - `runtime.py` — launch-helper (`prepare_launch` returns safe pymolcas command + env, with CASPT2 -np guard rail and scratch isolation)
 - `_plugin_parser.py`, `_plugin_binary.py`, `_plugin_drafter.py` — sub-protocol implementations
 
-### DIRAC tools (34)
+### DIRAC tools (38)
+
+Adds 4 scheduler-submit tools to the existing 34: `launch_dirac_run`
+(takes a `mol_file` argument), `get_dirac_run_status`, `watch_dirac_run`,
+`terminate_dirac_run`.
 
 | Category | Tools |
 |----------|-------|
@@ -163,7 +194,13 @@ Plugin layout (`chemtools/programs/dirac/`):
 - `strategy/` — open-shell quality analysis, Cm-class workflow routing
 - `_plugin_parser.py`, `_plugin_binary.py` — sub-protocol implementations
 
-### GRASP2018 tools (26)
+### GRASP2018 tools (37)
+
+Includes 26 original tools (per-exe runners, planners, parsers, session log),
+7 parity tools (analyze_grasp_case, suggest_grasp_recovery, docs tools +
+topic guides), and 4 scheduler-submit tools (`launch_grasp_workflow_run`
+takes a `workflow_script_path` rather than a single input file, since
+GRASP workflows are multi-exe shell scripts).
 
 GRASP is structurally different from NWChem/Molcas/DIRAC: ~50 small executables run sequentially, each prompted via stdin (no input file). Tools wrap individual executables, plan workflows, and parse the `name.{w,c,m,sum,lsj.lbl}` files produced by `rsave`.
 
@@ -196,29 +233,56 @@ Plugin layout (`chemtools/programs/grasp/`):
 
 ## Eval Framework
 
-`chemtools/core/eval.py` — NWChem-specific case evaluation.
+`chemtools/core/eval.py` — multi-program case evaluator. Dispatches by
+the `program` field in `case.json` and calls program-specific checks.
 
-A **case** is a directory with a `case.json` (or `*.case.json`) file that specifies input/output files and `eval_expectations` (expected `diagnosis_failure_class`, `diagnosis_stage`, `recommended_next_action`, `workflow`, `can_auto_prepare`). The evaluator calls `diagnose_output` + `prepare_nwchem_next_step` and checks actual vs. expected.
+A **case** is a directory with a `case.json` (or `*.case.json`) file that
+specifies input/output files and `eval_expectations`. The expectations
+vary by program:
+
+| Program | Checks |
+|---|---|
+| NWChem | `diagnosis_failure_class`, `diagnosis_stage`, `recommended_next_action`, `workflow`, `can_auto_prepare` |
+| Molcas | `primary_energy_au` (±tolerance), `modules_run` (presence), `converged`, `verdict` |
+| DIRAC  | `scf_energy_au` (±tolerance), `converged`, `n_occupied_spinors`, `n_cosci_states` |
+| GRASP  | `ground_energy_au` (±tol), `speed_of_light_au`, `atomic_number`, `n_subshells`, `n_levels`, `is_nonrel_limit`, `file_kind` |
+
+Case files live under:
 
 ```
-nwchem-test/train/          Reference cases (4 currently)
-  h2o2_imaginary_freq/      Imaginary torsion mode saddle-point case
-  standard/cu-opt.case.json Cu geometry optimization
-  failed/                   Generic SCF failure
-  cmcc3h2_s/                Closed-shell organic
+nwchem-test/train/          (4 NWChem cases — h2o2 imaginary freq, Cu opt,
+                             failed SCF, closed-shell organic)
+examples/molcas/<system>/case.json   (5 cases — acrolein CASSCF+CASPT2,
+                             thiophene multi-root, cyclo-freq opt+MCLR,
+                             PbO MS-CASPT2, benzene SCF+MBPT2)
+examples/dirac/<system>/case.json    (3 cases — H2O / CO / N2 4c-DHF)
+examples/grasp/<system>/case.json    (3 cases — Li DHF, Li non-rel limit,
+                             Si 3p² ground term)
 ```
 
-MCP tools: `evaluate_nwchem_case(case_path)` and `evaluate_nwchem_cases(path)` (batch).
+All 15 cases pass. The case-file directories are **gitignored** (local
+training corpus), but the eval framework code is tracked.
 
-**Limitations**: The eval framework is NWChem-only — there are no Molcas or DIRAC case files yet. The `evaluate_case` function directly calls NWChem-specific diagnosis functions and cannot be re-used for other programs.
+MCP tools: `evaluate_nwchem_case(case_path)` and `evaluate_nwchem_cases(path)`
+(NWChem-named for back-compat but program-agnostic — both dispatch by the
+`program` field in case.json).
 
 ## How to Add a New Tool
 
-1. Write the domain function in the appropriate `chemtools/api_*.py` (or a new module)
-2. Export it from `chemtools/api.py` and `chemtools/__init__.py`
-3. Add a tool definition dict to `tool_definitions()` in `chemtools/mcp/nwchem.py`
-4. Add a `@_tool("tool_name")` handler function that calls the library
-5. Verify: `python3 -c "from chemtools.mcp import nwchem; print(len(nwchem.tool_definitions()), 'tools')"`
+1. Write the domain function in the appropriate `chemtools/programs/<program>/`
+   submodule (parser, drafter, strategy, runtime). For generic tools, put it
+   in `chemtools/core/`.
+2. Add a tool-definition dict to `<program>_tool_definitions()` in
+   `chemtools/mcp/tools/<program>.py` — schema + description.
+3. Add a `@_tool("tool_name", program="<program>", needs="<cap>")` handler
+   function in the same file that calls the library. Capability tag drives
+   which server modes expose it (none / registry / runner_profile /
+   executable_or_scheduler / executable / scheduler).
+4. Verify:
+   ```bash
+   python3 -c "from chemtools.mcp.tools.nwchem import tool_definitions; print(len(tool_definitions()), 'tools')"
+   chemtools --list-tools | grep your_new_tool
+   ```
 
 ## How to Improve an Existing Tool
 
@@ -444,9 +508,9 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` | 202 | No executable available; post-hoc parsing (NWChem + Molcas + DIRAC + GRASP), drafting, planning, registry tracking of runs done elsewhere |
-| `local` | 230 | NWChem/Molcas/GRASP runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
-| `hpc` | 233 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+| `analysis` | 209 | No executable available; post-hoc parsing (NWChem + Molcas + DIRAC + GRASP), drafting, planning, registry tracking of runs done elsewhere |
+| `local` | 249 | All 4 programs run as subprocesses on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 252 | All 4 programs submitted to a scheduler (profile with `launcher.kind: "scheduler"`) — full submit/watch/terminate tooling for each |
 
 ### Selecting a mode
 
@@ -464,10 +528,10 @@ Auto-detect means most users never configure mode explicitly; the existing
 
 ### Selecting which programs are loaded
 
-Tools are tagged with a program (`nwchem`, `molcas`, or `generic`). The
-`--programs` filter restricts which subset is exposed at `tools/list`
-time so a session loads only the tools it needs (context-cost matters as
-we add more programs). Priority order:
+Tools are tagged with a program (`nwchem`, `molcas`, `dirac`, `grasp`,
+or `generic`). The `--programs` filter restricts which subset is exposed
+at `tools/list` time so a session loads only the tools it needs
+(context-cost matters as we add more programs). Priority order:
 
 1. `chemtools --programs molcas` (or `--programs nwchem,molcas`) CLI flag
 2. `CHEMTOOLS_PROGRAMS` env var (comma-separated)
@@ -493,11 +557,11 @@ Each tool is tagged via `@_tool("name", needs="...")`. Valid tags:
 
 | Tag | Modes exposing it | Tools |
 |---|---|---|
-| `none` (default) | analysis, local, hpc | 92 pure-Python tools (parsing, drafting, suggest, docs, eval) |
-| `registry` | analysis, local, hpc | 9 SQLite registry/campaign/workflow tools |
+| `none` (default) | analysis, local, hpc | 191 pure-Python tools (parsing, drafting, suggest, docs, eval, planners) |
+| `registry` | analysis, local, hpc | 18 SQLite registry/campaign/workflow tools |
 | `runner_profile` | local, hpc | 2 profile inspection/validation tools |
 | `executable_or_scheduler` | local, hpc | 5 resource advisors that adapt to `launcher.kind` |
-| `executable` | local, hpc | 7 job-execution tools (launch, watch, terminate, try_molcas_run_with_recovery) |
+| `executable` | local, hpc | 33 job-execution tools (per-exe runners + launch/watch/terminate for all 4 programs) |
 | `scheduler` | hpc | 3 scheduler-only tools (`render_job_script`, `detect_nwchem_hpc_accounts`, `suggest_nwchem_partition`) |
 
 To add a new tool: tag it on the decorator. `needs="none"` is the default and is
