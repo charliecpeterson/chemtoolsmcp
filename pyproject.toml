@@ -22,8 +22,8 @@ Repository = "https://github.com/charliecpeterson/chemtoolsmcp"
 Issues     = "https://github.com/charliecpeterson/chemtoolsmcp/issues"
 
 [project.scripts]
-chemtools             = "chemtools.mcp.nwchem:main"
-chemtools-nwchem      = "chemtools.mcp.nwchem:main_legacy_nwchem"
+chemtools             = "chemtools.mcp.cli:main"
+chemtools-nwchem      = "chemtools.mcp.cli:main_legacy_nwchem"
 chemtools-nwchem-docs = "chemtools.mcp.nwchem_docs:main"
 
 [tool.setuptools.packages.find]

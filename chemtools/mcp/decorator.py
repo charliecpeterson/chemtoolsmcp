@@ -39,6 +39,10 @@ LOG_PATH = os.environ.get("CHEMTOOLS_MCP_LOG")
 # through main() still gets a consistent answer (only pure tools visible).
 ACTIVE_MODE: str = "analysis"
 
+# Active program filter — None means "no filter, all programs visible".
+# Otherwise it's a set of program tag strings (e.g. {"nwchem", "molcas"}).
+ACTIVE_PROGRAMS: set[str] | None = None
+
 
 # Per-tool state. Decorator below populates these dicts.
 _TOOL_REGISTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
@@ -109,6 +113,12 @@ def set_active_mode(mode: str) -> None:
     ACTIVE_MODE = mode
 
 
+def set_active_programs(programs: set[str] | None) -> None:
+    """Set the active program filter from a CLI entry point."""
+    global ACTIVE_PROGRAMS
+    ACTIVE_PROGRAMS = programs
+
+
 __all__ = [
     "SERVER_NAME",
     "SERVER_VERSION",
@@ -116,9 +126,12 @@ __all__ = [
     "TRANSPORT_MODE",
     "LOG_PATH",
     "ACTIVE_MODE",
+    "ACTIVE_PROGRAMS",
     "set_active_mode",
+    "set_active_programs",
     "_TOOL_REGISTRY",
     "_TOOL_CAPABILITIES",
+    "_TOOL_PROGRAMS",
     "_VALID_CAPABILITIES",
     "_tool",
     "log_event",

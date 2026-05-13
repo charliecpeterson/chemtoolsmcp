@@ -1,10 +1,16 @@
 """Per-program MCP tool registration modules.
 
-Each program's tool definitions and @_tool handlers live in
-`chemtools.mcp.tools.<program>`. Importing one of these modules causes
+Each program's tool definitions and ``@_tool`` handlers live in
+``chemtools.mcp.tools.<program>``. Importing one of these modules causes
 its handlers to register with the shared registry in
-`chemtools.mcp.decorator._TOOL_REGISTRY`.
+``chemtools.mcp.decorator._TOOL_REGISTRY``.
 
-Per-program CLI entry points (chemtools-<program>) import only their
-own tool module so the tool list is scoped to one program.
+This package eagerly imports every program module + the generic module so
+``@_tool`` registrations are guaranteed to have run before
+``chemtools.mcp.dispatch.tool_definitions()`` is first called.
 """
+from chemtools.mcp.tools import generic   # noqa: F401
+from chemtools.mcp.tools import nwchem    # noqa: F401
+from chemtools.mcp.tools import molcas    # noqa: F401
+from chemtools.mcp.tools import dirac     # noqa: F401
+from chemtools.mcp.tools import grasp     # noqa: F401
