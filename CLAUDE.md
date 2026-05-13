@@ -29,6 +29,7 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
       nwchem.py      NWChem tool definitions + handlers (~92 tools)
       molcas.py      Molcas tool definitions + handlers (40 tools)
       dirac.py       DIRAC tool definitions + handlers (34 tools)
+      grasp.py       GRASP2018 tool definitions + handlers (26 tools)
     # Future: molpro.py, orca.py
 
 test_phase1/         Test suite (Phases 2–6 + parser tests; gitignored)
@@ -40,7 +41,7 @@ test_phase1/         Test suite (Phases 2–6 + parser tests; gitignored)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 207 (92 NWChem + 40 Molcas + 34 DIRAC + 41 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
+- Current tool count: 233 (92 NWChem + 40 Molcas + 34 DIRAC + 26 GRASP + 41 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)
@@ -161,6 +162,37 @@ Plugin layout (`chemtools/programs/dirac/`):
 - `runtime.py` — pam-dirac launch helper
 - `strategy/` — open-shell quality analysis, Cm-class workflow routing
 - `_plugin_parser.py`, `_plugin_binary.py` — sub-protocol implementations
+
+### GRASP2018 tools (26)
+
+GRASP is structurally different from NWChem/Molcas/DIRAC: ~50 small executables run sequentially, each prompted via stdin (no input file). Tools wrap individual executables, plan workflows, and parse the `name.{w,c,m,sum,lsj.lbl}` files produced by `rsave`.
+
+| Category | Tools |
+|----------|-------|
+| Per-exe runners (executable cap) | `run_grasp_rnucleus`, `run_grasp_rcsfgenerate`, `run_grasp_rangular`, `run_grasp_rwfnestimate`, `run_grasp_rmcdhf`, `run_grasp_rsave`, `run_grasp_jj2lsj`, `run_grasp_rlevels`, `run_grasp_hf`, `run_grasp_rwfnmchfmcdf`, `run_grasp_rci`, `run_grasp_exe` (escape hatch) |
+| Workflow planners (any mode) | `plan_grasp_dhf_workflow`, `plan_grasp_nonrel_limit_workflow`, `plan_grasp_restart_from_workflow`, `plan_grasp_hf_bootstrap_workflow` |
+| Workflow runner | `run_grasp_workflow` (executes a plan end-to-end) |
+| Parsers | `parse_grasp_levels`, `summarize_grasp_terms`, `compare_grasp_levels`, `parse_grasp_lsjlbl`, `parse_grasp_sum`, `parse_grasp_rmcdhf_log` |
+| Container + session log | `get_grasp_container`, `read_grasp_session_log`, `append_grasp_session_note` |
+
+Key constraints:
+- **Container path**: resolved via `CHEMTOOLS_GRASP_CONTAINER` env var (default `~/mycontainers/grasp2018.sif`). Run `get_grasp_container` to verify.
+- **Per-run session log**: every `run_grasp_*` call appends a markdown block to `<working_dir>/grasp_session.md` recording the command, stdin, key stdout, and elapsed time — replayable trail.
+- **Block-level selections**: `rmcdhf` prompts for ASF serial numbers per block. Pass one entry per block (e.g. `['1','1-2','1']` for 3 blocks). Mismatched length crashes with "End of file".
+- **High-Z bootstrap**: for Z≥80 atoms (Cf, Bk, Th), `plan_grasp_hf_bootstrap_workflow` adds a non-rel `hf` + `rwfnmchfmcdf` step before `rwfnestimate` because Thomas-Fermi alone diverges.
+- **Non-rel limit**: `plan_grasp_nonrel_limit_workflow` sets c=2000 au, suppressing all relativistic effects — useful for isolating relativistic contributions to a property.
+- **rcsfgenerate output**: writes `rcsf.out`; the runner auto-copies it to `rcsf.inp` via `copy_to_inp=True` so the next step (rangular) finds it.
+
+Plugin layout (`chemtools/programs/grasp/`):
+- `runtime.py` — apptainer wrapper, stdin heredoc execution, session log writer
+- `parse/rlevels.py` — energy-level table (No / Pos / J / Parity / E_au / E_cm-1 / splitting / config) + term grouping + DHF-vs-NR comparison
+- `parse/lsjlbl.py` — LSJ-coupled composition per ASF
+- `parse/sum_file.py` — `name.sum` summary (nucleus, c, grid, subshells, eigenenergies)
+- `parse/rmcdhf_log.py` — SCF iteration trace from rmcdhf stdout
+- `input/heredoc.py` — typed stdin builders for each exe (rnucleus, rcsfgenerate, rangular, rwfnestimate, rmcdhf, jj2lsj, hf, rwfnmchfmcdf, rci)
+- `strategy/workflows.py` — DHF / non-rel / restart-from-w / hf-bootstrap planners
+- `strategy/runner.py` — execute a workflow plan end-to-end with stop-on-failure
+- `data/grasp/docs/` — bundled GRASP2018 manual (12 markdown files, 4 parts)
 
 ## Eval Framework
 
@@ -412,9 +444,9 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` | 190 | No NWChem executable available; post-hoc parsing (NWChem + Molcas + DIRAC), drafting, planning, registry tracking of runs done elsewhere |
-| `local` | 204 | NWChem/Molcas runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
-| `hpc` | 207 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+| `analysis` | 202 | No executable available; post-hoc parsing (NWChem + Molcas + DIRAC + GRASP), drafting, planning, registry tracking of runs done elsewhere |
+| `local` | 230 | NWChem/Molcas/GRASP runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 233 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
 
 ### Selecting a mode
 

@@ -172,9 +172,10 @@ from chemtools.mcp.server import (  # noqa: E402
 )
 from chemtools.mcp import modes as _modes  # noqa: E402
 
-# Eagerly import Molcas tool handlers so their @_tool decorators register
+# Eagerly import Molcas + GRASP tool handlers so their @_tool decorators register
 # with _TOOL_REGISTRY before serve() starts dispatching.
 from chemtools.mcp.tools import molcas as _molcas_tools  # noqa: F401, E402
+from chemtools.mcp.tools import grasp as _grasp_tools  # noqa: F401, E402
 
 # Basis library: bundled inside the package at chemtools/data/nwchem/basis_library/
 # Can be overridden at runtime with CHEMTOOLS_BASIS_LIBRARY env var.
@@ -198,10 +199,12 @@ def tool_definitions() -> list[dict[str, Any]]:
     # (forced by the imports below).
     from chemtools.mcp.tools.molcas import molcas_tool_definitions  # noqa: F401
     from chemtools.mcp.tools.dirac import dirac_tool_definitions  # noqa: F401
+    from chemtools.mcp.tools.grasp import grasp_tool_definitions  # noqa: F401
     return (
         _nwchem_tool_definitions()
         + molcas_tool_definitions()
         + dirac_tool_definitions()
+        + grasp_tool_definitions()
     )
 
 
