@@ -205,6 +205,7 @@ def run_nwchem(
     execute: bool = False,
     write_script: bool = True,
     archive_outputs: bool = True,
+    context_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profiles = load_runner_profiles(profiles_path)
     rendered = render_nwchem_run(
@@ -214,6 +215,7 @@ def run_nwchem(
         job_name=job_name,
         resource_overrides=resource_overrides,
         env_overrides=env_overrides,
+        context_overrides=context_overrides,
     )
     # Pop environment now: it is only needed for subprocess calls, not the response payload.
     env = rendered.pop("environment")
@@ -304,6 +306,7 @@ def render_nwchem_run(
     job_name: str | None = None,
     resource_overrides: dict[str, Any] | None = None,
     env_overrides: dict[str, str] | None = None,
+    context_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     loaded = profiles or load_runner_profiles(profiles_path)
     profile_payload = _resolve_profile(loaded, profile)
@@ -416,6 +419,17 @@ def render_nwchem_run(
             or "nwchem"
         )
         mpi_launch = execution.get("mpi_launch") or profile_payload.get("resources", {}).get("mpi_launch") or ""
+        # Multi-program container placeholders. Different programs put their
+        # apptainer image path in different spots in the profile; resolve here
+        # so script_template can reference {apptainer_sif} / {container_sif}.
+        apptainer_sif = (
+            execution.get("apptainer_sif")
+            or profile_payload.get("apptainer_sif")
+            or ""
+        )
+        container_sif = profile_payload.get("container_sif") or ""
+        pymolcas_command = execution.get("pymolcas_command") or "pymolcas"
+        pam_dirac_binary = profile_payload.get("pam_dirac_binary") or "pam-dirac"
         account = context.get("account")
         if account:
             if scheduler_type == "slurm":
@@ -435,7 +449,16 @@ def render_nwchem_run(
             "nwchem_executable": nwchem_executable,
             "mpi_launch": mpi_launch,
             "account_line": account_line,
+            "apptainer_sif": apptainer_sif,
+            "container_sif": container_sif,
+            "pymolcas_command": pymolcas_command,
+            "pam_dirac_binary": pam_dirac_binary,
+            # Default mol_file to empty; DIRAC callers override via context_overrides.
+            "mol_file": "",
         })
+        # Caller-supplied overrides win (e.g. DIRAC passing mol_file).
+        if context_overrides:
+            scheduler_context.update(context_overrides)
         script_text = _format_template(scheduler.get("script_template", ""), scheduler_context)
         submit_script_name = _format_template(
             scheduler.get("submit_script_name", "{job_name}.submit"),

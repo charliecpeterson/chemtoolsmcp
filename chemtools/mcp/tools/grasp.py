@@ -71,6 +71,12 @@ from chemtools.programs.grasp.strategy.diagnose import (
     analyze_grasp_case as _analyze_grasp_case,
     suggest_grasp_recovery as _suggest_grasp_recovery,
 )
+from chemtools.programs.grasp.scheduler import (
+    launch_grasp_workflow_run as _launch_grasp_workflow_run,
+    get_grasp_run_status as _get_grasp_run_status,
+    watch_grasp_run as _watch_grasp_run,
+    terminate_grasp_run as _terminate_grasp_run,
+)
 
 
 def grasp_tool_definitions() -> list[dict[str, Any]]:
@@ -443,6 +449,67 @@ def _handle_append_note(arguments: dict[str, Any]) -> dict[str, Any]:
         arguments["working_dir"],
         arguments["note"],
         title=arguments.get("title"),
+    )
+
+
+# =============================================================================
+# Scheduler runner handlers (HPC / local)
+# =============================================================================
+
+@_tool("launch_grasp_workflow_run", needs="executable", program="grasp")
+def _handle_launch_grasp_workflow_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _launch_grasp_workflow_run(
+        workflow_script_path=arguments["workflow_script_path"],
+        profile=arguments["profile"],
+        profiles_path=arguments.get("profiles_path"),
+        job_name=arguments.get("job_name"),
+        resource_overrides=arguments.get("resource_overrides"),
+        env_overrides=arguments.get("env_overrides"),
+        write_script=arguments.get("write_script", True),
+        dry_run=arguments.get("dry_run", False),
+    )
+
+
+@_tool("get_grasp_run_status", needs="executable", program="grasp")
+def _handle_get_grasp_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _get_grasp_run_status(
+        output_path=arguments.get("output_file"),
+        input_path=arguments.get("input_file"),
+        error_path=arguments.get("error_file"),
+        process_id=arguments.get("process_id"),
+        profile=arguments.get("profile"),
+        job_id=arguments.get("job_id"),
+        profiles_path=arguments.get("profiles_path"),
+    )
+
+
+@_tool("watch_grasp_run", needs="executable", program="grasp")
+def _handle_watch_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _watch_grasp_run(
+        output_path=arguments.get("output_file"),
+        input_path=arguments.get("input_file"),
+        error_path=arguments.get("error_file"),
+        process_id=arguments.get("process_id"),
+        profile=arguments.get("profile"),
+        job_id=arguments.get("job_id"),
+        profiles_path=arguments.get("profiles_path"),
+        poll_interval_seconds=arguments.get("poll_interval_seconds", 10.0),
+        adaptive_polling=arguments.get("adaptive_polling", True),
+        max_poll_interval_seconds=arguments.get("max_poll_interval_seconds", 60.0),
+        timeout_seconds=arguments.get("timeout_seconds", 3600.0),
+        max_polls=arguments.get("max_polls"),
+        history_limit=arguments.get("history_limit", 8),
+    )
+
+
+@_tool("terminate_grasp_run", needs="executable", program="grasp")
+def _handle_terminate_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    import os
+    profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
+    return _terminate_grasp_run(
+        job_id=arguments["job_id"],
+        profile=arguments["profile"],
+        profiles_path=profiles_path,
     )
 
 
@@ -1061,6 +1128,96 @@ _DEFS: list[dict[str, Any]] = [
                 "title": {"type": "string"},
             },
             "required": ["working_dir", "note"],
+        },
+    },
+    # ----- Scheduler runner tools (HPC / local) -----
+    {
+        "name": "launch_grasp_workflow_run",
+        "description": (
+            "Submit a GRASP workflow shell script to the scheduler defined by a runner "
+            "profile. The script is the file the profile's script_template invokes via "
+            "`bash {input_file}` and typically chains rnucleus -> rcsfgenerate -> ... -> "
+            "rlevels in one apptainer-wrapped pass. Generate the script via "
+            "plan_grasp_dhf_workflow + the heredoc input builders before calling this. "
+            "Set dry_run=true to preview."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workflow_script_path": {"type": "string", "description": "Path to the GRASP workflow shell script."},
+                "profile": {"type": "string"},
+                "profiles_path": {"type": "string"},
+                "job_name": {"type": "string"},
+                "resource_overrides": {"type": "object"},
+                "env_overrides": {"type": "object"},
+                "write_script": {"type": "boolean", "default": True},
+                "dry_run": {"type": "boolean", "default": False},
+            },
+            "required": ["workflow_script_path", "profile"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_grasp_run_status",
+        "description": (
+            "Check the status of a GRASP run. For HPC jobs the scheduler job ID is "
+            "auto-detected from {job_name}.jobid alongside the workflow script."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "output_file": {"type": "string"},
+                "input_file": {"type": "string"},
+                "error_file": {"type": "string"},
+                "process_id": {"type": "integer"},
+                "profile": {"type": "string"},
+                "job_id": {"type": "string"},
+                "profiles_path": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "watch_grasp_run",
+        "description": (
+            "Poll GRASP status until terminal state or timeout. For HPC jobs omit "
+            "timeout_seconds to block until scheduler completion."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "output_file": {"type": "string"},
+                "input_file": {"type": "string"},
+                "error_file": {"type": "string"},
+                "process_id": {"type": "integer"},
+                "profile": {"type": "string"},
+                "job_id": {"type": "string"},
+                "profiles_path": {"type": "string"},
+                "poll_interval_seconds": {"type": "number", "default": 10.0},
+                "adaptive_polling": {"type": "boolean", "default": True},
+                "max_poll_interval_seconds": {"type": "number", "default": 60.0},
+                "timeout_seconds": {"type": ["number", "null"], "default": 3600.0},
+                "max_polls": {"type": "integer"},
+                "history_limit": {"type": "integer", "default": 8},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "terminate_grasp_run",
+        "description": (
+            "Cancel a running GRASP scheduler job. Provide job_id + profile "
+            "(profile resolves the scancel/qdel/bkill command)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string"},
+                "profile": {"type": "string"},
+                "profiles_path": {"type": "string"},
+            },
+            "required": ["job_id", "profile"],
+            "additionalProperties": False,
         },
     },
 ]
