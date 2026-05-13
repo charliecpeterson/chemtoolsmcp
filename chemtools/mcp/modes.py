@@ -228,8 +228,16 @@ def _profile_launcher_kinds(path: str) -> set[str] | None:
     if not isinstance(payload, dict):
         return None
 
+    # Profile schema nests entries under `profiles:` (see
+    # runner_profiles.example.json + runner.load_runner_profiles). Older
+    # ad-hoc files may put profiles at the top level, so try both shapes.
+    if isinstance(payload.get("profiles"), dict):
+        profile_map = payload["profiles"]
+    else:
+        profile_map = payload
+
     kinds: set[str] = set()
-    for key, profile in payload.items():
+    for key, profile in profile_map.items():
         if key.startswith("__") or not isinstance(profile, dict):
             continue
         launcher = profile.get("launcher")
