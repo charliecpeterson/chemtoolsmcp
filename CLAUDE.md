@@ -26,11 +26,12 @@ chemtools/           Core Python library — all parsing, analysis, and input ge
     nwchem.py        NWChem entry point — multi-program MCP server (NWChem + Molcas tools)
     nwchem_docs.py   Standalone docs server (backward-compat; docs tools now in nwchem.py)
     tools/
-      nwchem.py      NWChem tool definitions + handlers (114 tools)
+      nwchem.py      NWChem tool definitions + handlers (~92 tools)
       molcas.py      Molcas tool definitions + handlers (40 tools)
+      dirac.py       DIRAC tool definitions + handlers (34 tools)
     # Future: molpro.py, orca.py
 
-test_phase1/         Test suite (Phases 2–6, 244 tests)
+test_phase1/         Test suite (Phases 2–6 + parser tests; gitignored)
 ```
 
 ## MCP Tool Architecture
@@ -39,7 +40,7 @@ test_phase1/         Test suite (Phases 2–6, 244 tests)
 - Public API re-exported from `chemtools/api.py` → `chemtools/__init__.py`
 - MCP handlers in `chemtools/mcp/nwchem.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_nwchem_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute}
-- Current tool count: 202 (97 NWChem + 40 Molcas + 29 DIRAC + 36 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
+- Current tool count: 207 (92 NWChem + 40 Molcas + 34 DIRAC + 41 generic — generics auto-dispatch via `registry.resolve()` and serve any program; includes `get_server_mode`)
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### Tool categories (108 tools)
@@ -124,6 +125,60 @@ Plugin layout (`chemtools/programs/molcas/`):
 - `docs.py` — bundled docs accessor
 - `runtime.py` — launch-helper (`prepare_launch` returns safe pymolcas command + env, with CASPT2 -np guard rail and scratch isolation)
 - `_plugin_parser.py`, `_plugin_binary.py`, `_plugin_drafter.py` — sub-protocol implementations
+
+### DIRAC tools (34)
+
+| Category | Tools |
+|----------|-------|
+| Atomic SCF input | `prepare_dirac_atomic_start`, `prepare_dirac_core_ionization`, `prepare_dirac_cm_class_workflow`, `prepare_dirac_x2c_bootstrap` |
+| Molecular input | `prepare_dirac_molecular_scf`, `draft_dirac_input`, `draft_dirac_mol`, `draft_initial_geometry` |
+| Output parsing | `parse_dirac_output`, `parse_dirac_vecpop`, `parse_dirac_hessian`, `parse_dirac_spinor_spectrum`, `parse_dirac_cosci_energies` |
+| HDF5 / binary | `read_dirac_orbitals`, `read_dirac_mo_coefficients`, `read_dirac_h5_geometry`, `read_dirac_h5_metadata` |
+| Frequency | `compute_dirac_harmonic_frequencies` |
+| Reorder / geometry | `draft_dirac_reorder_block`, `apply_dirac_reorder_to_input` |
+| Analysis | `analyze_dirac_open_shell_quality`, `summarize_dirac_run` |
+| Basis | `list_dirac_basis_sets`, `suggest_dirac_basis` |
+| Documentation | `get_dirac_topic_guide`, `search_dirac_docs`, `read_dirac_doc_excerpt`, `lookup_dirac_section` |
+| Strategy | `suggest_relativistic_correction` |
+
+Key constraints:
+- **4c is the default Hamiltonian** — `use_x2c=False` everywhere. X2C has a convergence pathology in DIRAC 25 + dyall.2zp for Z≥96 (oscillates at a wrong fixed-point, not user-tunable).
+- **4c→X2C bootstrap does NOT work** — 4c CHECKPOINT.h5 is incompatible with X2C orbital space; DIRAC silently ignores it.
+- **Cm (Z=96)+ direct AOC fails in DIRAC 25** — use Pu as the surrogate reference (`prepare_dirac_cm_class_workflow`).
+- **`--outcmo` fails for 4c** — use `--get="CHECKPOINT.h5"` to retrieve checkpoints from 4c runs.
+- **Diffuse basis families (av*, acv*, aae*) exclude f-block elements** — `suggest_dirac_basis` handles this automatically.
+
+Plugin layout (`chemtools/programs/dirac/`):
+- `parse/output.py` — SCF iteration trace, total energy, spinor eigenvalue spectrum, MULPOP detail, COSCI state table
+- `parse/vecpop.py` — per-spinor population analysis
+- `parse/inp.py` — DIRAC `.inp` file parser
+- `parse/mol.py` — DIRAC `.mol` geometry file parser
+- `binary/` — HDF5 checkpoint reader (geometry, MO coefficients, metadata)
+- `input/atomic_start.py` — AOC atomic SCF input + KPSELE block builder (4c default)
+- `input/core_ionization.py` — core-IP input builder
+- `basis.py` — Dyall basis catalog (25 families, element coverage, f-block diffuse caveat)
+- `docs.py` — bundled DIRAC docs accessor
+- `runtime.py` — pam-dirac launch helper
+- `strategy/` — open-shell quality analysis, Cm-class workflow routing
+- `_plugin_parser.py`, `_plugin_binary.py` — sub-protocol implementations
+
+## Eval Framework
+
+`chemtools/core/eval.py` — NWChem-specific case evaluation.
+
+A **case** is a directory with a `case.json` (or `*.case.json`) file that specifies input/output files and `eval_expectations` (expected `diagnosis_failure_class`, `diagnosis_stage`, `recommended_next_action`, `workflow`, `can_auto_prepare`). The evaluator calls `diagnose_output` + `prepare_nwchem_next_step` and checks actual vs. expected.
+
+```
+nwchem-test/train/          Reference cases (4 currently)
+  h2o2_imaginary_freq/      Imaginary torsion mode saddle-point case
+  standard/cu-opt.case.json Cu geometry optimization
+  failed/                   Generic SCF failure
+  cmcc3h2_s/                Closed-shell organic
+```
+
+MCP tools: `evaluate_nwchem_case(case_path)` and `evaluate_nwchem_cases(path)` (batch).
+
+**Limitations**: The eval framework is NWChem-only — there are no Molcas or DIRAC case files yet. The `evaluate_case` function directly calls NWChem-specific diagnosis functions and cannot be re-used for other programs.
 
 ## How to Add a New Tool
 
@@ -357,9 +412,9 @@ HPC user submitting to a scheduler — without the agent ever seeing tools it ca
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` | 156 | No NWChem executable available; post-hoc parsing (NWChem + Molcas), drafting (incl. Molcas inputs), planning, registry tracking of runs done elsewhere |
-| `local` | 170 | NWChem runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
-| `hpc` | 173 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
+| `analysis` | 190 | No NWChem executable available; post-hoc parsing (NWChem + Molcas + DIRAC), drafting, planning, registry tracking of runs done elsewhere |
+| `local` | 204 | NWChem/Molcas runs as a subprocess on this machine (profile with `launcher.kind: "direct"`) |
+| `hpc` | 207 | NWChem submitted to a scheduler (profile with `launcher.kind: "scheduler"`) |
 
 ### Selecting a mode
 

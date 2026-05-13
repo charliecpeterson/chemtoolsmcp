@@ -29,7 +29,34 @@ def load_case(path: str) -> dict[str, Any]:
 
 
 def evaluate_case(path: str) -> dict[str, Any]:
+    """Evaluate a single case file, dispatching by the 'program' field."""
     case = load_case(path)
+    program = case.get("program", "nwchem").lower()
+    if program == "molcas":
+        return _evaluate_molcas_case(case)
+    if program == "dirac":
+        return _evaluate_dirac_case(case)
+    # Default: NWChem evaluator
+    return _evaluate_nwchem_case(case)
+
+
+def evaluate_cases(path: str) -> dict[str, Any]:
+    case_files = discover_case_files(path)
+    results = [evaluate_case(case_file) for case_file in case_files]
+    return {
+        "root": str(Path(path).resolve()),
+        "case_count": len(results),
+        "passed_case_count": sum(1 for result in results if result["passed"]),
+        "failed_case_count": sum(1 for result in results if not result["passed"]),
+        "results": results,
+    }
+
+
+# ---------------------------------------------------------------------------
+# NWChem evaluator (original)
+# ---------------------------------------------------------------------------
+
+def _evaluate_nwchem_case(case: dict[str, Any]) -> dict[str, Any]:
     case_dir = Path(case["__case_dir__"])
     files = case["files"]
     input_path = _resolve_case_file(case_dir, files.get("primary_input"), required=False)
@@ -40,36 +67,21 @@ def evaluate_case(path: str) -> dict[str, Any]:
     expectations = case.get("eval_expectations") or {}
 
     checks = [
-        _make_check(
-            "diagnosis_failure_class",
-            expectations.get("diagnosis_failure_class"),
-            diagnosis["failure_class"],
-        ),
-        _make_check(
-            "diagnosis_stage",
-            expectations.get("diagnosis_stage"),
-            diagnosis["stage"],
-        ),
-        _make_check(
-            "recommended_next_action",
-            expectations.get("recommended_next_action"),
-            diagnosis["recommended_next_action"],
-        ),
-        _make_check(
-            "workflow",
-            expectations.get("workflow"),
-            workflow["selected_workflow"],
-        ),
-        _make_check(
-            "can_auto_prepare",
-            expectations.get("can_auto_prepare"),
-            workflow["can_auto_prepare"],
-        ),
+        _make_check("diagnosis_failure_class",
+                    expectations.get("diagnosis_failure_class"), diagnosis["failure_class"]),
+        _make_check("diagnosis_stage",
+                    expectations.get("diagnosis_stage"), diagnosis["stage"]),
+        _make_check("recommended_next_action",
+                    expectations.get("recommended_next_action"), diagnosis["recommended_next_action"]),
+        _make_check("workflow",
+                    expectations.get("workflow"), workflow["selected_workflow"]),
+        _make_check("can_auto_prepare",
+                    expectations.get("can_auto_prepare"), workflow["can_auto_prepare"]),
     ]
 
-    active_checks = [check for check in checks if check["expected"] is not None]
-    passed_checks = [check for check in active_checks if check["passed"]]
-    failed_checks = [check for check in active_checks if not check["passed"]]
+    active_checks = [c for c in checks if c["expected"] is not None]
+    passed_checks = [c for c in active_checks if c["passed"]]
+    failed_checks = [c for c in active_checks if not c["passed"]]
 
     return {
         "case_id": case["case_id"],
@@ -97,17 +109,176 @@ def evaluate_case(path: str) -> dict[str, Any]:
     }
 
 
-def evaluate_cases(path: str) -> dict[str, Any]:
-    case_files = discover_case_files(path)
-    results = [evaluate_case(case_file) for case_file in case_files]
+# ---------------------------------------------------------------------------
+# Molcas evaluator
+# ---------------------------------------------------------------------------
+# Molcas eval_expectations fields:
+#   primary_energy_au        — float: check abs(actual - expected) < tolerance
+#   primary_energy_tolerance — float: tolerance in Ha (default 1e-4)
+#   modules_run              — list[str]: modules that must appear in tasks_overview
+#   verdict                  — str: 'healthy'|'caution'|'problematic' from analyze_molcas_case
+#   converged                — bool: whether the primary run converged
+
+def _evaluate_molcas_case(case: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.molcas.parse.output import parse_output_full
+
+    case_dir = Path(case["__case_dir__"])
+    files = case["files"]
+    output_path = _resolve_case_file(case_dir, files["primary_output"], required=True)
+    expectations = case.get("eval_expectations") or {}
+
+    contents = Path(output_path).read_text(encoding="utf-8", errors="replace")
+    parsed = parse_output_full(output_path, contents)
+    energy_summary = parsed.get("energy_summary") or {}
+    tasks_overview = parsed.get("tasks_overview") or []
+    actual_modules = [t.get("extra", {}).get("module", "") for t in tasks_overview]
+    primary_energy = energy_summary.get("primary_energy_hartree")
+
+    checks: list[dict[str, Any]] = []
+
+    # Energy check (approximate)
+    if expectations.get("primary_energy_au") is not None:
+        tol = expectations.get("primary_energy_tolerance", 1e-4)
+        exp_e = float(expectations["primary_energy_au"])
+        actual_e = primary_energy
+        if actual_e is None:
+            passed = False
+        else:
+            passed = abs(actual_e - exp_e) < tol
+        checks.append({
+            "name": "primary_energy_au",
+            "expected": exp_e,
+            "actual": actual_e,
+            "passed": passed,
+            "tolerance": tol,
+        })
+
+    # Modules check
+    if expectations.get("modules_run"):
+        for mod in expectations["modules_run"]:
+            present = any(mod.upper() in m.upper() for m in actual_modules)
+            checks.append(_make_check(f"module_{mod}", True, present))
+
+    # Converged check (primary energy is not None as proxy)
+    if expectations.get("converged") is not None:
+        actual_converged = primary_energy is not None
+        checks.append(_make_check("converged", expectations["converged"], actual_converged))
+
+    # Verdict check (requires analyze_molcas_case)
+    if expectations.get("verdict"):
+        try:
+            from chemtools.programs.molcas.strategy.orchestrators import analyze_molcas_case
+            analysis = analyze_molcas_case(output_file=output_path)
+            actual_verdict = analysis.get("verdict")
+        except Exception:
+            actual_verdict = None
+        checks.append(_make_check("verdict", expectations["verdict"], actual_verdict))
+
+    active_checks = [c for c in checks if c.get("expected") is not None]
+    passed_checks = [c for c in active_checks if c["passed"]]
+    failed_checks = [c for c in active_checks if not c["passed"]]
+
     return {
-        "root": str(Path(path).resolve()),
-        "case_count": len(results),
-        "passed_case_count": sum(1 for result in results if result["passed"]),
-        "failed_case_count": sum(1 for result in results if not result["passed"]),
-        "results": results,
+        "case_id": case["case_id"],
+        "case_path": case["__case_path__"],
+        "program": "molcas",
+        "summary": case["summary"],
+        "input_file": None,
+        "output_file": output_path,
+        "check_count": len(active_checks),
+        "pass_count": len(passed_checks),
+        "fail_count": len(failed_checks),
+        "passed": not failed_checks,
+        "checks": active_checks,
+        "parsed": {
+            "primary_energy_hartree": primary_energy,
+            "primary_label": energy_summary.get("primary_label"),
+            "modules_run": actual_modules,
+        },
     }
 
+
+# ---------------------------------------------------------------------------
+# DIRAC evaluator
+# ---------------------------------------------------------------------------
+# DIRAC eval_expectations fields:
+#   scf_energy_au            — float: expected SCF total energy (abs match within tolerance)
+#   scf_energy_tolerance     — float: tolerance in Ha (default 1e-4)
+#   converged                — bool: whether SCF converged
+#   n_occupied_spinors       — int: expected occupied spinor count
+#   n_cosci_states           — int: expected number of COSCI states
+
+def _evaluate_dirac_case(case: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.dirac.parse.output import parse_output
+
+    case_dir = Path(case["__case_dir__"])
+    files = case["files"]
+    output_path = _resolve_case_file(case_dir, files["primary_output"], required=True)
+    expectations = case.get("eval_expectations") or {}
+
+    contents = Path(output_path).read_text(encoding="utf-8", errors="replace")
+    parsed = parse_output(output_path, contents)
+    actual_energy = parsed.get("total_energy_hartree")
+    actual_n_occ = parsed.get("n_occupied_spinors")
+    cosci = parsed.get("cosci")
+
+    checks: list[dict[str, Any]] = []
+
+    # SCF energy check
+    if expectations.get("scf_energy_au") is not None:
+        tol = expectations.get("scf_energy_tolerance", 1e-4)
+        exp_e = float(expectations["scf_energy_au"])
+        passed = (actual_energy is not None and abs(actual_energy - exp_e) < tol)
+        checks.append({
+            "name": "scf_energy_au",
+            "expected": exp_e,
+            "actual": actual_energy,
+            "passed": passed,
+            "tolerance": tol,
+        })
+
+    # Converged check (energy present as proxy)
+    if expectations.get("converged") is not None:
+        checks.append(_make_check("converged", expectations["converged"], actual_energy is not None))
+
+    # Occupied spinor count
+    if expectations.get("n_occupied_spinors") is not None:
+        checks.append(_make_check("n_occupied_spinors",
+                                  expectations["n_occupied_spinors"], actual_n_occ))
+
+    # COSCI state count
+    if expectations.get("n_cosci_states") is not None:
+        actual_n_cosci = cosci["n_states"] if cosci else 0
+        checks.append(_make_check("n_cosci_states",
+                                  expectations["n_cosci_states"], actual_n_cosci))
+
+    active_checks = [c for c in checks if c.get("expected") is not None]
+    passed_checks = [c for c in active_checks if c["passed"]]
+    failed_checks = [c for c in active_checks if not c["passed"]]
+
+    return {
+        "case_id": case["case_id"],
+        "case_path": case["__case_path__"],
+        "program": "dirac",
+        "summary": case["summary"],
+        "input_file": None,
+        "output_file": output_path,
+        "check_count": len(active_checks),
+        "pass_count": len(passed_checks),
+        "fail_count": len(failed_checks),
+        "passed": not failed_checks,
+        "checks": active_checks,
+        "parsed": {
+            "scf_energy_hartree": actual_energy,
+            "n_occupied_spinors": actual_n_occ,
+            "n_cosci_states": cosci["n_states"] if cosci else None,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def _resolve_case_file(case_dir: Path, relative_path: str | None, required: bool) -> str | None:
     if not relative_path:
