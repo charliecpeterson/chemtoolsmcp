@@ -36,6 +36,8 @@ def evaluate_case(path: str) -> dict[str, Any]:
         return _evaluate_molcas_case(case)
     if program == "dirac":
         return _evaluate_dirac_case(case)
+    if program == "grasp":
+        return _evaluate_grasp_case(case)
     # Default: NWChem evaluator
     return _evaluate_nwchem_case(case)
 
@@ -272,6 +274,114 @@ def _evaluate_dirac_case(case: dict[str, Any]) -> dict[str, Any]:
             "scf_energy_hartree": actual_energy,
             "n_occupied_spinors": actual_n_occ,
             "n_cosci_states": cosci["n_states"] if cosci else None,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# GRASP evaluator
+# ---------------------------------------------------------------------------
+# GRASP eval_expectations fields:
+#   ground_energy_au         — float: expected ground-state energy (abs match)
+#   ground_energy_tolerance  — float: tolerance in Ha (default 1e-4)
+#   speed_of_light_au        — float: expected c (137.036 default, 2000+ = non-rel)
+#   speed_of_light_tolerance — float: tolerance (default 0.1)
+#   is_nonrel_limit          — bool: whether this is a non-rel-limit run
+#   n_subshells              — int: number of relativistic subshells
+#   n_levels                 — int: levels in rlevels output (if file_kind=rlevels)
+#   atomic_number            — float: Z
+#   file_kind                — str: 'rmcdhf_summary' | 'rlevels' | 'lsj_label'
+
+def _evaluate_grasp_case(case: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.grasp._plugin_parser import GRASP_PARSER
+
+    case_dir = Path(case["__case_dir__"])
+    files = case["files"]
+    output_path = _resolve_case_file(case_dir, files["primary_output"], required=True)
+    expectations = case.get("eval_expectations") or {}
+
+    parsed_run = GRASP_PARSER.parse_output(output_path)
+    derived = parsed_run.get("derived", {})
+    file_kind = derived.get("grasp:file_kind")
+
+    checks: list[dict[str, Any]] = []
+
+    # Ground-state energy check (works for rmcdhf_summary and rlevels kinds)
+    if expectations.get("ground_energy_au") is not None:
+        tol = expectations.get("ground_energy_tolerance", 1e-4)
+        exp_e = float(expectations["ground_energy_au"])
+        actual_e = derived.get("final_energy_hartree")
+        passed = (actual_e is not None and abs(actual_e - exp_e) < tol)
+        checks.append({
+            "name": "ground_energy_au",
+            "expected": exp_e,
+            "actual": actual_e,
+            "passed": passed,
+            "tolerance": tol,
+        })
+
+    # Speed-of-light check (catches non-rel-limit runs)
+    if expectations.get("speed_of_light_au") is not None:
+        tol = expectations.get("speed_of_light_tolerance", 0.1)
+        exp_c = float(expectations["speed_of_light_au"])
+        actual_c = derived.get("grasp:speed_of_light_au")
+        passed = (actual_c is not None and abs(actual_c - exp_c) < tol)
+        checks.append({
+            "name": "speed_of_light_au",
+            "expected": exp_c,
+            "actual": actual_c,
+            "passed": passed,
+            "tolerance": tol,
+        })
+
+    if expectations.get("is_nonrel_limit") is not None:
+        checks.append(_make_check("is_nonrel_limit",
+                                  expectations["is_nonrel_limit"],
+                                  derived.get("grasp:is_nonrel_limit")))
+
+    if expectations.get("n_subshells") is not None:
+        checks.append(_make_check("n_subshells",
+                                  expectations["n_subshells"],
+                                  derived.get("grasp:n_subshells")))
+
+    if expectations.get("n_levels") is not None:
+        checks.append(_make_check("n_levels",
+                                  expectations["n_levels"],
+                                  derived.get("grasp:n_levels")))
+
+    if expectations.get("atomic_number") is not None:
+        checks.append(_make_check("atomic_number",
+                                  float(expectations["atomic_number"]),
+                                  derived.get("grasp:atomic_number")))
+
+    if expectations.get("file_kind") is not None:
+        checks.append(_make_check("file_kind",
+                                  expectations["file_kind"], file_kind))
+
+    active_checks = [c for c in checks if c.get("expected") is not None]
+    passed_checks = [c for c in active_checks if c["passed"]]
+    failed_checks = [c for c in active_checks if not c["passed"]]
+
+    return {
+        "case_id": case["case_id"],
+        "case_path": case["__case_path__"],
+        "program": "grasp",
+        "summary": case["summary"],
+        "input_file": None,
+        "output_file": output_path,
+        "check_count": len(active_checks),
+        "pass_count": len(passed_checks),
+        "fail_count": len(failed_checks),
+        "passed": not failed_checks,
+        "checks": active_checks,
+        "parsed": {
+            "file_kind": file_kind,
+            "ground_energy_hartree": derived.get("final_energy_hartree"),
+            "speed_of_light_au": derived.get("grasp:speed_of_light_au"),
+            "is_nonrel_limit": derived.get("grasp:is_nonrel_limit"),
+            "n_subshells": derived.get("grasp:n_subshells"),
+            "n_levels": derived.get("grasp:n_levels"),
+            "atomic_number": derived.get("grasp:atomic_number"),
         },
     }
 
