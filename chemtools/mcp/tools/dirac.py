@@ -86,6 +86,14 @@ from chemtools.programs.dirac.parse import (  # noqa: E402
     parse_scf_iterations as _parse_scf_iters,
     parse_symmetry as _parse_symmetry,
 )
+from chemtools.programs.dirac.parse.output import (  # noqa: E402
+    parse_spinor_spectrum as _parse_spinor_spectrum,
+    parse_cosci_energies as _parse_cosci_energies,
+)
+from chemtools.programs.dirac.basis import (  # noqa: E402
+    list_basis_sets as _list_basis_sets,
+    suggest_basis as _suggest_basis,
+)
 from chemtools.programs.dirac.binary import (  # noqa: E402
     read_metadata as _h5_metadata,
     read_geometry as _h5_geometry,
@@ -168,11 +176,15 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "parse_dirac_output",
             "description": (
-                "Single-pass parse of a DIRAC text output. Extracts SCF iteration trace, "
+                "Single-pass parse of a DIRAC text output. Extracts: SCF iteration trace, "
                 "total energy, detected tasks (scf/dft/mp2/cosci/krci/ccsd/response), "
                 "symmetry detection + per-irrep orbital counts, AOC open-shell setup "
                 "(.CLOSED SHELL + .OPEN SHELL blocks), per-symmetry HOMO/LUMO blocks "
-                "from RESOLVE, Mulliken population. Cheap enough to fit in agent context."
+                "from RESOLVE, Mulliken population (per-atom totals + per-spinor detail "
+                "when .VECPOP was active), spinor eigenvalue spectrum (index, energy, "
+                "occupation, j_label, m_j — electronic spinors only, positronic stripped), "
+                "COSCI state energies in eV + cm-1 (when COSCI ran). "
+                "Cheap enough to fit in agent context."
             ),
             "inputSchema": {
                 "type": "object",
@@ -331,6 +343,140 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {"output_file": {"type": "string"}},
                 "required": ["output_file"],
+            },
+        },
+        {
+            "name": "parse_dirac_spinor_spectrum",
+            "description": (
+                "Extract the electronic spinor eigenvalue spectrum from a DIRAC "
+                "output that used .MULPOP + .VECPOP. Returns one entry per "
+                "electronic spinor (positronic spinors > 37500 Ha stripped) with: "
+                "index, energy_hartree, occupation (0 or 1), j_label (s 1/2, "
+                "p 1/2, p 3/2, d 3/2, d 5/2, f 5/2, f 7/2, ...), mj, "
+                "angular_momentum (s/p/d/f/g). "
+                "Useful for identifying valence vs core spinors, checking "
+                "actinide 5f orbital energies, or building correlation windows "
+                "for COSCI / KRCI. "
+                "Use parse_dirac_output for the full parse including this field; "
+                "this tool is for when you only need the spectrum and want to "
+                "avoid loading the full output dict."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "output_file": {"type": "string"},
+                    "occupied_only": {
+                        "type": "boolean", "default": False,
+                        "description": "If True, return only spinors with occupation > 0.5.",
+                    },
+                    "energy_range": {
+                        "type": "array", "items": {"type": "number"},
+                        "description": "[e_min, e_max] in Hartree. Filter spinors to this range.",
+                    },
+                },
+                "required": ["output_file"],
+            },
+        },
+        {
+            "name": "parse_dirac_cosci_energies",
+            "description": (
+                "Extract COSCI state energies from a DIRAC output. "
+                "COSCI (Complete Open-Shell CI) prints a table:\n\n"
+                "    Obtained COSCI states are as follows:\n"
+                "    1    0.000    0.000    1 1 1 1 0 0 ...\n"
+                "    2    0.097  781.4    1 1 1 1 0 0 ...\n\n"
+                "Returns: n_states, states (state index, energy_ev relative to "
+                "ground, energy_cm1 relative to ground, spinor_occupations list), "
+                "ground_energy_hartree (SCF energy before COSCI). "
+                "Returns None / empty if no COSCI output found. "
+                "Typical use: spin-orbit splitting of open-shell actinides and "
+                "p-block radicals."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"output_file": {"type": "string"}},
+                "required": ["output_file"],
+            },
+        },
+        {
+            "name": "list_dirac_basis_sets",
+            "description": (
+                "List Dyall relativistic basis families available in DIRAC 25, "
+                "with optional filtering and a recommendation.\n\n"
+                "Families: dyall.2zp / 3zp / 4zp (DFT, most compact), "
+                "dyall.v2z / v3z / v4z / v5z (valence, correlated), "
+                "dyall.cv2z-cv5z (core-valence, NMR/EFG/core-IP), "
+                "dyall.ae2z-ae5z (all-electron, full-core correlation), "
+                "dyall.av*/acv*/aae* (augmented with diffuse — NOT available "
+                "for lanthanides/actinides).\n\n"
+                "Key rules:\n"
+                "- Actinides (Ac-Lr, Z=89-103): dyall.2zp for AOC/SCF/DFT; "
+                "  dyall.v2z/v3z for correlated (COSCI/KRCI/KR-CCSD); "
+                "  NO diffuse families available.\n"
+                "- Lanthanides (La-Lu): same coverage as actinides.\n"
+                "- d-block: all families including augmented.\n"
+                "- s/p-block: all families including augmented.\n"
+                "Returns families list + recommendation for the given context."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "element": {
+                        "type": "string",
+                        "description": "Element symbol (e.g. 'Cm', 'U', 'Fe'). "
+                                       "If given, marks availability per element and "
+                                       "adds caveats for f-block.",
+                    },
+                    "family_type": {
+                        "type": "string",
+                        "description": "Filter by type: 'valence', 'dft', "
+                                       "'core-valence', 'all-electron'. Prefix match.",
+                    },
+                    "zeta": {
+                        "type": "integer",
+                        "description": "Filter by zeta level (2, 3, 4, 5).",
+                    },
+                    "calc_type": {
+                        "type": "string",
+                        "description": "Filter to families suitable for this "
+                                       "purpose: 'scf', 'dft', 'aoc', 'correlated', "
+                                       "'cc', 'ci', 'core_ip', 'nmr', 'efg', "
+                                       "'anion', 'benchmark'.",
+                    },
+                },
+                "required": [],
+            },
+        },
+        {
+            "name": "suggest_dirac_basis",
+            "description": (
+                "Return a ranked Dyall basis recommendation for an element + "
+                "calculation type. One best pick + alternatives + rationale + "
+                "caveats.\n\n"
+                "Examples:\n"
+                "  element='Cm', calc_type='aoc'         → dyall.2zp\n"
+                "  element='Cm', calc_type='correlated'  → dyall.v2z\n"
+                "  element='U',  calc_type='nmr'         → dyall.cv2z (default zeta)\n"
+                "  element='Fe', calc_type='anion'       → dyall.av2z\n"
+                "  element='La', calc_type='anion'       → dyall.v3z "
+                "(no diffuse for f-block; larger valence instead)\n"
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "element": {"type": "string"},
+                    "calc_type": {
+                        "type": "string",
+                        "description": "Purpose: 'scf', 'dft', 'aoc', 'correlated', "
+                                       "'cc', 'ci', 'cosci', 'krci', 'core_ip', "
+                                       "'nmr', 'efg', 'anion', 'benchmark'.",
+                    },
+                    "zeta": {
+                        "type": "integer",
+                        "description": "Preferred zeta level. If omitted, defaults to 2.",
+                    },
+                },
+                "required": ["element"],
             },
         },
         {
@@ -1000,6 +1146,51 @@ def _handle_parse_dirac_vecpop(arguments: dict[str, Any]) -> dict[str, Any]:
     with open(arguments["output_file"], encoding="utf-8", errors="replace") as f:
         text = f.read()
     return _parse_vecpop(text)
+
+
+@_tool("parse_dirac_spinor_spectrum")
+def _handle_parse_dirac_spinor_spectrum(arguments: dict[str, Any]) -> dict[str, Any]:
+    with open(arguments["output_file"], encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    spectrum = _parse_spinor_spectrum(text)
+    if arguments.get("occupied_only"):
+        spectrum = [s for s in spectrum if (s.get("occupation") or 0) > 0.5]
+    erange = arguments.get("energy_range")
+    if erange and len(erange) == 2:
+        lo, hi = float(erange[0]), float(erange[1])
+        spectrum = [s for s in spectrum if s.get("energy_hartree") is not None
+                    and lo <= s["energy_hartree"] <= hi]
+    return {"spinor_spectrum": spectrum, "n_spinors": len(spectrum)}
+
+
+@_tool("parse_dirac_cosci_energies")
+def _handle_parse_dirac_cosci_energies(arguments: dict[str, Any]) -> dict[str, Any]:
+    with open(arguments["output_file"], encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    result = _parse_cosci_energies(text)
+    if result is None:
+        return {"found": False, "message": "No COSCI state table found in this output."}
+    result["found"] = True
+    return result
+
+
+@_tool("list_dirac_basis_sets")
+def _handle_list_dirac_basis_sets(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _list_basis_sets(
+        element=arguments.get("element"),
+        family_type=arguments.get("family_type"),
+        zeta=int(arguments["zeta"]) if arguments.get("zeta") is not None else None,
+        calc_type=arguments.get("calc_type"),
+    )
+
+
+@_tool("suggest_dirac_basis")
+def _handle_suggest_dirac_basis(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _suggest_basis(
+        element=arguments["element"],
+        calc_type=arguments.get("calc_type", "scf"),
+        zeta=int(arguments["zeta"]) if arguments.get("zeta") is not None else None,
+    )
 
 
 @_tool("analyze_dirac_open_shell_quality")
