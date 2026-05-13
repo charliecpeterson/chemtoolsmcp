@@ -106,6 +106,15 @@ def prepare_launch(
             if not p.exists():
                 warnings.append(f"--copy target staged?: {p}")
 
+    # Container resolution: explicit arg > env var fallback.
+    # Mirrors the GRASP pattern (CHEMTOOLS_GRASP_CONTAINER) so container
+    # paths can be set once via MCP server env without threading them
+    # through every tool call.
+    if not container_sif:
+        env_sif = os.environ.get("CHEMTOOLS_DIRAC_CONTAINER")
+        if env_sif:
+            container_sif = os.path.expanduser(env_sif)
+
     # Build the command
     cmd: list[str] = []
     if container_sif:

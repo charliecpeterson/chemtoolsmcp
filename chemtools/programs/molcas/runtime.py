@@ -36,6 +36,8 @@ The returned dict has keys:
 
 from __future__ import annotations
 
+import os
+
 import re
 import shlex
 from pathlib import Path
@@ -107,7 +109,15 @@ def prepare_launch(
 
     project = job_name or input_path.stem
     pymolcas_cmd = exec_cfg.get("pymolcas_command", "pymolcas")
-    sif = apptainer_sif or exec_cfg.get("apptainer_sif")
+    # Container resolution: explicit arg > profile > env var.
+    # Mirrors the GRASP pattern (CHEMTOOLS_GRASP_CONTAINER).
+    sif = (
+        apptainer_sif
+        or exec_cfg.get("apptainer_sif")
+        or os.environ.get("CHEMTOOLS_MOLCAS_CONTAINER")
+    )
+    if sif:
+        sif = os.path.expanduser(sif)
 
     env: dict[str, str] = {
         "MOLCAS_PROJECT": project,
