@@ -1,8 +1,10 @@
-# NWChem Calculations on TACC Stampede3
+# Quantum Chemistry on TACC Stampede3
 
-This project runs NWChem quantum chemistry calculations on TACC Stampede3
-using the chemtools-nwchem agent toolkit. Jobs are submitted through SLURM;
-you are on a login node.
+This project runs quantum-chemistry calculations on TACC Stampede3 using
+the chemtools agent toolkit. Jobs are submitted through SLURM; you are on
+a login node. NWChem is the fully-wired program with end-to-end MCP
+submission tools; Molcas, DIRAC, and GRASP profiles are defined here for
+render-and-submit-manually workflows (full scheduler integration TBD).
 
 ## Computing environment
 
@@ -11,17 +13,65 @@ you are on a login node.
 | System | TACC Stampede3 |
 | Scheduler | SLURM (`sbatch` / `squeue` / `scancel`) |
 | NWChem | `/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem` |
-| MPI launcher | `ibrun` — TACC's launcher; does **not** take `-n`; reads task count from SLURM |
+| Molcas | apptainer `$WORK/containers/openmolcas-26.02.sif` (stage from local) |
+| DIRAC  | apptainer `$WORK/containers/dirac-25.0.sif` (stage from local) |
+| GRASP  | apptainer `$WORK/containers/grasp2018.sif` (stage from local) |
+| MPI launcher | `ibrun` — TACC's launcher; reads task count from SLURM (NWChem) |
 | Scratch | `$SCRATCH` (Lustre, fast I/O, not backed up) |
 
 ## Runner profiles
 
-| Profile | Partition | Cores/node | RAM/node | Max nodes/job | Max walltime | SU rate | Use for |
+### NWChem (fully wired — `launch_nwchem_run` works end-to-end)
+
+| Profile | Partition | Cores/node | RAM/node | Max nodes | Max walltime | SU rate | Use for |
 |---|---|---|---|---|---|---|---|
-| `stampede3_skx` | `skx` | 48 | 192 GB | 256 | 48 h | 1.0 | Default — best memory/core (4 GB/core), cheapest |
+| `stampede3_skx` | `skx` | 48 | 192 GB | 256 | 48 h | 1.0 | Default — best memory/core, cheapest |
 | `stampede3_skx_dev` | `skx-dev` | 48 | 192 GB | 16 | 2 h | 1.0 | Testing inputs, short runs |
 | `stampede3_icx` | `icx` | 80 | 256 GB | 32 | 48 h | 1.5 | Memory-hungry jobs (large basis, correlated) |
 | `stampede3_spr` | `spr` | 112 | 128 GB HBM | 32 | 48 h | 2.0 | Compute-bound, not memory-bound |
+
+### Molcas (profile only — submit manually via `sbatch` or render+submit)
+
+| Profile | Partition | Cores/node | RAM/node | Max walltime | Use for |
+|---|---|---|---|---|---|
+| `stampede3_molcas_skx` | `skx` | 48 | 192 GB | 24 h | CASSCF / CASPT2 / RASSCF |
+| `stampede3_molcas_skx_dev` | `skx-dev` | 48 | 192 GB | 2 h | Quick CASSCF tests |
+
+Notes:
+- `parallel_caspt2_supported: false` is the safe default — many GA builds
+  break for parallel CASPT2. Set to `true` once verified for your build.
+- Output file extension is `.log` (not `.out`).
+- `MOLCAS_PROJECT` is auto-set to `{job_name}_$SLURM_JOB_ID` to prevent
+  RunHdr cross-run aborts.
+
+### DIRAC (profile only — submit manually via `sbatch`)
+
+| Profile | Partition | Cores/node | RAM/node | Max walltime | Use for |
+|---|---|---|---|---|---|
+| `stampede3_dirac_skx` | `skx` | 48 | 192 GB | 24 h | 4c-DHF, X2C, atomic AOC, core-IP |
+| `stampede3_dirac_icx` | `icx` | 80 | 256 GB | 24 h | Large basis 4c-CCSD, big actinide systems |
+
+Notes:
+- DIRAC reads `container_sif` as a top-level profile field (not nested
+  under `execution.*`).
+- pam-dirac handles its own MPI launch via `--mpi=N` — `ibrun` is NOT used.
+- Default `--mw` and `--nw` set to 256/512 MB depending on partition.
+
+### GRASP (profile only — submit manually via `sbatch`)
+
+| Profile | Partition | Cores/node | RAM/node | Max walltime | Use for |
+|---|---|---|---|---|---|
+| `stampede3_grasp_skx` | `skx` | 48 | 192 GB | 12 h | DHF + jj2lsj + rlevels (full workflow per job) |
+| `stampede3_grasp_skx_dev` | `skx-dev` | 48 | 192 GB | 2 h | Quick atomic tests (Li, Be, C, N) |
+
+Notes:
+- GRASP runs ~50 small exes sequentially. The script_template launches a
+  single bash script containing all the GRASP commands (generated locally
+  via `plan_grasp_dhf_workflow` + the heredoc input builders).
+- `CHEMTOOLS_GRASP_CONTAINER` is exported in the job script env so the
+  GRASP runtime knows which apptainer image to use.
+- Most calculations are serial; use `rmcdhf_mpi` / `rci_mpi` if you need
+  multi-rank parallelism.
 
 ### Partition selection guidance
 
@@ -32,6 +82,21 @@ you are on a login node.
   automatically via `pre_run` hook in the profile.
 
 Use `suggest_nwchem_resources(input_file, profile)` to auto-select optimal resources.
+
+## Staging the containers (one-time, before using Molcas/DIRAC/GRASP profiles)
+
+The profiles point at `$WORK/containers/<image>.sif` as placeholders. Stage
+the apptainer images from your local machine:
+
+```bash
+# From your local workstation:
+scp ~/mycontainers/openmolcas-26.02.sif stampede3:$WORK/containers/
+scp ~/mycontainers/dirac-25.0.sif       stampede3:$WORK/containers/
+scp ~/mycontainers/grasp2018.sif        stampede3:$WORK/containers/
+```
+
+Then edit the profile's `execution.apptainer_sif` (Molcas/GRASP) or
+`container_sif` (DIRAC) to match your TACC path if it differs.
 
 ## Standard workflow (single job)
 

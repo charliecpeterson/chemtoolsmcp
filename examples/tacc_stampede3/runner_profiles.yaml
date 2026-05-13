@@ -146,3 +146,320 @@ profiles:
       pre_run:
         - "export LD_LIBRARY_PATH=$(echo $LD_LIBRARY_PATH | tr ':' '\\n' | grep -v /opt/apps/python | tr '\\n' ':')"
     file_rules: *tacc_file_rules
+
+  # ==========================================================================
+  # Molcas / OpenMolcas profiles
+  #
+  # Stage the apptainer image to TACC first (e.g.
+  # ``scp ~/mycontainers/openmolcas-26.02.sif stampede3:$WORK/containers/``)
+  # then update ``execution.apptainer_sif`` to the on-TACC path.
+  #
+  # The Molcas runtime reads execution.apptainer_sif as the container path
+  # (or falls back to CHEMTOOLS_MOLCAS_CONTAINER env var). It does NOT
+  # currently auto-submit to schedulers — for now, use these profiles with
+  # render_job_script and submit manually. Direct scheduler integration is
+  # a future task.
+  # ==========================================================================
+
+  stampede3_molcas_skx:
+    description: >
+      OpenMolcas on Stampede3 SKX — 48 cores, 192 GB. Default for CASSCF /
+      CASPT2 / RASSCF jobs. Container path is a placeholder — edit
+      execution.apptainer_sif after staging the .sif to $WORK/containers/.
+    launcher: *tacc_launcher
+    scheduler:
+      system: "slurm"
+      script_template: &tacc_molcas_script |
+        #!/bin/bash
+        #SBATCH -J {job_name}
+        #SBATCH -o {output_file}
+        #SBATCH -e {error_file}
+        #SBATCH -p {partition}
+        #SBATCH -N {nodes}
+        #SBATCH -n {mpi_ranks}
+        #SBATCH -t {walltime}
+        {account_line}
+
+        module load tacc-apptainer
+
+        cd {job_dir}
+        export MOLCAS_PROJECT="{job_name}_$SLURM_JOB_ID"
+        export MOLCAS_WORKDIR="$SCRATCH/molcas/$MOLCAS_PROJECT"
+        mkdir -p "$MOLCAS_WORKDIR"
+        export MOLCAS_MEM=8000   # MB per worker — set to (node_memory_mb / mpi_ranks)
+
+        apptainer exec {apptainer_sif} pymolcas -np {mpi_ranks} {input_file}
+      submit_script_name: "{job_name}.job"
+    execution:
+      apptainer_sif: "$WORK/containers/openmolcas-26.02.sif"   # EDIT ME
+      pymolcas_command: "pymolcas"
+      parallel_caspt2_supported: false  # safe default; many GA builds break for parallel CASPT2
+      env: {}
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "skx"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 256
+      max_walltime: "48:00:00"
+      cpu_arch: "skx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules:
+      output_file: "{job_name}.log"      # Molcas uses .log not .out
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  stampede3_molcas_skx_dev:
+    description: >
+      Molcas on Stampede3 SKX dev queue — 2 h max, priority. For
+      quick CASSCF tests before production submission.
+    launcher: *tacc_launcher
+    scheduler:
+      system: "slurm"
+      script_template: *tacc_molcas_script
+      submit_script_name: "{job_name}.job"
+    execution:
+      apptainer_sif: "$WORK/containers/openmolcas-26.02.sif"
+      pymolcas_command: "pymolcas"
+      parallel_caspt2_supported: false
+      env: {}
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "2:00:00"
+      partition: "skx-dev"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 16
+      max_walltime: "2:00:00"
+      cpu_arch: "skx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules:
+      output_file: "{job_name}.log"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  # ==========================================================================
+  # DIRAC profiles
+  #
+  # DIRAC reads container_sif as a top-level profile field (not nested
+  # under execution.*, unlike Molcas). pam-dirac handles its own MPI
+  # launch via --mpi=N, so we DON'T use ibrun.
+  # ==========================================================================
+
+  stampede3_dirac_skx:
+    description: >
+      DIRAC 25 on Stampede3 SKX — 48 cores, 192 GB. Default for 4c-DHF,
+      X2C-MP2, KR-CCSD, and atomic AOC runs. Container path is a
+      placeholder — edit container_sif after staging the .sif.
+    launcher: *tacc_launcher
+    scheduler:
+      system: "slurm"
+      script_template: &tacc_dirac_script |
+        #!/bin/bash
+        #SBATCH -J {job_name}
+        #SBATCH -o {output_file}
+        #SBATCH -e {error_file}
+        #SBATCH -p {partition}
+        #SBATCH -N {nodes}
+        #SBATCH -n {mpi_ranks}
+        #SBATCH -t {walltime}
+        {account_line}
+
+        module load tacc-apptainer
+
+        cd {job_dir}
+        # DIRAC's pam-dirac orchestrates its own MPI launch; we do NOT use ibrun.
+        apptainer exec {container_sif} pam-dirac \
+            --mpi={mpi_ranks} \
+            --inp={input_file} \
+            --mol={mol_file}
+      submit_script_name: "{job_name}.job"
+    container_sif: "$WORK/containers/dirac-25.0.sif"   # EDIT ME — top-level for DIRAC
+    pam_dirac_binary: "pam-dirac"
+    apptainer_binary: "apptainer"
+    default_mpi: 48
+    default_mw: 256
+    default_nw: 256
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "skx"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 256
+      max_walltime: "48:00:00"
+      cpu_arch: "skx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  stampede3_dirac_icx:
+    description: >
+      DIRAC on Stampede3 ICX — 80 cores, 256 GB. Best when you need raw
+      memory per node (large basis 4c-CCSD, big actinide systems).
+    launcher: *tacc_launcher
+    scheduler:
+      system: "slurm"
+      script_template: *tacc_dirac_script
+      submit_script_name: "{job_name}.job"
+    container_sif: "$WORK/containers/dirac-25.0.sif"
+    pam_dirac_binary: "pam-dirac"
+    apptainer_binary: "apptainer"
+    default_mpi: 80
+    default_mw: 512
+    default_nw: 512
+    resources:
+      nodes: 1
+      mpi_ranks: 80
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "icx"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 80
+      node_memory_mb: 256000
+      max_nodes: 32
+      max_walltime: "48:00:00"
+      cpu_arch: "icx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  # ==========================================================================
+  # GRASP2018 profiles
+  #
+  # GRASP is structurally different from the other programs — it's ~50
+  # small executables run sequentially in one workflow. The runtime
+  # reads the container path from the CHEMTOOLS_GRASP_CONTAINER env var
+  # (set in the job script's env block), and the script_template runs
+  # the whole DHF workflow inside a single sbatch.
+  #
+  # Atomic GRASP calculations are typically serial (a few cores at most);
+  # multi-node parallelism via rmcdhf_mpi / rci_mpi is rare. We default to
+  # 1 node, 48 ranks.
+  # ==========================================================================
+
+  stampede3_grasp_skx:
+    description: >
+      GRASP2018 on Stampede3 SKX — 48 cores, 192 GB. The whole DHF
+      workflow (rnucleus → rcsfgenerate → rangular → rwfnestimate →
+      rmcdhf → rsave → jj2lsj → rlevels) runs inside one sbatch via the
+      script_template. Container path is a placeholder.
+    launcher: *tacc_launcher
+    scheduler:
+      system: "slurm"
+      script_template: |
+        #!/bin/bash
+        #SBATCH -J {job_name}
+        #SBATCH -o {output_file}
+        #SBATCH -e {error_file}
+        #SBATCH -p {partition}
+        #SBATCH -N {nodes}
+        #SBATCH -n {mpi_ranks}
+        #SBATCH -t {walltime}
+        {account_line}
+
+        module load tacc-apptainer
+
+        cd {job_dir}
+        export CHEMTOOLS_GRASP_CONTAINER="{apptainer_sif}"
+
+        # GRASP workflow runs as a shell script that calls each exe in turn.
+        # Generate the script via plan_grasp_dhf_workflow + the heredoc
+        # input builders, save it as {job_name}.sh, then this template
+        # executes it. Most atomic runs are serial; rmcdhf_mpi / rci_mpi
+        # are the parallel variants if you need them.
+        bash {input_file}
+      submit_script_name: "{job_name}.job"
+    apptainer_sif: "$WORK/containers/grasp2018.sif"   # EDIT ME
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "12:00:00"
+      partition: "skx"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 256
+      max_walltime: "48:00:00"
+      cpu_arch: "skx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
+
+  stampede3_grasp_skx_dev:
+    description: >
+      GRASP on Stampede3 SKX dev queue — 2 h max. For test atomic SCF
+      runs (Li, Be, light atoms converge in seconds).
+    launcher: *tacc_launcher
+    scheduler:
+      system: "slurm"
+      script_template: |
+        #!/bin/bash
+        #SBATCH -J {job_name}
+        #SBATCH -o {output_file}
+        #SBATCH -e {error_file}
+        #SBATCH -p {partition}
+        #SBATCH -N {nodes}
+        #SBATCH -n {mpi_ranks}
+        #SBATCH -t {walltime}
+        {account_line}
+
+        module load tacc-apptainer
+
+        cd {job_dir}
+        export CHEMTOOLS_GRASP_CONTAINER="{apptainer_sif}"
+        bash {input_file}
+      submit_script_name: "{job_name}.job"
+    apptainer_sif: "$WORK/containers/grasp2018.sif"
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "2:00:00"
+      partition: "skx-dev"
+      account: null
+      account_command: "/usr/local/etc/taccinfo"
+      cores_per_node: 48
+      node_memory_mb: 192000
+      max_nodes: 16
+      max_walltime: "2:00:00"
+      cpu_arch: "skx"
+    modules: *tacc_modules
+    env: {}
+    hooks: *tacc_hooks_default
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"
