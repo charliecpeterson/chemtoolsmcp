@@ -269,6 +269,70 @@ def _auto_err_path(output_path: str) -> str | None:
     return None
 
 
+# NWChem prints the grid-integrated electron density after the SCF. When the XC
+# grid is too coarse it drifts from the true electron count, and the DFT energy
+# carries a grid error of up to several kcal/mol even though the SCF "converged"
+# cleanly. It is the one quality signal a casual reader (or a small model) skips:
+# the number reads as "≈ N" unless you apply a threshold. Common offenders are
+# `grid xcoarse`, diffuse basis sets, and heavy/f-elements.
+INTEGRATED_DENSITY_RE = re.compile(r"Numeric\.\s*integr\.\s*density\s*=\s*([-\d.DEde+]+)")
+GRID_INTEGRATED_DENSITY_RE = re.compile(r"Grid integrated density:\s*([-\d.DEde+]+)")
+N_ELECTRONS_RE = re.compile(r"No\.\s*of electrons\s*:\s*(\d+)")
+XC_GRID_RE = re.compile(r"Grid used for XC integration:\s*(\S+)")
+
+
+def analyze_grid_quality(contents: str) -> dict[str, Any]:
+    """Check DFT XC-grid integration quality from the integrated electron density.
+
+    Compares the grid-integrated density against the true electron count. A
+    deviation beyond a small, size-scaled threshold means the grid is too coarse
+    and the energy is unreliable for thermochemistry, even when the SCF
+    converged. Returns ``{"available": False}`` for non-DFT runs or outputs that
+    don't print the integrated density.
+    """
+    density_matches = INTEGRATED_DENSITY_RE.findall(contents)
+    if not density_matches:
+        density_matches = GRID_INTEGRATED_DENSITY_RE.findall(contents)
+    electron_matches = N_ELECTRONS_RE.findall(contents)
+    if not density_matches or not electron_matches:
+        return {"available": False}
+
+    integrated_density = parse_scientific_float(density_matches[-1])
+    if integrated_density is None:
+        return {"available": False}
+    n_electrons = int(electron_matches[-1])
+    grid_match = XC_GRID_RE.search(contents)
+    grid = grid_match.group(1) if grid_match else None
+
+    deviation = integrated_density - n_electrons
+    # NWChem's default/named grids integrate to <~1e-5 e; xcoarse or an
+    # undersized grid leaks 1e-3 or more. Scale the floor slightly with size so
+    # large systems (where a fine grid legitimately drifts more) don't false-flag.
+    threshold = max(1.0e-3, 5.0e-5 * n_electrons)
+    concern = abs(deviation) > threshold
+
+    message = None
+    if concern:
+        message = (
+            f"Grid-integrated density {integrated_density:.5f} deviates from the "
+            f"electron count {n_electrons} by {deviation:+.5f} e"
+            + (f" (grid '{grid}')" if grid else "")
+            + ". The XC integration grid is too coarse: the DFT energy can carry a "
+            "multi-kcal/mol error even though the SCF converged cleanly. Re-run with "
+            "a finer grid (grid fine or xfine), especially with diffuse basis sets "
+            "or heavy/f-elements."
+        )
+    return {
+        "available": True,
+        "integrated_density": round(integrated_density, 6),
+        "n_electrons": n_electrons,
+        "deviation": round(deviation, 6),
+        "grid": grid,
+        "concern": concern,
+        "message": message,
+    }
+
+
 def diagnose_nwchem_output(
     output_path: str,
     input_path: str | None = None,
@@ -288,6 +352,8 @@ def diagnose_nwchem_output(
     # Analyze the .err file (auto-detect if not provided)
     _err_path = err_file or _auto_err_path(output_path)
     err_analysis = _analyze_err_file(_err_path) if _err_path else {"available": False}
+
+    grid_quality = analyze_grid_quality(contents)
 
     input_summary = inspect_nwchem_input(input_path) if input_path else None
     metals = expected_metal_elements or (input_summary["transition_metals"] if input_summary else [])
@@ -445,6 +511,7 @@ def diagnose_nwchem_output(
         "frequency": freq,
         "trajectory": trajectory,
         "err_analysis": err_analysis,
+        "grid_quality": grid_quality,
     }
 
 
@@ -521,6 +588,16 @@ def summarize_nwchem_output(
         )
     elif scf["status"] != "unknown":
         bullets.append(f"SCF: {scf['status']}")
+
+    grid_quality = diagnosis.get("grid_quality") or {}
+    if grid_quality.get("concern"):
+        bullets.append(
+            "Grid quality: WARNING — integrated density "
+            f"{grid_quality['integrated_density']:.4f} vs {grid_quality['n_electrons']} "
+            f"electrons (off {grid_quality['deviation']:+.4f} e"
+            + (f", grid '{grid_quality['grid']}'" if grid_quality.get("grid") else "")
+            + "); XC grid too coarse, energy unreliable — re-run with grid fine/xfine"
+        )
 
     if frequency is not None:
         freq_text = (
@@ -611,6 +688,7 @@ def summarize_nwchem_output(
             "likely_cause": diagnosis["likely_cause"],
             "recommended_next_action": diagnosis["recommended_next_action"],
             "confidence": diagnosis["confidence"],
+            "grid_quality": grid_quality,
             "summary_bullets": bullets,
             "summary_text": summary_text,
             "diagnosis": diagnosis,
@@ -654,6 +732,7 @@ def summarize_nwchem_output(
         "optimization_step_count": (diagnosis.get("trajectory") or {}).get("step_count"),
         "frequency": freq_for_summary,
         "spin": spin_for_summary,
+        "grid_quality": grid_quality,
         "summary_bullets": bullets,
         "summary_text": summary_text,
         "diagnosis": {
@@ -1440,6 +1519,11 @@ def summarize_electronic_structure(
                     f"expected unpaired ({expected_unpaired})."
                 )
 
+    # XC-grid integration quality
+    grid_quality = analyze_grid_quality(contents)
+    if grid_quality.get("concern"):
+        warnings.append(grid_quality["message"])
+
     return {
         "total_energy_hartree": total_energy,
         "charge": charge,
@@ -1457,6 +1541,9 @@ def summarize_electronic_structure(
         "expected_unpaired_electrons": expected_unpaired,
         "spin_state_consistent": spin_consistent,
         "top_spin_density_sites": top_spin_sites,
+        "integrated_density": grid_quality.get("integrated_density"),
+        "n_electrons": grid_quality.get("n_electrons"),
+        "xc_grid": grid_quality.get("grid"),
         "warnings": warnings,
     }
 
