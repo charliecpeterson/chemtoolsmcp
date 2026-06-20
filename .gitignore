@@ -31,10 +31,10 @@ env/
 .idea/
 *.swp
 
-# Test directories (kept outside repo or in separate location)
+# Scratch test directories (kept outside the repo)
 test_phase1/
-tests/
 test2/
+tests/__pycache__/
 
 # Old monolithic tool script (superseded by chemtools/)
 chemtools_tool.py

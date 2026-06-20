@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 # DIRAC support: reading .h5 checkpoints requires h5py.
 dirac = ["h5py>=3.0"]
+dev = ["pytest"]
 
 [project.urls]
 Repository = "https://github.com/charliecpeterson/chemtoolsmcp"
