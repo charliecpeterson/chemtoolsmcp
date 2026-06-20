@@ -23,6 +23,9 @@ START_RE = re.compile(r"^\s*start\b", re.IGNORECASE)
 END_RE = re.compile(r"^\s*end\s*$", re.IGNORECASE)
 DFT_HDR_RE = re.compile(r"^\s*dft\s*$", re.IGNORECASE)
 VECTORS_OUTPUT_RE = re.compile(r"^\s*vectors\s+output\s+(\S+)", re.IGNORECASE)
+# Any `vectors ... output <file>` line, including the `output` clause inside
+# `vectors input atomic output X` / `vectors input fragment ... output X`.
+VECTORS_ANY_OUTPUT_RE = re.compile(r"^\s*vectors\b.*?\boutput\s+(\S+)", re.IGNORECASE)
 FRAGMENT_VECTORS_RE = re.compile(r"^\s*vectors\s+input\s+fragment\s+(.+)$", re.IGNORECASE)
 DFT_MULT_RE = re.compile(r"^\s*mult\s+(\d+)", re.IGNORECASE)
 CARTESIAN_ATOM_RE = re.compile(r"^\s*([A-Za-z]{1,3})\s+[-+]?\d")
@@ -60,6 +63,32 @@ TRANSITION_METALS = {
 }
 
 
+# Sub-keywords that can follow the file list in a `vectors input` directive.
+# Fragment filenames stop at the first of these (and at an inline `#` comment).
+_VECTORS_SUBKEYWORDS = {"output", "swap", "reorder", "project", "rotate", "lock"}
+
+
+def _split_vectors_fragment_files(rest: str) -> list[str]:
+    """Extract the fragment movecs filenames from the text following
+    ``vectors input fragment``.
+
+    The directive can carry trailing clauses on the same line, e.g.
+    ``... fragment a.mos b.mos output combined.movecs  # comment``. Naively
+    splitting on whitespace swallows the ``output`` keyword, the output
+    filename, and the comment tokens as if they were fragment files. Stop at
+    the first vectors sub-keyword and drop any inline ``#`` comment.
+    """
+    rest = rest.split("#", 1)[0]
+    files: list[str] = []
+    for token in rest.split():
+        if token == "\\":  # stray line-continuation marker
+            break
+        if token.lower() in _VECTORS_SUBKEYWORDS:
+            break
+        files.append(token)
+    return files
+
+
 def parse_start_blocks(path: str) -> list[dict[str, Any]]:
     """Parse a (possibly multi-start) NWChem input into per-start-block records.
 
@@ -73,7 +102,15 @@ def parse_start_blocks(path: str) -> list[dict[str, Any]]:
     except OSError:
         return []
 
-    lines = contents.splitlines()
+    # Join NWChem backslash line-continuations so directives split across lines
+    # (e.g. a `vectors input fragment a.movecs b.movecs \` + `output c.movecs`)
+    # parse as one logical line.
+    lines: list[str] = []
+    for raw in contents.splitlines():
+        if lines and lines[-1].rstrip().endswith("\\"):
+            lines[-1] = lines[-1].rstrip()[:-1].rstrip() + " " + raw.strip()
+        else:
+            lines.append(raw)
     has_start = any(START_RE.match(line) for line in lines)
     if not has_start:
         return []
@@ -95,6 +132,7 @@ def parse_start_blocks(path: str) -> list[dict[str, Any]]:
                 "charge": 0,
                 "multiplicity": None,
                 "vectors_output": None,
+                "vectors_outputs": [],
                 "fragment_inputs": [],
                 "tasks": [],
             }
@@ -135,10 +173,15 @@ def parse_start_blocks(path: str) -> list[dict[str, Any]]:
         if in_dft:
             if m := DFT_MULT_RE.match(line):
                 cur["multiplicity"] = int(m.group(1))
-            if m := VECTORS_OUTPUT_RE.match(line):
+            # Capture any output filename, including the `output X` clause inside
+            # `vectors input atomic output X` (fragments built inline in one start
+            # block), not just standalone `vectors output X`.
+            line_no_comment = line.split("#", 1)[0]
+            if m := VECTORS_ANY_OUTPUT_RE.match(line_no_comment):
                 cur["vectors_output"] = m.group(1)
+                cur["vectors_outputs"].append(m.group(1))
             if m := FRAGMENT_VECTORS_RE.match(line):
-                cur["fragment_inputs"] = m.group(1).split()
+                cur["fragment_inputs"] = _split_vectors_fragment_files(m.group(1))
 
     if cur is not None:
         blocks.append(cur)

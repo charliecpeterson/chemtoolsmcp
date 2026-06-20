@@ -65,9 +65,14 @@ def _lint_fragment_guess(
     if not any(b["fragment_inputs"] for b in blocks):
         return  # no fragment guess in this file
 
-    # Build lookup: vectors_output filename → block
+    # Build lookup: vectors_output filename → block (the producing start block).
     output_map: dict[str, dict[str, Any]] = {
         b["vectors_output"]: b for b in blocks if b["vectors_output"]
+    }
+    # Every output filename written anywhere in the file, including fragments
+    # built inline within a single start block (vectors input atomic output X).
+    all_outputs: set[str] = {
+        out for b in blocks for out in (b.get("vectors_outputs") or [])
     }
 
     for mol in blocks:
@@ -85,6 +90,22 @@ def _lint_fragment_guess(
 
         missing_sources = [f for f in mol["fragment_inputs"] if f not in output_map]
         if missing_sources:
+            # Fragments produced inline within a single start block (one `start`,
+            # several `set geometry` + dft sections each with `vectors input
+            # atomic output X`) exist but can't be mapped to a per-fragment block
+            # for Nα/Nβ validation. That's a valid style, not an error — flag it
+            # as info rather than warn that the sources are missing.
+            inline = [f for f in missing_sources if f in all_outputs]
+            if inline and len(inline) == len(missing_sources):
+                add_issue(
+                    "info",
+                    "fragment_sources_inline",
+                    "Fragment movecs files are produced inline within a single start "
+                    "block; per-fragment Nα/Nβ balance is not validated for this style. "
+                    "Use a separate start block per fragment to enable that check.",
+                    {"inline": inline},
+                )
+                continue
             add_issue(
                 "warning",
                 "fragment_source_not_found",
@@ -475,6 +496,32 @@ def lint_nwchem_input(
                     "NWChem will abort on startup with 'Memory_Defaults: Inconsistent memory specification'. "
                     f"Set total to at least {_stack + _heap + _glob} MB.",
                 )
+    except OSError:
+        pass
+
+    # --- In-core SCF deadlock risk: noio + grid nodisk ---
+    # Forcing everything in core (`noio` keeps integrals/Fock in RAM, `grid nodisk`
+    # keeps the XC grid in RAM) deadlocks mid-SCF when the per-rank allocation is
+    # too small to hold them — the run pins 100% CPU and never advances. Seen on
+    # lanthanide/actinide complexes whose inputs were written for larger nodes.
+    try:
+        _rc3 = open(input_path, encoding="utf-8", errors="replace").read()
+        _has_noio = bool(_re2.search(r"^\s*noio\b", _rc3, _re2.IGNORECASE | _re2.MULTILINE))
+        _has_grid_nodisk = bool(
+            _re2.search(r"^\s*grid\b[^\n]*\bnodisk\b", _rc3, _re2.IGNORECASE | _re2.MULTILINE)
+        )
+        if _has_noio and _has_grid_nodisk:
+            _natoms = input_summary.get("atom_count") or len(input_summary.get("elements") or [])
+            add_issue(
+                "warning",
+                "incore_scf_deadlock_risk",
+                f"Both 'noio' and 'grid nodisk' force the whole SCF in core ({_natoms} atoms). "
+                "If the per-rank memory is too small to hold the integrals and XC grid, NWChem "
+                "deadlocks mid-SCF (100% CPU, no progress) rather than spilling to disk. "
+                "For large systems on a memory-tight host, drop 'noio' and 'grid nodisk' so it "
+                "uses disk scratch, and raise the 'memory' directive.",
+                {"atom_count": _natoms},
+            )
     except OSError:
         pass
 

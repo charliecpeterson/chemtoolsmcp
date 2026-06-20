@@ -84,6 +84,57 @@ def inspect_runner_profiles(profiles_path: str | None = None) -> dict[str, Any]:
     }
 
 
+def _host_memory_mb() -> float | None:
+    """Total physical RAM in MB (Linux), or None if it can't be determined."""
+    try:
+        return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / (1024 * 1024)
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def _nwchem_memory_total_mb(input_path: str) -> int | None:
+    """Per-process 'memory [total] N mb' from an NWChem input, in MB."""
+    import re
+
+    try:
+        text = read_text(input_path)
+    except OSError:
+        return None
+    m = re.search(r"^\s*memory\s+(?:total\s+)?(\d+)\s*mb\b", text, re.IGNORECASE | re.MULTILINE)
+    return int(m.group(1)) if m else None
+
+
+def _resource_warnings(input_path: str, resources: dict[str, Any]) -> list[str]:
+    """Best-effort sanity checks on the resolved launch resources. Never raises.
+
+    Catches the two failure modes that silently wreck local runs: more MPI ranks
+    than host cores (Global Arrays deadlock / thrash), and a memory request that
+    exceeds host RAM (OOM or swap-thrash mid-SCF).
+    """
+    warnings: list[str] = []
+    try:
+        ranks = resources.get("mpi_ranks")
+        if not isinstance(ranks, int):
+            return warnings
+        cores = os.cpu_count()
+        if cores and ranks > cores:
+            warnings.append(
+                f"mpi_ranks={ranks} exceeds the {cores} cores on this host; oversubscribing the "
+                f"Global Arrays layer can deadlock or badly slow the SCF. Use ranks <= {cores}."
+            )
+        per_rank_mb = _nwchem_memory_total_mb(input_path)
+        host_mb = _host_memory_mb()
+        if per_rank_mb and host_mb and ranks * per_rank_mb > 0.9 * host_mb:
+            warnings.append(
+                f"memory {per_rank_mb} MB/rank x {ranks} ranks = {ranks * per_rank_mb} MB requested, "
+                f"near or above host RAM ({int(host_mb)} MB); NWChem may OOM or swap-thrash mid-SCF. "
+                "Lower the 'memory' directive or the rank count."
+            )
+    except Exception:
+        return warnings
+    return warnings
+
+
 def launch_nwchem_run(
     input_path: str,
     profile: str,
@@ -104,8 +155,11 @@ def launch_nwchem_run(
             env_overrides=env_overrides,
         )
         result.pop("environment", None)
+        warnings = _resource_warnings(input_path, result.get("resources") or {})
+        if warnings:
+            result["resource_warnings"] = warnings
         return result
-    return run_nwchem(
+    result = run_nwchem(
         input_path=input_path,
         profile=profile,
         profiles_path=profiles_path,
@@ -115,6 +169,10 @@ def launch_nwchem_run(
         execute=True,
         write_script=write_script,
     )
+    warnings = _resource_warnings(input_path, result.get("resources") or {})
+    if warnings:
+        result["resource_warnings"] = warnings
+    return result
 
 
 def prepare_nwchem_run(
@@ -325,6 +383,7 @@ def watch_nwchem_run(
     timeout_seconds: float | None = 3600.0,
     max_polls: int | None = None,
     history_limit: int = 8,
+    stall_timeout_seconds: float | None = 1800.0,
 ) -> dict[str, Any]:
     watched = watch_nwchem_run_payload(
         output_path=output_path,
@@ -340,6 +399,7 @@ def watch_nwchem_run(
         timeout_seconds=timeout_seconds,
         max_polls=max_polls,
         history_limit=history_limit,
+        stall_timeout_seconds=stall_timeout_seconds,
     )
     final_progress = (
         review_nwchem_progress(

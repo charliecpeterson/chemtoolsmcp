@@ -649,6 +649,7 @@ def watch_nwchem_run(
     timeout_seconds: float | None = 3600.0,
     max_polls: int | None = None,
     history_limit: int = 8,
+    stall_timeout_seconds: float | None = None,
     progress_summary_fn: "Any" = None,
 ) -> dict[str, Any]:
     if poll_interval_seconds < 0:
@@ -657,6 +658,8 @@ def watch_nwchem_run(
         raise ValueError("max_poll_interval_seconds must be non-negative when provided")
     if timeout_seconds is not None and timeout_seconds < 0:
         raise ValueError("timeout_seconds must be non-negative when provided")
+    if stall_timeout_seconds is not None and stall_timeout_seconds < 0:
+        raise ValueError("stall_timeout_seconds must be non-negative when provided")
     if max_polls is not None and max_polls <= 0:
         raise ValueError("max_polls must be positive when provided")
     if history_limit <= 0:
@@ -670,6 +673,7 @@ def watch_nwchem_run(
     terminal = False
     previous_signature: tuple[Any, ...] | None = None
     stable_poll_count = 0
+    last_progress_time = started
     last_sleep_seconds = 0.0
 
     while True:
@@ -707,6 +711,7 @@ def watch_nwchem_run(
 
         if previous_signature is None or signature != previous_signature:
             stable_poll_count = 0
+            last_progress_time = time.monotonic()
         else:
             stable_poll_count += 1
         previous_signature = signature
@@ -720,6 +725,16 @@ def watch_nwchem_run(
             break
         if timeout_seconds is not None and elapsed_seconds >= timeout_seconds:
             stop_reason = "timeout_reached"
+            break
+        # Stall detection: the job is non-terminal (we passed the terminal check)
+        # but its output signature — including the output file size — has not
+        # changed for stall_timeout_seconds. That is the signature of a deadlocked
+        # SCF (100% CPU, no new lines) rather than a slow-but-progressing one.
+        if (
+            stall_timeout_seconds is not None
+            and (time.monotonic() - last_progress_time) >= stall_timeout_seconds
+        ):
+            stop_reason = "stalled_no_progress"
             break
         if poll_interval_seconds > 0:
             last_sleep_seconds = _compute_watch_sleep_seconds(

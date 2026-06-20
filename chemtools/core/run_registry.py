@@ -160,9 +160,7 @@ def register_run(
     """
     conn = _connect(db_path)
     now = datetime.now(timezone.utc).isoformat()
-    try:
-        cur = conn.execute(
-            """INSERT INTO runs (
+    insert_sql = """INSERT INTO runs (
                 program, job_name, input_file, output_file, profile,
                 method, functional, basis, n_atoms, elements,
                 charge, multiplicity, status, submitted_at,
@@ -170,18 +168,28 @@ def register_run(
                 campaign_id, workflow_id, workflow_step_id,
                 parent_run_id, tags
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?,
-                      ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                program, job_name, input_file, output_file, profile,
-                method, functional, basis, n_atoms,
-                json.dumps(elements) if elements else None,
-                charge, multiplicity, now,
-                mpi_ranks, node_memory_mb, cpu_arch,
-                campaign_id, workflow_id, workflow_step_id,
-                parent_run_id,
-                json.dumps(tags) if tags else None,
-            ),
-        )
+                      ?, ?, ?, ?, ?, ?, ?, ?)"""
+    insert_params = (
+        program, job_name, input_file, output_file, profile,
+        method, functional, basis, n_atoms,
+        json.dumps(elements) if elements else None,
+        charge, multiplicity, now,
+        mpi_ranks, node_memory_mb, cpu_arch,
+        campaign_id, workflow_id, workflow_step_id,
+        parent_run_id,
+        json.dumps(tags) if tags else None,
+    )
+    try:
+        try:
+            cur = conn.execute(insert_sql, insert_params)
+        except sqlite3.OperationalError as exc:
+            # A DB created by an older schema (or a connection that predates a
+            # migration) can be missing a newer column. Re-run the idempotent
+            # schema/migration and retry once before surfacing the error.
+            if "no such column" not in str(exc).lower():
+                raise
+            _ensure_schema(conn)
+            cur = conn.execute(insert_sql, insert_params)
         conn.commit()
         run_id = cur.lastrowid
         return {"run_id": run_id, "job_name": job_name, "status": "submitted", "program": program}
