@@ -3391,6 +3391,32 @@ def _build_next_actions(
                     "reason": "Optimization converged — extract geometry for next step.",
                     "confidence": 0.90,
                 })
+            elif failure_class == "wrong_state_convergence":
+                actions.append({
+                    "priority": 1,
+                    "tool": "analyze_nwchem_frontier_orbitals",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "Converged to a suspect spin state — check whether the unpaired "
+                              "electrons sit on the metal or have leaked onto the ligands.",
+                    "confidence": 0.85,
+                })
+                actions.append({
+                    "priority": 2,
+                    "tool": "suggest_nwchem_multiplicity_scan",
+                    "params": {"input_file": input_file},
+                    "reason": "Confirm the spin ground state: scan candidate multiplicities and take "
+                              "the lowest energy — the converged multiplicity may be too high.",
+                    "confidence": 0.85,
+                })
+            elif failure_class == "frequency_interpretation_required":
+                actions.append({
+                    "priority": 1,
+                    "tool": "analyze_nwchem_imaginary_modes",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "Imaginary mode(s) present — inspect them to tell a real transition "
+                              "state from a numerical artifact before using the geometry.",
+                    "confidence": 0.9,
+                })
             elif recommended_next_action == "verify_state_quality_before_accepting_result":
                 actions.append({
                     "priority": 1,
@@ -4708,7 +4734,9 @@ def _handle_suggest_multiplicity_scan(arguments: dict[str, Any]) -> dict[str, An
     if input_file and (elements is None or charge is None or multiplicity is None):
         summary = inspect_input(input_file)
         if elements is None:
-            elements = summary.get("elements")
+            # Full atom multiset, not unique elements — the electron-count parity
+            # that fixes the scan's multiplicities depends on every atom.
+            elements = summary.get("all_elements") or summary.get("elements")
         if charge is None:
             charge = summary.get("charge")
         if multiplicity is None:

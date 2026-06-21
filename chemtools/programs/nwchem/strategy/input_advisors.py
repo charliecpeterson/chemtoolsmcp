@@ -222,18 +222,34 @@ def recommend_multiplicity_scan(
     top = min(max(candidates) + 2, max_multiplicity)
     scan = [m for m in range(1, top + 1) if (m % 2 == 1) == mult_is_odd]
 
-    warranted = bool(metals) or (current_multiplicity is not None and current_multiplicity > 1)
+    # A scan is warranted when the spin state is genuinely in question: the run is
+    # open-shell as executed, or a d-block metal has more than one accessible spin
+    # state (d4-d7). A metal alone is not enough — d0/d10/f0/f14 and other
+    # single-spin-state ions (e.g. La(III) 4f0) are unambiguously closed-shell.
+    open_shell_as_run = current_multiplicity is not None and current_multiplicity > 1
+    has_spin_ambiguity = any(
+        len(ox.get("spin_states", [])) > 1
+        for analysis in spin.get("metal_analyses", [])
+        for ox in analysis.get("oxidation_state_analyses", [])
+    )
+    warranted = open_shell_as_run or has_spin_ambiguity
     if not warranted:
         rationale = (
-            "Closed-shell main-group system with no open-shell metal — one "
-            "multiplicity suffices; a spin scan is not needed."
+            "No spin ambiguity: the system is closed-shell as run and no metal has "
+            "multiple accessible spin states — a single multiplicity suffices."
         )
-    elif metals:
+    elif open_shell_as_run and metals:
         rationale = (
-            f"Open-shell metal(s) {', '.join(metals)} present: a converged SCF does "
-            f"not confirm the spin ground state. Run multiplicities {scan} at the "
-            f"same geometry and basis, then take the lowest energy (note any "
-            f"near-degeneracy within ~5 kcal/mol)."
+            f"Open-shell metal system (multiplicity {current_multiplicity}, "
+            f"{', '.join(metals)}): a converged SCF does not confirm the spin ground "
+            f"state. Run multiplicities {scan} at the same geometry and basis, then "
+            f"take the lowest energy (note any near-degeneracy within ~5 kcal/mol)."
+        )
+    elif has_spin_ambiguity:
+        rationale = (
+            f"Metal(s) {', '.join(metals)} have more than one accessible spin state "
+            f"(high-/low-spin) — even a clean singlet may not be the ground state. "
+            f"Scan {scan} and compare total energies."
         )
     else:
         rationale = (
