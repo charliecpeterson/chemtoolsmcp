@@ -1250,6 +1250,15 @@ def _handle_summarize_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
             "ccsd_correlation_hartree": relccsd.get("ccsd_correlation_hartree"),
         }
 
+    cosci = text_parse.get("cosci") or {}
+    if cosci.get("n_states"):
+        states = cosci["states"]
+        summary["open_shell_states"] = {
+            "n_states": cosci["n_states"],
+            "highest_excitation_cm1": max((s["energy_cm1"] for s in states), default=None),
+            "states": states,
+        }
+
     if h5_path:
         if not _H5PY_AVAILABLE:
             summary["h5_status"] = "h5py_missing"

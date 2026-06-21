@@ -376,6 +376,30 @@ def parse_mulliken_detail(text: str) -> list[dict]:
     return results
 
 
+def _parse_resolve_states(text: str) -> list[dict]:
+    """Parse the GOSCIP / **WAVE FUNCTION .RESOLVE open-shell state table.
+
+    Printed under "Resolution of open-shell states" as repeated
+    "Level eigenvalue (eV) Eigenvalue (cm-1) ..." tables (one per Mj column
+    group), so the same levels recur with identical energies — dedup by energy.
+    """
+    start = text.find("Resolution of open-shell states")
+    region = text[start:] if start != -1 else text
+    row_re = re.compile(r"^\s*\d+\s+([-\d.]+)\s+([-\d.]+)\s+\d+\|", re.MULTILINE)
+    seen: dict[float, dict] = {}
+    for match in row_re.finditer(region):
+        e_ev = float(match.group(1))
+        key = round(e_ev, 6)
+        if key not in seen:
+            seen[key] = {
+                "state": len(seen) + 1,
+                "energy_ev": e_ev,
+                "energy_cm1": float(match.group(2)),
+                "spinor_occupations": [],
+            }
+    return list(seen.values())
+
+
 def parse_cosci_energies(text: str) -> dict | None:
     """Parse COSCI state-energy table if present.
 
@@ -405,31 +429,27 @@ def parse_cosci_energies(text: str) -> dict | None:
           "ground_energy_hartree": float | None,  # absolute SCF energy before COSCI
         }
     """
+    states: list[dict] = []
     m = re.search(
         r"Obtained COSCI states are as follows:\s*\n((?:\s+\d+\s+[\d.]+\s+[\d.]+.*\n)+)",
         text, re.MULTILINE,
     )
-    if not m:
-        return None
-    table_text = m.group(1)
-    states: list[dict] = []
-    for line in table_text.strip().splitlines():
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        try:
-            idx = int(parts[0])
-            e_ev = _to_float(parts[1])
-            e_cm1 = _to_float(parts[2])
-            occ = [int(x) for x in parts[3:] if x.isdigit()]
-        except (ValueError, IndexError):
-            continue
-        states.append({
-            "state": idx,
-            "energy_ev": e_ev,
-            "energy_cm1": e_cm1,
-            "spinor_occupations": occ,
-        })
+    if m:
+        for line in m.group(1).strip().splitlines():
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            try:
+                states.append({
+                    "state": int(parts[0]),
+                    "energy_ev": _to_float(parts[1]),
+                    "energy_cm1": _to_float(parts[2]),
+                    "spinor_occupations": [int(x) for x in parts[3:] if x.isdigit()],
+                })
+            except (ValueError, IndexError):
+                continue
+    elif "Resolution of open-shell states" in text:
+        states = _parse_resolve_states(text)
     if not states:
         return None
     # Try to grab the absolute SCF energy that preceded the COSCI run
@@ -476,7 +496,11 @@ def parse_output(path: str, contents: str | None = None) -> dict[str, Any]:
     version = parse_version(contents)
     spinor_spectrum = parse_spinor_spectrum(contents)
     mulliken_detail = parse_mulliken_detail(contents)
-    cosci = parse_cosci_energies(contents) if "cosci" in tasks else None
+    # Call unconditionally: the .RESOLVE/GOSCIP open-shell resolution isn't always
+    # flagged as a "cosci" task by the cheap kind detector. Tag it if states exist.
+    cosci = parse_cosci_energies(contents)
+    if cosci and "cosci" not in tasks:
+        tasks = list(tasks) + ["cosci"]
 
     # DIRAC prints an explicit convergence line; trust it over the energy-delta
     # heuristic, which false-negatives when a run converges to the "Allowed"

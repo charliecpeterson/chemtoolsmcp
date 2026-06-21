@@ -67,6 +67,9 @@ def summarize_dirac_outputs(
                 "ccsd_t_total_hartree": cc.get("ccsd_t_total_hartree"),
                 "ccsd_total_hartree": cc.get("ccsd_total_hartree"),
             }
+        cosci = parsed.get("cosci") or {}
+        if cosci.get("n_states"):
+            row["open_shell_states"] = {"n_states": cosci["n_states"]}
         rows.append(row)
     return {
         "file_count": len(files),
