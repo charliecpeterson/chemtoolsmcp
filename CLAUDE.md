@@ -232,6 +232,7 @@ Key constraints:
 - **High-Z bootstrap**: for Z≥80 atoms (Cf, Bk, Th), `plan_grasp_hf_bootstrap_workflow` adds a non-rel `hf` + `rwfnmchfmcdf` step before `rwfnestimate` because Thomas-Fermi alone diverges.
 - **Non-rel limit**: `plan_grasp_nonrel_limit_workflow` sets c=2000 au, suppressing all relativistic effects — useful for isolating relativistic contributions to a property.
 - **rcsfgenerate output**: writes `rcsf.out`; the runner auto-copies it to `rcsf.inp` via `copy_to_inp=True` so the next step (rangular) finds it.
+- **MPI**: the container has `mpirun` + `_mpi` builds (`rangular_mpi`, `rmcdhf_mpi`, `rci_mpi`, `rbiotransform_mpi`, `rtransition_mpi`). Parallel runs need a `disks` file (working dir + the temp dir once per process) then `mpirun -np N <exe>_mpi`; `cpath.f90` makes `tmp_mpi/000,001,...` for per-process I/O. Results are identical to serial; benefit scales with CSF count. See `input_examples/grasp/Si_MPI`. The MCP runners are serial-only today (no `_mpi` wrappers yet).
 
 Plugin layout (`chemtools/programs/grasp/`):
 - `runtime.py` — apptainer wrapper, stdin heredoc execution, session log writer
