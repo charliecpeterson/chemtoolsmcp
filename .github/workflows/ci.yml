@@ -1,0 +1,29 @@
+# Lint + test gate. The undefined-name (F821) check is the cheap guard for the
+# crash class that shipped latent NameErrors (geometry.py missing `import math`,
+# hpc_resources.py undefined `suggest_memory`). The committed tests/ subset is
+# self-contained (no local training corpus). F811/F841 are not gated yet — they
+# still have pre-existing hits; ratchet them in once cleaned.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install ruff
+      - name: Lint — undefined names (F821 crash-class gate)
+        run: ruff check --select F821 chemtools/
+      - name: Test
+        run: pytest tests/ -q

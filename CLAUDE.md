@@ -637,3 +637,9 @@ error or before recommending a workflow that needs HPC submission.
 - NWChem docs: bundled at `chemtools/data/nwchem/docs/` (29 text files, always available)
 - Runner profiles: set `CHEMTOOLS_RUNNER_PROFILES` to your local YAML/JSON file
 - Server mode: set `CHEMTOOLS_MODE` or pass `--mode` (see **Server modes** above; defaults to auto-detect)
+- CI / committed tests: `.github/workflows/ci.yml` gates every push/PR on
+  `ruff check --select F821` (the undefined-name crash class) + `pytest tests/`.
+  The committed `tests/` subset is self-contained (registration integrity +
+  parser/verdict unit tests with inline fixtures); the large `test_phase1/`
+  corpus stays gitignored and local. Run locally: `ruff check --select F821
+  chemtools/ && pytest tests/ -q`.
