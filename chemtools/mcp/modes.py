@@ -63,6 +63,19 @@ TOOLSETS: dict[str, frozenset[str]] = {
         "compare_nwchem_runs",               # compare energies across runs
         "get_server_mode",                   # introspect what's available
     }),
+    "molcas-triage": frozenset({
+        "summarize_molcas_outputs",          # batch triage entry point
+        "analyze_molcas_case",               # deep single-file diagnosis + verdict
+        "summarize_molcas_output",           # quick single-file summary
+        "parse_molcas_output",               # structured per-module detail
+        "suggest_molcas_recovery",           # what to do about a failure
+        "analyze_molcas_active_space",       # CAS quality
+        "validate_molcas_caspt2_setup",      # CASPT2 reference-weight / intruders
+        "parse_molcas_frequencies",          # frequencies / imaginary modes
+        "parse_molcas_thermochem",           # thermochemistry
+        "extract_molcas_geometry",           # pull the geometry
+        "get_server_mode",                   # introspect what's available
+    }),
 }
 
 

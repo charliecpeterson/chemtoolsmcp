@@ -19,6 +19,8 @@ Two complementary tools:
 
 from __future__ import annotations
 
+import glob as _glob
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -364,3 +366,71 @@ def analyze_molcas_case(output_file: str) -> dict[str, Any]:
     summary["issues"] = coll.issues
     summary["next_actions"] = next_actions
     return summary
+
+
+def _resolve_molcas_output_paths(paths: str | list[str], pattern: str, recursive: bool) -> list[str]:
+    entries = [paths] if isinstance(paths, str) else list(paths)
+    resolved: list[str] = []
+    for entry in entries:
+        candidate = Path(entry)
+        if candidate.is_dir():
+            globber = candidate.rglob if recursive else candidate.glob
+            resolved.extend(str(p) for p in sorted(globber(pattern)))
+        elif any(ch in entry for ch in "*?["):
+            resolved.extend(sorted(_glob.glob(entry, recursive=recursive)))
+        else:
+            resolved.append(entry)
+    seen: set[str] = set()
+    return [p for p in resolved if not (p in seen or seen.add(p))]
+
+
+def summarize_molcas_outputs(
+    paths: str | list[str],
+    pattern: str = "*.out",
+    recursive: bool = False,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Compact one-row-per-file triage over many Molcas outputs in a single call.
+
+    `paths` is a directory, a glob, a single file, or a list of any of these.
+    Each row carries only what triage needs (method, modules, energy, verdict,
+    headline) — no geometry/orbital/frequency payloads — plus roll-up counts, so
+    assessing a batch costs one call instead of one analyze_molcas_case each.
+    """
+    files = _resolve_molcas_output_paths(paths, pattern, recursive)
+    truncated = limit is not None and len(files) > limit
+    if truncated:
+        files = files[:limit]
+
+    rows: list[dict[str, Any]] = []
+    verdicts: Counter = Counter()
+    for path in files:
+        try:
+            case = analyze_molcas_case(path)
+        except Exception as exc:  # one unreadable file must not sink the batch
+            rows.append({"file": Path(path).name, "path": path, "verdict": "error",
+                         "error": f"{type(exc).__name__}: {exc}"})
+            verdicts["error"] += 1
+            continue
+        verdict = case.get("verdict") or "caution"
+        verdicts[verdict] += 1
+        issues = case.get("issues") or []
+        imaginary = case.get("imaginary_frequencies_cm1") or []
+        rows.append({
+            "file": Path(path).name,
+            "path": path,
+            "method": case.get("method"),
+            "module_count": len(case.get("modules_run") or []),
+            "primary_energy_au": case.get("primary_energy_au"),
+            "imaginary_freq_count": len(imaginary),
+            "caspt2_reference_weight": case.get("caspt2_reference_weight"),
+            "verdict": verdict,
+            "issue_count": len(issues),
+            "headline": issues[0]["message"] if issues else "no issues flagged",
+        })
+    return {
+        "file_count": len(files),
+        "truncated": truncated,
+        "verdict_counts": dict(verdicts),
+        "rows": rows,
+    }

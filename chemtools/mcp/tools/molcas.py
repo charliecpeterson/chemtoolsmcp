@@ -95,6 +95,7 @@ from chemtools.programs.molcas.parse.xmldump import (
 )
 from chemtools.programs.molcas.strategy.case_analysis import (
     summarize_molcas_output as _summarize_molcas_output,
+    summarize_molcas_outputs as _summarize_molcas_outputs,
     analyze_molcas_case as _analyze_molcas_case,
 )
 from chemtools.programs.molcas.strategy.geometry_inspector import (
@@ -300,6 +301,28 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                     "output_file": {"type": "string"},
                 },
                 "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "summarize_molcas_outputs",
+            "description": (
+                "Triage MANY Molcas outputs in one call. Give a directory, a glob, a single "
+                "file, or a list; returns one compact row per file (method, module_count, "
+                "primary_energy_au, imaginary_freq_count, CASPT2 reference weight, verdict, "
+                "headline) plus roll-up counts by verdict. Use this instead of calling "
+                "analyze_molcas_case once per file when assessing a batch; drill into flagged "
+                "files with analyze_molcas_case afterward."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "A directory, a glob (e.g. 'runs/*.out'), or a single output file."},
+                    "paths": {"type": "array", "items": {"type": "string"}, "description": "Explicit list of paths (alternative to 'path')."},
+                    "pattern": {"type": "string", "default": "*.out", "description": "Glob pattern when 'path' is a directory (use '*.log' for .log runs)."},
+                    "recursive": {"type": "boolean", "default": False, "description": "Recurse into subdirectories."},
+                    "limit": {"type": "integer", "description": "Cap files processed (response flags truncation)."},
+                },
                 "additionalProperties": False,
             },
         },
@@ -1670,6 +1693,19 @@ def _handle_parse_molcas_xmldump(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("summarize_molcas_output")
 def _handle_summarize_molcas_output(arguments: dict[str, Any]) -> dict[str, Any]:
     return _summarize_molcas_output(arguments["output_file"])
+
+
+@_tool("summarize_molcas_outputs")
+def _handle_summarize_molcas_outputs(arguments: dict[str, Any]) -> dict[str, Any]:
+    target = arguments.get("paths") or arguments.get("path")
+    if not target:
+        return {"error": "Provide 'path' (a directory, glob, or file) or 'paths' (a list)."}
+    return _summarize_molcas_outputs(
+        paths=target,
+        pattern=arguments.get("pattern", "*.out"),
+        recursive=arguments.get("recursive", False),
+        limit=arguments.get("limit"),
+    )
 
 
 @_tool("analyze_molcas_case")
