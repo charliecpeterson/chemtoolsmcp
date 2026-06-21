@@ -64,7 +64,7 @@ examples/
 - Domain logic lives in `chemtools/programs/<program>/` and `chemtools/core/`
 - MCP handlers in `chemtools/mcp/tools/<program>.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_<program>_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute, run, plan, apply, terminate, summarize, validate, check, extract, refine, prepare, evaluate, displace, init, append, search, lookup, read, basis, append, try}
-- **Current tool count: 252** (97 NWChem + 44 Molcas + 38 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program.
+- **Current tool count: 254** (99 NWChem + 44 Molcas + 38 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### NWChem tool categories (97 tools)
@@ -541,15 +541,47 @@ Generic tools (e.g. `compute_reaction_energy`, `init_session_log`,
 `render_job_script`) are always visible regardless of filter — they're
 program-agnostic by design.
 
-Typical MCP client config for a Molcas-only session:
+The filter is applied in the live server's `tools/list` **and** gated at
+`tools/call` (an out-of-filter tool is refused with an explanatory error), not
+just in `--list-tools`. `CHEMTOOLS_PROGRAMS=nwchem` takes the analysis-mode
+surface from 211 to ~119 tools.
+
+**Per-session program selection without splitting the package:** register the
+same `chemtools` binary multiple times, one per program, and enable whichever
+you need that session (Claude Code `/mcp`). The shared core (registry, eval,
+runner, generics) stays in one codebase.
 ```
 "mcpServers": {
-  "chemtools-molcas": {
-    "command": "chemtools",
-    "env": {"CHEMTOOLS_PROGRAMS": "molcas"}
-  }
+  "chem-nwchem": { "command": "chemtools", "env": {"CHEMTOOLS_PROGRAMS": "nwchem"} },
+  "chem-molcas": { "command": "chemtools", "env": {"CHEMTOOLS_PROGRAMS": "molcas"} }
 }
 ```
+
+### Selecting a curated tool subset (small models)
+
+The `--toolset` filter (env `CHEMTOOLS_TOOLSET`) further trims the surface to an
+exact tool-name allowlist — a preset name or a comma-separated list — applied
+after the mode + program filters. This is the lever for small models (Haiku /
+Llama) and focused work, where 100+ tools is too many to choose among.
+
+- Bundled preset **`triage`** = the 12-tool output-assessment set
+  (`summarize_nwchem_outputs`, `analyze_nwchem_case`, `summarize_nwchem_output`,
+  `parse_nwchem_output`, `suggest_nwchem_recovery`, `suggest_nwchem_multiplicity_scan`,
+  `analyze_nwchem_frontier_orbitals`, `check_nwchem_spin_charge_state`,
+  `extract_nwchem_geometry`, `parse_nwchem_thermochem`, `compare_nwchem_runs`,
+  `get_server_mode`).
+- `CHEMTOOLS_PROGRAMS=nwchem CHEMTOOLS_TOOLSET=triage` → 12 tools (vs ~250).
+- Unlike the program filter, the toolset is an **exact** allowlist: generics are
+  not auto-included; list them by name if wanted. Add new presets in
+  `chemtools/mcp/modes.py:TOOLSETS`.
+
+### Batch output triage
+
+`summarize_nwchem_outputs(path|paths, pattern, recursive, limit)` assesses many
+outputs in one call: a directory, glob, file, or list → one compact row per file
+(method, stage, status, energy, failure_class, verdict, headline) plus roll-up
+counts by verdict and failure_class. Use this instead of one `analyze_nwchem_case`
+call per file when triaging a batch; drill into flagged files afterward.
 
 ### Capability tags
 
@@ -575,6 +607,7 @@ chemtools --list-tools                         # tool names visible under the ac
 chemtools --mode analysis                      # force analysis mode (post-hoc work)
 chemtools --programs molcas                    # only Molcas tools (+ generics) loaded
 chemtools --mode local --programs nwchem,molcas  # local executable, both programs
+chemtools --programs nwchem --toolset triage   # 12-tool assessment set (small models)
 ```
 
 The legacy binary `chemtools-nwchem` still works as an alias for `chemtools`
