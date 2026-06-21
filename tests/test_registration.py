@@ -32,3 +32,15 @@ def test_every_definition_has_a_handler():
     dispatchable = set(_TOOL_REGISTRY) | set(_TOOL_ALIASES)
     missing = [d["name"] for d in tool_definitions() if d["name"] not in dispatchable]
     assert not missing, f"schemas with no handler: {missing}"
+
+
+def test_legacy_handler_imports_resolve():
+    # Handlers moved into nwchem_<category> modules, but generic.py and external
+    # callers still do `from chemtools.mcp.tools.nwchem import _handle_x`. The
+    # __getattr__ shim must keep resolving them.
+    from chemtools.mcp.tools.nwchem import (  # noqa: F401
+        _handle_analyze_nwchem_case,
+        _handle_summarize_nwchem_output,
+        _handle_suggest_nwchem_recovery,
+        _do_create_campaign,
+    )

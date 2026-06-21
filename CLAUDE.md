@@ -44,7 +44,16 @@ chemtools/
     nwchem.py                    Back-compat shim re-exporting from cli + decorator
     tools/                       Per-program MCP tool modules
       generic.py                 36 program-agnostic tools (parse_output, register_run, ...)
-      nwchem.py                  97 NWChem tools
+      nwchem.py                  Thin aggregator: re-exports _nwchem_base, imports the
+                                 nwchem_<category> handler modules, back-compat __getattr__
+      _nwchem_base.py            Shared imports + @_tool decorator + dispatch helpers
+      _nwchem_schemas.py         99 NWChem tool input-schema dicts (pure data)
+      _nwchem_next_actions.py    next_actions builder (~900-line pure-data helper)
+      nwchem_input.py            25 input-drafting / basis / create / lint handlers
+      nwchem_parse.py            18 output-parsing / geometry / summarize handlers
+      nwchem_analysis.py         22 diagnosis / recovery / spin / freq / review handlers
+      nwchem_jobs.py             25 launch / watch / registry / campaign / workflow / HPC handlers
+      nwchem_docs.py             9 docs / forum / eval handlers
       molcas.py                  45 Molcas tools
       dirac.py                   39 DIRAC tools
       grasp.py                   37 GRASP tools
