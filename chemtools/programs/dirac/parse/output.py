@@ -475,9 +475,17 @@ def parse_output(path: str, contents: str | None = None) -> dict[str, Any]:
     mulliken_detail = parse_mulliken_detail(contents)
     cosci = parse_cosci_energies(contents) if "cosci" in tasks else None
 
-    converged = bool(scf_iters) and abs(
-        (scf_iters[-1].get("delta_e") or 1.0)
-    ) < 1e-7 if scf_iters else False
+    # DIRAC prints an explicit convergence line; trust it over the energy-delta
+    # heuristic, which false-negatives when a run converges to the "Allowed"
+    # threshold (1e-6) rather than the tighter "Desired" one (1e-7) — common for
+    # DFT. Fall back to the heuristic when the marker is absent.
+    explicit_converged = bool(
+        re.search(r"Convergence after\s+\d+\s+iteration", contents, re.IGNORECASE)
+        or re.search(r"SCF\s+has\s+converged", contents, re.IGNORECASE)
+    )
+    converged = explicit_converged or (
+        bool(scf_iters) and abs((scf_iters[-1].get("delta_e") or 1.0)) < 1e-7
+    )
 
     # Per-atom Mulliken charge summary (electronic pop → charge = Z - pop)
     mulliken_charges: list[dict] | None = None
