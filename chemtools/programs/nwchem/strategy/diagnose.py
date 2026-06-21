@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import glob as _glob
 import re
+from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import make_metadata, parse_scientific_float, read_text
@@ -851,6 +854,93 @@ def summarize_nwchem_output(
             "confidence": diagnosis["confidence"],
         },
         "err_analysis": diagnosis.get("err_analysis"),
+    }
+
+
+_VERDICT_BY_FAILURE_CLASS = {
+    "no_clear_failure_detected": "healthy",
+    "optimization_review": "healthy",
+    "frequency_interpretation_required": "caution",
+    "post_optimization_frequency_interrupted": "caution",
+    "unknown": "caution",
+    "wrong_state_convergence": "problem",
+    "scf_nonconvergence": "problem",
+    "scf_incomplete": "problem",
+    "basis_incompatibility": "problem",
+    "not_nwchem_scf_output": "problem",
+}
+
+
+def _resolve_output_paths(paths: str | list[str], pattern: str, recursive: bool) -> list[str]:
+    entries = [paths] if isinstance(paths, str) else list(paths)
+    resolved: list[str] = []
+    for entry in entries:
+        candidate = Path(entry)
+        if candidate.is_dir():
+            globber = candidate.rglob if recursive else candidate.glob
+            resolved.extend(str(p) for p in sorted(globber(pattern)))
+        elif any(ch in entry for ch in "*?["):
+            resolved.extend(sorted(_glob.glob(entry, recursive=recursive)))
+        else:
+            resolved.append(entry)
+    seen: set[str] = set()
+    return [p for p in resolved if not (p in seen or seen.add(p))]
+
+
+def summarize_nwchem_outputs(
+    paths: str | list[str],
+    pattern: str = "*.out",
+    recursive: bool = False,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Compact one-row-per-file triage over many NWChem outputs in a single call.
+
+    `paths` is a directory, a glob, a single file, or a list of any of these.
+    Each row carries only the fields needed to triage (status, energy, verdict,
+    one-line headline) — no orbital or per-iteration payloads — plus roll-up
+    counts, so assessing hundreds of files costs one call instead of one
+    (~2 KB) call each.
+    """
+    files = _resolve_output_paths(paths, pattern, recursive)
+    truncated = limit is not None and len(files) > limit
+    if truncated:
+        files = files[:limit]
+
+    rows: list[dict[str, Any]] = []
+    verdicts: Counter = Counter()
+    classes: Counter = Counter()
+    for path in files:
+        try:
+            summary = summarize_nwchem_output(path)
+        except Exception as exc:  # one unreadable file must not sink the batch
+            rows.append({"file": Path(path).name, "path": path, "verdict": "error",
+                         "error": f"{type(exc).__name__}: {exc}"})
+            verdicts["error"] += 1
+            continue
+        failure_class = summary["failure_class"]
+        verdict = _VERDICT_BY_FAILURE_CLASS.get(failure_class, "caution")
+        if summary.get("optimization_status") in ("failed", "incomplete"):
+            verdict = "problem"
+        verdicts[verdict] += 1
+        classes[failure_class] += 1
+        rows.append({
+            "file": Path(path).name,
+            "path": path,
+            "method": summary.get("correlated_method") or "dft/scf",
+            "stage": summary["diagnosis"]["stage"],
+            "outcome": summary["outcome"],
+            "failure_class": failure_class,
+            "scf_status": (summary.get("scf") or {}).get("status"),
+            "energy_hartree": summary.get("energy_hartree"),
+            "verdict": verdict,
+            "headline": summary["recommended_next_action"],
+        })
+    return {
+        "file_count": len(files),
+        "truncated": truncated,
+        "verdict_counts": dict(verdicts),
+        "failure_class_counts": dict(classes),
+        "rows": rows,
     }
 
 

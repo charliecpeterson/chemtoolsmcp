@@ -12,6 +12,7 @@ from chemtools.programs.nwchem.strategy.diagnose import (
     parse_scf,
     suggest_vectors_swaps as suggest_nwchem_vectors_swaps,
     summarize_nwchem_output,
+    summarize_nwchem_outputs,
 )
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from chemtools.programs.nwchem.parse.freq import parse_trajectory

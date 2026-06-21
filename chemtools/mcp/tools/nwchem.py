@@ -129,6 +129,7 @@ from chemtools import (  # noqa: E402
     parse_trajectory,
     review_nwchem_input_request,
     summarize_output,
+    summarize_nwchem_outputs,
     check_memory_fit,
     estimate_freq_walltime,
     suggest_hpc_resources,
@@ -2152,6 +2153,29 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                     },
                 },
                 "required": ["output_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "summarize_nwchem_outputs",
+            "description": (
+                "Triage MANY NWChem outputs in one call. Give a directory, a glob, a single "
+                "file, or a list; returns one compact row per file (method, stage, status, "
+                "energy, failure_class, verdict, one-line headline) plus roll-up counts by "
+                "verdict and failure_class. Use this instead of calling analyze_nwchem_case / "
+                "summarize_nwchem_output once per file when assessing a batch — it is far "
+                "cheaper and gives the whole picture at once. Drill into individual flagged "
+                "files with analyze_nwchem_case afterward."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "A directory, a glob (e.g. 'runs/*.out'), or a single .out file."},
+                    "paths": {"type": "array", "items": {"type": "string"}, "description": "Explicit list of paths (alternative to 'path')."},
+                    "pattern": {"type": "string", "default": "*.out", "description": "Glob pattern when 'path' is a directory."},
+                    "recursive": {"type": "boolean", "default": False, "description": "Recurse into subdirectories when 'path' is a directory."},
+                    "limit": {"type": "integer", "description": "Cap the number of files processed (the response flags truncation)."},
+                },
                 "additionalProperties": False,
             },
         },
@@ -4838,6 +4862,19 @@ def _handle_summarize_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]
         input_file=arguments.get("input_file", ""),
     )
     return result
+
+
+@_tool("summarize_nwchem_outputs")
+def _handle_summarize_nwchem_outputs(arguments: dict[str, Any]) -> dict[str, Any]:
+    target = arguments.get("paths") or arguments.get("path")
+    if not target:
+        return {"error": "Provide 'path' (a directory, glob, or file) or 'paths' (a list)."}
+    return summarize_nwchem_outputs(
+        paths=target,
+        pattern=arguments.get("pattern", "*.out"),
+        recursive=arguments.get("recursive", False),
+        limit=arguments.get("limit"),
+    )
 
 
 # ---------------------------------------------------------------------------

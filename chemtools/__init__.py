@@ -100,6 +100,7 @@ from .api import (
     suggest_nwchem_mcscf_active_space,
     suggest_nwchem_state_recovery_strategy,
     summarize_output,
+    summarize_nwchem_outputs,
     swap_nwchem_movecs,
     tail_nwchem_output,
 )
@@ -219,6 +220,7 @@ __all__ = [
     "suggest_nwchem_mcscf_active_space",
     "suggest_nwchem_state_recovery_strategy",
     "summarize_output",
+    "summarize_nwchem_outputs",
     "swap_nwchem_movecs",
     "tail_nwchem_output",
     "register_run",
