@@ -650,18 +650,43 @@ def summarize_nwchem_output(
         if correlated_method and scf["total_energy_hartree"] is not None and scf["total_energy_hartree"] != best_energy:
             bullets.append(f"SCF reference energy: {scf['total_energy_hartree']:.12f} Ha")
 
-    if scf["last_run"] is not None:
-        last_run = scf["last_run"]
+    if scf["runs"]:
+        # Report the overall status (robust) against the last meaningful run — the
+        # last completed run, or the longest if none completed (a truncated tail).
+        # last_run alone can be a spurious 2-iteration "plain" table.
+        completed_runs = [run for run in scf["runs"] if run.get("completed")]
+        primary = completed_runs[-1] if completed_runs else max(
+            scf["runs"], key=lambda run: run.get("iteration_count", 0)
+        )
+        # The trend pattern only describes a run that ran to completion; for a
+        # truncated ("incomplete") run it would misleadingly read "converged".
+        pattern = primary["trend"]["pattern"] if scf["status"] != "incomplete" else None
+        pattern_suffix = f" ({pattern})" if pattern else ""
         if scf.get("run_count", 0) > 1:
             bullets.append(
-                f"SCF runs: {scf['run_count']} total; last {last_run['status']} in {last_run['iteration_count']} iterations"
-                + (f" ({last_run['trend']['pattern']})" if last_run["trend"]["pattern"] else "")
+                f"SCF runs: {scf['run_count']} total, overall {scf['status']}; "
+                f"last run {primary['iteration_count']} iterations{pattern_suffix}"
             )
         else:
             bullets.append(
-                f"SCF: {last_run['status']} in {last_run['iteration_count']} iterations"
-                + (f" ({last_run['trend']['pattern']})" if last_run["trend"]["pattern"] else "")
+                f"SCF: {scf['status']} in {primary['iteration_count']} iterations{pattern_suffix}"
             )
+        # A converged run that spiked sharply upward mid-iteration recovered from a
+        # DIIS instability — flag it so the user can harden a fragile setup.
+        if scf["status"] == "converged":
+            jumps = [
+                it["delta_e_hartree"]
+                for it in primary.get("iterations", [])
+                if it.get("delta_e_hartree") is not None
+            ]
+            max_jump = max(jumps) if jumps else 0.0
+            if max_jump > 5.0:
+                bullets.append(
+                    f"SCF note: recovered from a large transient excursion "
+                    f"(+{max_jump:.1f} Ha jump mid-iteration). It converged, but the large "
+                    f"basis from the atomic guess is fragile — basis stepping or convergence "
+                    f"damping makes the path robust."
+                )
     elif scf["iteration_count"] > 0:
         trend = scf["trend"]["pattern"]
         bullets.append(
@@ -1138,18 +1163,37 @@ def suggest_vectors_swaps(
         and orbital["occupation_label"] == "occupied"
         and orbital["vector_number"] not in somo_vectors
     ]
-    candidate_pool = []
+    def _is_df_metal(summary: dict[str, Any] | None) -> bool:
+        # The orbital we want in the SOMO window is a genuine metal d/f orbital,
+        # not a semi-core metal s/p shell that merely passes "metal-centered".
+        return summary is not None and summary["metal_like"] and (
+            summary["d_like"] or summary["f_like"]
+        )
+
+    occupied_candidates = []
     for orbital in occupied_orbitals:
         summarized = _summarize_frontier_orbital(orbital, metal_set)
-        if summarized is None:
-            continue
-        if summarized["metal_like"] and (
-            summarized["d_like"]
-            or summarized["f_like"]
-            or summarized["character_class"].startswith("metal_centered")
+        if _is_df_metal(summarized):
+            occupied_candidates.append(summarized)
+    occupied_candidates.sort(key=lambda orbital: orbital["energy_hartree"], reverse=True)
+
+    # Fallback: low-lying virtual metal d/f orbitals. In a wrong-occupation state
+    # the correct metal orbital can sit empty just above the frontier; swapping it
+    # into the SOMO window fills it on re-diagonalization. Occupied candidates are
+    # preferred, so these only cover slots the occupied pool can't.
+    virtual_candidates = []
+    for orbital in mos_payload["orbitals"]:
+        if (
+            orbital.get("spin") == primary_spin
+            and orbital["occupation_label"] == "virtual"
+            and orbital["vector_number"] not in somo_vectors
         ):
-            candidate_pool.append(summarized)
-    candidate_pool.sort(key=lambda orbital: orbital["energy_hartree"], reverse=True)
+            summarized = _summarize_frontier_orbital(orbital, metal_set)
+            if _is_df_metal(summarized):
+                virtual_candidates.append(summarized)
+    virtual_candidates.sort(key=lambda orbital: orbital["energy_hartree"])
+
+    candidate_pool = occupied_candidates + virtual_candidates
 
     swap_pairs = []
     used_vectors: set[int] = set()
@@ -1164,7 +1208,9 @@ def suggest_vectors_swaps(
                 "to_vector": wrong_slot["vector_number"],
                 "reason": (
                     f"replace {wrong_slot['character_class']} SOMO with "
-                    f"{candidate['character_class']} buried occupied orbital"
+                    f"{candidate['character_class']} "
+                    f"{'buried occupied' if candidate.get('occupation_label') == 'occupied' else 'low-lying virtual'} "
+                    f"orbital"
                 ),
                 "from_orbital": candidate,
                 "to_orbital": wrong_slot,

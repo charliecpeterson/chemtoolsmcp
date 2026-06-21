@@ -379,7 +379,11 @@ def summarize_nwchem_case(
             f"Input lint: {lint['status']} ({lint['counts']['error']} errors, {lint['counts']['warning']} warnings)"
         )
     if state is not None:
-        bullets.append(f"Spin/state plausibility: {state['assessment']}")
+        detail = state.get("state_check_assessment")
+        if detail and detail not in ("unavailable", "not_flagged") and detail != state["assessment"]:
+            bullets.append(f"Spin/state: {state['assessment']} ({detail})")
+        else:
+            bullets.append(f"Spin/state plausibility: {state['assessment']}")
     elif is_tce:
         bullets.append("Spin/state check: skipped for TCE (state is from SCF reference; verify freeze count separately)")
     preferred = assets["preferred"]
