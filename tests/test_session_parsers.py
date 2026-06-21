@@ -12,6 +12,7 @@ from chemtools.programs.molcas.strategy.active_space import (
     _verdict_from_quality,
 )
 from chemtools.programs.nwchem.strategy.input_advisors import recommend_multiplicity_scan
+from chemtools.programs.grasp.parse.sum_file import parse_sum as parse_grasp_sum
 
 
 RELCCSD_OUT = """
@@ -75,3 +76,42 @@ def test_multiplicity_scan_warranted_for_open_shell_metal():
 def test_multiplicity_scan_not_warranted_for_closed_shell():
     r = recommend_multiplicity_scan(["O", "H", "H"], charge=0, current_multiplicity=1)
     assert not r["scan_warranted"]
+
+
+GRASP_CSUM = """
+ There are 90 electrons in the cloud
+  in 9 relativistic CSFs
+  based on 27 relativistic subshells.
+
+The atomic number is  90.0000000000;
+
+Speed of light =  1.370359991390D+02 atomic units.
+
+ To H (Dirac Coulomb) is added
+  H (Transverse) --- factor multiplying the photon frequency:  1.00000000D-06;
+  H (Vacuum Polarisation);
+  the total will be diagonalised.
+ Diagonal contributions from H (Self Energy) will be estimated
+  from a screened hydrogenic approximation.
+"""
+
+GRASP_SUM_DHF = """
+ There are 90 electrons in the cloud
+  in 9 relativistic CSFs
+  based on 27 relativistic subshells.
+
+The atomic number is  90.0000000000;
+
+Speed of light =  1.370359991390D+02 atomic units.
+"""
+
+
+def test_grasp_csum_reports_rci_corrections():
+    c = parse_grasp_sum(GRASP_CSUM)["rci_corrections"]
+    assert c["is_rci"] and c["transverse_breit"] and c["vacuum_polarisation"]
+    assert c["self_energy"] and not c["normal_mass_shift"]
+    assert c["photon_frequency_factor"] == 1e-06
+
+
+def test_grasp_dhf_sum_has_no_rci_corrections():
+    assert "rci_corrections" not in parse_grasp_sum(GRASP_SUM_DHF)

@@ -237,7 +237,7 @@ Plugin layout (`chemtools/programs/grasp/`):
 - `runtime.py` — apptainer wrapper, stdin heredoc execution, session log writer
 - `parse/rlevels.py` — energy-level table (No / Pos / J / Parity / E_au / E_cm-1 / splitting / config) + term grouping + DHF-vs-NR comparison
 - `parse/lsjlbl.py` — LSJ-coupled composition per ASF
-- `parse/sum_file.py` — `name.sum` summary (nucleus, c, grid, subshells, eigenenergies)
+- `parse/sum_file.py` — `name.sum` (rmcdhf) **and** `name.csum` (rci) summary: nucleus, c, grid, subshells, eigenenergies; for `.csum` also `rci_corrections` (which of Breit/transverse, vacuum-polarisation, self-energy, mass shifts were added on top of Dirac-Coulomb)
 - `parse/rmcdhf_log.py` — SCF iteration trace from rmcdhf stdout
 - `input/heredoc.py` — typed stdin builders for each exe (rnucleus, rcsfgenerate, rangular, rwfnestimate, rmcdhf, jj2lsj, hf, rwfnmchfmcdf, rci)
 - `strategy/workflows.py` — DHF / non-rel / restart-from-w / hf-bootstrap planners

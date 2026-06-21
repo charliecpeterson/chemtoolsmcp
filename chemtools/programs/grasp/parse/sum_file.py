@@ -1,4 +1,9 @@
-"""Parse a GRASP ``<name>.sum`` summary file written by ``rmcdhf`` after ``rsave``.
+"""Parse a GRASP ``<name>.sum`` / ``<name>.csum`` summary file.
+
+Written by ``rmcdhf`` (``.sum``, after ``rsave``) or ``rci`` (``.csum``). The two
+share a format; for ``.csum`` an extra ``rci_corrections`` block reports which
+Hamiltonian terms (Breit, vacuum polarisation, self-energy, mass shifts) were
+added on top of Dirac-Coulomb.
 
 Contents:
   * Number of electrons / CSFs / subshells
@@ -118,6 +123,25 @@ def parse_sum(path_or_text: str) -> dict[str, Any]:
     if levels:
         out["eigenenergies"] = levels
         out["ground_energy_au"] = levels[0]["energy_hartree"]
+
+    # rci writes a .csum in the same format but adds a Hamiltonian-decomposition
+    # block listing which corrections sit on top of Dirac-Coulomb. Report it so
+    # the caller knows whether Breit/QED were included.
+    if "To H (Dirac Coulomb) is added" in text:
+        transverse = "H (Transverse)" in text
+        photon_factor = None
+        if transverse:
+            if fm := re.search(r"factor multiplying the photon frequency:\s*(" + _FLOAT_RE + r")", text):
+                photon_factor = _todouble(fm.group(1))
+        out["rci_corrections"] = {
+            "is_rci": True,
+            "transverse_breit": transverse,
+            "photon_frequency_factor": photon_factor,
+            "vacuum_polarisation": "H (Vacuum Polarisation)" in text,
+            "self_energy": "H (Self Energy)" in text,
+            "normal_mass_shift": "H (Normal Mass Shift)" in text,
+            "specific_mass_shift": "H (Specific Mass Shift)" in text,
+        }
 
     return out
 
