@@ -56,7 +56,7 @@ chemtools/
       nwchem_docs.py             9 docs / forum / eval handlers
       molcas.py                  45 Molcas tools
       dirac.py                   39 DIRAC tools
-      grasp.py                   38 GRASP tools
+      grasp.py                   41 GRASP tools
 
 test_phase1/                     Test suite (gitignored — local training corpus)
   test_modes.py                  Capability filter + mode tests (65)
@@ -73,7 +73,7 @@ examples/
 - Domain logic lives in `chemtools/programs/<program>/` and `chemtools/core/`
 - MCP handlers in `chemtools/mcp/tools/<program>.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_<program>_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute, run, plan, apply, terminate, summarize, validate, check, extract, refine, prepare, evaluate, displace, init, append, search, lookup, read, basis, append, try}
-- **Current tool count: 257** (99 NWChem + 45 Molcas + 39 DIRAC + 38 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
+- **Current tool count: 260** (99 NWChem + 45 Molcas + 39 DIRAC + 41 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### NWChem tool categories (97 tools)
@@ -204,7 +204,7 @@ Plugin layout (`chemtools/programs/dirac/`):
 - `strategy/` — open-shell quality analysis, Cm-class workflow routing
 - `_plugin_parser.py`, `_plugin_binary.py` — sub-protocol implementations
 
-### GRASP2018 tools (38)
+### GRASP2018 tools (41)
 
 Includes 26 original tools (per-exe runners, planners, parsers, session log),
 7 parity tools (analyze_grasp_case, suggest_grasp_recovery, docs tools +
@@ -218,10 +218,10 @@ GRASP is structurally different from NWChem/Molcas/DIRAC: ~50 small executables 
 
 | Category | Tools |
 |----------|-------|
-| Per-exe runners (executable cap) | `run_grasp_rnucleus`, `run_grasp_rcsfgenerate`, `run_grasp_rangular`, `run_grasp_rwfnestimate`, `run_grasp_rmcdhf`, `run_grasp_rsave`, `run_grasp_jj2lsj`, `run_grasp_rlevels`, `run_grasp_hf`, `run_grasp_rwfnmchfmcdf`, `run_grasp_rci`, `run_grasp_exe` (escape hatch) |
+| Per-exe runners (executable cap) | `run_grasp_rnucleus`, `run_grasp_rcsfgenerate`, `run_grasp_rangular`, `run_grasp_rwfnestimate`, `run_grasp_rmcdhf`, `run_grasp_rsave`, `run_grasp_jj2lsj`, `run_grasp_rlevels`, `run_grasp_hf`, `run_grasp_rwfnmchfmcdf`, `run_grasp_rci`, `run_grasp_rhfs`, `run_grasp_rhfs_lsj`, `run_grasp_exe` (escape hatch) |
 | Workflow planners (any mode) | `plan_grasp_dhf_workflow`, `plan_grasp_nonrel_limit_workflow`, `plan_grasp_restart_from_workflow`, `plan_grasp_hf_bootstrap_workflow` |
 | Workflow runner | `run_grasp_workflow` (executes a plan end-to-end) |
-| Parsers | `parse_grasp_levels`, `summarize_grasp_terms`, `compare_grasp_levels`, `parse_grasp_lsjlbl`, `parse_grasp_sum`, `parse_grasp_rmcdhf_log` |
+| Parsers | `parse_grasp_levels`, `summarize_grasp_terms`, `compare_grasp_levels`, `parse_grasp_lsjlbl`, `parse_grasp_sum` (also rci `.csum`), `parse_grasp_rmcdhf_log`, `parse_grasp_hfs` (rhfs/rhfs_lsj A/B/g_J) |
 | Triage | `summarize_grasp_runs` (one row per working dir over a parent), `analyze_grasp_case` (deep single-dir audit) |
 | Container + session log | `get_grasp_container`, `read_grasp_session_log`, `append_grasp_session_note` |
 
@@ -238,6 +238,7 @@ Plugin layout (`chemtools/programs/grasp/`):
 - `parse/rlevels.py` — energy-level table (No / Pos / J / Parity / E_au / E_cm-1 / splitting / config) + term grouping + DHF-vs-NR comparison
 - `parse/lsjlbl.py` — LSJ-coupled composition per ASF
 - `parse/sum_file.py` — `name.sum` (rmcdhf) **and** `name.csum` (rci) summary: nucleus, c, grid, subshells, eigenenergies; for `.csum` also `rci_corrections` (which of Breit/transverse, vacuum-polarisation, self-energy, mass shifts were added on top of Dirac-Coulomb)
+- `parse/hfs.py` — hyperfine output from `rhfs` (`name.(c)h`) / `rhfs_lsj` (`name.(c)hlsj`): nuclear spin + dipole/quadrupole moments, per-level A(MHz), B(MHz), Landé g_J (LSJ label + energy from rhfs_lsj)
 - `parse/rmcdhf_log.py` — SCF iteration trace from rmcdhf stdout
 - `input/heredoc.py` — typed stdin builders for each exe (rnucleus, rcsfgenerate, rangular, rwfnestimate, rmcdhf, jj2lsj, hf, rwfnmchfmcdf, rci)
 - `strategy/workflows.py` — DHF / non-rel / restart-from-w / hf-bootstrap planners

@@ -358,3 +358,45 @@ def rci_input(
     else:
         lines.append("1")
     return lines
+
+
+def rhfs_input(
+    *,
+    name: str,
+    ci_mixing: bool = False,
+    default_settings: bool = True,
+) -> list[str]:
+    """Build rhfs stdin (hyperfine A/B constants + Landé g_J).
+
+    Reads isodata (nuclear spin + moments) + name.c/.w/.(c)m; writes name.(c)h.
+
+    Prompts:
+      1. Default settings? (y/n)
+      2. Name of state
+      3. Mixing coefficients from a CI calc.? (y if from rci .cm, n if rmcdhf .m)
+    """
+    return [
+        "y" if default_settings else "n",
+        name,
+        "y" if ci_mixing else "n",
+    ]
+
+
+def rhfs_lsj_input(
+    *,
+    name: str,
+    ci_mixing: bool = False,
+    energy_sorted: bool = True,
+) -> list[str]:
+    """Build rhfs_lsj stdin — relabel rhfs output (name.(c)h) with LSJ terms.
+
+    Prompts:
+      1. Name of state
+      2. Hfs data from a CI calc? (y/n)
+      3. Energy sorted output? (y/n)
+    """
+    return [
+        name,
+        "y" if ci_mixing else "n",
+        "y" if energy_sorted else "n",
+    ]

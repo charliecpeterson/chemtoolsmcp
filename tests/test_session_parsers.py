@@ -13,6 +13,7 @@ from chemtools.programs.molcas.strategy.active_space import (
 )
 from chemtools.programs.nwchem.strategy.input_advisors import recommend_multiplicity_scan
 from chemtools.programs.grasp.parse.sum_file import parse_sum as parse_grasp_sum
+from chemtools.programs.grasp.parse.hfs import parse_hfs
 
 
 RELCCSD_OUT = """
@@ -115,3 +116,35 @@ def test_grasp_csum_reports_rci_corrections():
 
 def test_grasp_dhf_sum_has_no_rci_corrections():
     assert "rci_corrections" not in parse_grasp_sum(GRASP_SUM_DHF)
+
+
+# rhfs_lsj .chlsj — the GRASP manual's Li 1s(2).2p_2P example (real Li-7 moments,
+# published A/B/g_J values; pins the parser against ground truth).
+GRASP_CHLSJ = """Nuclear spin 1.500000000000000D+00 au
+Nuclear magnetic dipole moment 3.256426800000000D+00 n.m.
+Nuclear electric quadrupole moment -4.000000000000000D-02 barns
+Energy State J P A(MHz) B(MHz) gJ
+-7.4042610 1s(2).2p_2P 1/2 - 4.482D+01 -0.000D+00 6.666573D-01
+-7.4042597 1s(2).2p_2P 3/2 - -3.538D+00 -1.773D-01 1.333325D+00
+"""
+
+
+def test_grasp_hfs_lsj_parses_published_li_values():
+    r = parse_hfs(GRASP_CHLSJ)
+    assert r["nuclear_spin"] == 1.5
+    assert r["n_levels"] == 2
+    p12, p32 = r["levels"]
+    assert p12["j_str"] == "1/2" and abs(p12["a_mhz"] - 44.82) < 1e-2
+    assert abs(p32["a_mhz"] - (-3.538)) < 1e-3 and abs(p32["b_mhz"] - (-0.1773)) < 1e-4
+
+
+def test_grasp_hfs_raw_h_table():
+    # rhfs .h row: Level J Parity A B g_J delta_g_J total_g_J
+    raw = ("Nuclear spin                         5.000000000000000D-01 au\n"
+           " Interaction constants:\n"
+           "   1        1 +      3.7774375523D+03   -2.1917712011D+02    "
+           "4.2281763569D-01   -1.3363807600D-03    4.2148125493D-01\n")
+    r = parse_hfs(raw)
+    assert r["nuclear_spin"] == 0.5 and r["n_levels"] == 1
+    assert abs(r["levels"][0]["a_mhz"] - 3777.4375523) < 1e-4
+    assert "total_g_j" in r["levels"][0]

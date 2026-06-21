@@ -43,7 +43,10 @@ from chemtools.programs.grasp.input.heredoc import (
     rwfnmchfmcdf_input as _rwfnmchfmcdf_input,
     rsave_args as _rsave_args,
     rci_input as _rci_input,
+    rhfs_input as _rhfs_input,
+    rhfs_lsj_input as _rhfs_lsj_input,
 )
+from chemtools.programs.grasp.parse.hfs import parse_hfs as _parse_hfs
 from chemtools.programs.grasp.parse.rlevels import (
     parse_rlevels as _parse_rlevels,
     summarize_terms as _summarize_terms,
@@ -203,6 +206,32 @@ def _handle_run_jj2lsj(arguments: dict[str, Any]) -> dict[str, Any]:
             mixing_coefficients=arguments.get("mixing_coefficients", False),
             unique_labeling=arguments.get("unique_labeling", True),
             default_settings=arguments.get("default_settings", True),
+        ),
+    )
+
+
+@_tool("run_grasp_rhfs", needs="executable", program="grasp")
+def _handle_run_rhfs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _run_grasp_exe(
+        "rhfs",
+        working_dir=arguments["working_dir"],
+        stdin_lines=_rhfs_input(
+            name=arguments["name"],
+            ci_mixing=arguments.get("ci_mixing", False),
+            default_settings=arguments.get("default_settings", True),
+        ),
+    )
+
+
+@_tool("run_grasp_rhfs_lsj", needs="executable", program="grasp")
+def _handle_run_rhfs_lsj(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _run_grasp_exe(
+        "rhfs_lsj",
+        working_dir=arguments["working_dir"],
+        stdin_lines=_rhfs_lsj_input(
+            name=arguments["name"],
+            ci_mixing=arguments.get("ci_mixing", False),
+            energy_sorted=arguments.get("energy_sorted", True),
         ),
     )
 
@@ -379,6 +408,11 @@ def _handle_summarize_grasp_runs(arguments: dict[str, Any]) -> dict[str, Any]:
         recursive=arguments.get("recursive", False),
         limit=arguments.get("limit"),
     )
+
+
+@_tool("parse_grasp_hfs", program="grasp")
+def _handle_parse_grasp_hfs(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _parse_hfs(arguments["path"])
 
 
 @_tool("suggest_grasp_recovery", program="grasp")
@@ -688,6 +722,45 @@ _DEFS: list[dict[str, Any]] = [
                 },
                 "unique_labeling": {"type": "boolean", "default": True},
                 "default_settings": {"type": "boolean", "default": True},
+            },
+            "required": ["working_dir", "name"],
+        },
+    },
+    {
+        "name": "run_grasp_rhfs",
+        "description": (
+            "Run rhfs (hyperfine structure): computes magnetic-dipole A(MHz) + "
+            "electric-quadrupole B(MHz) constants and Landé g_J from isodata "
+            "(nuclear spin + moments) + name.c/.w/.(c)m. Writes name.(c)h. "
+            "Needs a nucleus with spin I!=0 (set via rnucleus); A,B vanish for I=0."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "working_dir": {"type": "string"},
+                "name": {"type": "string"},
+                "ci_mixing": {
+                    "type": "boolean", "default": False,
+                    "description": "Set True to read CI-mixed name.cm (from rci) instead of name.m",
+                },
+                "default_settings": {"type": "boolean", "default": True},
+            },
+            "required": ["working_dir", "name"],
+        },
+    },
+    {
+        "name": "run_grasp_rhfs_lsj",
+        "description": (
+            "Run rhfs_lsj: relabel rhfs output (name.(c)h) with LSJ terms + level "
+            "energies, energy-sortable. Writes name.(c)hlsj. Run rhfs first."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "working_dir": {"type": "string"},
+                "name": {"type": "string"},
+                "ci_mixing": {"type": "boolean", "default": False},
+                "energy_sorted": {"type": "boolean", "default": True},
             },
             "required": ["working_dir", "name"],
         },
@@ -1043,6 +1116,19 @@ _DEFS: list[dict[str, Any]] = [
             },
             "required": ["path"],
             "additionalProperties": False,
+        },
+    },
+    {
+        "name": "parse_grasp_hfs",
+        "description": (
+            "Parse hyperfine output from rhfs (name.(c)h) or rhfs_lsj (name.(c)hlsj): "
+            "nuclear spin + dipole/quadrupole moments, and per-level A(MHz), B(MHz), "
+            "Landé g_J (LSJ label + energy when from rhfs_lsj)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "Path to a .h/.ch or .hlsj/.chlsj file."}},
+            "required": ["path"],
         },
     },
     {
