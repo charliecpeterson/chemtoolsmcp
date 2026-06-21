@@ -166,9 +166,8 @@ Adds 4 scheduler-submit tools to the existing 34: `launch_dirac_run`
 |----------|-------|
 | Atomic SCF input | `prepare_dirac_atomic_start`, `prepare_dirac_core_ionization`, `prepare_dirac_cm_class_workflow`, `prepare_dirac_x2c_bootstrap` |
 | Molecular input | `prepare_dirac_molecular_scf`, `draft_dirac_input`, `draft_dirac_mol`, `draft_initial_geometry` |
-| Output parsing | `parse_dirac_output`, `parse_dirac_vecpop`, `parse_dirac_hessian`, `parse_dirac_spinor_spectrum`, `parse_dirac_cosci_energies` |
+| Output parsing | `parse_dirac_output` (SCF + spinors + TDDFT excitations + RELCCSD MP2/CCSD(T) + COSCI/.RESOLVE states), `parse_dirac_vecpop`, `parse_dirac_spinor_spectrum`, `parse_dirac_cosci_energies`, `summarize_dirac_outputs` (bulk triage) |
 | HDF5 / binary | `read_dirac_orbitals`, `read_dirac_mo_coefficients`, `read_dirac_h5_geometry`, `read_dirac_h5_metadata` |
-| Frequency | `compute_dirac_harmonic_frequencies` |
 | Reorder / geometry | `draft_dirac_reorder_block`, `apply_dirac_reorder_to_input` |
 | Analysis | `analyze_dirac_open_shell_quality`, `summarize_dirac_run` |
 | Basis | `list_dirac_basis_sets`, `suggest_dirac_basis` |
