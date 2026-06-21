@@ -371,6 +371,16 @@ def _handle_analyze_grasp_case(arguments: dict[str, Any]) -> dict[str, Any]:
     return _analyze_grasp_case(arguments["working_dir"])
 
 
+@_tool("summarize_grasp_runs", program="grasp")
+def _handle_summarize_grasp_runs(arguments: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.grasp.strategy.triage import summarize_grasp_runs
+    return summarize_grasp_runs(
+        arguments["path"],
+        recursive=arguments.get("recursive", False),
+        limit=arguments.get("limit"),
+    )
+
+
 @_tool("suggest_grasp_recovery", program="grasp")
 def _handle_suggest_grasp_recovery(arguments: dict[str, Any]) -> dict[str, Any]:
     return _suggest_grasp_recovery(
@@ -1011,6 +1021,28 @@ _DEFS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {"working_dir": {"type": "string"}},
             "required": ["working_dir"],
+        },
+    },
+    {
+        "name": "summarize_grasp_runs",
+        "description": (
+            "Triage MANY GRASP working directories in one call (the GRASP unit "
+            "is a directory per atom/term, not a single file). Give a parent "
+            "directory; returns one compact row per run (element, Z, n_csfs, "
+            "non-rel-limit flag, ground energy + term, level count, max "
+            "splitting, verdict) plus roll-up counts by verdict and element. "
+            "Use this for atom/term screens; drill into a flagged run with "
+            "analyze_grasp_case afterward."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "A GRASP working dir, or a parent containing several."},
+                "recursive": {"type": "boolean", "default": False, "description": "Recurse into nested subdirectories."},
+                "limit": {"type": "integer", "description": "Cap runs processed (response flags truncation)."},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
         },
     },
     {

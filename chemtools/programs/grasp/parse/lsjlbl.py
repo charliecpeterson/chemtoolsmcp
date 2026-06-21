@@ -23,8 +23,12 @@ _HEADER_RE = re.compile(
     r"^\s*(\d+)\s+(\S+)\s+([+-])\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")%\s*$",
     re.M,
 )
+# Label is optional: in heavy-element MR-SD expansions jj2lsj sometimes prints a
+# component's coefficient + weight with no LSJ label (and the level's total weight
+# drifts off 100%, signalling the jj->LSJ map is unreliable for that level). Keep
+# the numeric data rather than dropping the whole component.
 _COMP_RE = re.compile(
-    r"^\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+(\S+)\s*$",
+    r"^\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")(?:\s+(\S.*?))?\s*$",
     re.M,
 )
 
@@ -62,12 +66,14 @@ def parse_lsjlbl(path_or_text: str) -> dict[str, Any]:
 
         components: list[dict[str, Any]] = []
         for m in _COMP_RE.finditer(block):
+            label = m.group(3)
             components.append({
                 "coefficient": float(m.group(1)),
                 "weight_fraction": float(m.group(2)),
-                "label": m.group(3).strip(),
+                "label": label.strip() if label else None,
             })
 
+        dominant = max(components, key=lambda c: c["weight_fraction"]) if components else None
         levels.append({
             "pos": int(h.group(1)),
             "j_str": h.group(2),
@@ -76,8 +82,8 @@ def parse_lsjlbl(path_or_text: str) -> dict[str, Any]:
             "energy_au": float(h.group(4)),
             "total_weight_percent": float(h.group(5)),
             "components": components,
-            "dominant_label": components[0]["label"] if components else None,
-            "dominant_weight": components[0]["weight_fraction"] if components else None,
+            "dominant_label": dominant["label"] if dominant else None,
+            "dominant_weight": dominant["weight_fraction"] if dominant else None,
         })
 
     return {"levels": levels, "n_levels": len(levels)}

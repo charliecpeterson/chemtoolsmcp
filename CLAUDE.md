@@ -56,7 +56,7 @@ chemtools/
       nwchem_docs.py             9 docs / forum / eval handlers
       molcas.py                  45 Molcas tools
       dirac.py                   39 DIRAC tools
-      grasp.py                   37 GRASP tools
+      grasp.py                   38 GRASP tools
 
 test_phase1/                     Test suite (gitignored — local training corpus)
   test_modes.py                  Capability filter + mode tests (65)
@@ -73,7 +73,7 @@ examples/
 - Domain logic lives in `chemtools/programs/<program>/` and `chemtools/core/`
 - MCP handlers in `chemtools/mcp/tools/<program>.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_<program>_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute, run, plan, apply, terminate, summarize, validate, check, extract, refine, prepare, evaluate, displace, init, append, search, lookup, read, basis, append, try}
-- **Current tool count: 256** (99 NWChem + 45 Molcas + 39 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
+- **Current tool count: 257** (99 NWChem + 45 Molcas + 39 DIRAC + 38 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### NWChem tool categories (97 tools)
@@ -204,13 +204,15 @@ Plugin layout (`chemtools/programs/dirac/`):
 - `strategy/` — open-shell quality analysis, Cm-class workflow routing
 - `_plugin_parser.py`, `_plugin_binary.py` — sub-protocol implementations
 
-### GRASP2018 tools (37)
+### GRASP2018 tools (38)
 
 Includes 26 original tools (per-exe runners, planners, parsers, session log),
 7 parity tools (analyze_grasp_case, suggest_grasp_recovery, docs tools +
-topic guides), and 4 scheduler-submit tools (`launch_grasp_workflow_run`
+topic guides), 4 scheduler-submit tools (`launch_grasp_workflow_run`
 takes a `workflow_script_path` rather than a single input file, since
-GRASP workflows are multi-exe shell scripts).
+GRASP workflows are multi-exe shell scripts), and `summarize_grasp_runs`
+(bulk working-dir triage — the GRASP counterpart of the other programs'
+`summarize_*_outputs`, one row per atom/term for screen-many workflows).
 
 GRASP is structurally different from NWChem/Molcas/DIRAC: ~50 small executables run sequentially, each prompted via stdin (no input file). Tools wrap individual executables, plan workflows, and parse the `name.{w,c,m,sum,lsj.lbl}` files produced by `rsave`.
 
@@ -220,6 +222,7 @@ GRASP is structurally different from NWChem/Molcas/DIRAC: ~50 small executables 
 | Workflow planners (any mode) | `plan_grasp_dhf_workflow`, `plan_grasp_nonrel_limit_workflow`, `plan_grasp_restart_from_workflow`, `plan_grasp_hf_bootstrap_workflow` |
 | Workflow runner | `run_grasp_workflow` (executes a plan end-to-end) |
 | Parsers | `parse_grasp_levels`, `summarize_grasp_terms`, `compare_grasp_levels`, `parse_grasp_lsjlbl`, `parse_grasp_sum`, `parse_grasp_rmcdhf_log` |
+| Triage | `summarize_grasp_runs` (one row per working dir over a parent), `analyze_grasp_case` (deep single-dir audit) |
 | Container + session log | `get_grasp_container`, `read_grasp_session_log`, `append_grasp_session_note` |
 
 Key constraints:
@@ -592,6 +595,11 @@ Llama) and focused work, where 100+ tools is too many to choose among.
   `parse_dirac_scf_iterations`, `parse_dirac_spinor_spectrum`,
   `analyze_dirac_open_shell`, `parse_dirac_cosci_energies`,
   `read_dirac_h5_metadata`, `suggest_relativistic_correction`, `get_server_mode`).
+- Bundled preset **`grasp-triage`** = the 10-tool GRASP counterpart
+  (`summarize_grasp_runs`, `analyze_grasp_case`, `parse_grasp_sum`,
+  `parse_grasp_lsjlbl`, `parse_grasp_levels`, `summarize_grasp_terms`,
+  `compare_grasp_levels`, `parse_grasp_rmcdhf_log`, `suggest_grasp_recovery`,
+  `get_server_mode`).
 - Unlike the program filter, the toolset is an **exact** allowlist: generics are
   not auto-included; list them by name if wanted. Add new presets in
   `chemtools/mcp/modes.py:TOOLSETS`.

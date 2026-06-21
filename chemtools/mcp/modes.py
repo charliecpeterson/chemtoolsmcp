@@ -88,6 +88,18 @@ TOOLSETS: dict[str, frozenset[str]] = {
         "suggest_relativistic_correction",   # 4c / X2C / ECP advice
         "get_server_mode",                   # introspect what's available
     }),
+    "grasp-triage": frozenset({
+        "summarize_grasp_runs",              # batch triage entry point (per working dir)
+        "analyze_grasp_case",                # deep single working-dir audit
+        "parse_grasp_sum",                   # nucleus/grid/subshell summary
+        "parse_grasp_lsjlbl",                # LSJ-coupled levels
+        "parse_grasp_levels",                # rlevels energy table
+        "summarize_grasp_terms",             # term grouping
+        "compare_grasp_levels",              # DHF vs non-rel comparison
+        "parse_grasp_rmcdhf_log",            # SCF convergence trace
+        "suggest_grasp_recovery",            # failure classification
+        "get_server_mode",                   # introspect what's available
+    }),
 }
 
 
