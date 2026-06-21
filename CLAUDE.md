@@ -45,7 +45,7 @@ chemtools/
     tools/                       Per-program MCP tool modules
       generic.py                 36 program-agnostic tools (parse_output, register_run, ...)
       nwchem.py                  97 NWChem tools
-      molcas.py                  44 Molcas tools
+      molcas.py                  45 Molcas tools
       dirac.py                   38 DIRAC tools
       grasp.py                   37 GRASP tools
 
@@ -64,7 +64,7 @@ examples/
 - Domain logic lives in `chemtools/programs/<program>/` and `chemtools/core/`
 - MCP handlers in `chemtools/mcp/tools/<program>.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_<program>_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute, run, plan, apply, terminate, summarize, validate, check, extract, refine, prepare, evaluate, displace, init, append, search, lookup, read, basis, append, try}
-- **Current tool count: 254** (99 NWChem + 44 Molcas + 38 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
+- **Current tool count: 255** (99 NWChem + 45 Molcas + 38 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### NWChem tool categories (97 tools)
@@ -86,11 +86,13 @@ examples/
 | Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
-### Molcas / OpenMolcas tools (44)
+### Molcas / OpenMolcas tools (45)
 
 Adds 4 scheduler-submit tools to the existing 40: `launch_molcas_run`,
 `get_molcas_run_status`, `watch_molcas_run`, `terminate_molcas_run` —
-parallel to the NWChem pattern, all tagged `needs="executable"`.
+parallel to the NWChem pattern, all tagged `needs="executable"`. Plus
+`summarize_molcas_outputs` — bulk one-row-per-file triage over a directory /
+glob / list (the Molcas counterpart of `summarize_nwchem_outputs`).
 
 | Tool | Purpose |
 |------|---------|
@@ -570,7 +572,13 @@ Llama) and focused work, where 100+ tools is too many to choose among.
   `analyze_nwchem_frontier_orbitals`, `check_nwchem_spin_charge_state`,
   `extract_nwchem_geometry`, `parse_nwchem_thermochem`, `compare_nwchem_runs`,
   `get_server_mode`).
-- `CHEMTOOLS_PROGRAMS=nwchem CHEMTOOLS_TOOLSET=triage` → 12 tools (vs ~250).
+- Bundled preset **`molcas-triage`** = the 11-tool Molcas counterpart
+  (`summarize_molcas_outputs`, `analyze_molcas_case`, `summarize_molcas_output`,
+  `parse_molcas_output`, `suggest_molcas_recovery`, `analyze_molcas_active_space`,
+  `validate_molcas_caspt2_setup`, `parse_molcas_frequencies`,
+  `parse_molcas_thermochem`, `extract_molcas_geometry`, `get_server_mode`).
+- `CHEMTOOLS_PROGRAMS=nwchem CHEMTOOLS_TOOLSET=triage` → 12 tools (vs ~250);
+  `CHEMTOOLS_PROGRAMS=molcas CHEMTOOLS_TOOLSET=molcas-triage` → 11.
 - Unlike the program filter, the toolset is an **exact** allowlist: generics are
   not auto-included; list them by name if wanted. Add new presets in
   `chemtools/mcp/modes.py:TOOLSETS`.
