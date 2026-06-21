@@ -59,6 +59,7 @@ def parse_scf(path: str) -> dict[str, Any]:
                     "iterations": [],
                     "failure_messages": [],
                     "final_energy_hartree": None,
+                    "completed": False,
                     "max_iterations": max_iterations,
                 }
 
@@ -72,12 +73,14 @@ def parse_scf(path: str) -> dict[str, Any]:
                     "iterations": [],
                     "failure_messages": [],
                     "final_energy_hartree": None,
+                    "completed": False,
                     "max_iterations": max_iterations,
                 }
             current_run["iterations"].append(parsed_iteration)
 
         if current_run is not None and (match := TOTAL_ENERGY_RE.search(line)):
             current_run["final_energy_hartree"] = parse_scientific_float(match.group(1))
+            current_run["completed"] = True
             _finalize_scf_run(current_run, max_iterations, end_byte=current_byte + len(raw_line))
             runs.append(current_run)
             current_run = None
@@ -91,8 +94,15 @@ def parse_scf(path: str) -> dict[str, Any]:
     status = "unknown"
     if failure_messages:
         status = "failed"
-    elif runs:
+    elif any(run.get("completed") for run in runs):
+        # "completed" means a run reached its closing "Total ... energy" line.
         status = "converged"
+    elif runs:
+        # SCF tables exist but none reached a final energy: the run was cut off
+        # mid-iteration (wall-clock kill, truncated log), not a success. Checking
+        # *any* completed run — not the last — avoids tripping on the spurious
+        # short "plain" tables NWChem emits around the real SCF cycles.
+        status = "incomplete"
 
     hit_max_iterations = bool(
         status == "failed"
@@ -500,6 +510,15 @@ def diagnose_nwchem_output(
         else:
             likely_cause = "scf_failed_before_convergence"
             next_action = "inspect_guess_state_and_recent_iterations"
+    elif scf["status"] == "incomplete":
+        failure_class = "scf_incomplete"
+        likely_cause = "scf_cut_off_before_final_energy"
+        next_action = (
+            "restart_scf_from_last_vectors: the SCF table ends mid-iteration with no "
+            "final energy line (wall-clock kill or truncated log), so there are no "
+            "converged orbitals to analyze. Restart from the last .movecs to finish."
+        )
+        confidence = "high"
     elif state_check["assessment"] == "metal_state_mismatch_suspected":
         failure_class = "wrong_state_convergence"
         likely_cause = "singly_occupied_orbitals_do_not_match_expected_metal_state"
