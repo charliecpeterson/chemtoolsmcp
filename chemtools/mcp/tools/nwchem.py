@@ -36,6 +36,7 @@ from chemtools import (  # noqa: E402
     suggest_resources,
     suggest_relativistic_correction,
     suggest_spin_state,
+    recommend_multiplicity_scan,
     validate_nwchem_tce_setup,
     analyze_imaginary_modes,
     check_nwchem_geometry_plausibility,
@@ -1986,6 +1987,39 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "suggest_nwchem_multiplicity_scan",
+            "description": (
+                "Recommend a spin-multiplicity scan to verify the ground state of an "
+                "open-shell metal system. A converged SCF does NOT confirm the spin state — "
+                "NWChem converges cleanly to whatever multiplicity it is given, and the wrong "
+                "spin state can sit tens of kcal/mol too high with no warning (the only reliable "
+                "single-reference test is to run several multiplicities and compare energies). "
+                "Returns whether a scan is warranted plus the parity-correct multiplicities to run "
+                "(chemistry-aware for d-block via oxidation-state/ligand-field analysis; "
+                "parity-window for f-block). Pass input_file to read elements/charge/multiplicity, "
+                "or supply them explicitly."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string", "description": "Path to the NWChem .nw input (read for elements/charge/multiplicity)."},
+                    "elements": {
+                        "type": "array", "items": {"type": "string"},
+                        "description": "All element symbols (duplicates OK). Use instead of input_file.",
+                    },
+                    "charge": {"type": "integer", "description": "Total molecular charge (default 0)."},
+                    "multiplicity": {"type": "integer", "description": "Current/requested multiplicity, if known."},
+                    "metal_oxidation_states": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                        "description": "Optional metal->oxidation-state map, e.g. {'Fe': 3}, to sharpen d-block candidates.",
+                    },
+                    "output_dir": {"type": "string", "description": "Directory for the generated scan inputs (defaults to the input file's directory)."},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "inspect_nwchem_geometry",
             "description": (
                 "Inspect the geometry from an NWChem input file. Returns atom count, "
@@ -3362,10 +3396,17 @@ def _build_next_actions(
                     "priority": 1,
                     "tool": "analyze_nwchem_frontier_orbitals",
                     "params": {"output_file": output_file, "input_file": input_file},
-                    "reason": "SCF converged, but the spin state isn't verified — check that "
-                              "the unpaired electrons sit on the metal (and scan multiplicities "
-                              "for small open-shell metal systems) before trusting the energy.",
+                    "reason": "SCF converged, but the spin state isn't verified — first confirm "
+                              "the unpaired electrons sit on the metal, not the ligands.",
                     "confidence": 0.85,
+                })
+                actions.append({
+                    "priority": 2,
+                    "tool": "suggest_nwchem_multiplicity_scan",
+                    "params": {"input_file": input_file},
+                    "reason": "Then confirm this is the lowest spin state — a clean SCF converges "
+                              "to whatever multiplicity it's given; scan candidates and compare energies.",
+                    "confidence": 0.8,
                 })
             else:
                 actions.append({
@@ -4655,6 +4696,46 @@ def _handle_check_spin_charge_state(arguments: dict[str, Any]) -> dict[str, Any]
         output_file=arguments["output_file"],
         input_file=arguments.get("input_file", ""),
     )
+    return result
+
+
+@_tool("suggest_nwchem_multiplicity_scan")
+def _handle_suggest_multiplicity_scan(arguments: dict[str, Any]) -> dict[str, Any]:
+    elements = arguments.get("elements")
+    charge = arguments.get("charge")
+    multiplicity = arguments.get("multiplicity")
+    input_file = arguments.get("input_file")
+    if input_file and (elements is None or charge is None or multiplicity is None):
+        summary = inspect_input(input_file)
+        if elements is None:
+            elements = summary.get("elements")
+        if charge is None:
+            charge = summary.get("charge")
+        if multiplicity is None:
+            multiplicity = summary.get("multiplicity")
+    if not elements:
+        return {
+            "error": "Provide input_file (to read elements/charge/multiplicity) or an explicit elements list.",
+        }
+    result = recommend_multiplicity_scan(
+        elements=elements,
+        charge=charge or 0,
+        current_multiplicity=multiplicity,
+        metal_oxidation_states=arguments.get("metal_oxidation_states"),
+    )
+    if result["scan_warranted"] and input_file:
+        result["next_actions"] = [{
+            "priority": 1,
+            "tool": "generate_nwchem_input_batch",
+            "params": {
+                "template_input": input_file,
+                "vary": {"mult": result["recommended_multiplicities"]},
+                "output_dir": arguments.get("output_dir") or str(Path(input_file).parent),
+            },
+            "reason": "Generate one input per candidate multiplicity at the same geometry "
+                      "and basis; run them, then take the lowest total energy.",
+            "confidence": 0.9,
+        }]
     return result
 
 

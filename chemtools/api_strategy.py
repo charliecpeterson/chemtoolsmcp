@@ -75,6 +75,7 @@ from chemtools.programs.nwchem.strategy.case_review import (  # noqa: F401, E402
 # Pre-job input advisors moved to programs/nwchem/strategy/input_advisors.py.
 from chemtools.programs.nwchem.strategy.input_advisors import (  # noqa: F401, E402
     suggest_spin_state,
+    recommend_multiplicity_scan,
     suggest_basis_set,
     suggest_relativistic_correction,
 )

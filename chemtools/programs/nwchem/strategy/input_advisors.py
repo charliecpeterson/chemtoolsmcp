@@ -33,6 +33,7 @@ from typing import Any
 
 from chemtools.core.common import ELEMENT_TO_Z
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS
+from chemtools.programs.nwchem.parse.mos import METAL_CENTERS
 
 # Constants currently living in sibling strategy modules — see docstring.
 from chemtools.programs.nwchem.strategy.plausibility import (
@@ -180,6 +181,75 @@ def suggest_spin_state(
         "recommended_spin_state": rec_spin,
         "recommended_nopen": (rec_mult - 1) if rec_mult is not None else None,
         "summary": "\n".join(summary_lines) if summary_lines else "No analysis available.",
+    }
+
+
+def recommend_multiplicity_scan(
+    elements: list[str],
+    charge: int = 0,
+    current_multiplicity: int | None = None,
+    metal_oxidation_states: dict[str, int] | None = None,
+    max_multiplicity: int = 11,
+) -> dict[str, Any]:
+    """Recommend a multiplicity scan to verify the spin ground state.
+
+    A converged SCF says nothing about whether its multiplicity is the lowest
+    in energy: NWChem converges cleanly to whatever spin is requested, and for
+    open-shell d/f systems the wrong spin state can sit tens of kcal/mol above
+    the true ground state with no error or warning. The only reliable
+    single-reference diagnostic is to run several multiplicities and compare
+    total energies. Returns whether a scan is warranted and the parity-correct
+    multiplicities to run.
+    """
+    norm = [e[0].upper() + e[1:].lower() for e in elements]
+    total_electrons = sum(ELEMENT_TO_Z.get(e, 0) for e in norm) - charge
+    # M = 2S+1, so the unpaired count M-1 must match the electron-count parity:
+    # even electrons -> odd multiplicity, odd electrons -> even multiplicity.
+    mult_is_odd = total_electrons % 2 == 0
+    metals = [e for e in dict.fromkeys(norm) if e in METAL_CENTERS]
+
+    spin = suggest_spin_state(elements, charge, metal_oxidation_states)
+    candidates: set[int] = set()
+    for analysis in spin.get("metal_analyses", []):
+        for ox in analysis.get("oxidation_state_analyses", []):
+            for state in ox.get("spin_states", []):
+                candidates.add(state["multiplicity"])
+    if current_multiplicity:
+        candidates.add(current_multiplicity)
+    if not candidates:
+        candidates.add(1 if mult_is_odd else 2)
+
+    top = min(max(candidates) + 2, max_multiplicity)
+    scan = [m for m in range(1, top + 1) if (m % 2 == 1) == mult_is_odd]
+
+    warranted = bool(metals) or (current_multiplicity is not None and current_multiplicity > 1)
+    if not warranted:
+        rationale = (
+            "Closed-shell main-group system with no open-shell metal — one "
+            "multiplicity suffices; a spin scan is not needed."
+        )
+    elif metals:
+        rationale = (
+            f"Open-shell metal(s) {', '.join(metals)} present: a converged SCF does "
+            f"not confirm the spin ground state. Run multiplicities {scan} at the "
+            f"same geometry and basis, then take the lowest energy (note any "
+            f"near-degeneracy within ~5 kcal/mol)."
+        )
+    else:
+        rationale = (
+            f"Open-shell system (multiplicity {current_multiplicity}): verify the "
+            f"spin ground state by scanning {scan} and comparing total energies."
+        )
+
+    return {
+        "scan_warranted": warranted,
+        "total_electrons": total_electrons,
+        "current_multiplicity": current_multiplicity,
+        "recommended_multiplicities": scan,
+        "metal_elements": metals,
+        "ground_state_parity": "odd_multiplicity" if mult_is_odd else "even_multiplicity",
+        "spin_state_analysis": spin,
+        "rationale": rationale,
     }
 
 
