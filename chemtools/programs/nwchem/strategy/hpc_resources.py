@@ -16,6 +16,7 @@ for now) and is lazy-imported below to avoid a cycle.
 """
 
 from __future__ import annotations
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,8 @@ from chemtools.core.runner import (
     load_runner_profiles,
     _resolve_profile,
 )
+from chemtools.programs.nwchem.strategy.resources import suggest_memory, _BF_PER_RANK_TARGET
+from chemtools.programs.nwchem.strategy.workflow_state import _format_walltime, _parse_walltime_hours
 
 
 def _job_size(input_file: str) -> dict[str, Any]:
@@ -162,6 +165,7 @@ def suggest_hpc_resources(
     n_heavy = job["n_heavy"]
     n_bf = job["n_bf"]
     module = job["module"]
+    operation = job["operation"]
     is_freq = job["is_freq"]
     is_opt = job["is_opt"]
     is_tce = job["is_tce"]
@@ -435,7 +439,10 @@ def suggest_partition(
     # --- Analyze the input file once ---
     job = _job_size(input_file)
     n_atoms = job["n_atoms"]
+    n_heavy = job["n_heavy"]
     n_bf = job["n_bf"]
+    module = job["module"]
+    operation = job["operation"]
     is_freq = job["is_freq"]
     is_opt = job["is_opt"]
     is_tce = job["is_tce"]

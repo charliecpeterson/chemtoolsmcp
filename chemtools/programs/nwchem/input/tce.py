@@ -318,6 +318,7 @@ def draft_nwchem_tce_input(
     basis_section: str | None = None
     ecp_section: str | None = None
     try:
+        from chemtools.programs.nwchem.parse.input import inspect_all_nwchem_basis_blocks
         basis_blocks = inspect_all_nwchem_basis_blocks(input_file)
         if basis_blocks:
             raw = basis_blocks[-1]

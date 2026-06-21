@@ -31,6 +31,7 @@ from __future__ import annotations
 import math
 import os
 import signal
+from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import detect_program, read_text

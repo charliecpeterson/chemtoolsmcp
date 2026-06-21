@@ -43,6 +43,7 @@ from chemtools.programs.nwchem.parse.input import (
     parse_start_blocks,
 )
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS
+from chemtools.core.common import ELEMENT_TO_Z
 from chemtools.programs.nwchem.input.basis_library import (
     resolve_mixed_basis_assignments,
     resolve_mixed_ecp_assignments,
