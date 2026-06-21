@@ -45,8 +45,10 @@ from chemtools.programs.grasp.input.heredoc import (
     rci_input as _rci_input,
     rhfs_input as _rhfs_input,
     rhfs_lsj_input as _rhfs_lsj_input,
+    ris4_input as _ris4_input,
 )
 from chemtools.programs.grasp.parse.hfs import parse_hfs as _parse_hfs
+from chemtools.programs.grasp.parse.ris import parse_ris as _parse_ris
 from chemtools.programs.grasp.parse.rlevels import (
     parse_rlevels as _parse_rlevels,
     summarize_terms as _summarize_terms,
@@ -236,6 +238,21 @@ def _handle_run_rhfs_lsj(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@_tool("run_grasp_ris4", needs="executable", program="grasp")
+def _handle_run_ris4(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _run_grasp_exe(
+        "ris4",
+        working_dir=arguments["working_dir"],
+        stdin_lines=_ris4_input(
+            name=arguments["name"],
+            ci_mixing=arguments.get("ci_mixing", False),
+            higher_order_field_shift=arguments.get("higher_order_field_shift", False),
+            save_angular=arguments.get("save_angular", False),
+            default_settings=arguments.get("default_settings", True),
+        ),
+    )
+
+
 @_tool("run_grasp_rlevels", needs="executable", program="grasp")
 def _handle_run_rlevels(arguments: dict[str, Any]) -> dict[str, Any]:
     """Run rlevels and return the parsed energy-level table."""
@@ -413,6 +430,11 @@ def _handle_summarize_grasp_runs(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("parse_grasp_hfs", program="grasp")
 def _handle_parse_grasp_hfs(arguments: dict[str, Any]) -> dict[str, Any]:
     return _parse_hfs(arguments["path"])
+
+
+@_tool("parse_grasp_ris", program="grasp")
+def _handle_parse_grasp_ris(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _parse_ris(arguments["path"])
 
 
 @_tool("suggest_grasp_recovery", program="grasp")
@@ -761,6 +783,28 @@ _DEFS: list[dict[str, Any]] = [
                 "name": {"type": "string"},
                 "ci_mixing": {"type": "boolean", "default": False},
                 "energy_sorted": {"type": "boolean", "default": True},
+            },
+            "required": ["working_dir", "name"],
+        },
+    },
+    {
+        "name": "run_grasp_ris4",
+        "description": (
+            "Run ris4 (isotope shift): computes the electronic normal + specific "
+            "mass-shift parameters and the electron density at the nucleus "
+            "(first-order field-shift factor) per level. Writes name.i. Factors are "
+            "isotope-independent, so any isotope (including spin-0 like Th-232) works."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "working_dir": {"type": "string"},
+                "name": {"type": "string"},
+                "ci_mixing": {"type": "boolean", "default": False,
+                              "description": "Set True to read CI-mixed name.cm (from rci)"},
+                "higher_order_field_shift": {"type": "boolean", "default": False},
+                "save_angular": {"type": "boolean", "default": False},
+                "default_settings": {"type": "boolean", "default": True},
             },
             "required": ["working_dir", "name"],
         },
@@ -1128,6 +1172,19 @@ _DEFS: list[dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {"path": {"type": "string", "description": "Path to a .h/.ch or .hlsj/.chlsj file."}},
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "parse_grasp_ris",
+        "description": (
+            "Parse isotope-shift output from ris4 (name.i): per-level normal + "
+            "specific mass-shift parameters (<K^1>, <K^2+K^3>, total) and the "
+            "electron density at the nucleus (first-order field-shift factor)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "Path to a ris4 .i file."}},
             "required": ["path"],
         },
     },

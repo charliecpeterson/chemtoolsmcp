@@ -14,6 +14,7 @@ from chemtools.programs.molcas.strategy.active_space import (
 from chemtools.programs.nwchem.strategy.input_advisors import recommend_multiplicity_scan
 from chemtools.programs.grasp.parse.sum_file import parse_sum as parse_grasp_sum
 from chemtools.programs.grasp.parse.hfs import parse_hfs
+from chemtools.programs.grasp.parse.ris import parse_ris
 
 
 RELCCSD_OUT = """
@@ -148,3 +149,35 @@ def test_grasp_hfs_raw_h_table():
     assert r["nuclear_spin"] == 0.5 and r["n_levels"] == 1
     assert abs(r["levels"][0]["a_mhz"] - 3777.4375523) < 1e-4
     assert "total_g_j" in r["levels"][0]
+
+
+# ris4 .i — Th 6d^2 ground level (real container output).
+GRASP_RIS_I = """ Level  J Parity  Energy
+   1        0 +        -0.2651014327D+05  (a.u.)
+
+ Level  J Parity  Normal mass shift parameter
+
+                             <K^1>             <K^2+K^3>         <K^1+K^2+K^3>
+   1        0 +         0.4711339546D+05   -0.2316071896D+05    0.2395267650D+05  (a.u.)
+                        0.1700549720D+09   -0.8359820762D+08    0.8645676441D+08  (GHz u)
+
+ Level  J Parity  Specific mass shift parameter
+
+                             <K^1>             <K^2+K^3>         <K^1+K^2+K^3>
+   1        0 +        -0.1126069117D+05    0.3466679116D+04   -0.7794012053D+04  (a.u.)
+                       -0.4064526666D+08    0.1251291728D+08   -0.2813234939D+08  (GHz u)
+
+ Electron density in atomic units
+
+ Level  J Parity        DENS (a.u.)
+
+   1        0 +         0.5194244460D+07
+"""
+
+
+def test_grasp_ris_parses_mass_shift_and_density():
+    r = parse_ris(GRASP_RIS_I)
+    assert r["n_levels"] == 1
+    assert abs(r["normal_mass_shift"][0]["k1"] - 47113.39546) < 1e-3
+    assert abs(r["specific_mass_shift"][0]["k1_k2_k3"] - (-7794.012053)) < 1e-3
+    assert abs(r["electron_density"][0]["density_au"] - 5194244.46) < 1e-1

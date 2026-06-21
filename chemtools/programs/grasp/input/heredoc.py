@@ -400,3 +400,33 @@ def rhfs_lsj_input(
         "y" if ci_mixing else "n",
         "y" if energy_sorted else "n",
     ]
+
+
+def ris4_input(
+    *,
+    name: str,
+    ci_mixing: bool = False,
+    higher_order_field_shift: bool = False,
+    save_angular: bool = False,
+    default_settings: bool = True,
+) -> list[str]:
+    """Build ris4 stdin (isotope-shift electronic factors).
+
+    Computes normal + specific mass-shift parameters and the electron density at
+    the nucleus (first-order field-shift factor); writes name.i. The factors are
+    isotope-independent, so any isotope (including spin-0) works.
+
+    Prompts:
+      1. Default settings? (y/n)
+      2. Name of state
+      3. Mixing coefficients from a CI calc.? (y/n)
+      4. Compute higher order field shift electronic factors? (y/n)
+      5. Save ang. coefficients of one- and two-body op.? (y/n)
+    """
+    return [
+        "y" if default_settings else "n",
+        name,
+        "y" if ci_mixing else "n",
+        "y" if higher_order_field_shift else "n",
+        "y" if save_angular else "n",
+    ]
