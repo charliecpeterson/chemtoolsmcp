@@ -357,13 +357,17 @@ def _detect_metal_centers(
                     present.update(
                         atom["element"] for atom in section["atoms"] if atom.get("element")
                     )
+    orbital_pool: list[dict[str, Any]] = list(mos_payload.get("orbitals") or [])
+    orbital_pool.extend(mos_payload.get("somos") or [])
     for channel in (mos_payload.get("spin_channels") or {}).values():
-        for orbital in channel.get("orbitals", []) or []:
-            present.update(
-                item["element"]
-                for item in (orbital.get("top_atom_contributions") or [])
-                if item.get("element")
-            )
+        orbital_pool.extend(channel.get("somos") or [])
+        orbital_pool.extend(o for o in (channel.get("homo"), channel.get("lumo")) if o)
+    for orbital in orbital_pool:
+        present.update(
+            item["element"]
+            for item in (orbital.get("top_atom_contributions") or [])
+            if item.get("element")
+        )
     return [element for element in present if element in METAL_CENTERS]
 
 
@@ -984,7 +988,8 @@ def analyze_frontier_orbitals(
     expected_metal_elements: list[str] | None = None,
     expected_somo_count: int | None = None,
 ) -> dict[str, Any]:
-    metal_set = {element.lower() for element in expected_metal_elements or []}
+    metals = expected_metal_elements or _detect_metal_centers(mos_payload, population_payload, None)
+    metal_set = {element.lower() for element in metals}
     spin_channels = mos_payload.get("spin_channels", {})
     frontier_channels = {
         channel: _summarize_frontier_channel(channel_payload, metal_set)
@@ -1058,11 +1063,12 @@ def suggest_vectors_swaps(
     vectors_input: str | None = None,
     vectors_output: str | None = None,
 ) -> dict[str, Any]:
-    metal_set = {element.lower() for element in expected_metal_elements or []}
+    metals = expected_metal_elements or _detect_metal_centers(mos_payload, None, None)
+    metal_set = {element.lower() for element in metals}
     frontier = analyze_frontier_orbitals(
         mos_payload,
         population_payload=None,
-        expected_metal_elements=expected_metal_elements,
+        expected_metal_elements=metals,
         expected_somo_count=expected_somo_count,
     )
     if not frontier["available"] or not frontier["frontier_channels"] or not metal_set:
@@ -1100,13 +1106,18 @@ def suggest_vectors_swaps(
             "vectors_block": None,
         }
 
-    min_somo_vector = min(orbital["vector_number"] for orbital in somos)
+    # Candidates are doubly-occupied metal orbitals anywhere in the occupied
+    # space (minus the SOMO slots themselves), not just those below the lowest
+    # SOMO: in a wrong-occupation state the buried metal d/f orbitals are paired
+    # up and interleaved among — often above — the ligand SOMOs that displaced
+    # them, so a "< lowest SOMO" window misses exactly the orbitals to swap in.
+    somo_vectors = {orbital["vector_number"] for orbital in somos}
     occupied_orbitals = [
         orbital
         for orbital in mos_payload["orbitals"]
         if orbital.get("spin") == primary_spin
         and orbital["occupation_label"] == "occupied"
-        and orbital["vector_number"] < min_somo_vector
+        and orbital["vector_number"] not in somo_vectors
     ]
     candidate_pool = []
     for orbital in occupied_orbitals:
