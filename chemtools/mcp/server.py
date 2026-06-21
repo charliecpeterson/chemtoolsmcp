@@ -162,6 +162,15 @@ def build_arg_parser(prog: str, description: str) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--toolset",
+        default=None,
+        help=(
+            "Curated tool subset: a preset name (e.g. 'triage') or a "
+            "comma-separated list of tool names. Trims the surface for small "
+            "models / focused work. Default: read CHEMTOOLS_TOOLSET, else none."
+        ),
+    )
+    parser.add_argument(
         "--list-tools",
         action="store_true",
         help="Print the tool names visible in the resolved mode + programs and exit.",

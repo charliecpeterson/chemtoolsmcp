@@ -125,9 +125,9 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
-    # Read mode live from the decorator module so the CLI's main() can update
-    # it without import cycles.
-    from chemtools.mcp.decorator import ACTIVE_MODE
+    # Read the active filters live from the decorator module so the CLI's main()
+    # can update them without import cycles.
+    from chemtools.mcp.decorator import ACTIVE_MODE, ACTIVE_PROGRAMS, ACTIVE_TOOLSET
 
     request_id = message.get("id")
     method = message.get("method")
@@ -160,8 +160,11 @@ def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool
     if method == "shutdown":
         return make_response(request_id, {}), True
     if method == "tools/list":
-        log_event(f"tools/list requested mode={ACTIVE_MODE}")
-        visible = _modes.filter_tools(tool_definitions(), _TOOL_CAPABILITIES, ACTIVE_MODE)
+        log_event(f"tools/list requested mode={ACTIVE_MODE} programs={ACTIVE_PROGRAMS} toolset={'set' if ACTIVE_TOOLSET else None}")
+        visible = _modes.filter_tools(
+            tool_definitions(), _TOOL_CAPABILITIES, ACTIVE_MODE,
+            programs=ACTIVE_PROGRAMS, program_tags=_TOOL_PROGRAMS, toolset=ACTIVE_TOOLSET,
+        )
         return make_response(request_id, {"tools": visible}), False
     if method == "tools/call":
         try:
@@ -172,14 +175,30 @@ def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool
             # aliases to the canonical name so blocked tools cannot be reached
             # via a back-compat alias either.
             resolved_for_check = _TOOL_ALIASES.get(tool_name, (tool_name, None))[0]
-            if not _modes.is_tool_allowed(resolved_for_check, _TOOL_CAPABILITIES, ACTIVE_MODE):
+            if not _modes.is_tool_allowed(
+                resolved_for_check, _TOOL_CAPABILITIES, ACTIVE_MODE,
+                programs=ACTIVE_PROGRAMS, program_tags=_TOOL_PROGRAMS, toolset=ACTIVE_TOOLSET,
+            ):
                 tag = _TOOL_CAPABILITIES.get(resolved_for_check, "none")
-                msg = (
-                    f"tool {tool_name!r} (capability={tag}) is not available in "
-                    f"server mode {ACTIVE_MODE!r}. Restart with --mode=local or "
-                    f"--mode=hpc to enable it."
-                )
-                log_event(f"tools/call blocked name={tool_name} mode={ACTIVE_MODE} tag={tag}")
+                prog = _TOOL_PROGRAMS.get(resolved_for_check, "generic")
+                if ACTIVE_TOOLSET is not None and resolved_for_check not in ACTIVE_TOOLSET:
+                    msg = (
+                        f"tool {tool_name!r} is outside the active toolset filter "
+                        f"(CHEMTOOLS_TOOLSET). Unset it or add the tool to expose it."
+                    )
+                elif ACTIVE_PROGRAMS is not None and prog != "generic" and prog not in ACTIVE_PROGRAMS:
+                    msg = (
+                        f"tool {tool_name!r} (program={prog}) is not in the active program "
+                        f"filter {sorted(ACTIVE_PROGRAMS)}. Restart with CHEMTOOLS_PROGRAMS "
+                        f"including {prog!r} to enable it."
+                    )
+                else:
+                    msg = (
+                        f"tool {tool_name!r} (capability={tag}) is not available in "
+                        f"server mode {ACTIVE_MODE!r}. Restart with --mode=local or "
+                        f"--mode=hpc to enable it."
+                    )
+                log_event(f"tools/call blocked name={tool_name} mode={ACTIVE_MODE} prog={prog} tag={tag}")
                 return make_response(request_id, make_error_result(msg)), False
             payload = dispatch_tool(tool_name, arguments)
             return make_response(request_id, make_success_result(payload)), False

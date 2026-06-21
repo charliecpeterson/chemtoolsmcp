@@ -43,6 +43,10 @@ ACTIVE_MODE: str = "analysis"
 # Otherwise it's a set of program tag strings (e.g. {"nwchem", "molcas"}).
 ACTIVE_PROGRAMS: set[str] | None = None
 
+# Active tool-name allowlist — None means "no filter". Otherwise an exact set of
+# tool names (a preset like "triage" or a custom list) to expose.
+ACTIVE_TOOLSET: frozenset[str] | None = None
+
 
 # Per-tool state. Decorator below populates these dicts.
 _TOOL_REGISTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
@@ -119,6 +123,12 @@ def set_active_programs(programs: set[str] | None) -> None:
     ACTIVE_PROGRAMS = programs
 
 
+def set_active_toolset(toolset: frozenset[str] | None) -> None:
+    """Set the active tool-name allowlist from a CLI entry point."""
+    global ACTIVE_TOOLSET
+    ACTIVE_TOOLSET = toolset
+
+
 __all__ = [
     "SERVER_NAME",
     "SERVER_VERSION",
@@ -127,8 +137,10 @@ __all__ = [
     "LOG_PATH",
     "ACTIVE_MODE",
     "ACTIVE_PROGRAMS",
+    "ACTIVE_TOOLSET",
     "set_active_mode",
     "set_active_programs",
+    "set_active_toolset",
     "_TOOL_REGISTRY",
     "_TOOL_CAPABILITIES",
     "_TOOL_PROGRAMS",

@@ -41,6 +41,29 @@ MODE_ENV = "CHEMTOOLS_MODE"
 PROFILES_ENV = "CHEMTOOLS_RUNNER_PROFILES"
 # Env var that selects which programs to load (comma-separated).
 PROGRAMS_ENV = "CHEMTOOLS_PROGRAMS"
+# Env var that selects a curated tool subset (a preset name, or a comma-separated
+# list of tool names). Trims the surface for small models / focused workflows.
+TOOLSET_ENV = "CHEMTOOLS_TOOLSET"
+
+# Named tool presets. "triage" is the lean output-assessment set: enough to scan
+# a batch, diagnose a file, and follow up, without the full draft/registry/HPC
+# surface a small model would otherwise have to choose from.
+TOOLSETS: dict[str, frozenset[str]] = {
+    "triage": frozenset({
+        "summarize_nwchem_outputs",          # batch triage entry point
+        "analyze_nwchem_case",               # deep single-file diagnosis
+        "summarize_nwchem_output",           # quick single-file summary
+        "parse_nwchem_output",               # structured sections on demand
+        "suggest_nwchem_recovery",           # what to do about a failure
+        "suggest_nwchem_multiplicity_scan",  # verify spin ground state
+        "analyze_nwchem_frontier_orbitals",  # is the open shell on the metal?
+        "check_nwchem_spin_charge_state",    # spin/charge sanity
+        "extract_nwchem_geometry",           # pull the geometry
+        "parse_nwchem_thermochem",           # thermochemistry
+        "compare_nwchem_runs",               # compare energies across runs
+        "get_server_mode",                   # introspect what's available
+    }),
+}
 
 
 def filter_tools(
@@ -49,15 +72,18 @@ def filter_tools(
     mode: str,
     programs: Iterable[str] | None = None,
     program_tags: dict[str, str] | None = None,
+    toolset: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Return tool defs visible under *mode* and the optional *programs* filter.
+    """Return tool defs visible under *mode* and the optional program/toolset filters.
 
     A tool is visible iff:
       1. Its capability tag is in MODE_CAPABILITIES[mode], AND
       2. Either:
          - programs is None (no filter — show all programs' tools), OR
          - the tool's program tag is "generic", OR
-         - the tool's program tag is in the *programs* set.
+         - the tool's program tag is in the *programs* set, AND
+      3. toolset is None, or the tool's name is in *toolset* (an exact allowlist
+         applied after the program filter — generics are NOT auto-included).
     """
     allowed_caps = MODE_CAPABILITIES[mode]
     program_set: set[str] | None = None
@@ -73,6 +99,8 @@ def filter_tools(
             tag = program_tags.get(name, "generic")
             if tag != "generic" and tag not in program_set:
                 continue
+        if toolset is not None and name not in toolset:
+            continue
         out.append(d)
     return out
 
@@ -83,8 +111,11 @@ def is_tool_allowed(
     mode: str,
     programs: Iterable[str] | None = None,
     program_tags: dict[str, str] | None = None,
+    toolset: frozenset[str] | None = None,
 ) -> bool:
     if capabilities.get(name, "none") not in MODE_CAPABILITIES[mode]:
+        return False
+    if toolset is not None and name not in toolset:
         return False
     if programs is None or program_tags is None:
         return True
@@ -143,6 +174,28 @@ def resolve_programs(
             return programs, f"set by {PROGRAMS_ENV}={','.join(sorted(programs))}"
 
     return None, f"no {PROGRAMS_ENV} set — all programs visible"
+
+
+def resolve_toolset(
+    explicit: str | None = None,
+    *,
+    env: dict[str, str] | None = None,
+) -> tuple[frozenset[str] | None, str]:
+    """Resolve the active tool-name allowlist.
+
+    Returns ``(names, reason)``. ``names`` is None for no filter. The value is a
+    preset name from TOOLSETS, or a comma-separated list of tool names for an
+    ad-hoc set. Priority: *explicit* (--toolset) then CHEMTOOLS_TOOLSET.
+    """
+    env = env if env is not None else os.environ
+    raw = explicit if explicit is not None else env.get(TOOLSET_ENV)
+    if not raw or not raw.strip():
+        return None, f"no {TOOLSET_ENV} set — full tool surface"
+    key = raw.strip().lower()
+    if key in TOOLSETS:
+        return TOOLSETS[key], f"preset {key!r} ({len(TOOLSETS[key])} tools)"
+    names = frozenset(t.strip() for t in raw.split(",") if t.strip())
+    return names, f"custom list ({len(names)} tools)"
 
 
 def resolve_mode(
@@ -254,12 +307,13 @@ def summarize_mode(
     definitions: list[dict[str, Any]],
     programs: Iterable[str] | None = None,
     program_tags: dict[str, str] | None = None,
+    toolset: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Compact summary used by the get_server_mode tool and startup logging."""
     allowed = MODE_CAPABILITIES[mode]
     available = filter_tools(
         definitions, capabilities, mode,
-        programs=programs, program_tags=program_tags,
+        programs=programs, program_tags=program_tags, toolset=toolset,
     )
     blocked_by_tag: dict[str, list[str]] = {}
     for name, tag in capabilities.items():

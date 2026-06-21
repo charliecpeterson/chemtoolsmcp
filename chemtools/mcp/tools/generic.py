@@ -77,11 +77,15 @@ def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
     # (set by main() at startup). None means "no filter".
     from chemtools.mcp.decorator import ACTIVE_PROGRAMS as _active_programs
     from chemtools.mcp.decorator import ACTIVE_MODE as _active_mode
+    from chemtools.mcp.decorator import ACTIVE_TOOLSET as _active_toolset
     from chemtools.mcp.dispatch import tool_definitions
-    return _modes.summarize_mode(
+    summary = _modes.summarize_mode(
         _active_mode, _TOOL_CAPABILITIES, tool_definitions(),
-        programs=_active_programs, program_tags=_TOOL_PROGRAMS,
+        programs=_active_programs, program_tags=_TOOL_PROGRAMS, toolset=_active_toolset,
     )
+    summary["programs"] = sorted(_active_programs) if _active_programs else None
+    summary["toolset"] = sorted(_active_toolset) if _active_toolset else None
+    return summary
 
 
 # ---------------------------------------------------------------------------

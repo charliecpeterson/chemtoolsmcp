@@ -37,6 +37,7 @@ from chemtools.mcp.decorator import (  # noqa: E402
     log_event,
     set_active_mode,
     set_active_programs,
+    set_active_toolset,
 )
 from chemtools.mcp.server import (  # noqa: E402
     read_message,
@@ -106,13 +107,17 @@ def main(prog: str = "chemtools") -> None:
     ACTIVE_PROGRAMS = programs
     set_active_programs(programs)  # Keep canonical mcp.decorator copy in sync.
 
+    toolset, toolset_reason = _modes.resolve_toolset(args.toolset)
+    set_active_toolset(toolset)  # Keep canonical mcp.decorator copy in sync.
+
     summary = _modes.summarize_mode(
         mode, _TOOL_CAPABILITIES, tool_definitions(),
-        programs=programs, program_tags=_TOOL_PROGRAMS,
+        programs=programs, program_tags=_TOOL_PROGRAMS, toolset=toolset,
     )
     log_event(
         f"resolved mode={mode} ({mode_reason}) "
         f"programs={programs or 'all'} ({programs_reason}) "
+        f"toolset={toolset_reason} "
         f"tools={summary['available_tool_count']}/{summary['total_tool_count']}"
     )
 
@@ -121,13 +126,15 @@ def main(prog: str = "chemtools") -> None:
             "mode": mode, "mode_reason": mode_reason,
             "programs": sorted(programs) if programs else None,
             "programs_reason": programs_reason,
+            "toolset": sorted(toolset) if toolset else None,
+            "toolset_reason": toolset_reason,
             **summary,
         }, indent=2))
         return
     if args.list_tools:
         visible = _modes.filter_tools(
             tool_definitions(), _TOOL_CAPABILITIES, mode,
-            programs=programs, program_tags=_TOOL_PROGRAMS,
+            programs=programs, program_tags=_TOOL_PROGRAMS, toolset=toolset,
         )
         for d in visible:
             print(d["name"])
