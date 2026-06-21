@@ -76,6 +76,18 @@ TOOLSETS: dict[str, frozenset[str]] = {
         "extract_molcas_geometry",           # pull the geometry
         "get_server_mode",                   # introspect what's available
     }),
+    "dirac-triage": frozenset({
+        "summarize_dirac_outputs",           # batch triage entry point
+        "summarize_dirac_run",               # deep single-file rollup
+        "parse_dirac_output",                # structured SCF/spinor detail
+        "parse_dirac_scf_iterations",        # convergence trace
+        "parse_dirac_spinor_spectrum",       # spinor eigenvalues
+        "analyze_dirac_open_shell",          # open-shell / AOC quality
+        "parse_dirac_cosci_energies",        # open-shell CI states
+        "read_dirac_h5_metadata",            # checkpoint metadata
+        "suggest_relativistic_correction",   # 4c / X2C / ECP advice
+        "get_server_mode",                   # introspect what's available
+    }),
 }
 
 

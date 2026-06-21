@@ -1,9 +1,34 @@
 from __future__ import annotations
 
+import glob as _glob
 import json
 import re
 from pathlib import Path
 from typing import Any
+
+
+def resolve_output_paths(
+    paths: str | list[str], pattern: str = "*.out", recursive: bool = False
+) -> list[str]:
+    """Expand a directory / glob / file / list into a de-duplicated file list.
+
+    Shared by the per-program bulk-triage tools. A directory is globbed with
+    *pattern* (recursively if *recursive*); a string containing glob
+    metacharacters is globbed; anything else is treated as a literal path.
+    """
+    entries = [paths] if isinstance(paths, str) else list(paths)
+    resolved: list[str] = []
+    for entry in entries:
+        candidate = Path(entry)
+        if candidate.is_dir():
+            globber = candidate.rglob if recursive else candidate.glob
+            resolved.extend(str(p) for p in sorted(globber(pattern)))
+        elif any(ch in entry for ch in "*?["):
+            resolved.extend(sorted(_glob.glob(entry, recursive=recursive)))
+        else:
+            resolved.append(entry)
+    seen: set[str] = set()
+    return [p for p in resolved if not (p in seen or seen.add(p))]
 
 
 def read_text(path: str | Path) -> str:

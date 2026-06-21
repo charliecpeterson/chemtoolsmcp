@@ -19,12 +19,11 @@ Two complementary tools:
 
 from __future__ import annotations
 
-import glob as _glob
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from chemtools.core.common import read_text
+from chemtools.core.common import read_text, resolve_output_paths
 from chemtools.programs.molcas.parse.output import parse_output_full
 from chemtools.programs.molcas.parse.thermochem import parse_thermochem_block
 from chemtools.programs.molcas.parse.freq import parse_last_freq_block
@@ -376,20 +375,6 @@ def analyze_molcas_case(output_file: str) -> dict[str, Any]:
     return summary
 
 
-def _resolve_molcas_output_paths(paths: str | list[str], pattern: str, recursive: bool) -> list[str]:
-    entries = [paths] if isinstance(paths, str) else list(paths)
-    resolved: list[str] = []
-    for entry in entries:
-        candidate = Path(entry)
-        if candidate.is_dir():
-            globber = candidate.rglob if recursive else candidate.glob
-            resolved.extend(str(p) for p in sorted(globber(pattern)))
-        elif any(ch in entry for ch in "*?["):
-            resolved.extend(sorted(_glob.glob(entry, recursive=recursive)))
-        else:
-            resolved.append(entry)
-    seen: set[str] = set()
-    return [p for p in resolved if not (p in seen or seen.add(p))]
 
 
 def summarize_molcas_outputs(
@@ -405,7 +390,7 @@ def summarize_molcas_outputs(
     headline) — no geometry/orbital/frequency payloads — plus roll-up counts, so
     assessing a batch costs one call instead of one analyze_molcas_case each.
     """
-    files = _resolve_molcas_output_paths(paths, pattern, recursive)
+    files = resolve_output_paths(paths, pattern, recursive)
     truncated = limit is not None and len(files) > limit
     if truncated:
         files = files[:limit]

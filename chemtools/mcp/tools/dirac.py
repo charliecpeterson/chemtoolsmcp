@@ -318,6 +318,27 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "summarize_dirac_outputs",
+            "description": (
+                "Triage MANY DIRAC outputs in one call. Give a directory, a glob, a single "
+                "file, or a list; returns one compact row per file (tasks, total energy, "
+                "SCF convergence, symmetry, verdict, headline) plus roll-up counts by verdict. "
+                "Use this instead of calling summarize_dirac_run once per file when assessing "
+                "a batch; drill into flagged runs with summarize_dirac_run afterward."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "A directory, a glob (e.g. 'runs/*.out'), or a single output file."},
+                    "paths": {"type": "array", "items": {"type": "string"}, "description": "Explicit list of paths (alternative to 'path')."},
+                    "pattern": {"type": "string", "default": "*.out", "description": "Glob pattern when 'path' is a directory."},
+                    "recursive": {"type": "boolean", "default": False, "description": "Recurse into subdirectories."},
+                    "limit": {"type": "integer", "description": "Cap files processed (response flags truncation)."},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "summarize_dirac_run",
             "description": (
                 "High-level rollup of a DIRAC run: parses the .out + (if available) "
@@ -1175,6 +1196,20 @@ def _handle_analyze_dirac_open_shell(arguments: dict[str, Any]) -> dict[str, Any
         "open_shell_total_occupation_kramers": total_open_occ,
         "open_shell_by_fermion_symmetry": by_fsym,
     }
+
+
+@_tool("summarize_dirac_outputs")
+def _handle_summarize_dirac_outputs(arguments: dict[str, Any]) -> dict[str, Any]:
+    from chemtools.programs.dirac.strategy.triage import summarize_dirac_outputs
+    target = arguments.get("paths") or arguments.get("path")
+    if not target:
+        return {"error": "Provide 'path' (a directory, glob, or file) or 'paths' (a list)."}
+    return summarize_dirac_outputs(
+        paths=target,
+        pattern=arguments.get("pattern", "*.out"),
+        recursive=arguments.get("recursive", False),
+        limit=arguments.get("limit"),
+    )
 
 
 @_tool("summarize_dirac_run")
