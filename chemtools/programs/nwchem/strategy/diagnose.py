@@ -10,6 +10,7 @@ from chemtools.core.common import make_metadata, parse_scientific_float, read_te
 from chemtools.programs.nwchem.parse.tasks import parse_tasks
 from chemtools.programs.nwchem.parse.mos import METAL_CENTERS, parse_mos, parse_population_analysis
 from chemtools.programs.nwchem.parse.freq import parse_freq, parse_trajectory
+from chemtools.programs.nwchem.parse.tddft import parse_tddft
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
 
@@ -399,6 +400,7 @@ def diagnose_nwchem_output(
     population = parse_population_analysis(output_path, contents)
     freq = parse_freq(output_path, contents) if _looks_like_frequency_run(tasks) else None
     trajectory = parse_trajectory(output_path, contents) if _looks_like_optimization_run(tasks) else None
+    tddft = parse_tddft(output_path, contents)
 
     # Analyze the .err file (auto-detect if not provided)
     _err_path = err_file or _auto_err_path(output_path)
@@ -595,6 +597,7 @@ def diagnose_nwchem_output(
         "population_analysis": population,
         "frequency": freq,
         "trajectory": trajectory,
+        "tddft": tddft,
         "err_analysis": err_analysis,
         "grid_quality": grid_quality,
     }
@@ -698,6 +701,16 @@ def summarize_nwchem_output(
         )
     elif scf["status"] != "unknown":
         bullets.append(f"SCF: {scf['status']}")
+
+    tddft = diagnosis.get("tddft") or {}
+    if tddft.get("available"):
+        brightest = tddft.get("brightest_state") or {}
+        bullets.append(
+            f"Excited states (TDDFT): {tddft['root_count']} roots, lowest "
+            f"{tddft.get('lowest_excitation_ev')} eV, {tddft.get('bright_state_count', 0)} bright; "
+            f"brightest {brightest.get('excitation_energy_ev')} eV "
+            f"(f={brightest.get('oscillator_strength')})"
+        )
 
     grid_quality = diagnosis.get("grid_quality") or {}
     if grid_quality.get("concern"):
@@ -842,6 +855,7 @@ def summarize_nwchem_output(
         "optimization_step_count": (diagnosis.get("trajectory") or {}).get("step_count"),
         "frequency": freq_for_summary,
         "spin": spin_for_summary,
+        "tddft": diagnosis.get("tddft"),
         "grid_quality": grid_quality,
         "summary_bullets": bullets,
         "summary_text": summary_text,
@@ -923,7 +937,8 @@ def summarize_nwchem_outputs(
             verdict = "problem"
         verdicts[verdict] += 1
         classes[failure_class] += 1
-        rows.append({
+        tddft = summary.get("tddft") or {}
+        row = {
             "file": Path(path).name,
             "path": path,
             "method": summary.get("correlated_method") or "dft/scf",
@@ -934,7 +949,14 @@ def summarize_nwchem_outputs(
             "energy_hartree": summary.get("energy_hartree"),
             "verdict": verdict,
             "headline": summary["recommended_next_action"],
-        })
+        }
+        if tddft.get("available"):
+            row["excited_states"] = {
+                "root_count": tddft["root_count"],
+                "lowest_excitation_ev": tddft.get("lowest_excitation_ev"),
+                "bright_state_count": tddft.get("bright_state_count"),
+            }
+        rows.append(row)
     return {
         "file_count": len(files),
         "truncated": truncated,

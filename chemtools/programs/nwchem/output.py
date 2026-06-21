@@ -204,6 +204,7 @@ def parse_output(
         "mcscf": None,
         "frequency": None,
         "trajectory": None,
+        "tddft": None,
         "errors": [],
     }
 
@@ -211,6 +212,9 @@ def parse_output(
         try:
             if section == "tasks":
                 output["tasks"] = parse_tasks(path)
+            elif section == "tddft":
+                from chemtools.programs.nwchem.parse.tddft import parse_tddft
+                output["tddft"] = parse_tddft(path)
             elif section == "mos":
                 output["mos"] = parse_mos(path, top_n=top_n, include_coefficients=include_coefficients)
             elif section == "population":

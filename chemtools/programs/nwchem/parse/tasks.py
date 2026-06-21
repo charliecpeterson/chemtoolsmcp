@@ -168,6 +168,7 @@ def _task_label(kind: str, method: str | None) -> str:
         "single_point": "Single Point",
         "mcscf": "MCSCF",
         "property": "Property",
+        "tddft": "TDDFT (excited states)",
         "unknown": "Task",
     }.get(kind, "Task")
     return f"{base} · {method}" if method else base
@@ -310,6 +311,8 @@ def parse_tasks(path: str, contents: str) -> dict[str, Any]:
                 task["kind"] = "mcscf"
             elif "extensible many-electron theory" in lc or "tensor contraction engine" in lc:
                 task["kind"] = "tce"
+            elif "nwchem tddft module" in lc:
+                task["kind"] = "tddft"
             elif "total scf energy" in lc or "total dft energy" in lc:
                 task["kind"] = "single_point"
 
@@ -370,6 +373,7 @@ def parse_tasks(path: str, contents: str) -> dict[str, Any]:
             "single_point": "single_point",
             "mcscf": "single_point",
             "tce": "single_point",
+            "tddft": "excited_states",
         }.get(task_summary["kind"], "other")
         generic_tasks.append(
             {

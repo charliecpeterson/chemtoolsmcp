@@ -702,7 +702,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["tasks", "mos", "freq", "mcscf", "population", "trajectory"],
+                            "enum": ["tasks", "mos", "freq", "mcscf", "population", "trajectory", "tddft"],
                         },
                         "description": "Sections to parse. Omit for tasks-only (default). Each section adds to response size.",
                     },
