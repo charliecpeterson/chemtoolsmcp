@@ -27,11 +27,18 @@ from __future__ import annotations
 from typing import Any
 
 
-# Occupation-number thresholds (literature-cited / common practice)
-PROMOTE_THRESHOLD = 1.98   # occ >= this → promote to inactive (no longer "active")
-EDGE_DOUBLY_LOW = 1.90     # 1.90 <= occ < 1.98 → "edge_doubly_occupied" (suspect)
-EDGE_EMPTY_HIGH = 0.10     # 0.02 < occ < 0.10 → "edge_empty" (suspect)
-DEMOTE_THRESHOLD = 0.02    # occ <= this → demote to secondary
+# Occupation-number thresholds (literature-cited / common practice).
+# The active-orbital window is the widely used [0.02, 1.98]: an orbital is
+# carrying correlation — i.e. genuinely active — anywhere in that range. Only
+# occ >= 1.98 (an inert doubly-occupied pair) or occ <= 0.02 (an inert virtual)
+# is "wasted" and a candidate for removal from the active space. The earlier
+# [0.10, 1.90] window mis-flagged the bonding (~1.95) / antibonding (~0.05)
+# orbitals of a correct CAS as suspect, so a textbook closed-shell π active
+# space came out "poor".
+PROMOTE_THRESHOLD = 1.98   # occ >= this → inert doubly occupied (promote to inactive)
+EDGE_DOUBLY_LOW = 1.98     # edge band collapsed into the active window
+EDGE_EMPTY_HIGH = 0.02     # edge band collapsed into the active window
+DEMOTE_THRESHOLD = 0.02    # occ < this → inert virtual (demote to secondary)
 
 # CASPT2 reference-weight quality bands
 REFW_HEALTHY = 0.85
@@ -157,22 +164,19 @@ def _classify_orbitals(occupations: list[float]) -> dict[str, Any]:
 def _verdict_from_quality(per_root: list[dict[str, Any]]) -> str:
     if not per_root:
         return "unknown"
-    truly = sum(r["n_truly_active"] for r in per_root)
     total = sum(r["n_active"] for r in per_root)
     if total == 0:
         return "unknown"
-    truly_fraction = truly / total
-    promote_frac = sum(r["n_promote_candidates"] for r in per_root) / total
-    demote_frac = sum(r["n_demote_candidates"] for r in per_root) / total
-    # Hard "near-virtual" (occ < 0.02) is the worst signal — those orbitals
-    # never enter the wave function and waste CSF count.
-    has_near_virtual = any(
-        any(d["occupation"] < DEMOTE_THRESHOLD for d in r["demote_orbitals"])
-        for r in per_root
-    )
-    if truly_fraction >= 0.6 and not has_near_virtual:
+    # Fraction of active orbitals that actually carry correlation (occupation in
+    # the [0.02, 1.98] window). Orbitals outside it are inert: they mean the CAS
+    # *could* be trimmed, not that the reference is wrong, so they lower the score
+    # gradually rather than vetoing a "healthy" verdict. A correct closed-shell
+    # CAS (bonding ~1.95 / antibonding ~0.05) is fully correlating and healthy.
+    correlating = sum(r["n_truly_active"] for r in per_root)
+    correlating_fraction = correlating / total
+    if correlating_fraction >= 0.5:
         return "healthy"
-    if truly_fraction >= 0.3 or (promote_frac + demote_frac) <= 0.5:
+    if correlating_fraction >= 0.25:
         return "marginal"
     return "poor"
 
