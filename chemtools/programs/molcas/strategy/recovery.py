@@ -77,7 +77,13 @@ _RE_BAD_TERMINATION = re.compile(
     re.IGNORECASE,
 )
 _RE_MEMORY_ERROR = re.compile(r"_RC_MEMORY_ERROR_|out of memory|insufficient memory", re.IGNORECASE)
-_RE_NACTEL_PARITY = re.compile(r"Nactel.*not consistent|Spin and electrons do not match", re.IGNORECASE)
+# "No such wave function" is how OpenMolcas (≥25) reports an impossible
+# Spin/Nactel(/Ras) combination from RASSCF — the older "Nactel not consistent"
+# wording no longer appears.
+_RE_NACTEL_PARITY = re.compile(
+    r"Nactel.*not consistent|Spin and electrons do not match|No such wave function",
+    re.IGNORECASE,
+)
 
 _RE_RASSCF_MAX_ITER = re.compile(r"Maximum number of macro iterations\s+(\d+)", re.IGNORECASE)
 _RE_RASSCF_CONVERGED_AFTER = re.compile(
