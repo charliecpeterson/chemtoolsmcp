@@ -103,6 +103,14 @@ def summarize_molcas_output(output_file: str) -> dict[str, Any]:
         summary["rasscf_root1_au"] = rasscf_roots[0].get("energy_hartree")
     if caspt2_roots:
         summary["caspt2_root1_au"] = caspt2_roots[0].get("energy_hartree")
+    if es.get("ccsd_energy_hartree") is not None:
+        summary["ccsd_energy_au"] = es["ccsd_energy_hartree"]
+    if es.get("ccsd_t_energy_hartree") is not None:
+        summary["ccsd_t_energy_au"] = es["ccsd_t_energy_hartree"]
+    mrci_states = es.get("mrci_state_energies") or []
+    if mrci_states:
+        summary["mrci_energy_au"] = min(s["energy_hartree"] for s in mrci_states)
+        summary["mrci_variant"] = es.get("mrci_variant")
 
     # Find CASPT2 reference weight in the CASPT2 task payload (if present)
     for tp in full.get("task_payloads", []):

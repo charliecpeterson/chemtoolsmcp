@@ -7,6 +7,8 @@ from chemtools.core.common import make_metadata
 from chemtools.programs.molcas.parse.scf import parse_scf
 from chemtools.programs.molcas.parse.rasscf import parse_rasscf
 from chemtools.programs.molcas.parse.caspt2 import parse_caspt2, assess_reference_weights
+from chemtools.programs.molcas.parse.mrci import parse_mrci
+from chemtools.programs.molcas.parse.ccsdt import parse_ccsdt
 from chemtools.programs.molcas.parse.mos import parse_last_mo_block
 from chemtools.programs.molcas.parse.rassi import parse_rassi
 
@@ -195,6 +197,18 @@ def parse_output_full(
                 details["reference_weight_quality"] = quality
             for w in details.get("warnings", []):
                 aggregated_warnings.append({**w, "task_index": idx, "module": "CASPT2"})
+        elif module == "MRCI":
+            details = parse_mrci(block_text)
+            if details.get("state_energies"):
+                # Keep the lowest state of the latest MRCI/ACPF run.
+                energy_summary["mrci_state_energies"] = details["state_energies"]
+                energy_summary["mrci_variant"] = details.get("variant")
+        elif module == "CCSDT":
+            details = parse_ccsdt(block_text)
+            if details.get("ccsd_energy_hartree") is not None:
+                energy_summary["ccsd_energy_hartree"] = details["ccsd_energy_hartree"]
+            if details.get("ccsd_t_energy_hartree") is not None:
+                energy_summary["ccsd_t_energy_hartree"] = details["ccsd_t_energy_hartree"]
         elif module == "RASSI":
             details = parse_rassi(block_text)
             if details.get("spin_free_states", {}).get("rows"):
@@ -247,6 +261,15 @@ def parse_output_full(
     elif energy_summary.get("rassi_spin_free_states"):
         primary_energy = min(s["energy_hartree"] for s in energy_summary["rassi_spin_free_states"])
         primary_label = "RASSI spin-free ground"
+    elif energy_summary.get("ccsd_t_energy_hartree") is not None:
+        primary_energy = energy_summary["ccsd_t_energy_hartree"]
+        primary_label = "CCSD(T)"
+    elif energy_summary.get("ccsd_energy_hartree") is not None:
+        primary_energy = energy_summary["ccsd_energy_hartree"]
+        primary_label = "CCSD"
+    elif energy_summary.get("mrci_state_energies"):
+        primary_energy = min(s["energy_hartree"] for s in energy_summary["mrci_state_energies"])
+        primary_label = f"{energy_summary.get('mrci_variant') or 'MRCI'} state 1"
     elif energy_summary.get("ms_caspt2_root_energies"):
         primary_energy = energy_summary["ms_caspt2_root_energies"][0]["energy_hartree"]
         primary_label = "MS-CASPT2 root 1"
