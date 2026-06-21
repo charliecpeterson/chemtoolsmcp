@@ -246,8 +246,6 @@ def draft_initial_geometry(
         geometry.  Inferred automatically if None (the element that appears
         fewest times, or the heaviest unique element).
     """
-    from chemtools.programs.nwchem.parse.freq import COVALENT_RADII
-
     _FALLBACK_R = 1.20  # Å, used when element not in table
 
     def _r(elem: str) -> float:

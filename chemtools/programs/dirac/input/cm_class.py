@@ -143,7 +143,6 @@ def prepare_cm_class_workflow(
     out_dir = Path(output_dir or ".").resolve()
     if reference_element is None:
         reference_element = recommended_reference(central_element)
-    central_basis = _basis_lookup(central_element, basis, default_basis)
     reference_basis = _basis_lookup(reference_element, basis, default_basis)
 
     plan: list[dict[str, Any]] = []

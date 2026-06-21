@@ -224,9 +224,6 @@ def render_rasscf_block(
         body.append(format_per_symmetry(ras3))
     if n_roots > 1:
         # CIRoot N N <weights or sequence>
-        weights_line = " ".join("1" for _ in range(n_roots)) if state_average_weights is None else " ".join(
-            str(int(w)) for w in state_average_weights
-        )
         body.append("CIRoot")
         # Format: CIRoot <nact> <total_ci_roots> 1; then list of root indices then weights
         # The most common shape (equal weights) is: CIRoot N N 1

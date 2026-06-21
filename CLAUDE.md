@@ -647,8 +647,9 @@ error or before recommending a workflow that needs HPC submission.
 - Runner profiles: set `CHEMTOOLS_RUNNER_PROFILES` to your local YAML/JSON file
 - Server mode: set `CHEMTOOLS_MODE` or pass `--mode` (see **Server modes** above; defaults to auto-detect)
 - CI / committed tests: `.github/workflows/ci.yml` gates every push/PR on
-  `ruff check --select F821` (the undefined-name crash class) + `pytest tests/`.
-  The committed `tests/` subset is self-contained (registration integrity +
-  parser/verdict unit tests with inline fixtures); the large `test_phase1/`
-  corpus stays gitignored and local. Run locally: `ruff check --select F821
-  chemtools/ && pytest tests/ -q`.
+  `ruff check --select F821,F811,F841` (undefined names + redefinitions + unused
+  locals — the pyflakes bug classes, not style) + `pytest tests/`. The committed
+  `tests/` subset is self-contained (registration integrity + parser/verdict unit
+  tests with inline fixtures); the large `test_phase1/` corpus stays gitignored
+  and local. Run locally: `ruff check --select F821,F811,F841 chemtools/ &&
+  pytest tests/ -q`.

@@ -1,8 +1,8 @@
-# Lint + test gate. The undefined-name (F821) check is the cheap guard for the
-# crash class that shipped latent NameErrors (geometry.py missing `import math`,
-# hpc_resources.py undefined `suggest_memory`). The committed tests/ subset is
-# self-contained (no local training corpus). F811/F841 are not gated yet — they
-# still have pre-existing hits; ratchet them in once cleaned.
+# Lint + test gate. The pyflakes bug-class checks catch real defects, not style:
+# F821 undefined names (shipped latent NameErrors), F811 redefinitions (shadowed
+# imports / dead re-defs), F841 unused locals (dead code / parsed-but-dropped
+# values). The committed tests/ subset is self-contained (no local training
+# corpus). F401 import-noise is intentionally not gated (the api re-export shims).
 name: ci
 
 on:
@@ -23,7 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip install ruff
-      - name: Lint — undefined names (F821 crash-class gate)
-        run: ruff check --select F821 chemtools/
+      - name: Lint — pyflakes bug classes (undefined / redefined / unused)
+        run: ruff check --select F821,F811,F841 chemtools/
       - name: Test
         run: pytest tests/ -q

@@ -218,7 +218,6 @@ def _parse_intruder_report(text: str) -> dict[str, Any]:
             continue
         try:
             denom = float(tokens[-4])
-            rhs = float(tokens[-3])
             coeff = float(tokens[-2])
             contrib = float(tokens[-1])
         except ValueError:
@@ -274,7 +273,6 @@ def _classify_warnings(
         max_coeff = max(abs(r["coefficient"]) for r in intruders)
         min_denom = min(abs(r["denominator"]) for r in intruders)
         # Don't suggest IMAGINARY SHIFT if it's already on
-        spec_block = ""  # caller will pass spec via warnings only
         warnings.append(
             {
                 "code": "intruder_state",

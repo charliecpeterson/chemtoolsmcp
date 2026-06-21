@@ -467,7 +467,6 @@ def _rewrite_module_body_for_vectors_output(
     skip_vectors = False
 
     for line in body_lines:
-        lower = line.strip().lower()
 
         if skip_vectors:
             current_vectors_lines.append(line.rstrip())

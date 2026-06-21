@@ -51,7 +51,6 @@ def prepare_freq_restart(
     """
     import re
     from pathlib import Path
-    from chemtools.core.common import read_text
     from chemtools.programs.nwchem.parse.freq import parse_freq_progress
 
     nw_text = Path(input_file).read_text(encoding="utf-8")
@@ -276,7 +275,6 @@ def get_nwchem_workflow_state(
     it should **never assume** a match without confirmation.
     """
     import shutil
-    import subprocess
     from chemtools.programs.nwchem.parse.freq import parse_freq_progress as _parse_freq_progress, analyze_imaginary_modes as _analyze_imag
 
     out = Path(output_file)
@@ -611,7 +609,6 @@ def _check_related_slurm_jobs(output_stem: str) -> list[dict[str, str]]:
     Never assumes a match — the model must ask the user to confirm.
     """
     import shutil
-    import subprocess
 
     if not shutil.which("squeue"):
         return []

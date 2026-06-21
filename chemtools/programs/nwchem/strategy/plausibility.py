@@ -50,7 +50,6 @@ def _compute_bonds(
       long_bonds      bonds where ratio > 1.0 but likely still connected
       coordination    {atom_index: count}
     """
-    import math
     n = len(atoms)
     bonds: list[dict[str, Any]] = []
     clashes: list[dict[str, Any]] = []
@@ -101,7 +100,6 @@ def _compute_bond_angles(
     bond_list: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Return bond angles for every A-B-C triple where A-B and B-C are bonds."""
-    import math
     from collections import defaultdict
     neighbors: dict[int, list[int]] = defaultdict(list)
     for b in bond_list:
@@ -144,7 +142,6 @@ def _check_ring_planarity(
     bond_list: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Detect rings and check planarity for aromatic candidates."""
-    import math
     from collections import defaultdict
 
     neighbors: dict[int, list[int]] = defaultdict(list)

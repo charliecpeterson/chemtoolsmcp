@@ -326,7 +326,6 @@ def create_nwchem_input_variant(
         raise FileNotFoundError(f"Source input not found: {source_input}")
 
     text = src.read_text(encoding="utf-8")
-    original_text = text
     diff_summary: list[dict[str, str | None]] = []
 
     for key, new_value in changes.items():

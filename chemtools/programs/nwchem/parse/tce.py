@@ -155,8 +155,6 @@ def parse_tce_output(path: str, contents: str) -> dict[str, Any]:
         "total": None,
         "method": None,
     }
-    ccsd_corr_correction: float | None = None
-    ccsdt_correction: float | None = None
 
     # Scan full contents for all energy lines (handles multi-section files)
     m = _MBPT2_TOTAL_RE.search(contents)
@@ -615,7 +613,6 @@ def parse_tce_amplitudes(output_path: str) -> dict[str, Any]:
         directory.
     """
     from chemtools.core.common import read_text
-    from pathlib import Path
     import glob as _glob
 
     out_path = Path(output_path)
@@ -724,7 +721,6 @@ def parse_tce_amplitudes(output_path: str) -> dict[str, Any]:
     ccsd_corr = tce.get("correlation_energy_hartree")
     total = tce.get("total_energy_hartree")
     ccsd_total_matches = list(_CCSD_TOTAL_RE.finditer(contents))
-    ccsd_bracket_t = tce.get("ccsd_bracket_t_total_hartree")
     method = tce.get("method", "")
     if method == "CCSD(T)" and ccsd_corr is not None and ccsd_corr != 0:
         # CCSD(T) total - CCSD total = (T) correction

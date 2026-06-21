@@ -197,7 +197,6 @@ def parse_trajectory(text: str) -> dict[str, Any]:
     # bucketing: take the LAST geometry block whose line_start is at or before
     # the iteration's "effective offset".
     iterations: list[dict[str, Any]] = []
-    n_iter = len(stats["rows"])
     for idx, row in enumerate(stats["rows"]):
         # Geometry index for iteration N (1-indexed) is the (N-1)-th block,
         # if there are at least n_iter blocks; otherwise use the closest.

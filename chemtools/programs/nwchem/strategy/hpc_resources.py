@@ -48,7 +48,6 @@ def detect_hpc_accounts(
     and ``recommended`` (the account with the most SUs remaining).
     """
     import subprocess
-    from chemtools.core.runner import load_runner_profiles, _resolve_profile
 
     loaded = load_runner_profiles(profiles_path)
     profile_payload = _resolve_profile(loaded, profile)
@@ -88,7 +87,6 @@ def detect_hpc_accounts(
     #   | Name           Avail SUs     Expires |
     #   | TG-CHE250093         818  2026-06-08 |
     # Also handle generic formats: "account_name  SUs  date"
-    import re
     accounts: list[dict[str, Any]] = []
     for line in output.splitlines():
         # Strip table borders
@@ -144,7 +142,6 @@ def suggest_hpc_resources(
         profile: Runner profile name (must have hardware fields populated).
         profiles_path: Optional path to profiles YAML/JSON.
     """
-    from chemtools.core.runner import load_runner_profiles, _resolve_profile
 
     # --- Load profile hardware specs ---
     loaded = load_runner_profiles(profiles_path)
@@ -322,16 +319,6 @@ def suggest_hpc_resources(
     walltime_str = _format_walltime(walltime_hours)
 
     # --- Step 4: Determine NWChem memory directive ---
-    if node_memory_mb:
-        usable_mb = int(node_memory_mb * 0.85)
-        mem_per_rank = max(400, (usable_mb // ranks_per_node // 100) * 100)
-    else:
-        mem_rec = suggest_memory(
-            n_atoms=n_atoms, basis=basis_name or "6-31g*",
-            method=module, n_heavy_atoms=n_heavy,
-        )
-        mem_per_rank = mem_rec["recommended_total_mb"]
-
     mem_suggestion = suggest_memory(
         n_atoms=n_atoms, basis=basis_name or "6-31g*",
         method=module, n_heavy_atoms=n_heavy,
@@ -432,7 +419,6 @@ def suggest_partition(
         ``resource_overrides``, comparison table, and rationale.
     """
     import subprocess
-    from chemtools.core.runner import load_runner_profiles, _resolve_profile
     loaded = load_runner_profiles(profiles_path)
     all_profile_names = list((loaded.get("profiles") or {}).keys())
 
@@ -535,7 +521,6 @@ def suggest_partition(
         max_wt_hours = _parse_walltime_hours(max_wt_str) or 48.0
         partition = res.get("partition", "")
         cpu_arch = res.get("cpu_arch") or "generic"
-        max_nodes = res.get("max_nodes") or 1
 
         # Memory per core
         mem_per_core = (node_memory_mb / cores_per_node) if node_memory_mb else 4000

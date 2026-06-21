@@ -121,10 +121,6 @@ def _excerpt_around(text: str, pattern: re.Pattern, before: int = 0, after: int 
     m = pattern.search(text)
     if not m:
         return ""
-    start_line = text.rfind("\n", 0, m.start()) + 1
-    end_line = text.find("\n", m.end())
-    line = text[start_line: end_line if end_line >= 0 else len(text)]
-    # Pull context lines too
     all_lines = text.splitlines()
     idx = text.count("\n", 0, m.start())
     lo = max(0, idx - before)

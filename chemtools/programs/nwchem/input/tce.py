@@ -156,7 +156,6 @@ def draft_nwchem_tce_input(
     write_file:
         If True, write the generated input to disk.
     """
-    from chemtools.programs.nwchem.parse.tce import suggest_tce_freeze_count, analyze_tce_orbital_ordering
     from chemtools.core.common import read_text
 
     method_norm = method.strip().lower()
@@ -231,7 +230,6 @@ def draft_nwchem_tce_input(
     save_t_directive = "set tce:save_t T T"
 
     # --- Build geometry block (always include with symmetry c1 for TCE) ---
-    from chemtools.programs.nwchem.parse.input import extract_nwchem_geometry_block, render_nwchem_geometry_block
     geo_section: str | None = None
     charge_line: str | None = None
     try:
@@ -434,7 +432,6 @@ def validate_nwchem_tce_setup(
 
     # --- Read file content once ---
     contents = read_text(tce_input_path)
-    contents_lower = contents.lower()
 
     # --- Parse high-level input summary ---
     tce_summary = inspect_nwchem_input(tce_input_path)

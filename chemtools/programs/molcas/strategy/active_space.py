@@ -502,7 +502,6 @@ def suggest_orbital_swaps_by_character(
     frozen = (rasscf_orbital_specs.get("frozen") or [0])[sym_idx]
     inactive = (rasscf_orbital_specs.get("inactive") or [0])[sym_idx]
     active = (rasscf_orbital_specs.get("active") or [0])[sym_idx]
-    deleted = (rasscf_orbital_specs.get("deleted") or [0])[sym_idx]
     # boundaries (1-indexed): orbs 1..frozen are frozen, then inactive, then active, then secondary
     frozen_end = frozen
     inactive_end = frozen + inactive

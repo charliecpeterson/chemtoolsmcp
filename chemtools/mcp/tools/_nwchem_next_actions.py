@@ -156,10 +156,6 @@ def _build_next_actions(
 
     elif context == "watch_run":
         overall = result.get("overall_status", "")
-        tasks = result.get("progress_summary", {}).get("tasks", []) if result.get("progress_summary") else []
-        has_tce = any((t.get("module") or "").lower() == "tce" for t in tasks)
-        has_freq = any((t.get("module") or "").lower() in {"freq", "frequency"} for t in tasks)
-        has_opt = any((t.get("operation") or "").lower() == "optimize" for t in tasks)
 
         if overall == "completed":
             actions.append({

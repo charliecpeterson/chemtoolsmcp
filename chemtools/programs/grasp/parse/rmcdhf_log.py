@@ -47,7 +47,6 @@ def parse_rmcdhf_log(text_or_path: str) -> dict[str, Any]:
     """
     text = _as_text(text_or_path)
     iter_matches = list(_ITER_RE.finditer(text))
-    energies_all = [_to_float(m.group(1)) for m in _AVG_E_RE.finditer(text)]
 
     iterations: list[dict[str, Any]] = []
     # Split energy stream by iteration boundaries

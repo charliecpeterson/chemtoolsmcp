@@ -76,7 +76,6 @@ def _locate_mo_records(
     from collections import Counter
 
     sizes = [len(r) for r in records]
-    size_counts = Counter(sizes)
 
     # Find the longest run of equal-size records (>= 3: occ + eigval + >=1 MO)
     best = None

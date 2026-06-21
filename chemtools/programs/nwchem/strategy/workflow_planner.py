@@ -292,7 +292,6 @@ def plan_nwchem_workflow(
     open_shell = multiplicity > 1
     scf_ref = "rohf" if open_shell else "rhf"
     nopen_note = f"nopen={multiplicity - 1}" if open_shell else ""
-    elem_str = str(elements)
     tce_method = method.lower()
     basis_placeholder = basis or "<basis from suggest_basis_set>"
 

@@ -1605,12 +1605,10 @@ def summarize_electronic_structure(
     mulliken = pop_data.get("methods", {}).get("mulliken", {})
 
     # Extract charges
-    charges_info: list[dict[str, Any]] = []
     total_pop = mulliken.get("latest_total") or {}
     all_atoms_charge = total_pop.get("atoms", [])
 
     # Extract spin density
-    spin_info: list[dict[str, Any]] = []
     spin_pop = mulliken.get("latest_spin") or {}
     all_atoms_spin = spin_pop.get("atoms", [])
     total_spin_density = spin_pop.get("population_sum")

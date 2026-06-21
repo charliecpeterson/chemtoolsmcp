@@ -35,7 +35,7 @@ def _analyze_job_size(input_file: str) -> dict[str, Any]:
     main_task, module, operation, is_freq, is_opt, is_tce, basis_name,
     basis_scale, n_bf.
     """
-    from chemtools.programs.nwchem.parse.input import inspect_nwchem_input, inspect_all_nwchem_basis_blocks
+    from chemtools.programs.nwchem.parse.input import inspect_all_nwchem_basis_blocks
 
     summary = inspect_nwchem_input(input_file)
     all_elements = summary.get("all_elements") or summary.get("elements", [])

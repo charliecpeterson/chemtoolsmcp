@@ -52,7 +52,6 @@ def _split_blocks(text: str) -> list[dict[str, Any]]:
     starts = list(_BLOCK_START_RE.finditer(text))
     ends = list(_BLOCK_END_RE.finditer(text))
     blocks: list[dict[str, Any]] = []
-    text_lines = text.splitlines()
     for i, start in enumerate(starts):
         # Find the next End-of-input AFTER this start that is BEFORE the next start
         next_start = starts[i + 1].start() if i + 1 < len(starts) else len(text)

@@ -58,7 +58,6 @@ def parse_tasks(path: str, contents: str) -> dict[str, Any]:
     tasks: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
     last_line = 0
-    return_codes: dict[int, str] = {}
 
     for line_number, raw_line in enumerate(contents.splitlines(), start=1):
         last_line = line_number
