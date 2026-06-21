@@ -46,7 +46,7 @@ chemtools/
       generic.py                 36 program-agnostic tools (parse_output, register_run, ...)
       nwchem.py                  97 NWChem tools
       molcas.py                  45 Molcas tools
-      dirac.py                   38 DIRAC tools
+      dirac.py                   39 DIRAC tools
       grasp.py                   37 GRASP tools
 
 test_phase1/                     Test suite (gitignored — local training corpus)
@@ -64,7 +64,7 @@ examples/
 - Domain logic lives in `chemtools/programs/<program>/` and `chemtools/core/`
 - MCP handlers in `chemtools/mcp/tools/<program>.py` — one `@_tool(name)` decorated function per tool
 - Tool naming convention: `verb_<program>_noun` where verb ∈ {parse, analyze, draft, create, suggest, launch, get, watch, inspect, lint, find, compare, review, render, swap, register, update, list, advance, generate, detect, estimate, compute, run, plan, apply, terminate, summarize, validate, check, extract, refine, prepare, evaluate, displace, init, append, search, lookup, read, basis, append, try}
-- **Current tool count: 255** (99 NWChem + 45 Molcas + 38 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
+- **Current tool count: 256** (99 NWChem + 45 Molcas + 39 DIRAC + 37 GRASP + 36 generic). Generics auto-dispatch via `registry.resolve()` and serve any program. The active mode + `--programs` + `--toolset` filters determine how many are actually exposed in a session (e.g. `--programs nwchem --toolset triage` → 12).
 - Tools are tagged with a capability (`needs=`) on the `@_tool` decorator; the active server mode filters which tools are exposed. See **Server modes** below.
 
 ### NWChem tool categories (97 tools)
@@ -156,7 +156,7 @@ Plugin layout (`chemtools/programs/molcas/`):
 - `runtime.py` — launch-helper (`prepare_launch` returns safe pymolcas command + env, with CASPT2 -np guard rail and scratch isolation)
 - `_plugin_parser.py`, `_plugin_binary.py`, `_plugin_drafter.py` — sub-protocol implementations
 
-### DIRAC tools (38)
+### DIRAC tools (39)
 
 Adds 4 scheduler-submit tools to the existing 34: `launch_dirac_run`
 (takes a `mol_file` argument), `get_dirac_run_status`, `watch_dirac_run`,
@@ -579,6 +579,11 @@ Llama) and focused work, where 100+ tools is too many to choose among.
   `parse_molcas_thermochem`, `extract_molcas_geometry`, `get_server_mode`).
 - `CHEMTOOLS_PROGRAMS=nwchem CHEMTOOLS_TOOLSET=triage` → 12 tools (vs ~250);
   `CHEMTOOLS_PROGRAMS=molcas CHEMTOOLS_TOOLSET=molcas-triage` → 11.
+- Bundled preset **`dirac-triage`** = the 10-tool DIRAC counterpart
+  (`summarize_dirac_outputs`, `summarize_dirac_run`, `parse_dirac_output`,
+  `parse_dirac_scf_iterations`, `parse_dirac_spinor_spectrum`,
+  `analyze_dirac_open_shell`, `parse_dirac_cosci_energies`,
+  `read_dirac_h5_metadata`, `suggest_relativistic_correction`, `get_server_mode`).
 - Unlike the program filter, the toolset is an **exact** allowlist: generics are
   not auto-included; list them by name if wanted. Add new presets in
   `chemtools/mcp/modes.py:TOOLSETS`.
