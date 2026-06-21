@@ -3327,6 +3327,7 @@ def _build_next_actions(
         diagnosis = result.get("diagnosis") or {}
         task_outcome = diagnosis.get("task_outcome", "")
         failure_class = diagnosis.get("failure_class", "")
+        recommended_next_action = diagnosis.get("recommended_next_action", "")
         next_step = result.get("next_step") or {}
         selected_workflow = next_step.get("selected_workflow", "")
 
@@ -3355,6 +3356,16 @@ def _build_next_actions(
                     "params": {"output_file": output_file, "frame": "best"},
                     "reason": "Optimization converged — extract geometry for next step.",
                     "confidence": 0.90,
+                })
+            elif recommended_next_action == "verify_state_quality_before_accepting_result":
+                actions.append({
+                    "priority": 1,
+                    "tool": "analyze_nwchem_frontier_orbitals",
+                    "params": {"output_file": output_file, "input_file": input_file},
+                    "reason": "SCF converged, but the spin state isn't verified — check that "
+                              "the unpaired electrons sit on the metal (and scan multiplicities "
+                              "for small open-shell metal systems) before trusting the energy.",
+                    "confidence": 0.85,
                 })
             else:
                 actions.append({

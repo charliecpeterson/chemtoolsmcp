@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
+from chemtools.programs.nwchem.strategy.case_review import check_spin_charge_state
 from chemtools.programs.nwchem.strategy.diagnose import diagnose_nwchem_output
 from chemtools.programs.nwchem.input._utils import _strategy_entry
 

@@ -41,57 +41,23 @@ MCSCF_SETTING_RE = re.compile(
     re.IGNORECASE,
 )
 MCSCF_SUMMARY_VALUE_RE = re.compile(r"^\s*([A-Za-z][A-Za-z\s]+?):\s+(.+?)\s*$")
-TRANSITION_METALS = {
-    "Sc",
-    "Ti",
-    "V",
-    "Cr",
-    "Mn",
-    "Fe",
-    "Co",
-    "Ni",
-    "Cu",
-    "Zn",
-    "Y",
-    "Zr",
-    "Nb",
-    "Mo",
-    "Tc",
-    "Ru",
-    "Rh",
-    "Pd",
-    "Ag",
-    "Cd",
-    "Hf",
-    "Ta",
-    "W",
-    "Re",
-    "Os",
-    "Ir",
-    "Pt",
-    "Au",
-    "Hg",
-    "La",
-    "Ce",
-    "Pr",
-    "Nd",
-    "Pm",
-    "Sm",
-    "Eu",
-    "Gd",
-    "Tb",
-    "Dy",
-    "Ho",
-    "Er",
-    "Tm",
-    "Yb",
-    "Lu",
-    "Ac",
-    "Th",
-    "Pa",
-    "U",
-    "Np",
-    "Pu",
+# Elements whose open shell sits in a d or f manifold — i.e. anything that can
+# carry "metal-centered" character in an orbital. Used to tell metal SOMOs from
+# ligand SOMOs and to find metal d/f vectors for swap suggestions. Includes the
+# full lanthanide and actinide rows: the open shell on an f-block ion (e.g. Cf
+# 5f⁹) is on the metal, so it must count as metal character. This is distinct
+# from the d-block-only _TRANSITION_METALS used for input-drafting heuristics.
+METAL_CENTERS = {
+    # d-block transition metals
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    # lanthanides (4f)
+    "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu",
+    "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
+    # actinides (5f)
+    "Ac", "Th", "Pa", "U", "Np", "Pu", "Am",
+    "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr",
 }
 # Re-exported from core for backward compatibility — see chemtools.core.common
 from chemtools.core.common import COVALENT_RADII  # noqa: F401
@@ -227,6 +193,8 @@ def parse_mos(path: str, contents: str, top_n: int = 5, include_coefficients: bo
                 "coefficients": coeffs if include_coefficients else None,
             }
         )
+
+    _relabel_unrestricted_somos(compact_orbitals)
 
     occupied = [orbital for orbital in compact_orbitals if orbital["occupancy"] > 0.1]
     virtual = [orbital for orbital in compact_orbitals if orbital["occupancy"] <= 0.1]
@@ -531,6 +499,54 @@ def _classify_orbital_occupation(
     if 0.25 < occupancy < 1.75:
         return "singly_occupied"
     return "occupied"
+
+
+def _relabel_unrestricted_somos(orbitals: list[dict[str, Any]]) -> None:
+    """Re-tag SOMOs for unrestricted runs by pairing alpha/beta occupied
+    orbitals on character + energy instead of vector index.
+
+    NWChem numbers the alpha and beta manifolds independently, and for an open
+    d/f shell they reorder relative to each other — an actinide's 5f block can
+    sit below the ligand orbitals in only one spin channel. Matching by vector
+    number (the per-orbital classifier) then tags the metal SOMOs as paired and
+    promotes ligand orbitals to singly occupied. Here each occupied beta orbital
+    is matched to its closest occupied alpha orbital of the same dominant
+    element+shell; the (N_alpha - N_beta) unmatched alpha orbitals are the real
+    SOMOs. No-op for restricted runs (handled by the per-orbital classifier).
+    """
+    alpha = [o for o in orbitals if o.get("spin") == "alpha" and o["occupancy"] > 0.1]
+    beta = [o for o in orbitals if o.get("spin") == "beta" and o["occupancy"] > 0.1]
+    if not alpha or not beta:
+        return
+
+    def char_key(orbital: dict[str, Any]) -> tuple[str | None, str | None]:
+        atoms = orbital.get("top_atom_contributions") or []
+        shells = orbital.get("ao_shell_contributions") or []
+        return (
+            atoms[0]["element"] if atoms else None,
+            shells[0]["ao_shell"] if shells else None,
+        )
+
+    paired: set[int] = set()
+    for beta_orbital in sorted(beta, key=lambda o: o["energy_hartree"] or 0.0):
+        beta_key = char_key(beta_orbital)
+        beta_energy = beta_orbital["energy_hartree"] or 0.0
+        best: dict[str, Any] | None = None
+        best_cost: float | None = None
+        for alpha_orbital in alpha:
+            if id(alpha_orbital) in paired:
+                continue
+            mismatch = 0.0 if char_key(alpha_orbital) == beta_key else 1.0e3
+            cost = abs((alpha_orbital["energy_hartree"] or 0.0) - beta_energy) + mismatch
+            if best_cost is None or cost < best_cost:
+                best_cost, best = cost, alpha_orbital
+        if best is not None:
+            paired.add(id(best))
+
+    for orbital in alpha:
+        orbital["occupation_label"] = "occupied" if id(orbital) in paired else "singly_occupied"
+    for orbital in beta:
+        orbital["occupation_label"] = "occupied"
 
 
 def _summarize_orbital_character(coefficients: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:

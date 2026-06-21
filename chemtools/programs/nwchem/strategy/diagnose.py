@@ -5,7 +5,7 @@ from typing import Any
 
 from chemtools.core.common import make_metadata, parse_scientific_float, read_text
 from chemtools.programs.nwchem.parse.tasks import parse_tasks
-from chemtools.programs.nwchem.parse.mos import parse_mos, parse_population_analysis
+from chemtools.programs.nwchem.parse.mos import METAL_CENTERS, parse_mos, parse_population_analysis
 from chemtools.programs.nwchem.parse.freq import parse_freq, parse_trajectory
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 
@@ -333,6 +333,40 @@ def analyze_grid_quality(contents: str) -> dict[str, Any]:
     }
 
 
+def _detect_metal_centers(
+    mos_payload: dict[str, Any],
+    population_payload: dict[str, Any] | None,
+    input_summary: dict[str, Any] | None,
+) -> list[str]:
+    """Metal (d/f-block) elements actually present in the run.
+
+    Works output-only — an agent usually calls with just the .out, so relying on
+    the input file's element list alone would miss every metal. Atoms come from
+    the population analysis (lists every atom) and MO contributions, with the
+    input geometry as a supplement, intersected with the f-block-aware set.
+    """
+    present: set[str] = set()
+    if input_summary:
+        present.update(input_summary.get("elements") or [])
+    if population_payload:
+        for method in (population_payload.get("methods") or {}).values():
+            if not isinstance(method, dict):
+                continue
+            for section in method.values():
+                if isinstance(section, dict) and isinstance(section.get("atoms"), list):
+                    present.update(
+                        atom["element"] for atom in section["atoms"] if atom.get("element")
+                    )
+    for channel in (mos_payload.get("spin_channels") or {}).values():
+        for orbital in channel.get("orbitals", []) or []:
+            present.update(
+                item["element"]
+                for item in (orbital.get("top_atom_contributions") or [])
+                if item.get("element")
+            )
+    return [element for element in present if element in METAL_CENTERS]
+
+
 def diagnose_nwchem_output(
     output_path: str,
     input_path: str | None = None,
@@ -356,7 +390,7 @@ def diagnose_nwchem_output(
     grid_quality = analyze_grid_quality(contents)
 
     input_summary = inspect_nwchem_input(input_path) if input_path else None
-    metals = expected_metal_elements or (input_summary["transition_metals"] if input_summary else [])
+    metals = expected_metal_elements or _detect_metal_centers(mos, population, input_summary)
     somo_target = expected_somo_count
     if somo_target is None and input_summary and input_summary["multiplicity"] and input_summary["multiplicity"] > 1:
         somo_target = input_summary["multiplicity"] - 1
@@ -378,6 +412,20 @@ def diagnose_nwchem_output(
     likely_cause = "insufficient_evidence"
     next_action = "inspect_raw_output"
     confidence = "low"
+
+    # --- Early-exit: file is a standalone NBO analysis, not an SCF log ---
+    # NBO 6.0 writes its own output; pointing the diagnosis at it (instead of the
+    # NWChem .out that invoked NBO) yields a useless "unknown". Recognize it and
+    # say where the real SCF data lives.
+    _lc = contents.lower()
+    # A real NWChem run always carries the program banner and a total-energy line;
+    # a standalone NBO dump has neither, which is the reliable discriminator.
+    _is_nbo_only = (
+        ("natural bond orbital analysis" in _lc or "n a t u r a l   b o n d" in _lc)
+        and "northwest computational chemistry" not in _lc
+        and "total dft energy" not in _lc
+        and "total scf energy" not in _lc
+    )
 
     # --- Early-exit: X2C/DKH + SP-shell basis crash ---
     # NWChem builds an uncontracted auxiliary basis for the relativistic one-electron
@@ -412,7 +460,18 @@ def diagnose_nwchem_output(
     except Exception:
         pass
 
-    if _x2c_sp_crash:
+    if _is_nbo_only:
+        stage = "post_analysis"
+        failure_class = "not_nwchem_scf_output"
+        likely_cause = "file_is_standalone_nbo_analysis"
+        next_action = (
+            "point_diagnosis_at_the_scf_log: this file is a standalone NBO 6.0 analysis "
+            "dump, not an NWChem SCF/DFT output. The SCF iterations, energy, and orbitals "
+            "live in the NWChem .out the run wrote before calling NBO — re-run the analysis "
+            "on that file."
+        )
+        confidence = "high"
+    elif _x2c_sp_crash:
         failure_class = "basis_incompatibility"
         likely_cause = "sp_shells_incompatible_with_x2c_dkh"
         next_action = (
