@@ -1231,6 +1231,15 @@ def _handle_summarize_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
         "homo_lumo_blocks_count": len(text_parse.get("homo_lumo_per_symmetry") or []),
     }
 
+    excitations = text_parse.get("excitations") or {}
+    if excitations.get("available"):
+        summary["excited_states"] = {
+            "n_excitations": excitations["n_excitations"],
+            "lowest_excitation_ev": excitations.get("lowest_excitation_ev"),
+            "sum_oscillator_strength": excitations.get("sum_oscillator_strength"),
+            "excitations": excitations["excitations"],
+        }
+
     if h5_path:
         if not _H5PY_AVAILABLE:
             summary["h5_status"] = "h5py_missing"

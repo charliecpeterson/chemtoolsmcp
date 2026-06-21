@@ -23,6 +23,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from chemtools.programs.dirac.parse.excitations import parse_excitations
+
 
 # DIRAC banner pattern — the @@ ASCII art lines are stable across versions.
 _BANNER_RE = re.compile(r"^\s*\*+\s*$\s*\*.*DIRAC", re.MULTILINE | re.DOTALL)
@@ -492,6 +494,10 @@ def parse_output(path: str, contents: str | None = None) -> dict[str, Any]:
     if mulliken and mulliken.get("atoms"):
         mulliken_charges = mulliken["atoms"]
 
+    excitations = parse_excitations(contents)
+    if excitations.get("available") and "excitation" not in tasks:
+        tasks = list(tasks) + ["excitation"]
+
     return {
         "program": "dirac",
         "program_version": version,
@@ -504,6 +510,7 @@ def parse_output(path: str, contents: str | None = None) -> dict[str, Any]:
         "open_shell_setup": open_shell,
         "homo_lumo_per_symmetry": homo_lumo,
         "tasks_detected": tasks,
+        "excitations": excitations,
         "mulliken": mulliken,
         "mulliken_charges": mulliken_charges,
         # Spinor spectrum: index, energy, occupation, j_label, mj

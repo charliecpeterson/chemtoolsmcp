@@ -44,7 +44,7 @@ def summarize_dirac_outputs(
         else:
             verdict, headline = "caution", "no SCF detected"
         verdicts[verdict] += 1
-        rows.append({
+        row = {
             "file": Path(path).name,
             "path": path,
             "tasks": parsed.get("tasks_detected"),
@@ -54,7 +54,14 @@ def summarize_dirac_outputs(
             "symmetry": parsed.get("symmetry"),
             "verdict": verdict,
             "headline": headline,
-        })
+        }
+        exc = parsed.get("excitations") or {}
+        if exc.get("available"):
+            row["excited_states"] = {
+                "n_excitations": exc["n_excitations"],
+                "lowest_excitation_ev": exc.get("lowest_excitation_ev"),
+            }
+        rows.append(row)
     return {
         "file_count": len(files),
         "truncated": truncated,
