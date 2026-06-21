@@ -17,6 +17,8 @@ _EXC_RE = re.compile(
 _SYM_EV_RE = re.compile(r"Nonrel\. sym\.:\s+(\S+)\s+([-\d.]+)\s+eV", re.IGNORECASE)
 _SUMF_RE = re.compile(r"Sum of oscillator strengths[^:]*:\s+([-\d.E+]+)", re.IGNORECASE)
 
+_HARTREE_TO_EV = 27.211386245988
+
 
 def parse_excitations(contents: str) -> dict[str, Any]:
     if "excitation energy" not in contents.lower():
@@ -35,12 +37,15 @@ def parse_excitations(contents: str) -> dict[str, Any]:
             "excitation_energy_ev": None,
             "symmetry": None,
         }
-        # The eV value + symmetry label sit on the following "Nonrel. sym." line.
+        # The symmetry label + eV sit on the following "Nonrel. sym." line — but
+        # that line is not always printed (e.g. core-restricted runs). eV is
+        # derived from a.u. directly so it is always available; the printed value
+        # only supplies the symmetry label.
         if i + 1 < len(lines):
             sym = _SYM_EV_RE.search(lines[i + 1])
             if sym:
                 exc["symmetry"] = sym.group(1)
-                exc["excitation_energy_ev"] = float(sym.group(2))
+        exc["excitation_energy_ev"] = round(exc["excitation_energy_au"] * _HARTREE_TO_EV, 4)
         excitations.append(exc)
 
     if not excitations:
