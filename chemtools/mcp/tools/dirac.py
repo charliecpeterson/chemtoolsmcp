@@ -1240,6 +1240,16 @@ def _handle_summarize_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
             "excitations": excitations["excitations"],
         }
 
+    relccsd = text_parse.get("relccsd") or {}
+    if relccsd.get("available"):
+        summary["correlation"] = {
+            "mp2_total_hartree": relccsd.get("mp2_total_hartree"),
+            "ccsd_total_hartree": relccsd.get("ccsd_total_hartree"),
+            "ccsd_t_total_hartree": relccsd.get("ccsd_t_total_hartree"),
+            "mp2_correlation_hartree": relccsd.get("mp2_correlation_hartree"),
+            "ccsd_correlation_hartree": relccsd.get("ccsd_correlation_hartree"),
+        }
+
     if h5_path:
         if not _H5PY_AVAILABLE:
             summary["h5_status"] = "h5py_missing"

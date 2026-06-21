@@ -61,6 +61,12 @@ def summarize_dirac_outputs(
                 "n_excitations": exc["n_excitations"],
                 "lowest_excitation_ev": exc.get("lowest_excitation_ev"),
             }
+        cc = parsed.get("relccsd") or {}
+        if cc.get("available"):
+            row["correlation"] = {
+                "ccsd_t_total_hartree": cc.get("ccsd_t_total_hartree"),
+                "ccsd_total_hartree": cc.get("ccsd_total_hartree"),
+            }
         rows.append(row)
     return {
         "file_count": len(files),

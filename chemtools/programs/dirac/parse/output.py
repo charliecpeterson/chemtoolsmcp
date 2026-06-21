@@ -24,6 +24,7 @@ import re
 from typing import Any
 
 from chemtools.programs.dirac.parse.excitations import parse_excitations
+from chemtools.programs.dirac.parse.relccsd import parse_relccsd
 
 
 # DIRAC banner pattern — the @@ ASCII art lines are stable across versions.
@@ -498,6 +499,10 @@ def parse_output(path: str, contents: str | None = None) -> dict[str, Any]:
     if excitations.get("available") and "excitation" not in tasks:
         tasks = list(tasks) + ["excitation"]
 
+    relccsd = parse_relccsd(contents)
+    if relccsd.get("available") and "relccsd" not in tasks:
+        tasks = list(tasks) + ["relccsd"]
+
     return {
         "program": "dirac",
         "program_version": version,
@@ -511,6 +516,7 @@ def parse_output(path: str, contents: str | None = None) -> dict[str, Any]:
         "homo_lumo_per_symmetry": homo_lumo,
         "tasks_detected": tasks,
         "excitations": excitations,
+        "relccsd": relccsd,
         "mulliken": mulliken,
         "mulliken_charges": mulliken_charges,
         # Spinor spectrum: index, energy, occupation, j_label, mj
