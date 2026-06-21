@@ -15,6 +15,7 @@ from chemtools.programs.nwchem.strategy.input_advisors import recommend_multipli
 from chemtools.programs.grasp.parse.sum_file import parse_sum as parse_grasp_sum
 from chemtools.programs.grasp.parse.hfs import parse_hfs
 from chemtools.programs.grasp.parse.ris import parse_ris
+from chemtools.programs.grasp.parse.transition import parse_transition
 
 
 RELCCSD_OUT = """
@@ -181,3 +182,28 @@ def test_grasp_ris_parses_mass_shift_and_density():
     assert abs(r["normal_mass_shift"][0]["k1"] - 47113.39546) < 1e-3
     assert abs(r["specific_mass_shift"][0]["k1_k2_k3"] - (-7794.012053)) < 1e-3
     assert abs(r["electron_density"][0]["density_au"] - 5194244.46) < 1e-1
+
+
+# rtransition .t.lsj — the Li 2s->2p resonance line (real container output).
+GRASP_T_LSJ = """ Transition between files:
+ Li2s
+ Li2p
+
+
+   1   -7.43353309  1s(2).2s_2S
+   1   -7.36586156  1s(2).2p_2P
+   14852.18 CM-1      6733.02 ANGS(VAC)      6732.32 ANGS(AIR)
+ E1  S =  1.13141D+01   GF =  5.10428D-01   AKI =  3.75515D+07   dT =  0.03441
+          1.17173D+01         5.28618D-01          3.88897D+07
+"""
+
+
+def test_grasp_transition_parses_e1_line():
+    r = parse_transition(GRASP_T_LSJ)
+    assert r["n_transitions"] == 1
+    t = r["transitions"][0]
+    assert t["type"] == "E1" and t["lower"]["label"] == "1s(2).2s_2S"
+    assert abs(t["wavelength_vac_ang"] - 6733.02) < 1e-2
+    assert abs(t["length_gauge"]["gf"] - 0.510428) < 1e-5
+    assert abs(t["length_gauge"]["a_ki_per_s"] - 3.75515e7) < 1e2
+    assert abs(t["velocity_gauge"]["gf"] - 0.528618) < 1e-5

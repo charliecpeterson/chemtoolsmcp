@@ -430,3 +430,58 @@ def ris4_input(
         "y" if higher_order_field_shift else "n",
         "y" if save_angular else "n",
     ]
+
+
+def rbiotransform_input(
+    *,
+    initial: str,
+    final: str,
+    ci_mixing: bool = False,
+    all_symmetries: bool = True,
+    default_settings: bool = True,
+) -> list[str]:
+    """Build rbiotransform stdin — biorthogonalise two states before rtransition.
+
+    Prompts:
+      1. Default settings? (y/n)
+      2. Input from a CI calculation? (y/n)
+      3. Name of the Initial state
+      4. Name of the Final state
+      5. Transformation of all J symmetries? (y/n)
+    """
+    return [
+        "y" if default_settings else "n",
+        "y" if ci_mixing else "n",
+        initial,
+        final,
+        "y" if all_symmetries else "n",
+    ]
+
+
+def rtransition_input(
+    *,
+    initial: str,
+    final: str,
+    transition_types: str = "E1",
+    ci_mixing: bool = False,
+    default_settings: bool = True,
+) -> list[str]:
+    """Build rtransition stdin — radiative transition rates between two states.
+
+    Run rbiotransform on the same pair first. ``transition_types`` is a GRASP
+    spec string, e.g. ``"E1"`` or ``"E1,M2"``.
+
+    Prompts:
+      1. Default settings? (y/n)
+      2. Input from a CI calculation? (y/n)
+      3. Name of the Initial state
+      4. Name of the Final state
+      5. Transition specifications (e.g. E1 or E1,M2)
+    """
+    return [
+        "y" if default_settings else "n",
+        "y" if ci_mixing else "n",
+        initial,
+        final,
+        transition_types,
+    ]

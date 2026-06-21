@@ -46,9 +46,12 @@ from chemtools.programs.grasp.input.heredoc import (
     rhfs_input as _rhfs_input,
     rhfs_lsj_input as _rhfs_lsj_input,
     ris4_input as _ris4_input,
+    rbiotransform_input as _rbiotransform_input,
+    rtransition_input as _rtransition_input,
 )
 from chemtools.programs.grasp.parse.hfs import parse_hfs as _parse_hfs
 from chemtools.programs.grasp.parse.ris import parse_ris as _parse_ris
+from chemtools.programs.grasp.parse.transition import parse_transition as _parse_transition
 from chemtools.programs.grasp.parse.rlevels import (
     parse_rlevels as _parse_rlevels,
     summarize_terms as _summarize_terms,
@@ -234,6 +237,36 @@ def _handle_run_rhfs_lsj(arguments: dict[str, Any]) -> dict[str, Any]:
             name=arguments["name"],
             ci_mixing=arguments.get("ci_mixing", False),
             energy_sorted=arguments.get("energy_sorted", True),
+        ),
+    )
+
+
+@_tool("run_grasp_rbiotransform", needs="executable", program="grasp")
+def _handle_run_rbiotransform(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _run_grasp_exe(
+        "rbiotransform",
+        working_dir=arguments["working_dir"],
+        stdin_lines=_rbiotransform_input(
+            initial=arguments["initial"],
+            final=arguments["final"],
+            ci_mixing=arguments.get("ci_mixing", False),
+            all_symmetries=arguments.get("all_symmetries", True),
+            default_settings=arguments.get("default_settings", True),
+        ),
+    )
+
+
+@_tool("run_grasp_rtransition", needs="executable", program="grasp")
+def _handle_run_rtransition(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _run_grasp_exe(
+        "rtransition",
+        working_dir=arguments["working_dir"],
+        stdin_lines=_rtransition_input(
+            initial=arguments["initial"],
+            final=arguments["final"],
+            transition_types=arguments.get("transition_types", "E1"),
+            ci_mixing=arguments.get("ci_mixing", False),
+            default_settings=arguments.get("default_settings", True),
         ),
     )
 
@@ -435,6 +468,11 @@ def _handle_parse_grasp_hfs(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("parse_grasp_ris", program="grasp")
 def _handle_parse_grasp_ris(arguments: dict[str, Any]) -> dict[str, Any]:
     return _parse_ris(arguments["path"])
+
+
+@_tool("parse_grasp_transition", program="grasp")
+def _handle_parse_grasp_transition(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _parse_transition(arguments["path"])
 
 
 @_tool("suggest_grasp_recovery", program="grasp")
@@ -807,6 +845,48 @@ _DEFS: list[dict[str, Any]] = [
                 "default_settings": {"type": "boolean", "default": True},
             },
             "required": ["working_dir", "name"],
+        },
+    },
+    {
+        "name": "run_grasp_rbiotransform",
+        "description": (
+            "Run rbiotransform: biorthogonalise two states' wavefunctions so "
+            "standard tensor algebra applies. Required before run_grasp_rtransition. "
+            "Reads initial/final name.c/.w/.(c)m; writes name.bw + name.(c)bm."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "working_dir": {"type": "string"},
+                "initial": {"type": "string", "description": "Initial state name"},
+                "final": {"type": "string", "description": "Final state name"},
+                "ci_mixing": {"type": "boolean", "default": False},
+                "all_symmetries": {"type": "boolean", "default": True},
+                "default_settings": {"type": "boolean", "default": True},
+            },
+            "required": ["working_dir", "initial", "final"],
+        },
+    },
+    {
+        "name": "run_grasp_rtransition",
+        "description": (
+            "Run rtransition: radiative-transition parameters (line strength S, "
+            "oscillator strength gf, rate A_ki, lifetimes) between two states. Run "
+            "run_grasp_rbiotransform on the same pair first. transition_types is a "
+            "GRASP spec, e.g. 'E1' or 'E1,M2'. Writes name1.name2.(c)t(.lsj)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "working_dir": {"type": "string"},
+                "initial": {"type": "string"},
+                "final": {"type": "string"},
+                "transition_types": {"type": "string", "default": "E1",
+                                     "description": "e.g. 'E1', 'E1,M2', 'E2'"},
+                "ci_mixing": {"type": "boolean", "default": False},
+                "default_settings": {"type": "boolean", "default": True},
+            },
+            "required": ["working_dir", "initial", "final"],
         },
     },
     {
@@ -1185,6 +1265,20 @@ _DEFS: list[dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {"path": {"type": "string", "description": "Path to a ris4 .i file."}},
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "parse_grasp_transition",
+        "description": (
+            "Parse radiative-transition output from rtransition (name1.name2.(c)t.lsj): "
+            "per-transition lower/upper state (label + energy), energy in cm-1, vacuum "
+            "+ air wavelengths, multipole type, and length + velocity gauge line "
+            "strength / gf / A_ki (s-1) / dT gauge agreement."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "Path to a .t.lsj / .ct.lsj file."}},
             "required": ["path"],
         },
     },
