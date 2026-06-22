@@ -49,7 +49,10 @@ def parse_lsjlbl(path_or_text: str) -> dict[str, Any]:
               "parity": "+"|"-",
               "energy_au": float,
               "total_weight_percent": float,
-              "components": [{coefficient, weight_fraction, label}, ...]
+              "components": [{coefficient, weight_fraction, label}, ...],
+              "dominant_label": str, "dominant_weight": float,   # leading CSF
+              "term_composition": {term: summed_weight, ...},    # by total LS term
+              "dominant_term": str, "dominant_term_weight": float,  # LS-coupling purity
             },
             ...
           ],
@@ -74,6 +77,20 @@ def parse_lsjlbl(path_or_text: str) -> dict[str, Any]:
             })
 
         dominant = max(components, key=lambda c: c["weight_fraction"]) if components else None
+
+        # Aggregate the components by their *total* LS term (the suffix after the
+        # last '_', e.g. ..._3H). With a correlation expansion the leading CSF can
+        # be a small fraction even when the level is a near-pure LS term, because
+        # the weight is spread over many configurations that all share that term.
+        # Summing by term recovers the LS-coupling purity (the intermediate-
+        # coupling measure): dominant_term ~ 1 means clean LS, << 1 means mixed.
+        term_comp: dict[str, float] = {}
+        for c in components:
+            term = _total_term(c["label"])
+            if term:
+                term_comp[term] = term_comp.get(term, 0.0) + c["weight_fraction"]
+        dom_term = max(term_comp.items(), key=lambda kv: kv[1]) if term_comp else None
+
         levels.append({
             "pos": int(h.group(1)),
             "j_str": h.group(2),
@@ -84,9 +101,21 @@ def parse_lsjlbl(path_or_text: str) -> dict[str, Any]:
             "components": components,
             "dominant_label": dominant["label"] if dominant else None,
             "dominant_weight": dominant["weight_fraction"] if dominant else None,
+            "term_composition": term_comp,
+            "dominant_term": dom_term[0] if dom_term else None,
+            "dominant_term_weight": dom_term[1] if dom_term else None,
         })
 
     return {"levels": levels, "n_levels": len(levels)}
+
+
+def _total_term(label: str | None) -> str | None:
+    """Extract the total LS term (e.g. '3H') from a CSF label's trailing '_<term>'."""
+    if not label or "_" not in label:
+        return None
+    tail = label.rsplit("_", 1)[-1]
+    m = re.match(r"\d[A-Za-z]", tail)
+    return m.group(0) if m else None
 
 
 def _as_text(path_or_text: str) -> str:

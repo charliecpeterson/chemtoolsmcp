@@ -238,7 +238,7 @@ Key constraints:
 Plugin layout (`chemtools/programs/grasp/`):
 - `runtime.py` — apptainer wrapper, stdin heredoc execution, session log writer
 - `parse/rlevels.py` — energy-level table (No / Pos / J / Parity / E_au / E_cm-1 / splitting / config) + term grouping + DHF-vs-NR comparison
-- `parse/lsjlbl.py` — LSJ-coupled composition per ASF
+- `parse/lsjlbl.py` — LSJ-coupled composition per ASF; also `term_composition` / `dominant_term` (weights summed by *total* LS term, e.g. `_3H`) so a correlation-spread level still shows its LS-coupling purity (intermediate-coupling measure) even when the leading CSF is a small fraction
 - `parse/sum_file.py` — `name.sum` (rmcdhf) **and** `name.csum` (rci) summary: nucleus, c, grid, subshells, eigenenergies; for `.csum` also `rci_corrections` (which of Breit/transverse, vacuum-polarisation, self-energy, mass shifts were added on top of Dirac-Coulomb)
 - `parse/hfs.py` — hyperfine output from `rhfs` (`name.(c)h`) / `rhfs_lsj` (`name.(c)hlsj`): nuclear spin + dipole/quadrupole moments, per-level A(MHz), B(MHz), Landé g_J (LSJ label + energy from rhfs_lsj)
 - `parse/ris.py` — isotope-shift output from `ris4` (`name.i`): per-level normal + specific mass-shift parameters + electron density at the nucleus (field-shift factor)

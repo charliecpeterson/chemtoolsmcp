@@ -17,6 +17,7 @@ from chemtools.programs.grasp.parse.hfs import parse_hfs
 from chemtools.programs.grasp.parse.ris import parse_ris
 from chemtools.programs.grasp.parse.transition import parse_transition
 from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log
+from chemtools.programs.grasp.parse.lsjlbl import parse_lsjlbl
 from chemtools.programs.grasp.strategy.diagnose import suggest_grasp_recovery
 
 
@@ -235,6 +236,27 @@ def test_grasp_recovery_classifies_orbital_solver_failure():
     rec = suggest_grasp_recovery(error_text=RMCDHF_FAILED)
     assert rec["failure_class"] == "rmcdhf_orbital_not_solved"
     assert "bootstrap" in rec["fix_recipe"].lower()
+
+
+# lsj.lbl with a correlation expansion: the leading CSF is small, but the level
+# is a near-pure LS term once components are summed by their total term (_3H).
+GRASP_LSJ_CORR = """ Pos   J   Parity      Energy Total      Comp. of ASF
+  1    6     +        -13541.502299495      99.924%
+        -0.39583658    0.15668659   4f(11)4I1.5f_3H
+         0.31257928    0.09770581   4f(12)_3H1
+         0.25638451    0.06573302   4f(11)4G1.5f_3H
+        -0.11028494    0.01216277   4f(10)3L1.5f(2)1I1_3H
+         0.10000000    0.02000000   4f(11)2H2.5f_1I
+"""
+
+
+def test_grasp_lsjlbl_term_composition_aggregates_by_total_term():
+    lv = parse_lsjlbl(GRASP_LSJ_CORR)["levels"][0]
+    # leading CSF is only ~16%, but summed-by-term shows a near-pure 3H level
+    assert lv["dominant_weight"] < 0.20
+    assert lv["dominant_term"] == "3H"
+    assert lv["term_composition"]["3H"] > 0.30
+    assert lv["term_composition"]["1I"] == 0.02
 
 
 def test_grasp_transition_parses_e1_line():
