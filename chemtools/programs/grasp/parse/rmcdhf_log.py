@@ -29,6 +29,15 @@ _MAX_CONV_RE = re.compile(r"maximum convergence parameter is\s*=?\s*(" + _FLOAT_
 _NOT_CONVERGED_RE = re.compile(r"SCF not converged|did NOT converge|NOT converged|orbitals diverging", re.I)
 _CONVERGED_RE = re.compile(r"Convergence \(latest difference.*\) satisfied|RMCDHF: Execution complete", re.I)
 
+# Hard orbital-solver crash: the radial equation for a given orbital cannot be
+# solved (common for a diffuse valence orbital — e.g. 7s in a neutral actinide —
+# from a poor Thomas-Fermi start). The "Failure; equation..." line is fatal
+# (ERROR STOP follows); the "Method N unable to solve" lines are per-attempt and
+# can appear before a successful retry, so they're warnings, not the verdict.
+_ORBITAL_FAILED_RE = re.compile(r"equation for orbital\s+(\S+)\s+could not be solved", re.I)
+_METHOD_UNABLE_RE = re.compile(r"Method\s+\d+\s+unable to solve for\s+(\S+)\s+orbital", re.I)
+_ERROR_STOP_RE = re.compile(r"^\s*ERROR STOP|Error termination", re.M)
+
 
 def parse_rmcdhf_log(text_or_path: str) -> dict[str, Any]:
     """Parse the rmcdhf SCF iteration trace.
@@ -76,7 +85,19 @@ def parse_rmcdhf_log(text_or_path: str) -> dict[str, Any]:
 
     converged = bool(_CONVERGED_RE.search(text))
     not_converged = bool(_NOT_CONVERGED_RE.search(text))
-    if not_converged:
+
+    # Orbitals that the radial solver gave up on (de-duplicated, order-preserved).
+    failed_orbitals: list[str] = []
+    for m in _ORBITAL_FAILED_RE.finditer(text):
+        if m.group(1) not in failed_orbitals:
+            failed_orbitals.append(m.group(1))
+    orbital_solver_failed = bool(failed_orbitals)
+    error_stop = bool(_ERROR_STOP_RE.search(text))
+    # Orbitals where a method attempt failed (may have recovered on retry).
+    struggled_orbitals = sorted({m.group(1) for m in _METHOD_UNABLE_RE.finditer(text)})
+
+    # A hard solver failure or an ERROR STOP overrides any stale "complete" marker.
+    if orbital_solver_failed or error_stop or not_converged:
         converged = False
 
     return {
@@ -86,6 +107,10 @@ def parse_rmcdhf_log(text_or_path: str) -> dict[str, Any]:
         "energy_change": e_change,
         "converged": converged,
         "explicitly_not_converged": not_converged,
+        "orbital_solver_failed": orbital_solver_failed,
+        "failed_orbitals": failed_orbitals,
+        "struggled_orbitals": struggled_orbitals,
+        "error_stop": error_stop,
     }
 
 

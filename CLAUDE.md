@@ -233,6 +233,7 @@ Key constraints:
 - **Non-rel limit**: `plan_grasp_nonrel_limit_workflow` sets c=2000 au, suppressing all relativistic effects — useful for isolating relativistic contributions to a property.
 - **rcsfgenerate output**: writes `rcsf.out`; the runner auto-copies it to `rcsf.inp` via `copy_to_inp=True` so the next step (rangular) finds it.
 - **MPI**: the container has `mpirun` + `_mpi` builds (`rangular_mpi`, `rmcdhf_mpi`, `rci_mpi`, `rbiotransform_mpi`, `rtransition_mpi`). Parallel runs need a `disks` file (working dir + the temp dir once per process) then `mpirun -np N <exe>_mpi`; `cpath.f90` makes `tmp_mpi/000,001,...` for per-process I/O. Results are identical to serial; benefit scales with CSF count. See `input_examples/grasp/Si_MPI`. The MCP runners are serial-only today (no `_mpi` wrappers yet).
+- **MPI needs a big CI; tiny references can't parallelize**: dogfooding neutral Th 6d²7s² (9 CSFs) showed `rmcdhf_mpi` can't solve the diffuse 7s (any start: TF / screened-hydrogenic / hf-bootstrap; any np) though serial `rmcdhf` can, and `rci_mpi` aborts `matrix: too many nodes` because blocks are 1–3 CSFs (< np). The robust pattern is serial SCF + `rci_mpi` on a *large* SD/MR expansion. The orbital-solver crash is now caught (see `parse/rmcdhf_log.py`).
 
 Plugin layout (`chemtools/programs/grasp/`):
 - `runtime.py` — apptainer wrapper, stdin heredoc execution, session log writer
@@ -242,7 +243,7 @@ Plugin layout (`chemtools/programs/grasp/`):
 - `parse/hfs.py` — hyperfine output from `rhfs` (`name.(c)h`) / `rhfs_lsj` (`name.(c)hlsj`): nuclear spin + dipole/quadrupole moments, per-level A(MHz), B(MHz), Landé g_J (LSJ label + energy from rhfs_lsj)
 - `parse/ris.py` — isotope-shift output from `ris4` (`name.i`): per-level normal + specific mass-shift parameters + electron density at the nucleus (field-shift factor)
 - `parse/transition.py` — radiative-transition output from `rtransition` (`name1.name2.(c)t.lsj`): per-transition states, cm-1 + wavelengths, multipole, length+velocity gauge S/gf/A_ki/dT
-- `parse/rmcdhf_log.py` — SCF iteration trace from rmcdhf stdout
+- `parse/rmcdhf_log.py` — SCF iteration trace from rmcdhf stdout; also flags hard orbital-solver crashes (`orbital_solver_failed` + `failed_orbitals`, e.g. a diffuse 7s the solver gives up on) and `error_stop`, so `analyze_grasp_case` reports `verdict=failed` instead of trusting a stale `.sum`
 - `input/heredoc.py` — typed stdin builders for each exe (rnucleus, rcsfgenerate, rangular, rwfnestimate, rmcdhf, jj2lsj, hf, rwfnmchfmcdf, rci)
 - `strategy/workflows.py` — DHF / non-rel / restart-from-w / hf-bootstrap planners
 - `strategy/runner.py` — execute a workflow plan end-to-end with stop-on-failure

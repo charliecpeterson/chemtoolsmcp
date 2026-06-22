@@ -16,6 +16,8 @@ from chemtools.programs.grasp.parse.sum_file import parse_sum as parse_grasp_sum
 from chemtools.programs.grasp.parse.hfs import parse_hfs
 from chemtools.programs.grasp.parse.ris import parse_ris
 from chemtools.programs.grasp.parse.transition import parse_transition
+from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log
+from chemtools.programs.grasp.strategy.diagnose import suggest_grasp_recovery
 
 
 RELCCSD_OUT = """
@@ -196,6 +198,43 @@ GRASP_T_LSJ = """ Transition between files:
  E1  S =  1.13141D+01   GF =  5.10428D-01   AKI =  3.75515D+07   dT =  0.03441
           1.17173D+01         5.28618D-01          3.88897D+07
 """
+
+
+RMCDHF_FAILED = """ Iteration number   1
+ Average energy = -2.6510D+04 Hartrees
+ Method 1 unable to solve for  7s  orbital
+ Failure; equation for orbital  7s  could not be solved using method 1
+ Method 2 unable to solve for  7s  orbital
+ Failure; equation for orbital  7s  could not be solved using method 2
+ERROR STOP
+Error termination. Backtrace:
+"""
+
+RMCDHF_OK = """ Iteration number   1
+ Average energy = -2.6510D+04 Hartrees
+ Iteration number   2
+ Average energy = -2.6510D+04 Hartrees
+ RMCDHF: Execution complete.
+"""
+
+
+def test_rmcdhf_log_flags_orbital_solver_crash():
+    r = parse_rmcdhf_log(RMCDHF_FAILED)
+    assert r["converged"] is False
+    assert r["orbital_solver_failed"] and r["failed_orbitals"] == ["7s"]
+    assert r["error_stop"] is True
+
+
+def test_rmcdhf_log_clean_run_not_flagged():
+    r = parse_rmcdhf_log(RMCDHF_OK)
+    assert r["converged"] is True
+    assert not r["orbital_solver_failed"] and not r["error_stop"]
+
+
+def test_grasp_recovery_classifies_orbital_solver_failure():
+    rec = suggest_grasp_recovery(error_text=RMCDHF_FAILED)
+    assert rec["failure_class"] == "rmcdhf_orbital_not_solved"
+    assert "bootstrap" in rec["fix_recipe"].lower()
 
 
 def test_grasp_transition_parses_e1_line():

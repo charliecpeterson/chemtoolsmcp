@@ -134,7 +134,25 @@ def analyze_grasp_case(working_dir: str) -> dict[str, Any]:
         )
     else:
         # rmcdhf produced files; check convergence
-        if scf_iters and scf_iters.get("explicitly_not_converged"):
+        if scf_iters and (scf_iters.get("orbital_solver_failed") or scf_iters.get("error_stop")):
+            verdict = "failed"
+            failed = scf_iters.get("failed_orbitals") or scf_iters.get("struggled_orbitals") or []
+            orb = ", ".join(failed) if failed else "an orbital"
+            issues.append({
+                "severity": "error",
+                "code": "rmcdhf_orbital_not_solved",
+                "message": (
+                    f"rmcdhf's radial solver crashed: could not solve the "
+                    f"equation for {orb}. The .sum/.cm files (if present) are "
+                    "from a failed run — do not trust their energies."
+                ),
+            })
+            next_actions.append(
+                "Run `suggest_grasp_recovery` here — likely fix is the "
+                "hf-bootstrap (better starting orbitals for the diffuse "
+                "valence orbital). See the Th_MPI example."
+            )
+        elif scf_iters and scf_iters.get("explicitly_not_converged"):
             verdict = "failed"
             issues.append({
                 "severity": "error",
@@ -204,6 +222,32 @@ _FAILURE_PATTERNS: list[tuple[str, dict[str, Any]]] = [
                 "Call plan_grasp_hf_bootstrap_workflow with the same "
                 "element/configuration, then run_grasp_workflow.",
                 "Check get_grasp_topic_guide('hf_bootstrap') for details.",
+            ],
+        },
+    ),
+    (
+        "could not be solved",
+        {
+            "failure_class": "rmcdhf_orbital_not_solved",
+            "severity": "error",
+            "root_cause": (
+                "rmcdhf's radial solver could not solve the equation for a "
+                "valence orbital (the log names it, e.g. 7s). Typical for a "
+                "diffuse outer orbital in a neutral heavy/actinide atom started "
+                "from Thomas-Fermi: the start is too poor for the SCF to find "
+                "it. Borderline cases can converge serially but fail under MPI."
+            ),
+            "fix_recipe": (
+                "Give the SCF better starting orbitals via the hf-bootstrap: "
+                "non-rel hf, convert with rwfnmchfmcdf, then DHF reads those. "
+                "Also vary orbitals inner->outer and keep the deep core "
+                "spectroscopic rather than varying everything (*)."
+            ),
+            "next_actions": [
+                "Call plan_grasp_hf_bootstrap_workflow with the same element/"
+                "configuration, then run_grasp_workflow.",
+                "See get_grasp_topic_guide('hf_bootstrap') and the Th_MPI "
+                "example for a bootstrap recipe that converges under MPI.",
             ],
         },
     ),
