@@ -5,19 +5,12 @@ synthesized illustrations. Every one of these ran and produced usable output;
 where a file encodes a hard-won trick, the trick is called out below and
 explained in the sibling notes.
 
-## The baseline table (start here)
+## The baseline table
 
-- **`fblock-reference-configs.json`** / **`.md`** — 31 elements (Y, La–Lu,
-  Ac–Lr), 633 states, all converged in GRASP2018 at DC+Breit level. For each
-  state: the occupation line in GRASP/ATSP syntax, the J blocks it actually
-  produces (with CSF counts), the converged DC+B energy, and — most valuable —
-  **which states cannot be converged cold**. 534 of 633 need a donor start
-  guess; 51 need staged orbital birth. That distribution is the single best
-  argument for why f-block atomic work needs tooling.
-
-This is the "do not fight the atom again" artifact: given an element and a
-target configuration, the table says what worked, what J blocks to expect, and
-what seeding the state needs.
+Moved to **`../atomic-library/`** and regenerated from the v2 references (the
+version here was built from data that silently truncated high-f J manifolds).
+Start there: it has the same 633 states plus per-element recipe files for
+GRASP and ATSP2K, and the DIRAC hard-job inputs.
 
 ## Program examples
 

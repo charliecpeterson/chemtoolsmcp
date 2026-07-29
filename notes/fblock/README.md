@@ -19,10 +19,12 @@ works fine for main-group and transition-metal chemistry, they break it
 | `dirac-fblock.md` | DIRAC | 38 tools exist; these are the actinide lessons on top |
 | `qe-qmcpack-oncvpsp.md` | Quantum ESPRESSO, QMCPACK, ONCVPSP/`ld1` | **no tooling, not installed** — read before installing |
 | `examples/` | all of the above | real inputs that ran, plus the 633-state reference table |
+| `atomic-library/` | GRASP · ATSP2K · DIRAC | **per-element seed library**: 31 elements × every state — configuration, J structure, converged DC+B energy, and the seeding recipe each state needs. Start here to run a new f-block calculation. |
 
-Start with `examples/fblock-reference-configs.md` if you want the payload
-rather than the methodology: every validated configuration, its J blocks, and
-whether it needs a seeding trick.
+Start with `atomic-library/` if you want the payload rather than the
+methodology: every validated configuration, its J blocks, its converged
+DC+Breit energy, and the seeding recipe it needs. Read the program notes when
+something breaks — they are organized by failure mode.
 
 ## The five things that generalize
 
@@ -70,8 +72,9 @@ near-degenerate with each other across a row. Practically:
 
 - Orbitals must often be **born one at a time**, in a frozen potential, from a
   donor calculation — and two near-degenerate orbitals cannot be born beside
-  each other at all. 534 of 633 reference states needed donor seeding; 51
-  needed staged birth.
+  each other at all. 597 of 633 reference states need seeded orbitals (427 a
+  single donor, 110 a two-donor merge, 60 a converted non-relativistic
+  calculation); 51 additionally need staged birth. Only 36 start cold.
 - SCF **bistability is frequently physical**, not numerical. An oscillating
   open-shell actinide calculation may be reporting a real near-degeneracy —
   the same state converges instantly once the deep core is removed, and then
