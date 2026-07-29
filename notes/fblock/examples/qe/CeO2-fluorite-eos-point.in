@@ -1,0 +1,21 @@
+&CONTROL
+  calculation = "scf", prefix = "ceo2_10.35", pseudo_dir = ".", outdir = "./tmp"
+  disk_io = "none"
+/
+&SYSTEM
+  ibrav = 2, celldm(1) = 10.35, nat = 3, ntyp = 2
+  ecutwfc = 85
+  occupations = "smearing", smearing = "gaussian", degauss = 0.01
+/
+&ELECTRONS
+  electron_maxstep = 200, mixing_beta = 0.3, conv_thr = 1e-8
+/
+ATOMIC_SPECIES
+Ce 140.116 Ce.secp-q.upf
+O  15.999  O.pbe.upf
+ATOMIC_POSITIONS crystal
+Ce 0.00 0.00 0.00
+O  0.25 0.25 0.25
+O  0.75 0.75 0.75
+K_POINTS automatic
+6 6 6 1 1 1

@@ -1,0 +1,20 @@
+&input
+  title = "Ce"
+  zed = 58.0
+  rel = 1
+  config = "[Kr] 4d10 5s2 5p6 4f1 5d1"
+  iswitch = 3
+  dft = "PBE"
+/
+&inputp
+  pseudotype = 1
+  tm = .true.
+  lloc = -1
+  rcloc = 1.90
+  file_pseudopw = "Ce.secp-sl.UPF"
+/
+4
+5S 1 0 2.00 0.00 2.40 2.40
+5P 2 1 6.00 0.00 2.40 2.40
+5D 3 2 1.00 0.00 2.00 2.00
+4F 4 3 1.00 0.00 1.90 1.90

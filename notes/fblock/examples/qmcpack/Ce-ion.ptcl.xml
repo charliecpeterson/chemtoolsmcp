@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<qmcsystem>
+  <simulationcell>
+    <parameter name="lattice" units="bohr">
+      24.0  0.0  0.0
+       0.0 24.0  0.0
+       0.0  0.0 24.0
+    </parameter>
+    <parameter name="bconds">p p p</parameter>
+    <parameter name="LR_dim_cutoff">15</parameter>
+  </simulationcell>
+  <particleset name="ion0" size="1">
+    <group name="Ce">
+      <parameter name="charge">12</parameter>
+      <parameter name="valence">12</parameter>
+      <parameter name="atomicnumber">58</parameter>
+      <attrib name="position" datatype="posArray">
+        12.0 12.0 12.0
+      </attrib>
+    </group>
+  </particleset>
+  <particleset name="e" random="yes" randomsrc="ion0">
+    <group name="u" size="5">
+      <parameter name="charge">-1</parameter>
+      <parameter name="mass">1.0</parameter>
+    </group>
+    <group name="d" size="4">
+      <parameter name="charge">-1</parameter>
+      <parameter name="mass">1.0</parameter>
+    </group>
+  </particleset>
+</qmcsystem>

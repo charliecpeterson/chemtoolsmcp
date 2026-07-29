@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<simulation>
+  <project id="Ce_secp_ion3f1_prod" series="0"/>
+  <include href="Ce_secp_ion3f1.ptcl.xml"/>
+  <include href="Ce_secp_ion3f1.wfj.xml"/>
+  <hamiltonian name="h0" type="generic" target="e">
+    <pairpot name="ElecElec" type="coulomb" source="e" target="e" physical="true"/>
+    <pairpot name="IonIon" type="coulomb" source="ion0" target="ion0"/>
+    <pairpot name="PseudoPot" type="pseudo" source="ion0" wavefunction="psi0" format="xml">
+      <pseudo elementType="Ce" href="Ce.secp-sl.xml"/>
+    </pairpot>
+  </hamiltonian>
+  <loop max="6">
+    <qmc method="linear" move="pbyp" checkpoint="-1">
+      <estimator name="LocalEnergy" hdf5="no"/>
+      <parameter name="warmupSteps">100</parameter>
+      <parameter name="blocks">40</parameter>
+      <parameter name="samples">60000</parameter>
+      <parameter name="timestep">0.5</parameter>
+      <parameter name="usedrift">no</parameter>
+      <parameter name="MinMethod">OneShiftOnly</parameter>
+      <cost name="energy">0.1</cost>
+      <cost name="unreweightedvariance">0.9</cost>
+      <cost name="reweightedvariance">0.0</cost>
+    </qmc>
+  </loop>
+  <qmc method="vmc" move="pbyp" checkpoint="-1">
+    <estimator name="LocalEnergy" hdf5="no"/>
+    <parameter name="warmupSteps">400</parameter>
+    <parameter name="blocks">400</parameter>
+    <parameter name="steps">50</parameter>
+    <parameter name="substeps">4</parameter>
+    <parameter name="timestep">0.02</parameter>
+    <parameter name="usedrift">yes</parameter>
+  </qmc>
+  <qmc method="dmc" move="pbyp" checkpoint="10">
+    <estimator name="LocalEnergy" hdf5="no"/>
+    <parameter name="total_walkers">2240</parameter>
+    <parameter name="warmupSteps">500</parameter>
+    <parameter name="blocks">600</parameter>
+    <parameter name="steps">40</parameter>
+    <parameter name="timestep">0.005</parameter>
+    <parameter name="nonlocalmoves">yes</parameter>
+  </qmc>
+  <qmc method="dmc" move="pbyp" checkpoint="10">
+    <estimator name="LocalEnergy" hdf5="no"/>
+    <parameter name="total_walkers">2240</parameter>
+    <parameter name="warmupSteps">800</parameter>
+    <parameter name="blocks">800</parameter>
+    <parameter name="steps">40</parameter>
+    <parameter name="timestep">0.0025</parameter>
+    <parameter name="nonlocalmoves">yes</parameter>
+  </qmc>
+  <qmc method="dmc" move="pbyp" checkpoint="10">
+    <estimator name="LocalEnergy" hdf5="no"/>
+    <parameter name="total_walkers">2240</parameter>
+    <parameter name="warmupSteps">1600</parameter>
+    <parameter name="blocks">1200</parameter>
+    <parameter name="steps">40</parameter>
+    <parameter name="timestep">0.00125</parameter>
+    <parameter name="nonlocalmoves">yes</parameter>
+  </qmc>
+  <qmc method="dmc" move="pbyp" checkpoint="10">
+    <estimator name="LocalEnergy" hdf5="no"/>
+    <parameter name="total_walkers">2240</parameter>
+    <parameter name="warmupSteps">3000</parameter>
+    <parameter name="blocks">2000</parameter>
+    <parameter name="steps">40</parameter>
+    <parameter name="timestep">0.000625</parameter>
+    <parameter name="nonlocalmoves">yes</parameter>
+  </qmc>
+  <qmc method="dmc" move="pbyp" checkpoint="10">
+    <estimator name="LocalEnergy" hdf5="no"/>
+    <parameter name="total_walkers">2240</parameter>
+    <parameter name="warmupSteps">800</parameter>
+    <parameter name="blocks">800</parameter>
+    <parameter name="steps">40</parameter>
+    <parameter name="timestep">0.0025</parameter>
+    <parameter name="nonlocalmoves">no</parameter>
+  </qmc>
+</simulation>
