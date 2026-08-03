@@ -28,6 +28,7 @@ def test_science_runtime_tool_reports_available_packages(monkeypatch):
                     "rdkit": {"status": "available", "version": "2026.03.4"},
                     "openbabel": {"status": "available", "version": "3.1.1"},
                     "h5py": {"status": "available", "version": "3.15.1"},
+                    "basis_set_exchange": {"status": "available", "version": "0.12"},
                     "orbitron": {"status": "available", "version": "0.4.0"},
                 },
             )
@@ -91,6 +92,42 @@ def test_openbabel_conversion_tool_uses_only_the_fixed_request(monkeypatch):
         "source": "O",
         "output_format": "molblock",
     }) == {"status": "completed", "comparison": {"status": "matched"}}
+
+
+def test_bse_render_tool_uses_only_the_fixed_request(monkeypatch):
+    class Client:
+        def bse_render(self, request):
+            assert request == {
+                "schema_version": "chemtools.bse-render-request/1",
+                "basis": "def2-SVP",
+                "elements": ["O"],
+                "program_format": "nwchem",
+            }
+            return {"status": "completed", "basis": {"name": "def2-SVP"}}
+
+    monkeypatch.setattr(science_runtime_tools, "ScienceRuntimeClient", Client)
+
+    assert dispatch_tool("render_basis_set_with_bse", {
+        "basis": "def2-SVP",
+        "elements": ["O"],
+        "program_format": "nwchem",
+    }) == {"status": "completed", "basis": {"name": "def2-SVP"}}
+
+
+def test_nist_reference_tool_reports_typed_refusal(monkeypatch):
+    def fetch(*args, **kwargs):
+        raise science_runtime_tools.NistAsdError("NIST unavailable")
+
+    monkeypatch.setattr(science_runtime_tools, "fetch_nist_asd_reference", fetch)
+
+    assert dispatch_tool("fetch_nist_atomic_reference", {
+        "kind": "energy_levels",
+        "spectrum": "O I",
+    }) == {
+        "schema_version": "chemtools.nist-asd-reference/1",
+        "status": "tool_refused",
+        "message": "NIST unavailable",
+    }
 
 
 def test_orbitron_periodic_inspection_tool_uses_only_the_fixed_request(monkeypatch):

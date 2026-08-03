@@ -18,10 +18,10 @@ execution operations it actually implements.
 | **Quantum ESPRESSO** | 20 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, local or scheduler launch rendering and execution through a named profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
 | **QMCPACK** | 14 | XML input review, runner-profile launch preview and execution, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
 
-Plus 56 program-generic tools (auto-detect supported inputs and outputs)
+Plus 58 program-generic tools (auto-detect supported inputs and outputs)
 and a multi-program eval framework with 15 reference cases.
 
-**Total: 326 MCP tools.** Counts, capability tags, mode visibility, aliases,
+**Total: 328 MCP tools.** Counts, capability tags, mode visibility, aliases,
 and input schemas come from the generated
 [MCP tool inventory](docs/tool-inventory.md).
 
@@ -65,7 +65,7 @@ Add to your MCP servers config:
 }
 ```
 
-The minimum config exposes all 272 analysis-mode tools. The sections below
+The minimum config exposes all 274 analysis-mode tools. The sections below
 show how to scope the tool list, switch modes, and wire up a runner profile
 for job submission.
 
@@ -733,6 +733,21 @@ MOL-to-SMILES behavior; run its opt-in checker with
 `scripts/check_openbabel_fixture_corpus.py` after configuring the companion
 interpreter.
 
+`render_basis_set_with_bse` renders a requested Basis Set Exchange basis into
+one explicit NWChem, Molcas, ORCA, Gaussian, Q-Chem, Psi4, CP2K, or Turbomole
+block through the same companion runtime. The response preserves the emitted
+text, its SHA-256, and the BSE package version. It uses the environment's
+bundled BSE data without a network request. It does not decide whether an ECP,
+relativistic Hamiltonian, spherical/Cartesian convention, or basis family is
+appropriate for the calculation.
+
+`fetch_nist_atomic_reference` fetches one NIST Atomic Spectra Database energy
+level or ionization-energy table through a fixed endpoint. It preserves NIST's
+tabular fields and records the source URL, retrieval time, and SHA-256 in a
+local cache at `~/.chemtools/nist-asd` (or `CHEMTOOLS_NIST_ASD_CACHE`). It
+returns at most 500 rows and does not mirror ASD or assign a calculated
+GRASP/DIRAC state to an experimental level from energy alone.
+
 `inspect_periodic_electronic_structure_with_orbitron` is a fixed read-only
 operation through Orbitron's Python API. It returns bounded band-structure and
 DOS summary evidence from one absolute local path, including source hash and
@@ -830,12 +845,13 @@ An absent companion runtime leaves Chemtools' existing analysis and execution
 tools unchanged.
 
 [`environments/chemtools-science.yml`](environments/chemtools-science.yml)
-defines the optional Conda or micromamba environment for PySCF, RDKit, and
-Open Babel. Install Orbitron's Python bridge explicitly from its intended
-wheel or local checkout. The linux-64 resolved lock is bundled with Chemtools
+defines the optional Conda or micromamba environment for PySCF, RDKit, Open
+Babel, and Basis Set Exchange. Install Orbitron's Python bridge explicitly
+from its intended wheel or local checkout. The linux-64 resolved lock is bundled with Chemtools
 so every fixed science-runner result includes a `runtime_provenance` record:
 the fixed runner operation and request hash, lock SHA-256, configured
-interpreter, and PySCF, RDKit, Open Babel, and Orbitron version evidence.
+interpreter, and PySCF, RDKit, Open Babel, Basis Set Exchange, and Orbitron
+version evidence.
 Editable Orbitron installations also record the native-extension SHA-256. See
 [environments/README.md](environments/README.md).
 
@@ -878,9 +894,9 @@ Comma-separate multiple programs (`nwchem,molcas`).
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 272 | Post-hoc parsing, drafting, and planning; no chemistry executable needed |
-| `local` | 323 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
-| `hpc` | 326 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
+| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 274 | Post-hoc parsing, drafting, and planning; no chemistry executable needed |
+| `local` | 325 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
+| `hpc` | 328 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
 
 Mode is auto-detected from your runner profile (see below). Override with
 `CHEMTOOLS_MODE=analysis` or the `--mode` flag.
@@ -1008,7 +1024,7 @@ the profile's hardware specs and recommends optimal nodes / ranks / walltime
 
 ## What you get
 
-The 326 tools cover these areas. Generic tools auto-detect the program where
+The 328 tools cover these areas. Generic tools auto-detect the program where
 the underlying operation supports it.
 
 | Area | NWChem | Molcas | Generic | Notes |

@@ -13,14 +13,14 @@ The JSON companion contains every tool description and input schema.
 
 - Default protocol version: `2024-11-05`
 - Supported protocol versions: `2024-11-05`
-- Public tool definitions: 326
+- Public tool definitions: 328
 - Compatibility aliases: 13
 
 ### Programs
 
 | Program | Tools |
 | --- | ---: |
-| `generic` | 56 |
+| `generic` | 58 |
 | `nwchem` | 101 |
 | `molcas` | 45 |
 | `dirac` | 39 |
@@ -32,7 +32,7 @@ The JSON companion contains every tool description and input schema.
 
 | Capability | Tools |
 | --- | ---: |
-| `none` | 254 |
+| `none` | 256 |
 | `registry` | 18 |
 | `runner_profile` | 4 |
 | `executable_or_scheduler` | 5 |
@@ -43,22 +43,22 @@ The JSON companion contains every tool description and input schema.
 
 | Mode | All programs |
 | --- | ---: |
-| `analysis` | 272 |
-| `local` | 323 |
-| `hpc` | 326 |
+| `analysis` | 274 |
+| `local` | 325 |
+| `hpc` | 328 |
 
 ### Program filters
 
-Counts include the 56 generic tools where the active mode permits them.
+Counts include the 58 generic tools where the active mode permits them.
 
 | Program filter | Analysis | Local | HPC |
 | --- | ---: | ---: | ---: |
-| `nwchem` | 139 | 154 | 157 |
-| `molcas` | 91 | 100 | 101 |
-| `dirac` | 86 | 94 | 95 |
-| `grasp` | 79 | 106 | 107 |
-| `qe` | 69 | 75 | 76 |
-| `qmcpack` | 63 | 69 | 70 |
+| `nwchem` | 141 | 156 | 159 |
+| `molcas` | 93 | 102 | 103 |
+| `dirac` | 88 | 96 | 97 |
+| `grasp` | 81 | 108 | 109 |
+| `qe` | 71 | 77 | 78 |
+| `qmcpack` | 65 | 71 | 72 |
 
 ## Compatibility aliases
 
@@ -164,6 +164,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `extract_geometry` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `extract_molcas_geometry` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `extract_nwchem_geometry` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
+| `fetch_nist_atomic_reference` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `find_nwchem_examples` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `find_nwchem_restart_assets` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `generate_nwchem_input_batch` | `nwchem` | `executable_or_scheduler` | `local`, `hpc` |
@@ -325,6 +326,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `refine_molcas_active_space` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `register_nwchem_run` | `nwchem` | `registry` | `analysis`, `local`, `hpc` |
 | `register_run` | `generic` | `registry` | `analysis`, `local`, `hpc` |
+| `render_basis_set_with_bse` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `render_job_script` | `generic` | `scheduler` | `hpc` |
 | `render_nwchem_basis_block` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `render_nwchem_basis_setup` | `nwchem` | `none` | `analysis`, `local`, `hpc` |

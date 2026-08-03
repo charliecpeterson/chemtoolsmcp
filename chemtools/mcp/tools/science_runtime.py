@@ -9,6 +9,11 @@ from chemtools.application.pyscf_execution import (
     run_pyscf_single_point,
 )
 from chemtools.core.pyscf_comparison import compare_pyscf_reference_calculation
+from chemtools.integrations.nist_asd import (
+    NIST_ASD_REFERENCE_SCHEMA,
+    NistAsdError,
+    fetch_nist_asd_reference,
+)
 from chemtools.integrations.science_runtime import (
     SCIENCE_RUNTIME_PYTHON_ENV,
     SCIENCE_RUNTIME_PROBE_SCHEMA,
@@ -19,6 +24,7 @@ from chemtools.integrations.science_runtime import (
 )
 from chemtools.mcp.decorator import _tool, get_execution_service
 from chemtools.science_runner import (
+    BSE_RENDER_REQUEST_SCHEMA,
     OPENBABEL_CONVERSION_REQUEST_SCHEMA,
     ORBITRON_NBO_REQUEST_SCHEMA,
     ORBITRON_PERIODIC_REQUEST_SCHEMA,
@@ -96,6 +102,49 @@ def _handle_convert_molecule_with_openbabel(
         if error.stderr:
             response["stderr"] = error.stderr
         return response
+
+
+@_tool("render_basis_set_with_bse", program="generic")
+def _handle_render_basis_set_with_bse(
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    request = {
+        "schema_version": BSE_RENDER_REQUEST_SCHEMA,
+        "basis": arguments["basis"],
+        "elements": arguments["elements"],
+        "program_format": arguments["program_format"],
+    }
+    try:
+        return ScienceRuntimeClient().bse_render(request)
+    except ScienceRuntimeUnavailableError as error:
+        return _error("unavailable", "science_runtime_unavailable", error)
+    except ScienceRuntimeProtocolError as error:
+        return _error("incompatible", "science_runtime_protocol_error", error)
+    except ScienceRuntimeCommandError as error:
+        response = _error("tool_refused", "bse_render_error", error)
+        response["returncode"] = error.returncode
+        if error.stderr:
+            response["stderr"] = error.stderr
+        return response
+
+
+@_tool("fetch_nist_atomic_reference", program="generic")
+def _handle_fetch_nist_atomic_reference(
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        return fetch_nist_asd_reference(
+            arguments["kind"],
+            arguments["spectrum"],
+            row_limit=arguments.get("row_limit", 200),
+            refresh=arguments.get("refresh", False),
+        )
+    except (NistAsdError, ValueError) as error:
+        return {
+            "schema_version": NIST_ASD_REFERENCE_SCHEMA,
+            "status": "tool_refused",
+            "message": str(error),
+        }
 
 
 @_tool("inspect_periodic_electronic_structure_with_orbitron", program="generic")
@@ -374,6 +423,95 @@ def science_runtime_tool_definitions() -> list[dict[str, Any]]:
                     },
                 },
                 "required": ["format", "source", "output_format"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "render_basis_set_with_bse",
+            "description": (
+                "Render an explicit orbital basis block from the installed "
+                "Basis Set Exchange data through the configured companion "
+                "runtime. Returns the exact emitted text, content hash, and "
+                "Basis Set Exchange version. It uses bundled BSE data only; "
+                "it does not fetch a basis, use a custom overlay, or decide "
+                "whether the basis, ECP, relativistic Hamiltonian, or angular "
+                "convention is scientifically suitable."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "basis": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Basis Set Exchange basis name.",
+                    },
+                    "elements": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 3,
+                        },
+                        "description": "Element symbols or atomic numbers to include.",
+                    },
+                    "program_format": {
+                        "type": "string",
+                        "enum": [
+                            "nwchem",
+                            "molcas",
+                            "orca",
+                            "gaussian94",
+                            "qchem",
+                            "psi4",
+                            "cp2k",
+                            "turbomole",
+                        ],
+                    },
+                },
+                "required": ["basis", "elements", "program_format"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "fetch_nist_atomic_reference",
+            "description": (
+                "Fetch one NIST Atomic Spectra Database energy-level or "
+                "ionization-energy table in NIST's tab-delimited form. The "
+                "tool calls fixed NIST endpoints, caches the exact response "
+                "locally with URL, retrieval time, and SHA-256 provenance, "
+                "and returns at most 500 rows. It does not bulk-mirror ASD, "
+                "assign calculated states to experimental levels, or treat "
+                "an energy match as a unique state assignment."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": ["energy_levels", "ionization_energies"],
+                    },
+                    "spectrum": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "description": "NIST ASD spectrum notation, for example O I, U III, or Mg Li-like.",
+                    },
+                    "row_limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                        "default": 200,
+                    },
+                    "refresh": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Ignore a matching local cache entry and query NIST again.",
+                    },
+                },
+                "required": ["kind", "spectrum"],
                 "additionalProperties": False,
             },
         },

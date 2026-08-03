@@ -9,4 +9,5 @@ dependencies:
   - rdkit
   - openbabel
   - h5py
+  - basis_set_exchange=0.12
   - pip

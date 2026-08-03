@@ -30,6 +30,7 @@ def _probe_payload(**overrides):
                 "rdkit": "2026.03.4",
                 "openbabel": "3.1.1",
                 "h5py": "3.15.1",
+                "basis_set_exchange": "0.12",
                 "orbitron": "0.4.0",
             }.items()
         },
@@ -201,6 +202,40 @@ def test_openbabel_conversion_uses_the_fixed_runner_command(tmp_path, monkeypatc
         '"schema_version": "chemtools.openbabel-conversion-request/1", '
         '"source": "O"}'
     )
+
+
+def test_bse_render_uses_the_fixed_runner_command(tmp_path, monkeypatch):
+    interpreter = _executable(tmp_path)
+    calls = []
+    payload = {
+        "schema_version": "chemtools.bse-render-result/1",
+        "status": "completed",
+    }
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(
+            argv,
+            0,
+            science_runtime._RUNNER_RESULT_SENTINEL + json.dumps(payload),
+            "",
+        )
+
+    monkeypatch.setattr(science_runtime.subprocess, "run", fake_run)
+
+    result = science_runtime.ScienceRuntimeClient(interpreter).bse_render({
+        "schema_version": "chemtools.bse-render-request/1",
+        "basis": "def2-SVP",
+        "elements": ["O"],
+        "program_format": "nwchem",
+    })
+
+    assert result == payload
+    assert calls[0][0] == [
+        str(interpreter.resolve()),
+        str(science_runtime.science_runner_path()),
+        "bse-render",
+    ]
 
 
 def test_orbitron_periodic_inspection_uses_the_fixed_runner_command(

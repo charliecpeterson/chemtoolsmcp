@@ -64,7 +64,7 @@ chemtools/
     decorator.py                 @_tool decorator + shared registries
     modes.py                     Mode + program-filter logic
     tools/                       Per-program tool definitions + handlers
-      generic.py                 56 low-level program-agnostic tools
+      generic.py                 58 low-level program-agnostic tools
       guided.py                  Guided cross-program workflow tools
       nwchem.py / molcas.py / dirac.py / grasp.py / qe.py
 ```

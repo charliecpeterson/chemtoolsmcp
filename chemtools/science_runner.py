@@ -34,10 +34,13 @@ ORBITRON_STRUCTURE_IDENTITY_RESULT_SCHEMA = (
 ORBITRON_NBO_REQUEST_SCHEMA = "chemtools.orbitron-nbo-request/1"
 ORBITRON_NBO_RESULT_SCHEMA = "chemtools.orbitron-nbo-result/1"
 QMCPACK_HDF5_INSPECTION_REQUEST_SCHEMA = "chemtools.qmcpack-hdf5-inspection-request/1"
+BSE_RENDER_REQUEST_SCHEMA = "chemtools.bse-render-request/1"
+BSE_RENDER_RESULT_SCHEMA = "chemtools.bse-render-result/1"
 PYSCF_SINGLE_POINT_REQUEST_SCHEMA = "chemtools.pyscf-single-point-request/1"
 PYSCF_SINGLE_POINT_RESULT_SCHEMA = "chemtools.pyscf-single-point-result/1"
 MAX_REQUEST_BYTES = 1_048_576
 MAX_OPENBABEL_CONVERSION_TEXT_BYTES = 128 * 1024
+MAX_BSE_RENDERED_BASIS_BYTES = 256 * 1024
 MAX_ORBITRON_PERIODIC_SOURCE_BYTES = 2 * 1024 * 1024 * 1024
 SCIENCE_RUNTIME_LOCK_PATH = (
     Path(__file__).resolve().parent
@@ -56,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         ["orbitron-structure-identity"],
         ["orbitron-nbo"],
         ["qmcpack-hdf5-inspect"],
+        ["bse-render"],
         ["pyscf-single-point"],
     ):
         return _write_result(_with_runtime_provenance({
@@ -64,7 +68,8 @@ def main(argv: list[str] | None = None) -> int:
             "message": (
                 "operation must be rdkit-preflight, openbabel-convert, "
                 "orbitron-periodic-electronic-structure, "
-                "orbitron-structure-identity, orbitron-nbo, qmcpack-hdf5-inspect, or "
+                "orbitron-structure-identity, orbitron-nbo, qmcpack-hdf5-inspect, "
+                "bse-render, or "
                 "pyscf-single-point"
             ),
         }))
@@ -88,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         result = orbitron_nbo(request)
     elif arguments[0] == "qmcpack-hdf5-inspect":
         result = qmcpack_hdf5_inspect(request)
+    elif arguments[0] == "bse-render":
+        result = bse_render(request)
     else:
         result = pyscf_single_point(request)
     return _write_result(_with_runtime_provenance(
@@ -385,6 +392,48 @@ def qmcpack_hdf5_inspect(request: Any) -> dict[str, Any]:
     return inspect_qmcpack_hdf5(source)
 
 
+def bse_render(request: Any) -> dict[str, Any]:
+    try:
+        basis, elements, program_format = _bse_render_request(request)
+    except ValueError as error:
+        return _bse_render_error("invalid_request", str(error))
+    try:
+        import basis_set_exchange as bse
+    except Exception as error:
+        return _bse_render_error("runtime_error", _error_text(error))
+
+    try:
+        rendered = bse.get_basis(
+            basis,
+            elements=elements,
+            fmt=program_format,
+            header=True,
+        )
+    except Exception as error:
+        return _bse_render_error("tool_refused", _error_text(error))
+    size_bytes = len(rendered.encode("utf-8"))
+    if size_bytes > MAX_BSE_RENDERED_BASIS_BYTES:
+        return _bse_render_error(
+            "output_too_large",
+            "Basis Set Exchange output exceeds the 256 KiB limit",
+        )
+    return {
+        "schema_version": BSE_RENDER_RESULT_SCHEMA,
+        "status": "completed",
+        "basis": {
+            "name": basis,
+            "elements": elements,
+            "program_format": program_format,
+            "text": rendered,
+            "sha256": hashlib.sha256(rendered.encode("utf-8")).hexdigest(),
+            "size_bytes": size_bytes,
+        },
+        "provenance": {
+            "basis_set_exchange_version": _module_version(bse),
+        },
+    }
+
+
 def pyscf_single_point(request: Any) -> dict[str, Any]:
     try:
         specification = _pyscf_request(request)
@@ -583,6 +632,42 @@ def _qmcpack_hdf5_request(request: Any) -> Path:
     if not Path(raw_path).is_absolute():
         raise ValueError("QMCPACK HDF5 inspection path must be absolute")
     return Path(raw_path).resolve()
+
+
+def _bse_render_request(request: Any) -> tuple[str, list[str], str]:
+    if not isinstance(request, dict):
+        raise ValueError("Basis Set Exchange request must be an object")
+    if request.get("schema_version") != BSE_RENDER_REQUEST_SCHEMA:
+        raise ValueError("unsupported Basis Set Exchange request schema")
+    if set(request) != {"schema_version", "basis", "elements", "program_format"}:
+        raise ValueError("Basis Set Exchange request contains unsupported fields")
+    basis = request["basis"]
+    elements = request["elements"]
+    program_format = request["program_format"]
+    if not isinstance(basis, str) or not basis.strip() or len(basis) > 128:
+        raise ValueError("Basis Set Exchange basis must be non-empty text up to 128 characters")
+    if not isinstance(elements, list) or not 1 <= len(elements) <= 32:
+        raise ValueError("Basis Set Exchange elements must contain one to 32 entries")
+    if not all(
+        isinstance(element, str)
+        and element
+        and len(element) <= 3
+        and element.isalnum()
+        for element in elements
+    ):
+        raise ValueError("Basis Set Exchange elements must be symbols or atomic numbers")
+    if program_format not in {
+        "nwchem",
+        "molcas",
+        "orca",
+        "gaussian94",
+        "qchem",
+        "psi4",
+        "cp2k",
+        "turbomole",
+    }:
+        raise ValueError("unsupported Basis Set Exchange program format")
+    return basis.strip(), elements, program_format
 
 
 def _orbitron_source_evidence(path: Path) -> dict[str, Any]:
@@ -1315,6 +1400,14 @@ def _openbabel_error(status: str, message: str) -> dict[str, Any]:
     }
 
 
+def _bse_render_error(status: str, message: str) -> dict[str, Any]:
+    return {
+        "schema_version": BSE_RENDER_RESULT_SCHEMA,
+        "status": status,
+        "message": message,
+    }
+
+
 def _orbitron_periodic_error(
     status: str,
     message: str,
@@ -1428,6 +1521,7 @@ def _runtime_provenance() -> dict[str, Any]:
                 "rdkit": ("rdkit", "rdkit"),
                 "openbabel": ("openbabel", "openbabel"),
                 "h5py": ("h5py", "h5py"),
+                "basis_set_exchange": ("basis_set_exchange", "basis_set_exchange"),
                 "orbitron": ("orbitron", "orbitron"),
             }.items()
         },

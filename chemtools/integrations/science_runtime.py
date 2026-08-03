@@ -29,6 +29,7 @@ _PACKAGES = {{
     "rdkit": ("rdkit", "rdkit"),
     "openbabel": ("openbabel", "openbabel"),
     "h5py": ("h5py", "h5py"),
+    "basis_set_exchange": ("basis_set_exchange", "basis_set_exchange"),
     "orbitron": ("orbitron", "orbitron"),
 }}
 
@@ -228,6 +229,9 @@ class ScienceRuntimeClient:
     def qmcpack_hdf5_inspect(self, request: dict[str, Any]) -> dict[str, Any]:
         return self._runner_operation("qmcpack-hdf5-inspect", request)
 
+    def bse_render(self, request: dict[str, Any]) -> dict[str, Any]:
+        return self._runner_operation("bse-render", request)
+
     def _runner_operation(
         self,
         operation: str,
@@ -240,6 +244,7 @@ class ScienceRuntimeClient:
             "orbitron-structure-identity",
             "orbitron-nbo",
             "qmcpack-hdf5-inspect",
+            "bse-render",
         }:
             raise ValueError(f"unsupported read-only companion operation: {operation}")
         if not isinstance(request, dict):
@@ -343,7 +348,14 @@ def _parse_probe_payload(payload: Any) -> ScienceRuntimeProbe:
         raise ScienceRuntimeProtocolError("companion probe has invalid Python values")
 
     packages = payload.get("packages")
-    expected_packages = {"pyscf", "rdkit", "openbabel", "h5py", "orbitron"}
+    expected_packages = {
+        "pyscf",
+        "rdkit",
+        "openbabel",
+        "h5py",
+        "basis_set_exchange",
+        "orbitron",
+    }
     if not isinstance(packages, dict) or set(packages) != expected_packages:
         raise ScienceRuntimeProtocolError("companion probe has invalid package metadata")
     normalized_packages: dict[str, dict[str, str | None]] = {}

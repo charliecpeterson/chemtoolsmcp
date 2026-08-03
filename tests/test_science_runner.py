@@ -58,7 +58,8 @@ def test_science_runner_attaches_shared_runtime_provenance(monkeypatch):
         "message": (
             "operation must be rdkit-preflight, openbabel-convert, "
             "orbitron-periodic-electronic-structure, "
-            "orbitron-structure-identity, orbitron-nbo, qmcpack-hdf5-inspect, or "
+            "orbitron-structure-identity, orbitron-nbo, qmcpack-hdf5-inspect, "
+            "bse-render, or "
             "pyscf-single-point"
         ),
         "runtime_provenance": {
@@ -266,6 +267,42 @@ def test_openbabel_invalid_request_returns_a_schema_bound_refusal():
         "status": "invalid_request",
         "message": "Open Babel format must be smiles or molblock",
     }
+
+
+def test_bse_render_preserves_explicit_text_and_version(monkeypatch):
+    calls = []
+
+    class Bse:
+        __version__ = "0.12"
+
+        @staticmethod
+        def get_basis(name, *, elements, fmt, header):
+            calls.append((name, elements, fmt, header))
+            return 'BASIS "ao basis" SPHERICAL PRINT\nO S\nEND\n'
+
+    monkeypatch.setitem(sys.modules, "basis_set_exchange", Bse)
+
+    result = science_runner.bse_render({
+        "schema_version": science_runner.BSE_RENDER_REQUEST_SCHEMA,
+        "basis": "def2-SVP",
+        "elements": ["O"],
+        "program_format": "nwchem",
+    })
+
+    assert calls == [("def2-SVP", ["O"], "nwchem", True)]
+    assert result["status"] == "completed"
+    assert result["basis"]["text"] == 'BASIS "ao basis" SPHERICAL PRINT\nO S\nEND\n'
+    assert result["provenance"] == {"basis_set_exchange_version": "0.12"}
+
+
+def test_bse_render_rejects_unsupported_program_format():
+    with pytest.raises(ValueError, match="program format"):
+        science_runner._bse_render_request({
+            "schema_version": science_runner.BSE_RENDER_REQUEST_SCHEMA,
+            "basis": "def2-SVP",
+            "elements": ["O"],
+            "program_format": "grasp",
+        })
 
 
 def test_orbitron_periodic_request_and_summary_are_bounded(tmp_path):

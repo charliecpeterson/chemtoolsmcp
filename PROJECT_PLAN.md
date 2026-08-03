@@ -68,7 +68,7 @@ in parallel and no longer form one clear model.
 
 ### Tool inventory
 
-The live registry currently exposes 326 tools across six registered backends:
+The live registry currently exposes 328 tools across six registered backends:
 
 | Tool group | Count |
 | --- | ---: |
@@ -78,8 +78,8 @@ The live registry currently exposes 326 tools across six registered backends:
 | GRASP | 51 |
 | Quantum ESPRESSO | 20 |
 | QMCPACK | 14 |
-| Generic | 56 |
-| Total | 326 |
+| Generic | 58 |
+| Total | 328 |
 
 The generated inventory in `docs/tool-inventory.json` and
 `docs/tool-inventory.md` now records the live totals, input schemas,
@@ -767,7 +767,8 @@ the workaround is version-scoped and covered by a regression test.
 
 Chemtools should support one optional, isolated `chemtools-science` runtime.
 It is a configured execution dependency, not a dependency of the MCP server
-itself. The first runtime contains PySCF, RDKit, Open Babel, h5py, Orbitron's
+itself. The first runtime contains PySCF, RDKit, Open Babel, Basis Set
+Exchange, h5py, Orbitron's
 Python API, and a small `chemtools-science-runner` entry point. Conda or micromamba is
 the supported installation mechanism because this set includes native Python
 extensions and external libraries. A plain virtual environment may be useful
@@ -784,6 +785,7 @@ fragments, output locations, or package-install requests.
 | --- | --- | --- |
 | RDKit | Molecular input validation and explicit molecular-property evidence | Does not silently repair a submitted chemistry model |
 | Open Babel | Declared format conversion | Converted connectivity, charge, aromaticity, and stereochemistry remain conversion evidence, not scientific truth |
+| Basis Set Exchange | Offline rendering of an explicit, selected basis block | Does not choose a basis/ECP or validate relativistic and angular conventions |
 | h5py | Fixed QMCPACK artifact-layout metadata inspection | Does not expose a general HDF5 browser or decode coefficients, density grids, walkers, or estimator values |
 | Orbitron Python API | Canonical structure and orbital-data operations supported by its versioned contract | The existing optional CLI bridge remains valid and independent |
 | PySCF | Small molecular RHF, UHF, RKS, and UKS reference calculations | A converged calculation does not validate a production result or replace relativistic, multireference, periodic, or QMC workflows |
@@ -808,7 +810,7 @@ Hamiltonian-comparability decision rather than being treated as a QE fallback.
 2. [x] Commit the declarative environment specification. Installation is an
    explicit developer operation, never an MCP side effect. The linux-4090
    `chemtools-science` environment currently has Python 3.12.13, PySCF 2.13.1,
-   RDKit 2025.09.5, Open Babel 3.1.0, h5py 3.16.0, and an editable Orbitron 0.4.0 bridge
+   RDKit 2025.09.5, Open Babel 3.1.0, Basis Set Exchange 0.12, h5py 3.16.0, and an editable Orbitron 0.4.0 bridge
    built from commit `d913197bdb35`. The exercised linux-64 Conda resolution
    is now bundled as package data and every science-runner response records
    its SHA-256, interpreter, package versions, and Orbitron native-extension

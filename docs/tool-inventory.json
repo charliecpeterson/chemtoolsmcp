@@ -9,10 +9,10 @@
     ]
   },
   "summary": {
-    "tool_count": 326,
+    "tool_count": 328,
     "alias_count": 13,
     "by_program": {
-      "generic": 56,
+      "generic": 58,
       "nwchem": 101,
       "molcas": 45,
       "dirac": 39,
@@ -21,7 +21,7 @@
       "qmcpack": 14
     },
     "by_capability": {
-      "none": 254,
+      "none": 256,
       "registry": 18,
       "runner_profile": 4,
       "executable_or_scheduler": 5,
@@ -29,13 +29,13 @@
       "scheduler": 3
     },
     "by_mode": {
-      "analysis": 272,
-      "local": 323,
-      "hpc": 326
+      "analysis": 274,
+      "local": 325,
+      "hpc": 328
     },
     "by_mode_and_program": {
       "analysis": {
-        "generic": 51,
+        "generic": 53,
         "nwchem": 88,
         "molcas": 40,
         "dirac": 35,
@@ -44,7 +44,7 @@
         "qmcpack": 12
       },
       "local": {
-        "generic": 55,
+        "generic": 57,
         "nwchem": 99,
         "molcas": 45,
         "dirac": 39,
@@ -53,7 +53,7 @@
         "qmcpack": 14
       },
       "hpc": {
-        "generic": 56,
+        "generic": 58,
         "nwchem": 101,
         "molcas": 45,
         "dirac": 39,
@@ -64,34 +64,34 @@
     },
     "by_program_filter": {
       "nwchem": {
-        "analysis": 139,
-        "local": 154,
-        "hpc": 157
+        "analysis": 141,
+        "local": 156,
+        "hpc": 159
       },
       "molcas": {
-        "analysis": 91,
-        "local": 100,
-        "hpc": 101
+        "analysis": 93,
+        "local": 102,
+        "hpc": 103
       },
       "dirac": {
-        "analysis": 86,
-        "local": 94,
-        "hpc": 95
+        "analysis": 88,
+        "local": 96,
+        "hpc": 97
       },
       "grasp": {
-        "analysis": 79,
-        "local": 106,
-        "hpc": 107
+        "analysis": 81,
+        "local": 108,
+        "hpc": 109
       },
       "qe": {
-        "analysis": 69,
-        "local": 75,
-        "hpc": 76
+        "analysis": 71,
+        "local": 77,
+        "hpc": 78
       },
       "qmcpack": {
-        "analysis": 63,
-        "local": 69,
-        "hpc": 70
+        "analysis": 65,
+        "local": 71,
+        "hpc": 72
       }
     }
   },
@@ -4019,6 +4019,51 @@
         },
         "required": [
           "output_file"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fetch_nist_atomic_reference",
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Fetch one NIST Atomic Spectra Database energy-level or ionization-energy table in NIST's tab-delimited form. The tool calls fixed NIST endpoints, caches the exact response locally with URL, retrieval time, and SHA-256 provenance, and returns at most 500 rows. It does not bulk-mirror ASD, assign calculated states to experimental levels, or treat an energy match as a unique state assignment.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "energy_levels",
+              "ionization_energies"
+            ]
+          },
+          "spectrum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "NIST ASD spectrum notation, for example O I, U III, or Mg Li-like."
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 200
+          },
+          "refresh": {
+            "type": "boolean",
+            "default": false,
+            "description": "Ignore a matching local cache entry and query NIST again."
+          }
+        },
+        "required": [
+          "kind",
+          "spectrum"
         ],
         "additionalProperties": false
       }
@@ -11009,6 +11054,58 @@
         },
         "required": [
           "job_name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "render_basis_set_with_bse",
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Render an explicit orbital basis block from the installed Basis Set Exchange data through the configured companion runtime. Returns the exact emitted text, content hash, and Basis Set Exchange version. It uses bundled BSE data only; it does not fetch a basis, use a custom overlay, or decide whether the basis, ECP, relativistic Hamiltonian, or angular convention is scientifically suitable.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Basis Set Exchange basis name."
+          },
+          "elements": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 3
+            },
+            "description": "Element symbols or atomic numbers to include."
+          },
+          "program_format": {
+            "type": "string",
+            "enum": [
+              "nwchem",
+              "molcas",
+              "orca",
+              "gaussian94",
+              "qchem",
+              "psi4",
+              "cp2k",
+              "turbomole"
+            ]
+          }
+        },
+        "required": [
+          "basis",
+          "elements",
+          "program_format"
         ],
         "additionalProperties": false
       }

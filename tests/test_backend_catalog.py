@@ -956,7 +956,7 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     assert len(load_tool_definitions(GENERIC_TOOL_DEFINITIONS)) == 39
     assert len(load_tool_definitions(GUIDED_TOOL_DEFINITIONS)) == 2
     assert len(load_tool_definitions(ORBITRON_TOOL_DEFINITIONS)) == 6
-    assert len(load_tool_definitions(SCIENCE_RUNTIME_TOOL_DEFINITIONS)) == 8
+    assert len(load_tool_definitions(SCIENCE_RUNTIME_TOOL_DEFINITIONS)) == 10
     assert len(load_tool_definitions(KNOWLEDGE_TOOL_DEFINITIONS)) == 1
     assert len(load_tool_definitions(REFERENCE_TOOL_DEFINITIONS)) == 2
     assert {
@@ -977,8 +977,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     dispatch_names = [
         definition["name"] for definition in dispatch.tool_definitions()
     ]
-    assert len(catalog_names) == 326
-    assert len(set(catalog_names)) == 326
+    assert len(catalog_names) == 328
+    assert len(set(catalog_names)) == 328
     assert catalog_names == dispatch_names
 
 
