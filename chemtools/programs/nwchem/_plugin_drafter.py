@@ -6,9 +6,8 @@ Adapter layer that bridges the program-neutral `InputSpec` from
 
   * `draft_input(spec)`  — render an NWChem .nw file from an InputSpec
   * `lint_input(text)`   — validate input text, return LintIssue records
-  * `patch_input(text, change)` — apply structured changes (TODO: not yet
-    implemented; the existing API exposes specific draft_*_variant tools
-    that will be unified here when api_input.py is split into families).
+  * `patch_input(text, change)` — apply supported scalar and dotted-keyword
+    changes through the existing input-variant implementation
 
 `draft_input` handles the InputSpec → create_nwchem_input translation:
   - inline atoms are written to a temp .xyz file for load_geometry_source

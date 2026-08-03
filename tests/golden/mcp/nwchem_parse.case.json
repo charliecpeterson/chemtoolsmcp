@@ -1,0 +1,54 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "nwchem.parse_scf",
+  "program": "nwchem",
+  "fixture": "fixtures/nwchem_scf.out",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "nwchem.parse_scf",
+    "method": "tools/call",
+    "params": {
+      "name": "parse_nwchem_output",
+      "arguments": {
+        "output_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "metadata",
+    "tasks",
+    "mos",
+    "population",
+    "mcscf",
+    "frequency",
+    "trajectory",
+    "tddft",
+    "errors"
+  ],
+  "expected_payload": {
+    "metadata": {
+      "program": "nwchem"
+    },
+    "tasks": {
+      "generic_tasks": [
+        {
+          "program": "nwchem",
+          "kind": "single_point",
+          "label": "Single Point · SCF",
+          "energy_hartree": -1.117349034,
+          "extra": {
+            "basis": "cc-pvdz",
+            "outcome": "success"
+          }
+        }
+      ],
+      "program_summary": {
+        "kind": "nwchem",
+        "outcome": "success",
+        "task_count": 1,
+        "diagnostics": []
+      }
+    },
+    "errors": []
+  }
+}

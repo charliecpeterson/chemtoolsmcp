@@ -1,0 +1,25 @@
+schema_version: chemtools.knowledge-card/1
+id: pyscf.electron_spin_consistency_is_runtime_required
+programs: [pyscf]
+workflows: [single_point_scf]
+kind: validation
+status: accepted
+confidence: high
+applies_when:
+  runner_operation: pyscf_single_point
+  electronic_state: charge_and_multiplicity_declared
+claim: >-
+  A typed unrestricted PySCF request can still be electronically inconsistent.
+  The runner must treat a PySCF electron-count and spin refusal as a runtime
+  failure, not as an unconverged SCF or a valid open-shell result.
+check:
+  evidence: result.status
+  expected: completed
+  scope: electron_count_spin_compatibility
+failure:
+  severity: error
+  action: Check the declared atom identities, charge, multiplicity, and intended state before retrying; do not infer a valid open-shell reference from the unrestricted method name.
+sources:
+  - "docs/pyscf-single-point-fixtures.md#electron-count-and-spin-must-be-compatible"
+tests:
+  - "tests/test_pyscf_fixtures.py::test_pyscf_fixture_corpus_distinguishes_execution_from_convergence"

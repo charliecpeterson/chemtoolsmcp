@@ -1,0 +1,806 @@
+{
+  "schema_version": "chemtools.fblock-donor-alias-manifest/1",
+  "dataset": {
+    "id": "fblock.atomic_seeds",
+    "version": "2",
+    "catalog_sha256": "6b2a59951c11ab141bbe0dfe4806f9b1fc4248b80f8cf2eb780ac1b426495eeb"
+  },
+  "status": "scientific_review_required",
+  "resolution_policy": "Resolve an alias only from a recorded donor artifact or an explicit scientific review; never infer a target from the alias spelling.",
+  "unresolved_reason": "The committed catalog records the alias but does not identify an exact donor state or bundle the referenced radial-wavefunction artifact.",
+  "records": [
+    {
+      "element": "La",
+      "consumer_state": "ion2_4f1",
+      "alias": "donor_Cef1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pm",
+      "consumer_state": "ion7_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pm",
+      "consumer_state": "ion6_4f1",
+      "alias": "donor_Ndf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pm",
+      "consumer_state": "ion6_5d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pm",
+      "consumer_state": "ion6_6s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pm",
+      "consumer_state": "ion5_5d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Sm",
+      "consumer_state": "ion8_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Sm",
+      "consumer_state": "ion7_4f1",
+      "alias": "donor_Nd4f1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Sm",
+      "consumer_state": "ion7_5d1",
+      "alias": "donor_5d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Sm",
+      "consumer_state": "ion7_6s1",
+      "alias": "donor_6s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Sm",
+      "consumer_state": "ion6_5d2",
+      "alias": "donor_5d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Eu",
+      "consumer_state": "ion9_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Eu",
+      "consumer_state": "ion8_4f1",
+      "alias": "donor_Smf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Eu",
+      "consumer_state": "ion8_5d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Eu",
+      "consumer_state": "ion8_6s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Eu",
+      "consumer_state": "ion7_5d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Gd",
+      "consumer_state": "ion10_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Gd",
+      "consumer_state": "ion9_4f1",
+      "alias": "donor_Smf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Gd",
+      "consumer_state": "ion9_5d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Gd",
+      "consumer_state": "ion9_6s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Gd",
+      "consumer_state": "ion8_5d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tb",
+      "consumer_state": "ion10_4f1",
+      "alias": "donor_Gdf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tb",
+      "consumer_state": "ion5_4f55d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tb",
+      "consumer_state": "ion5_4f6",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tb",
+      "consumer_state": "ion2_4f86s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Dy",
+      "consumer_state": "ion11_4f1",
+      "alias": "donor_Tbf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Dy",
+      "consumer_state": "ion5_4f65d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Dy",
+      "consumer_state": "ion5_4f7",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Dy",
+      "consumer_state": "ion2_4f96s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Ho",
+      "consumer_state": "ion12_4f1",
+      "alias": "donor_Dyf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Ho",
+      "consumer_state": "ion5_4f75d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Ho",
+      "consumer_state": "ion5_4f8",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Ho",
+      "consumer_state": "ion2_4f106s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Er",
+      "consumer_state": "ion13_4f1",
+      "alias": "donor_Hof1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Er",
+      "consumer_state": "ion5_4f85d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Er",
+      "consumer_state": "ion5_4f9",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Er",
+      "consumer_state": "ion2_4f116s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tm",
+      "consumer_state": "ion14_4f1",
+      "alias": "donor_Erf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tm",
+      "consumer_state": "ion5_4f95d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tm",
+      "consumer_state": "ion5_4f10",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Tm",
+      "consumer_state": "ion2_4f126s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Yb",
+      "consumer_state": "ion15_4f1",
+      "alias": "donor_Tmf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Yb",
+      "consumer_state": "ion5_4f105d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Yb",
+      "consumer_state": "ion5_4f11",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Yb",
+      "consumer_state": "ion2_4f136s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lu",
+      "consumer_state": "ion16_4f1",
+      "alias": "donor_Ybf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lu",
+      "consumer_state": "ion15_5d2",
+      "alias": "donor_ybd2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lu",
+      "consumer_state": "ion5_4f115d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lu",
+      "consumer_state": "ion5_4f12",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lu",
+      "consumer_state": "ion2_4f136s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Ac",
+      "consumer_state": "ion2_5f1",
+      "alias": "donor_Thf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Ac",
+      "consumer_state": "ion2_7s1",
+      "alias": "donor_ths",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pa",
+      "consumer_state": "ion5_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pa",
+      "consumer_state": "ion4_5f1",
+      "alias": "donor_Thf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pa",
+      "consumer_state": "ion4_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pa",
+      "consumer_state": "ion4_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pa",
+      "consumer_state": "ion3_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Np",
+      "consumer_state": "ion6_5f1",
+      "alias": "donor_U5f1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pu",
+      "consumer_state": "ion8_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pu",
+      "consumer_state": "ion7_5f1",
+      "alias": "donor_Np5f1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pu",
+      "consumer_state": "ion7_6d1",
+      "alias": "donor_6d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pu",
+      "consumer_state": "ion7_7s1",
+      "alias": "donor_7s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Pu",
+      "consumer_state": "ion6_6d2",
+      "alias": "donor_6d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Am",
+      "consumer_state": "ion9_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Am",
+      "consumer_state": "ion8_5f1",
+      "alias": "donor_Puf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Am",
+      "consumer_state": "ion8_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Am",
+      "consumer_state": "ion8_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Am",
+      "consumer_state": "ion7_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Am",
+      "consumer_state": "ion2_5f67s1",
+      "alias": "donor_Pu7s",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cm",
+      "consumer_state": "ion10_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cm",
+      "consumer_state": "ion9_5f1",
+      "alias": "donor_Amf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cm",
+      "consumer_state": "ion9_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cm",
+      "consumer_state": "ion9_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cm",
+      "consumer_state": "ion8_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cm",
+      "consumer_state": "ion2_5f67s1",
+      "alias": "donor_Am7s",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion11_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion10_5f1",
+      "alias": "donor_Cmf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion10_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion10_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion9_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion5_5f56d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion5_5f6",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Bk",
+      "consumer_state": "ion2_5f87s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion12_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion11_5f1",
+      "alias": "donor_Bkf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion11_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion11_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion10_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion5_5f66d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion5_5f7",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Cf",
+      "consumer_state": "ion2_5f97s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion13_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion12_5f1",
+      "alias": "donor_Cff1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion12_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion12_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion11_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion5_5f76d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion5_5f8",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Es",
+      "consumer_state": "ion2_5f107s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion14_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion13_5f1",
+      "alias": "donor_Esf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion13_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion13_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion12_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion5_5f86d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion5_5f9",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Fm",
+      "consumer_state": "ion2_5f117s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion15_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion14_5f1",
+      "alias": "donor_Fmf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion14_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion14_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion13_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion5_5f96d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion5_5f10",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Md",
+      "consumer_state": "ion2_5f127s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion16_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion15_5f1",
+      "alias": "donor_Mdf1",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion15_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion15_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion14_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion5_5f106d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion5_5f11",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "No",
+      "consumer_state": "ion2_5f137s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion17_closed",
+      "alias": "donor_closed",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion16_5f1",
+      "alias": "donor_Nof1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion16_6d1",
+      "alias": "donor_d1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion16_7s1",
+      "alias": "donor_s1",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion15_6d2",
+      "alias": "donor_d2",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion5_5f116d1",
+      "alias": "donor_chemfd",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion5_5f12",
+      "alias": "donor_chemf",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion2_5f137s1",
+      "alias": "donor_chems",
+      "status": "unresolved"
+    },
+    {
+      "element": "Lr",
+      "consumer_state": "ion0_5f147s27p1",
+      "alias": "donor_7p",
+      "status": "unresolved"
+    }
+  ]
+}
+

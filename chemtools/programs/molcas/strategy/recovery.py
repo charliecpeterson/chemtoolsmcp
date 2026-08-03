@@ -406,7 +406,7 @@ def _rule_ga_segfault(text: str, _parsed: dict | None) -> dict | None:
         "fix_recipe": [
             "Rebuild the OpenMolcas container with `--with-mpi-ts` added to the GA `./configure` line. "
             "This forces two-sided MPI (most reliable single-node).",
-            "Workaround without rebuilding: force `-np 1` for runs containing &CASPT2 — the runner profile's `execution.parallel_caspt2_supported=False` flag does this automatically.",
+            "Workaround without rebuilding: force `-np 1` for runs containing &CASPT2. The runner profile's `programs.molcas.parallel_caspt2_supported=False` flag does this automatically.",
             "Container fix lives at /home/charlie/projects/mycontainers/docker/molcas/Dockerfile-openmolcas-26.02 (verified working).",
         ],
         "next_actions": [
@@ -751,6 +751,27 @@ def apply_recovery(
     if not in_path.is_file():
         raise FileNotFoundError(f"Input file not found: {input_file}")
 
+    input_text = in_path.read_text(encoding="utf-8")
+    if re.search(
+        (
+            r"(?mi)^\s*&(GATEWAY|SEWARD|SCF|RASSCF|CASPT2|"
+            r"RASSI|SLAPAF|ALASKA)\b"
+        ),
+        input_text,
+    ) is None:
+        return {
+            "error": "input_format_mismatch",
+            "verdict": "input_format_mismatch",
+            "failure_class": None,
+            "changes_applied": [],
+            "input_path": str(in_path),
+            "message": (
+                "The recovery patcher requires a recognizable Molcas input "
+                "and will not edit this file."
+            ),
+            "next_actions": [],
+        }
+
     if recovery is None and output_file is None:
         raise ValueError(
             "Pass either output_file (to auto-classify) or recovery (pre-computed dict)."
@@ -793,7 +814,7 @@ def apply_recovery(
             "next_actions": recovery.get("next_actions", []),  # type: ignore[union-attr]
         }
 
-    text = in_path.read_text(encoding="utf-8")
+    text = input_text
     changes: list[str] = []
 
     if failure_class in {"scf_no_convergence", "scf_single_electron"}:

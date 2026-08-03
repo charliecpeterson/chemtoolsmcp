@@ -1,16 +1,16 @@
-"""GRASP runtime: apptainer wrapper, stdin heredoc execution, per-run session log.
+"""Legacy GRASP executor, container lookup, and per-run session log.
 
 GRASP2018 ships ~50 small executables. Each takes a fixed sequence of
-prompted answers via stdin (no input file). This module:
+prompted answers via stdin (no input file). This compatibility module:
   * Resolves the container path from CHEMTOOLS_GRASP_CONTAINER env var
     (default ~/mycontainers/grasp2018.sif).
-  * Runs an exe inside the container, piping a heredoc string to stdin.
-  * Captures stdout/stderr to a log file alongside the working directory.
+  * Retains the direct Python executor during the compatibility window.
+  * Formats capture files and ``grasp_session.md`` entries.
   * Appends a markdown entry to ``grasp_session.md`` in the working dir
     so the user can replay the workflow manually.
 
-The runner is synchronous (blocks until the exe exits). GRASP exes are
-fast for atomic problems — typical SCF runs finish in seconds.
+MCP handlers use the typed execution service and call only the session-log
+formatter from this module.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def run_grasp_exe(
     capture_log_file: str | None = None,
     container: str | None = None,
 ) -> dict[str, Any]:
-    """Run a single GRASP executable in the container.
+    """Run one GRASP executable through the legacy direct Python API.
 
     Parameters
     ----------
@@ -120,7 +120,7 @@ def run_grasp_exe(
     pretty_cmd = " ".join(shlex.quote(p) for p in cmd)
 
     if log_to_session:
-        _append_session_log(
+        append_execution_to_session(
             work=work,
             exe=exe,
             command=pretty_cmd,
@@ -147,7 +147,7 @@ def run_grasp_exe(
     }
 
 
-def _append_session_log(
+def append_execution_to_session(
     *,
     work: Path,
     exe: str,

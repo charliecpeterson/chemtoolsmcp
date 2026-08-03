@@ -15,8 +15,14 @@
     "local": {
       "description": "Direct local execution on a workstation (single process).",
       "launcher": {
-        "kind": "direct",
-        "command": "nwchem"
+        "kind": "direct"
+      },
+      "programs": {
+        "nwchem": {
+          "executable_argv": [
+            "nwchem"
+          ]
+        }
       },
       "execution": {
         "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
@@ -46,8 +52,19 @@
     "local_mpirun": {
       "description": "Local MPI launch via mpirun. Set mpi_ranks to the number of cores.",
       "launcher": {
-        "kind": "direct",
-        "command": "mpirun -np {mpi_ranks} nwchem"
+        "kind": "direct"
+      },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "mpirun",
+            "-np",
+            "{mpi_ranks}"
+          ],
+          "executable_argv": [
+            "nwchem"
+          ]
+        }
       },
       "execution": {
         "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
@@ -75,7 +92,7 @@
       }
     },
     "slurm_cpu": {
-      "description": "Generic SLURM cluster with srun. Customize nwchem_executable and partition.",
+      "description": "Generic SLURM cluster with srun. Customize programs.nwchem and partition.",
       "launcher": {
         "kind": "scheduler",
         "submit_command": "sbatch",
@@ -86,12 +103,20 @@
       },
       "scheduler": {
         "system": "slurm",
-        "script_template": "#!/bin/bash\n#SBATCH --job-name={job_name}\n#SBATCH --output={output_file}\n#SBATCH --error={error_file}\n#SBATCH --nodes={nodes}\n#SBATCH --ntasks={mpi_ranks}\n#SBATCH --cpus-per-task={omp_threads}\n#SBATCH --time={walltime}\n#SBATCH --partition={partition}\n{account_line}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "script_template": "#!/bin/bash\n#SBATCH --job-name={job_name}\n#SBATCH --output={output_file}\n#SBATCH --error={error_file}\n#SBATCH --nodes={nodes}\n#SBATCH --ntasks={mpi_ranks}\n#SBATCH --cpus-per-task={omp_threads}\n#SBATCH --time={walltime}\n#SBATCH --partition={partition}\n{account_line}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\n{program_command} {input_file}\n",
         "submit_script_name": "{job_name}.job"
       },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "srun"
+          ],
+          "executable_argv": [
+            "nwchem"
+          ]
+        }
+      },
       "execution": {
-        "nwchem_executable": "nwchem",
-        "mpi_launch": "srun",
         "shell": "/bin/bash"
       },
       "resources": {
@@ -136,12 +161,20 @@
       },
       "scheduler": {
         "system": "slurm",
-        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{program_command} {input_file}\n",
         "submit_script_name": "{job_name}.job"
       },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "ibrun"
+          ],
+          "executable_argv": [
+            "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
+          ]
+        }
+      },
       "execution": {
-        "nwchem_executable": "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
-        "mpi_launch": "ibrun",
         "shell": "/bin/bash"
       },
       "resources": {
@@ -184,12 +217,20 @@
       },
       "scheduler": {
         "system": "slurm",
-        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{program_command} {input_file}\n",
         "submit_script_name": "{job_name}.job"
       },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "ibrun"
+          ],
+          "executable_argv": [
+            "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
+          ]
+        }
+      },
       "execution": {
-        "nwchem_executable": "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
-        "mpi_launch": "ibrun",
         "shell": "/bin/bash"
       },
       "resources": {
@@ -232,12 +273,20 @@
       },
       "scheduler": {
         "system": "slurm",
-        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{program_command} {input_file}\n",
         "submit_script_name": "{job_name}.job"
       },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "ibrun"
+          ],
+          "executable_argv": [
+            "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
+          ]
+        }
+      },
       "execution": {
-        "nwchem_executable": "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
-        "mpi_launch": "ibrun",
         "shell": "/bin/bash"
       },
       "resources": {
@@ -280,12 +329,20 @@
       },
       "scheduler": {
         "system": "slurm",
-        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "script_template": "#!/bin/bash\n#SBATCH -J {job_name}\n#SBATCH -o {output_file}\n#SBATCH -e {error_file}\n#SBATCH -p {partition}\n#SBATCH -N {nodes}\n#SBATCH -n {mpi_ranks}\n#SBATCH -t {walltime}\n{account_line}\n{module_block}\ncd {job_dir}\n{pre_run_block}\n{program_command} {input_file}\n",
         "submit_script_name": "{job_name}.job"
       },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "ibrun"
+          ],
+          "executable_argv": [
+            "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
+          ]
+        }
+      },
       "execution": {
-        "nwchem_executable": "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
-        "mpi_launch": "ibrun",
         "shell": "/bin/bash"
       },
       "resources": {
@@ -319,7 +376,7 @@
       }
     },
     "pbs_cpu": {
-      "description": "Generic PBS/Torque cluster. Customize nwchem_executable and resources.",
+      "description": "Generic PBS/Torque cluster. Customize programs.nwchem and resources.",
       "launcher": {
         "kind": "scheduler",
         "submit_command": "qsub",
@@ -330,12 +387,22 @@
       },
       "scheduler": {
         "system": "pbs",
-        "script_template": "#!/bin/bash\n#PBS -N {job_name}\n#PBS -o {output_file}\n#PBS -e {error_file}\n#PBS -l walltime={walltime}\n#PBS -l select={nodes}:ncpus={mpi_ranks}:mpiprocs={mpi_ranks}\n{account_line}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\n{mpi_launch} {nwchem_executable} {input_file}\n",
+        "script_template": "#!/bin/bash\n#PBS -N {job_name}\n#PBS -o {output_file}\n#PBS -e {error_file}\n#PBS -l walltime={walltime}\n#PBS -l select={nodes}:ncpus={mpi_ranks}:mpiprocs={mpi_ranks}\n{account_line}\n{module_block}\ncd {job_dir}\nexport OMP_NUM_THREADS={omp_threads}\n{pre_run_block}\n{program_command} {input_file}\n",
         "submit_script_name": "{job_name}.job"
       },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "mpirun",
+            "-np",
+            "{mpi_ranks}"
+          ],
+          "executable_argv": [
+            "nwchem"
+          ]
+        }
+      },
       "execution": {
-        "nwchem_executable": "nwchem",
-        "mpi_launch": "mpirun -np {mpi_ranks}",
         "shell": "/bin/bash"
       },
       "resources": {

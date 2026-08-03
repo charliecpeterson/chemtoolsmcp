@@ -9,10 +9,7 @@ Slim CLI module — owns argument parsing, mode/program resolution, and the
   * `chemtools/mcp/dispatch.py`      tool_definitions aggregator +
                                      dispatch_tool + handle_request +
                                      _TOOL_ALIASES
-  * `chemtools/mcp/tools/__init__.py`  Eagerly imports every program's
-                                       handler module so @_tool decorators
-                                       run before tool_definitions() is
-                                       called.
+  * `chemtools/mcp/catalog.py`       Built-in program and MCP tool providers.
 
 Renamed from ``chemtools/mcp/nwchem.py`` — that path now lives as a
 back-compat shim re-exporting from this module.
@@ -46,9 +43,8 @@ from chemtools.mcp.server import (  # noqa: E402
 )
 from chemtools.mcp import modes as _modes  # noqa: E402
 
-# Importing dispatch triggers eager imports of every program's tool module
-# (via chemtools.mcp.tools.__init__), so @_tool registrations are guaranteed
-# to have run before tool_definitions() is first called.
+# Importing dispatch registers built-in backends and loads tool modules in
+# catalog order before the server accepts requests.
 from chemtools.mcp.dispatch import (  # noqa: E402, F401
     tool_definitions,
     dispatch_tool,

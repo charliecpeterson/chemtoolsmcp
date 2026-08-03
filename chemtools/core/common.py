@@ -72,6 +72,38 @@ def detect_program(contents: str) -> str | None:
     return None
 
 
+def detect_standalone_output_format(contents: str) -> str | None:
+    lower = contents.lower()
+    has_nbo_analysis = (
+        "natural bond orbital analysis" in lower
+        or "n a t u r a l   b o n d" in lower
+    )
+    has_nwchem_run = any(
+        marker in lower
+        for marker in (
+            "northwest computational chemistry package",
+            "echo of input deck",
+            "nwchem input module",
+            "total dft energy",
+            "total scf energy",
+        )
+    )
+    if has_nbo_analysis and not has_nwchem_run:
+        return "nbo"
+    qe_program = re.search(
+        r"(?mi)^\s*Program\s+(BANDS|DOS|PROJWFC|POST-PROC)\s+v\.",
+        contents,
+    )
+    if qe_program is not None:
+        return {
+            "BANDS": "qe-bands",
+            "DOS": "qe-dos",
+            "PROJWFC": "qe-projwfc",
+            "POST-PROC": "qe-pp",
+        }[qe_program.group(1).upper()]
+    return None
+
+
 def json_ready(value: Any) -> Any:
     return json.loads(json.dumps(value))
 
@@ -148,4 +180,3 @@ COVALENT_RADII: dict[str, float] = {
     "Au": 1.36,
     "U": 1.96,
 }
-

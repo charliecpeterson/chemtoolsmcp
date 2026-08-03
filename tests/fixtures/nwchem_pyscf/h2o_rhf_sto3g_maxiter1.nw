@@ -1,0 +1,21 @@
+start chemtools_h2o_rhf_sto3g_maxiter1
+
+geometry units angstroms
+  O  0.000000  0.000000  0.000000
+  H  0.000000 -0.757160  0.586260
+  H  0.000000  0.757160  0.586260
+end
+
+charge 0
+
+basis
+  * library sto-3g
+end
+
+scf
+  singlet
+  thresh 1.0e-12
+  maxiter 1
+end
+
+task scf energy

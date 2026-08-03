@@ -1,0 +1,27 @@
+schema_version: chemtools.knowledge-card/1
+id: cross_program.optimizer_failure_sentinel_must_lose
+programs: ["*"]
+workflows: [optimization]
+kind: validation
+status: accepted
+confidence: high
+applies_when:
+  failed_evaluation: represented_by_finite_numeric_sentinel
+  valid_objective_bounds: scientifically_scoped
+claim: >-
+  A failed evaluation represented by a numeric sentinel must rank worse than
+  every valid objective. The sentinel must exceed the valid upper bound when
+  minimizing and fall below the valid lower bound when maximizing.
+check:
+  evaluator: assess_failure_sentinel
+  passing_verdict: satisfied
+  scope: declared_valid_objective_bounds
+failure:
+  severity: error
+  action: Use a finite sentinel outside the valid bounds or a separate failure channel.
+sources:
+  - "notes/fblock/README.md#the-five-things-that-generalize"
+  - "notes/fblock/atsp2k.md#7-failure-modes"
+tests:
+  - "tests/test_knowledge_invariants.py::test_failure_sentinels_lose_in_both_objective_directions"
+  - "tests/test_knowledge_invariants.py::test_failure_sentinel_must_strictly_lose"

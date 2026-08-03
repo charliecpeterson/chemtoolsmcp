@@ -16,6 +16,9 @@ from .api import (
     analyze_tce_orbital_ordering,
     basis_library_summary,
     check_nwchem_run_status,
+    compare_cube_densities,
+    compare_cube_orbitals,
+    compare_cube_orbital_subspaces,
     check_nwchem_geometry_plausibility,
     check_nwchem_freq_plausibility,
     check_spin_charge_state,
@@ -104,6 +107,8 @@ from .api import (
     swap_nwchem_movecs,
     tail_nwchem_output,
 )
+from chemtools.core.pyscf_comparison import compare_pyscf_reference_calculation
+from chemtools.programs.nwchem.pyscf_reference import draft_nwchem_pyscf_reference
 from chemtools.core.run_registry import (
     register_run,
     update_run_status,
@@ -125,6 +130,11 @@ __all__ = [
     "analyze_tce_orbital_ordering",
     "basis_library_summary",
     "check_nwchem_run_status",
+    "compare_cube_densities",
+    "compare_cube_orbitals",
+    "compare_cube_orbital_subspaces",
+    "compare_pyscf_reference_calculation",
+    "draft_nwchem_pyscf_reference",
     "check_nwchem_geometry_plausibility",
     "check_nwchem_freq_plausibility",
     "check_spin_charge_state",

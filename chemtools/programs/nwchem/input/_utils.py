@@ -859,6 +859,7 @@ def _render_dplot_density_block(
     extent_angstrom: float,
     grid_points: int,
     gaussian: bool,
+    limitxyz_lines: list[str] | None = None,
 ) -> str:
     title = "Total density" if density_mode == "total" else "Spin density"
     body_lines = [
@@ -868,7 +869,7 @@ def _render_dplot_density_block(
     if gaussian:
         body_lines.append("  gaussian")
     body_lines.append(f"  spin {density_mode}")
-    body_lines.extend(_render_limitxyz_lines(extent_angstrom, grid_points))
+    body_lines.extend(limitxyz_lines or _render_limitxyz_lines(extent_angstrom, grid_points))
     body_lines.append(f"  output {output_name}")
     return _render_named_block("dplot", body_lines)
 
@@ -883,6 +884,7 @@ def _render_dplot_orbital_block(
     extent_angstrom: float,
     grid_points: int,
     gaussian: bool,
+    limitxyz_lines: list[str] | None = None,
 ) -> str:
     body_lines = [
         f'  title "{title}"',
@@ -890,7 +892,7 @@ def _render_dplot_orbital_block(
     ]
     if gaussian:
         body_lines.append("  gaussian")
-    body_lines.extend(_render_limitxyz_lines(extent_angstrom, grid_points))
+    body_lines.extend(limitxyz_lines or _render_limitxyz_lines(extent_angstrom, grid_points))
     body_lines.append(f"  spin {spin}")
     body_lines.append(f"  orbitals view; 1; {vector_number}; output {output_name}")
     return _render_named_block("dplot", body_lines)

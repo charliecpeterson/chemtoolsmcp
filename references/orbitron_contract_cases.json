@@ -1,0 +1,78 @@
+{
+  "schema": "chemtools.orbitron-contract-corpus/2",
+  "description": "Small external corpus slice for the read-only Orbitron contract.",
+  "cases": [
+    {
+      "id": "qe.fe_bcc.scf",
+      "operation": "info",
+      "source": "qe/Fe/fe.scf.out",
+      "size_bytes": 392618,
+      "sha256": "12d7cfda7cffde52dbff6cc23e367ba073bd872ba66ab820e1c5c6b5a508682a",
+      "contract": "qe_scf",
+      "status": "validated"
+    },
+    {
+      "id": "qe.feo.vc_relax",
+      "operation": "inspect",
+      "source": "qe/FeO/feo.vc-relax.out",
+      "size_bytes": 1386007,
+      "sha256": "bd35e75b709d3e19278b06b0e88b7e0430429b1da639d8b748eb623de40e8a9e",
+      "contract": "qe_relax",
+      "status": "validated"
+    },
+    {
+      "id": "qe.si.scf.geometry",
+      "operation": "analyze_geometry",
+      "source": "qe/Si/scf.out",
+      "size_bytes": 12585,
+      "sha256": "282928710504365a7e9b9e995d25b04e912c5020137b26280221c0cd3a196231",
+      "contract": "qe_geometry",
+      "status": "validated"
+    },
+    {
+      "id": "qe.fe_bcc.scf.geometry",
+      "operation": "analyze_geometry",
+      "source": "qe/Fe/fe.scf.out",
+      "size_bytes": 392618,
+      "sha256": "12d7cfda7cffde52dbff6cc23e367ba073bd872ba66ab820e1c5c6b5a508682a",
+      "contract": "qe_geometry",
+      "status": "validated"
+    },
+    {
+      "id": "qe.feo.vc_relax.geometry",
+      "operation": "analyze_geometry",
+      "source": "qe/FeO/feo.vc-relax.out",
+      "size_bytes": 1386007,
+      "sha256": "bd35e75b709d3e19278b06b0e88b7e0430429b1da639d8b748eb623de40e8a9e",
+      "contract": "qe_geometry",
+      "status": "validated"
+    },
+    {
+      "id": "qe.benzene.failed_relax.geometry_role",
+      "operation": "analyze_geometry",
+      "source": "qe/benzene/relax.out",
+      "size_bytes": 112120,
+      "sha256": "f4c8df59766108b512c39d205688aa9fb9b11735c84a4635f9b445d2c344f895",
+      "contract": "qe_failed_geometry",
+      "status": "known_failure"
+    },
+    {
+      "id": "molcas.h2o_bad_nactel",
+      "operation": "inspect",
+      "source": "molcas/recovery_nactel_parity/h2o_bad_nactel.out",
+      "size_bytes": 21560,
+      "sha256": "51015953bad441cfaf107d0b05451ed224bb68851fc2977885bac1e5ea6a4a11",
+      "contract": "molcas_failure",
+      "status": "known_failure"
+    },
+    {
+      "id": "molcas.hcn_ts_freq",
+      "operation": "analyze_vibrations",
+      "source": "molcas/ts_irc_hcn/hcn_ts_freq.out",
+      "size_bytes": 68952,
+      "sha256": "9488b0e42c3926fe3530172100b49d10c37a13d30e609b9f017f25b046f913ee",
+      "contract": "molcas_vibrations",
+      "status": "validated"
+    }
+  ]
+}

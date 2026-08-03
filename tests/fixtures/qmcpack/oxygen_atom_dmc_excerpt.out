@@ -1,0 +1,19 @@
+QMCPACK 4.1.0
+  Project = O.q0.dmc
+QMCPACK WARNING !!!!!!! Deprecated input style: creating SPO set inside determinantset. Support for this usage will soon be removed. SPO sets should be built outside using sposet_collection.
+QMCPACK WARNING !!!!!!! Deprecated input style: creating SPO set inside slaterdeterminant and nested determinant tags. Support for this usage will soon be removed. SPO sets should be built outside using sposet_collection.
+QMCPACK WARNING !!!!!!! Deprecated input style: creating SPO set inside slaterdeterminant and nested determinant tags. Support for this usage will soon be removed. SPO sets should be built outside using sposet_collection.
+QMCPACK WARNING twist attribute does't exist but twistnum attribute was found. This is potentially ambiguous. Specifying twist attribute is preferred.
+QMCPACK WARNING Nrule was not determined from qmcpack input or pseudopotential file. Setting sensible default.
+  ParticleSet 'e' contains 6 particles :  u(4) d(2)
+  ParticleSet 'ion0' contains 1 particles :  O(1)
+  Start VMC
+QMCPACK WARNING Input parameter "blocks" must be positive! Set to 1. User input value 0
+QMCPACK WARNING Input parameter "steps" must be positive! Set to 1. User input value 0
+  VMC Execution time = 1.4192e-02 secs
+  Start DMC
+QMCPACK WARNING Input parameter "blocks" must be positive! Set to 1. User input value 0
+QMCPACK WARNING Input parameter "steps" must be positive! Set to 1. User input value 0
+  DMC Execution time = 4.0946e-03 secs
+  Total Execution time = 1.8549e-02 secs
+QMCPACK execution completed successfully

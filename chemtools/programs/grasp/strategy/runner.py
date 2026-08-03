@@ -1,17 +1,17 @@
-"""Execute a GRASP workflow plan end-to-end (local mode only).
+"""Execute a GRASP workflow plan step by step in local mode.
 
-Takes the step list from ``workflows.py`` and runs each step via
-``run_grasp_exe``. Stops on first failure and returns the partial transcript.
-``post`` shell commands (e.g. ``cp rcsf.out rcsf.inp``) are executed in the
-working directory between steps.
+The MCP application injects its permission-checked synchronous runner. Direct
+Python callers retain the legacy runner during the compatibility window.
+Preamble and post-step actions accept only three-token ``cp`` operations, and
+copy destinations must remain in the working directory.
 """
 
 from __future__ import annotations
 
 import shlex
-import subprocess
+import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from chemtools.programs.grasp.runtime import run_grasp_exe, append_session_note
 
@@ -23,6 +23,7 @@ def run_workflow(
     stop_on_failure: bool = True,
     timeout_per_step: float = 600.0,
     container: str | None = None,
+    run_step: Callable[..., dict[str, Any]] = run_grasp_exe,
 ) -> dict[str, Any]:
     """Execute every step in a workflow plan.
 
@@ -32,7 +33,6 @@ def run_workflow(
     work = Path(working_dir).resolve()
     work.mkdir(parents=True, exist_ok=True)
 
-    # Title note in session log
     append_session_note(
         str(work),
         f"Starting **{plan['workflow']}** workflow with {plan['n_steps']} steps. "
@@ -40,16 +40,15 @@ def run_workflow(
         title=f"Workflow start: {plan['workflow']}",
     )
 
-    # Run preamble shell commands if present (e.g., copy a previous *.w file)
     preamble = plan.get("preamble") or []
-    for shell_cmd in preamble:
-        _run_shell(shell_cmd, work)
+    for action in preamble:
+        _run_file_action(action, work)
 
     transcript: list[dict[str, Any]] = []
     overall_ok = True
     for i, step in enumerate(plan["steps"], start=1):
         exe = step["exe"]
-        result = run_grasp_exe(
+        result = run_step(
             exe,
             working_dir=str(work),
             stdin_lines=step["stdin"],
@@ -64,6 +63,10 @@ def run_workflow(
             "ok": result["ok"],
             "returncode": result["returncode"],
             "elapsed_seconds": result["elapsed_seconds"],
+            "launch_id": result.get("launch_id"),
+            "execution_instance_id": result.get(
+                "execution_instance_id"
+            ),
             "stdout_tail": "\n".join(result["stdout"].splitlines()[-15:]),
             "stderr_tail": "\n".join(result["stderr"].splitlines()[-15:]) if result["stderr"] else "",
         })
@@ -77,9 +80,8 @@ def run_workflow(
                     title="Workflow halted on failure",
                 )
                 break
-        # Run post commands
-        for shell_cmd in step.get("post", []):
-            _run_shell(shell_cmd, work)
+        for action in step.get("post", []):
+            _run_file_action(action, work)
 
     if overall_ok:
         append_session_note(
@@ -100,6 +102,25 @@ def run_workflow(
     }
 
 
-def _run_shell(cmd: str, cwd: Path) -> None:
-    """Execute a simple shell command in cwd. Used for cp/mv between steps."""
-    subprocess.run(cmd, shell=True, cwd=str(cwd), check=False)
+def _run_file_action(command: str, cwd: Path) -> None:
+    """Apply the copy actions emitted by the built-in workflow planners."""
+    tokens = shlex.split(command, comments=True)
+    if len(tokens) != 3 or tokens[0] != "cp":
+        raise ValueError(
+            f"unsupported GRASP workflow file action: {command!r}"
+        )
+    source = Path(tokens[1])
+    if not source.is_absolute():
+        source = cwd / source
+    source = source.resolve()
+    if not source.is_file():
+        raise FileNotFoundError(
+            f"GRASP workflow copy source does not exist: {source}"
+        )
+    destination = (cwd / tokens[2]).resolve()
+    if destination != cwd and cwd not in destination.parents:
+        raise ValueError(
+            f"GRASP workflow copy destination escapes working directory: "
+            f"{destination}"
+        )
+    shutil.copy2(source, destination)

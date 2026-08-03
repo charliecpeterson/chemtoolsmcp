@@ -1,0 +1,105 @@
+{
+  "schema": "chemtools.run-artifacts/1",
+  "run": {"run_uid": "run-shared-producer"},
+  "artifacts": [
+    {
+      "artifact_id": "artifact-level-count",
+      "roles": ["auxiliary_output"],
+      "kind": "grasp.level_count",
+      "producing_step": null,
+      "metadata": {}
+    },
+    {
+      "artifact_id": "artifact-block-count",
+      "roles": ["auxiliary_output"],
+      "kind": "grasp.block_count",
+      "producing_step": null,
+      "metadata": {}
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "observation-level-count",
+      "artifact_id": "artifact-level-count",
+      "observed_at": "2026-07-31T12:00:00+00:00",
+      "location": {
+        "path": "/reference/shared/levels.txt",
+        "entry_type": "file",
+        "root_name": null,
+        "relative_path": null
+      },
+      "exists": true,
+      "size_bytes": null,
+      "modified_ns": null,
+      "sha256": null,
+      "hash_status": "not_requested",
+      "directory_manifest_schema": null,
+      "directory_manifest_sha256": null
+    },
+    {
+      "observation_id": "observation-block-count",
+      "artifact_id": "artifact-block-count",
+      "observed_at": "2026-07-31T12:00:00+00:00",
+      "location": {
+        "path": "/reference/shared/blocks.txt",
+        "entry_type": "file",
+        "root_name": null,
+        "relative_path": null
+      },
+      "exists": true,
+      "size_bytes": null,
+      "modified_ns": null,
+      "sha256": null,
+      "hash_status": "not_requested",
+      "directory_manifest_schema": null,
+      "directory_manifest_sha256": null
+    }
+  ],
+  "expectations": [],
+  "provenance": [
+    {
+      "event_id": "event-generate-level-count",
+      "event_type": "generated",
+      "occurred_at": "2026-07-31T12:00:00+00:00",
+      "actor": {
+        "producer_type": "program",
+        "name": "grasp-pipeline",
+        "version": "2018",
+        "commit": null
+      },
+      "run_uid": "run-shared-producer",
+      "step_id": "generate-manifold",
+      "inputs": [],
+      "outputs": [
+        {
+          "artifact_id": "artifact-level-count",
+          "observation_id": "observation-level-count"
+        }
+      ],
+      "evidence": "recorded",
+      "parameters": {}
+    },
+    {
+      "event_id": "event-generate-block-count",
+      "event_type": "generated",
+      "occurred_at": "2026-07-31T12:00:00+00:00",
+      "actor": {
+        "producer_type": "program",
+        "name": "grasp-pipeline",
+        "version": "2018",
+        "commit": null
+      },
+      "run_uid": "run-shared-producer",
+      "step_id": "generate-manifold",
+      "inputs": [],
+      "outputs": [
+        {
+          "artifact_id": "artifact-block-count",
+          "observation_id": "observation-block-count"
+        }
+      ],
+      "evidence": "recorded",
+      "parameters": {}
+    }
+  ]
+}

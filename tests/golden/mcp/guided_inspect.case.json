@@ -1,0 +1,69 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "generic.guided_inspect_nwchem",
+  "program": "generic",
+  "fixture": "fixtures/nwchem_scf.out",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "generic.guided_inspect_nwchem",
+    "method": "tools/call",
+    "params": {
+      "name": "inspect_run",
+      "arguments": {
+        "output_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "schema_version",
+    "program",
+    "source",
+    "assessment",
+    "evidence",
+    "uncertainty",
+    "next_actions"
+  ],
+  "expected_payload": {
+    "schema_version": "chemtools.inspect-run/1",
+    "program": {
+      "name": "nwchem",
+      "version": "7.2.3",
+      "resolved_by": "content"
+    },
+    "assessment": {
+      "source": "backend_diagnosis",
+      "verdict": {
+        "label": "success",
+        "confidence": 0.6,
+        "reasons": [
+          "stage: single_point"
+        ]
+      }
+    },
+    "evidence": {
+      "artifact_classification": {
+        "status": "matched",
+        "candidates": [
+          {
+            "kind": "nwchem.output",
+            "roles": [
+              "primary_output"
+            ]
+          }
+        ]
+      },
+      "derived": {
+        "final_energy_hartree": -1.117349034
+      }
+    },
+    "uncertainty": [],
+    "next_actions": [
+      {
+        "tool": "analyze_nwchem_frontier_orbitals",
+        "reason": "verify state quality before accepting result",
+        "confidence": 0.6,
+        "priority": 1
+      }
+    ]
+  }
+}

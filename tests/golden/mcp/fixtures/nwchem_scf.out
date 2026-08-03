@@ -1,0 +1,10 @@
+Northwest Computational Chemistry Package (NWChem) 7.2.3
+
+NWChem Input Module
+basis "ao basis" spherical
+  H library cc-pvdz
+end
+
+NWChem SCF Module
+Total SCF energy = -1.1173490340
+Task times cpu: 0.1s wall: 0.1s

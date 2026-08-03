@@ -4,9 +4,8 @@ Adapter layer that translates the existing parsers in
 `chemtools.programs.nwchem.parse.*` into the program-neutral shapes defined
 in `chemtools.core.types` (`ParsedRun`, `TaskSummary`).
 
-This is the first wiring of a Program plugin's sub-protocol. Once an agent or
-MCP tool has a `chemtools.core.registry.Program` instance, it can call
-`plugin.parser.parse_output(path)` and get a uniform structured result
+Once an agent or MCP tool resolves the NWChem backend, it can call
+`backend.parser.parse_output(path)` and get a uniform structured result
 regardless of which program produced the output file.
 
 The methods here are thin — they read the file, call the existing parsers,

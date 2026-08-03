@@ -7,7 +7,8 @@ explained in the sibling notes.
 
 ## The baseline table
 
-Moved to **`../atomic-library/`** and regenerated from the v2 references (the
+Moved to **[`chemtools/data/fblock`](../../../chemtools/data/fblock)** and
+regenerated from the v2 references (the
 version here was built from data that silently truncated high-f J manifolds).
 Start there: it has the same 633 states plus per-element recipe files for
 GRASP and ATSP2K, and the DIRAC hard-job inputs.

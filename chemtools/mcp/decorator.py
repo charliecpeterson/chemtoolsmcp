@@ -24,11 +24,16 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from chemtools.application.execution import ExecutionService
+from chemtools.mcp.server import (
+    DEFAULT_PROTOCOL_VERSION,
+    SUPPORTED_PROTOCOL_VERSIONS,
+)
+
 
 # Server constants — shared between any per-program MCP entry point.
 SERVER_NAME = "chemtools-nwchem"
 SERVER_VERSION = "0.1.0"
-DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 TRANSPORT_MODE = "content-length"
 
 # Optional log file. Set CHEMTOOLS_MCP_LOG=/path/to/log.txt to enable.
@@ -38,6 +43,7 @@ LOG_PATH = os.environ.get("CHEMTOOLS_MCP_LOG")
 # Default to analysis so any caller that imports the module without going
 # through main() still gets a consistent answer (only pure tools visible).
 ACTIVE_MODE: str = "analysis"
+_EXECUTION_SERVICE = ExecutionService()
 
 # Active program filter — None means "no filter, all programs visible".
 # Otherwise it's a set of program tag strings (e.g. {"nwchem", "molcas"}).
@@ -113,8 +119,16 @@ def log_event(message: str) -> None:
 
 def set_active_mode(mode: str) -> None:
     """Set the active server mode from a CLI entry point."""
-    global ACTIVE_MODE
+    global ACTIVE_MODE, _EXECUTION_SERVICE
     ACTIVE_MODE = mode
+    _EXECUTION_SERVICE = ExecutionService(
+        enable_execution=mode in {"local", "hpc"},
+    )
+
+
+def get_execution_service() -> ExecutionService:
+    """Return the service that owns launches for this MCP process."""
+    return _EXECUTION_SERVICE
 
 
 def set_active_programs(programs: set[str] | None) -> None:
@@ -132,12 +146,14 @@ def set_active_toolset(toolset: frozenset[str] | None) -> None:
 __all__ = [
     "SERVER_NAME",
     "SERVER_VERSION",
+    "SUPPORTED_PROTOCOL_VERSIONS",
     "DEFAULT_PROTOCOL_VERSION",
     "TRANSPORT_MODE",
     "LOG_PATH",
     "ACTIVE_MODE",
     "ACTIVE_PROGRAMS",
     "ACTIVE_TOOLSET",
+    "get_execution_service",
     "set_active_mode",
     "set_active_programs",
     "set_active_toolset",

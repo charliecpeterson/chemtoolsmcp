@@ -2,8 +2,8 @@
 
 Importing this module registers every @_tool handler with the shared
 `_TOOL_REGISTRY` in chemtools.mcp.decorator. The accompanying
-`molcas_tool_definitions()` is appended into the multi-program tool list
-exposed by `chemtools/mcp/tools/nwchem.py:tool_definitions()`.
+`molcas_tool_definitions()` is loaded into the multi-program tool list through
+`chemtools.mcp.catalog`.
 
 Tools provided (21):
 
@@ -44,7 +44,19 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.core.common import read_text
-from chemtools.mcp.decorator import _tool as _raw_tool
+from chemtools.application.molcas_execution import (
+    launch_molcas_with_service,
+    terminate_molcas_with_service,
+)
+from chemtools.application.molcas_monitoring import (
+    inspect_molcas_status_with_service,
+    watch_molcas_status_with_service,
+)
+from chemtools.application.execution import LaunchStatusError
+from chemtools.mcp.decorator import (
+    _tool as _raw_tool,
+    get_execution_service,
+)
 
 
 def _tool(name: str, *, needs: str = "none", program: str = "molcas"):
@@ -71,10 +83,7 @@ from chemtools.programs.molcas.binary.orbitals import (
 )
 from chemtools.programs.molcas.runtime import prepare_launch as _prepare_molcas_launch
 from chemtools.programs.molcas.scheduler import (
-    launch_molcas_run as _launch_molcas_run,
-    get_molcas_run_status as _get_molcas_run_status,
     watch_molcas_run as _watch_molcas_run,
-    terminate_molcas_run as _terminate_molcas_run,
 )
 from chemtools.programs.molcas.strategy.active_space import (
     analyze_active_space as _analyze_active_space,
@@ -585,7 +594,7 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "Build a safe pymolcas launch command + environment for a given input. "
                 "Guards against two known Molcas runtime pitfalls: (1) parallel CASPT2 "
                 "may segfault on builds where GA wasn't compiled with --with-mpi-ts — "
-                "if the profile sets execution.parallel_caspt2_supported=False, the "
+                "if programs.molcas sets parallel_caspt2_supported=False, the "
                 "launcher auto-downgrades to -np 1 for any input containing &CASPT2 and "
                 "emits a warning; (2) Molcas refuses to mix runs with different nProcs "
                 "in the same scratch dir — the launcher always sets MOLCAS_PROJECT to a "
@@ -601,7 +610,7 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                     "profile": {
                         "type": ["object", "null"],
                         "default": None,
-                        "description": "Optional runner-profile dict (see chemtools/runner_profiles.example.yaml). Fields consulted: execution.parallel_caspt2_supported, execution.apptainer_sif, execution.pymolcas_command, execution.env.",
+                        "description": "Optional runner-profile dict (see chemtools/runner_profiles.example.yaml). The standard programs.molcas block supplies launcher_argv, executable_argv, and parallel_caspt2_supported; execution.env remains target-wide. Previous field locations are accepted for compatibility.",
                     },
                     "job_name": {
                         "type": ["string", "null"],
@@ -1502,10 +1511,12 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "launch_molcas_run",
             "description": (
-                "Submit a Molcas job to the scheduler defined by a runner profile. "
-                "Writes the submit script, calls sbatch / qsub, parses the job ID, "
-                "and writes {job_name}.jobid alongside the input. Set dry_run=true to "
-                "preview the rendered submit script without submitting."
+                "Launch Molcas with a direct profile or submit it through a Slurm "
+                "profile. Live execution applies the CASPT2 parallelism guard, "
+                "records the effective command and resources, and writes "
+                "{job_name}.jobid after tracked Slurm submission. Set dry_run=true "
+                "for the legacy read-only preview. PBS and LSF profiles are not "
+                "supported by the typed execution boundary."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1529,7 +1540,8 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "Check the status of a Molcas run. For HPC jobs the scheduler job ID "
                 "is auto-detected from {job_name}.jobid alongside the input/output file. "
                 "Returns scheduler state (queued/running/completed/failed/cancelled) and "
-                "an overall_status combining scheduler + output-file presence."
+                "an overall_status combining scheduler + output-file presence. Explicit "
+                "PIDs and job IDs launched by this MCP use retained typed execution state."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1549,7 +1561,9 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
             "name": "watch_molcas_run",
             "description": (
                 "Poll Molcas status until terminal state or timeout. For HPC jobs, "
-                "omit timeout_seconds to block until scheduler completion."
+                "omit timeout_seconds to block until scheduler completion. Owned local "
+                "and Slurm launches use typed status; unowned identifiers retain the "
+                "legacy compatibility watcher."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1578,8 +1592,8 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "terminate_molcas_run",
             "description": (
-                "Cancel a running Molcas scheduler job. Provide job_id + profile "
-                "(profile resolves the scancel/qdel/bkill command)."
+                "Cancel a Slurm Molcas job launched by this MCP process. Provide "
+                "the recorded job_id and the same profile used for launch."
             ),
             "inputSchema": {
                 "type": "object",
@@ -2253,7 +2267,8 @@ def _handle_get_molcas_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("launch_molcas_run", needs="executable")
 def _handle_launch_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _launch_molcas_run(
+    return launch_molcas_with_service(
+        get_execution_service(),
         input_path=arguments["input_file"],
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path"),
@@ -2267,7 +2282,8 @@ def _handle_launch_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("get_molcas_run_status", needs="executable")
 def _handle_get_molcas_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _get_molcas_run_status(
+    return inspect_molcas_status_with_service(
+        get_execution_service(),
         output_path=arguments.get("output_file"),
         input_path=arguments.get("input_file"),
         error_path=arguments.get("error_file"),
@@ -2280,29 +2296,54 @@ def _handle_get_molcas_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("watch_molcas_run", needs="executable")
 def _handle_watch_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    process_id = arguments.get("process_id")
+    job_id = arguments.get("job_id")
+    profile = arguments.get("profile")
+    watch_arguments = {
+        "output_path": arguments.get("output_file"),
+        "input_path": arguments.get("input_file"),
+        "error_path": arguments.get("error_file"),
+        "profiles_path": arguments.get("profiles_path"),
+        "poll_interval_seconds": arguments.get(
+            "poll_interval_seconds",
+            10.0,
+        ),
+        "adaptive_polling": arguments.get("adaptive_polling", True),
+        "max_poll_interval_seconds": arguments.get(
+            "max_poll_interval_seconds",
+            60.0,
+        ),
+        "timeout_seconds": arguments.get("timeout_seconds", 3600.0),
+        "max_polls": arguments.get("max_polls"),
+        "history_limit": arguments.get("history_limit", 8),
+    }
+    result = None
+    if job_id is not None or process_id is not None:
+        try:
+            result = watch_molcas_status_with_service(
+                get_execution_service(),
+                process_id=process_id if job_id is None else None,
+                job_id=job_id,
+                profile=profile,
+                **watch_arguments,
+            )
+        except LaunchStatusError as exc:
+            if exc.as_dict()["error"] != "launch_not_owned":
+                raise
+    if result is not None:
+        return result
     return _watch_molcas_run(
-        output_path=arguments.get("output_file"),
-        input_path=arguments.get("input_file"),
-        error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
-        profiles_path=arguments.get("profiles_path"),
-        poll_interval_seconds=arguments.get("poll_interval_seconds", 10.0),
-        adaptive_polling=arguments.get("adaptive_polling", True),
-        max_poll_interval_seconds=arguments.get("max_poll_interval_seconds", 60.0),
-        timeout_seconds=arguments.get("timeout_seconds", 3600.0),
-        max_polls=arguments.get("max_polls"),
-        history_limit=arguments.get("history_limit", 8),
+        process_id=process_id,
+        profile=profile,
+        job_id=job_id,
+        **watch_arguments,
     )
 
 
 @_tool("terminate_molcas_run", needs="executable")
 def _handle_terminate_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    import os
-    profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
-    return _terminate_molcas_run(
+    return terminate_molcas_with_service(
+        get_execution_service(),
         job_id=arguments["job_id"],
         profile=arguments["profile"],
-        profiles_path=profiles_path,
     )

@@ -35,6 +35,17 @@ END_RE = re.compile(r"^\s*end\s*$", re.IGNORECASE)
 NELEC_RE = re.compile(r"^\s*([A-Za-z]{1,3})\s+nelec\s+(\d+)\s*$", re.IGNORECASE)
 
 
+def bundled_basis_library_path() -> Path:
+    """Return the basis library shipped with the installed package."""
+    try:
+        from importlib.resources import files
+
+        resource = files("chemtools").joinpath("data/nwchem/basis_library")
+        return Path(str(resource))
+    except (ImportError, TypeError):
+        return Path(__file__).resolve().parents[3] / "data/nwchem/basis_library"
+
+
 def normalize_element_symbol(symbol: str) -> str:
     cleaned = re.sub(r"[^A-Za-z]", "", symbol.strip())
     if not cleaned:

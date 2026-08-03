@@ -23,7 +23,15 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.core.common import detect_program, make_metadata, read_text
-from chemtools.core.cube import parse_cube_file, summarize_cube_file
+from chemtools.core.cube import (
+    compare_cube_densities as compare_cube_density_files,
+    compare_cube_orbitals as compare_cube_orbital_files,
+    parse_cube_file,
+    summarize_cube_file,
+)
+from chemtools.core.cube_subspace import (
+    compare_cube_orbital_subspaces as compare_cube_orbital_subspace_files,
+)
 from chemtools.programs.nwchem.strategy.diagnose import (
     analyze_frontier_orbitals as analyze_nwchem_frontier_orbitals,
     diagnose_nwchem_output,
@@ -182,6 +190,46 @@ def parse_cube(path: str, include_values: bool = False) -> dict[str, Any]:
 
 def summarize_cube(path: str, top_atoms: int = 5) -> dict[str, Any]:
     return summarize_cube_file(path, top_atoms=top_atoms)
+
+
+def compare_cube_densities(
+    reference_path: str,
+    candidate_path: str,
+    *,
+    reference_density_unit: str,
+    candidate_density_unit: str,
+) -> dict[str, Any]:
+    return compare_cube_density_files(
+        reference_path,
+        candidate_path,
+        reference_density_unit=reference_density_unit,
+        candidate_density_unit=candidate_density_unit,
+    )
+
+
+def compare_cube_orbitals(
+    reference_path: str,
+    candidate_path: str,
+    *,
+    reference_orbital_label: str,
+    candidate_orbital_label: str,
+) -> dict[str, Any]:
+    return compare_cube_orbital_files(
+        reference_path,
+        candidate_path,
+        reference_orbital_label=reference_orbital_label,
+        candidate_orbital_label=candidate_orbital_label,
+    )
+
+
+def compare_cube_orbital_subspaces(
+    reference_orbitals: list[dict[str, str]],
+    candidate_orbitals: list[dict[str, str]],
+) -> dict[str, Any]:
+    return compare_cube_orbital_subspace_files(
+        reference_orbitals,
+        candidate_orbitals,
+    )
 
 
 def parse_output(

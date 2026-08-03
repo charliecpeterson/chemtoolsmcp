@@ -1,0 +1,15 @@
+QMCPACK 1.0.0
+  Project = jopt-h2o
+  ParticleSet e : 0 4 8
+  ParticleSet ion0 : 0 1 3
+  Start QMCFixedSampleLinearOptimize
+ERROR CostFunction-> Number of Effective Walkers is too small 1.7493767924e+00 NumWalkersEff/NumSamples 3.4167515477e-05
+ERROR CostFunction-> Number of Effective Walkers is too small 1.0000038027e+00 NumWalkersEff/NumSamples 1.9531324271e-05
+  Failed Step. Largest LM parameter change:2.3898804172e+02
+  QMC Execution time = 1.0680979088e+01 secs
+  Start QMCFixedSampleLinearOptimize
+ERROR CostFunction-> Number of Effective Walkers is too small 1.0911830293e+00 NumWalkersEff/NumSamples 2.1312168541e-05
+  Failed Step. Largest LM parameter change:2.6729859945e+03
+  Good Step. Largest LM parameter change:1.7991696555e+00
+  QMC Execution time = 3.7296553906e+01 secs
+  Total Execution time = 2.8890919649e+02 secs

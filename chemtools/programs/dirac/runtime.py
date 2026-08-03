@@ -24,6 +24,41 @@ from pathlib import Path
 from typing import Any
 
 
+def pam_dirac_arguments(
+    input_name: str,
+    mol_name: str,
+    *,
+    mpi: int,
+    mw: int | None = None,
+    nw: int | None = None,
+    copy_files: list[str] | None = None,
+    put_files: list[str] | None = None,
+    outcmo: bool = False,
+    get_files: list[str] | None = None,
+    extra_args: list[str] | None = None,
+) -> list[str]:
+    arguments = [
+        f"--mpi={mpi}",
+        f"--inp={input_name}",
+        f"--mol={mol_name}",
+    ]
+    if mw is not None:
+        arguments.append(f"--mw={mw}")
+    if nw is not None:
+        arguments.append(f"--nw={nw}")
+    if copy_files:
+        arguments.append(f"--copy={' '.join(copy_files)}")
+    if put_files:
+        arguments.append(f"--put={' '.join(put_files)}")
+    if outcmo:
+        arguments.append("--outcmo")
+    if get_files:
+        arguments.extend(f"--get={name}" for name in get_files)
+    if extra_args:
+        arguments.extend(extra_args)
+    return arguments
+
+
 def prepare_launch(
     input_file: str,
     mol_file: str,
@@ -120,28 +155,18 @@ def prepare_launch(
     if container_sif:
         cmd.extend([apptainer_binary, "exec", container_sif])
     cmd.append(pam_dirac_binary)
-    cmd.append(f"--mpi={mpi}")
-    cmd.append(f"--inp={Path(inp_path).name}")
-    cmd.append(f"--mol={Path(mol_path).name}")
-    if mw is not None:
-        cmd.append(f"--mw={mw}")
-    if nw is not None:
-        cmd.append(f"--nw={nw}")
-    if staged_copy:
-        cmd.append(f"--copy={' '.join(staged_copy)}")
-    # --put: stages files INTO the scratch directory under specified names.
-    # Spec format: "local_path=SCRATCH_NAME" (e.g. "cf.CO=DFCOEF" copies the
-    # local cf.CO file to scratch as DFCOEF so DIRAC reads it as starting
-    # orbitals). Used in core-ionization ΔSCF chains.
-    if put_files:
-        cmd.append(f"--put={' '.join(put_files)}")
-    if outcmo:
-        cmd.append("--outcmo")
-    if get_files:
-        for name in get_files:
-            cmd.append(f"--get={name}")
-    if extra_args:
-        cmd.extend(extra_args)
+    cmd.extend(pam_dirac_arguments(
+        Path(inp_path).name,
+        Path(mol_path).name,
+        mpi=mpi,
+        mw=mw,
+        nw=nw,
+        copy_files=staged_copy,
+        put_files=put_files,
+        outcmo=outcmo,
+        get_files=get_files,
+        extra_args=extra_args,
+    ))
 
     # pam-dirac output naming: <inp_stem>_<mol_stem>.{out,h5} unless the
     # two stems are identical, in which case it deduplicates to <stem>.{out,h5}.

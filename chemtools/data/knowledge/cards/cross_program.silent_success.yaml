@@ -1,0 +1,23 @@
+schema_version: chemtools.knowledge-card/1
+id: cross_program.silent_success
+programs: ["*"]
+workflows: [run_validation]
+kind: validation
+status: draft
+confidence: high
+applies_when:
+  reported_status: success
+  independent_verification: absent
+claim: >-
+  A successful exit or normal-looking output does not establish scientific
+  success. Require positive evidence from a derivation independent of the
+  reported status.
+check:
+  requirement: positive_independent_verification
+failure:
+  severity: warning
+  action: Treat the run as unverified until an independent check passes.
+sources:
+  - "notes/fblock/README.md#the-five-things-that-generalize"
+tests:
+  - "tests/test_session_parsers.py::test_zero_exit_rmcdhf_requires_positive_convergence_evidence"

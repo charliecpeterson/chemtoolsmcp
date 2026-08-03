@@ -1,0 +1,26 @@
+schema_version: chemtools.knowledge-card/1
+id: cross_program.same_producer_is_correlated
+programs: ["*"]
+workflows: [validation]
+kind: provenance
+status: accepted
+confidence: high
+applies_when:
+  compared_artifacts: multiple
+  direct_producer_records: available
+claim: >-
+  Artifacts written by the same workflow step are correlated evidence. They
+  cannot independently validate that producer, even when their values agree.
+check:
+  evaluator: assess_direct_producer_independence
+  failing_verdict: correlated
+  scope: direct_producer_only
+failure:
+  severity: error
+  action: Add evidence from a distinct recorded derivation.
+sources:
+  - "notes/fblock/README.md#the-five-things-that-generalize"
+  - "notes/fblock/grasp-fblock.md#7-case-study-a-silent-truncation-that-survived-a-full-campaign"
+tests:
+  - "tests/test_knowledge_evidence.py::test_same_producer_outputs_fail_independence_check"
+  - "tests/test_knowledge_evidence.py::test_distinct_recorded_producers_pass_narrow_independence_check"

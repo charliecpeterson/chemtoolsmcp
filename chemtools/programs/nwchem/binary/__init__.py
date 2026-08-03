@@ -8,6 +8,6 @@ Modules here read NWChem-produced files that aren't the main output text:
   * (planned) drv_hessian.py `.drv.hess` (binary driver Hessian)
   * (planned) fdrst.py        `.fdrst` (frequency restart bookkeeping)
 
-These are routed through the Program plugin's `binary` sub-protocol
+These are routed through the NWChem backend's `binary` provider
 (see chemtools/core/program.py).
 """

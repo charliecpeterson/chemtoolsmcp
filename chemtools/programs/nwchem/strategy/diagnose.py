@@ -5,7 +5,13 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from chemtools.core.common import make_metadata, parse_scientific_float, read_text, resolve_output_paths
+from chemtools.core.common import (
+    detect_standalone_output_format,
+    make_metadata,
+    parse_scientific_float,
+    read_text,
+    resolve_output_paths,
+)
 from chemtools.programs.nwchem.parse.tasks import parse_tasks
 from chemtools.programs.nwchem.parse.mos import METAL_CENTERS, parse_mos, parse_population_analysis
 from chemtools.programs.nwchem.parse.freq import parse_freq, parse_trajectory
@@ -431,19 +437,9 @@ def diagnose_nwchem_output(
     next_action = "inspect_raw_output"
     confidence = "low"
 
-    # --- Early-exit: file is a standalone NBO analysis, not an SCF log ---
-    # NBO 6.0 writes its own output; pointing the diagnosis at it (instead of the
-    # NWChem .out that invoked NBO) yields a useless "unknown". Recognize it and
-    # say where the real SCF data lives.
-    _lc = contents.lower()
-    # A real NWChem run always carries the program banner and a total-energy line;
-    # a standalone NBO dump has neither, which is the reliable discriminator.
-    _is_nbo_only = (
-        ("natural bond orbital analysis" in _lc or "n a t u r a l   b o n d" in _lc)
-        and "northwest computational chemistry" not in _lc
-        and "total dft energy" not in _lc
-        and "total scf energy" not in _lc
-    )
+    # NBO writes a separate analysis file whose tables cannot establish the
+    # parent calculation's SCF state or completion.
+    _is_nbo_only = detect_standalone_output_format(contents) == "nbo"
 
     # --- Early-exit: X2C/DKH + SP-shell basis crash ---
     # NWChem builds an uncontracted auxiliary basis for the relativistic one-electron
@@ -485,7 +481,7 @@ def diagnose_nwchem_output(
         next_action = (
             "point_diagnosis_at_the_scf_log: this file is a standalone NBO 6.0 analysis "
             "dump, not an NWChem SCF/DFT output. The SCF iterations, energy, and orbitals "
-            "live in the NWChem .out the run wrote before calling NBO — re-run the analysis "
+            "live in the NWChem .out the run wrote before calling NBO; re-run the analysis "
             "on that file."
         )
         confidence = "high"

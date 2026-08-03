@@ -1,0 +1,53 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "generic.autodetect_nwchem",
+  "program": "generic",
+  "fixture": "fixtures/nwchem_scf.out",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "generic.autodetect_nwchem",
+    "method": "tools/call",
+    "params": {
+      "name": "parse_output",
+      "arguments": {
+        "output_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "program",
+    "program_version",
+    "file",
+    "file_size_bytes",
+    "tasks",
+    "primary_task_index",
+    "derived",
+    "diagnostics",
+    "diagnosis"
+  ],
+  "expected_payload": {
+    "program": "nwchem",
+    "program_version": null,
+    "tasks": [
+      {
+        "index": 0,
+        "kind": "energy",
+        "name": "Single Point · SCF",
+        "method": "SCF",
+        "basis": "cc-pvdz",
+        "energy_hartree": -1.117349034,
+        "outcome": "success",
+        "has_usable_data": true,
+        "selection_priority": 1
+      }
+    ],
+    "primary_task_index": 0,
+    "derived": {
+      "n_tasks": 1,
+      "final_energy_hartree": -1.117349034,
+      "primary_energy_hartree": -1.117349034
+    },
+    "diagnostics": [],
+    "diagnosis": {}
+  }
+}

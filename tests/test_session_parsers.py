@@ -1,10 +1,12 @@
 """Unit tests for parser / verdict logic added during the 2026 dogfood sweep.
 
-Inline fixtures (no external corpus) so a clean clone can run them. These pin
-the behavior most likely to regress silently: relativistic correlation energies,
-the open-shell COSCI resolution table, the active-space verdict thresholds, and
-the multiplicity-scan recommender.
+Committed fixtures require no external corpus, so a clean clone can run them.
+These pin behavior most likely to regress silently: relativistic correlation
+energies, the open-shell COSCI resolution table, active-space verdict
+thresholds, multiplicity scans, and GRASP convergence classification.
 """
+from pathlib import Path
+
 from chemtools.programs.dirac.parse.relccsd import parse_relccsd
 from chemtools.programs.dirac.parse.output import parse_cosci_energies
 from chemtools.programs.molcas.strategy.active_space import (
@@ -18,7 +20,13 @@ from chemtools.programs.grasp.parse.ris import parse_ris
 from chemtools.programs.grasp.parse.transition import parse_transition
 from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log
 from chemtools.programs.grasp.parse.lsjlbl import parse_lsjlbl
+from chemtools.programs.grasp import GRASP
 from chemtools.programs.grasp.strategy.diagnose import suggest_grasp_recovery
+
+
+KNOWLEDGE_FIXTURES = (
+    Path(__file__).parent / "fixtures" / "knowledge" / "silent_success"
+)
 
 
 RELCCSD_OUT = """
@@ -232,6 +240,49 @@ def test_rmcdhf_log_clean_run_not_flagged():
     assert not r["orbital_solver_failed"] and not r["error_stop"]
 
 
+def test_zero_exit_rmcdhf_requires_positive_convergence_evidence():
+    cases = (
+        (
+            "grasp_rmcdhf_converged.log",
+            0,
+            True,
+            False,
+            "success",
+            None,
+        ),
+        (
+            "grasp_rmcdhf_cycle_limit.log",
+            0,
+            False,
+            True,
+            "failed",
+            "max_iter_exhausted",
+        ),
+    )
+
+    for (
+        filename,
+        process_exit_code,
+        converged,
+        cycle_limit_reached,
+        task_outcome,
+        recovery_class,
+    ) in cases:
+        path = KNOWLEDGE_FIXTURES / filename
+        parsed = parse_rmcdhf_log(str(path))
+        tasks = GRASP.parser.task_index(str(path))
+
+        assert process_exit_code == 0
+        assert parsed["converged"] is converged
+        assert parsed["explicitly_not_converged"] is cycle_limit_reached
+        assert [task["outcome"] for task in tasks] == [task_outcome]
+        if recovery_class is not None:
+            recovery = suggest_grasp_recovery(
+                error_text=path.read_text(encoding="utf-8")
+            )
+            assert recovery["failure_class"] == recovery_class
+
+
 def test_grasp_recovery_classifies_orbital_solver_failure():
     rec = suggest_grasp_recovery(error_text=RMCDHF_FAILED)
     assert rec["failure_class"] == "rmcdhf_orbital_not_solved"
@@ -268,3 +319,76 @@ def test_grasp_transition_parses_e1_line():
     assert abs(t["length_gauge"]["gf"] - 0.510428) < 1e-5
     assert abs(t["length_gauge"]["a_ki_per_s"] - 3.75515e7) < 1e2
     assert abs(t["velocity_gauge"]["gf"] - 0.528618) < 1e-5
+
+
+def test_grasp_backend_routes_specialized_property_outputs(tmp_path):
+    cases = (
+        (
+            "li.hlsj",
+            GRASP_CHLSJ,
+            "hfs",
+            "grasp:n_hfs_levels",
+            2,
+        ),
+        (
+            "th.i",
+            GRASP_RIS_I,
+            "isotope_shift",
+            "grasp:n_isotope_shift_levels",
+            1,
+        ),
+        (
+            "li.t.lsj",
+            GRASP_T_LSJ,
+            "transition",
+            "grasp:n_transitions",
+            1,
+        ),
+    )
+
+    for filename, contents, file_kind, evidence_key, expected_count in cases:
+        path = tmp_path / filename
+        path.write_text(contents, encoding="utf-8")
+
+        assert GRASP.detector.detect(contents)
+        parsed = GRASP.parser.parse_output(str(path))
+        assert parsed["derived"]["grasp:file_kind"] == file_kind
+        assert parsed["derived"][evidence_key] == expected_count
+        assert parsed["tasks"][0]["kind"] == "property"
+        assert parsed["tasks"][0]["outcome"] == "success"
+
+
+def test_grasp_backend_distinguishes_rci_from_rmcdhf_summary(tmp_path):
+    path = tmp_path / "th.csum"
+    path.write_text(GRASP_CSUM, encoding="utf-8")
+
+    parsed = GRASP.parser.parse_output(str(path))
+
+    assert parsed["derived"]["grasp:file_kind"] == "rci_summary"
+    assert parsed["derived"]["grasp:rci_corrections"]["transverse_breit"] is True
+    assert parsed["tasks"][0]["name"] == "rci summary"
+    assert parsed["tasks"][0]["method"] == "RCI"
+
+
+def test_molcas_recovery_refuses_unrecognized_input(tmp_path):
+    from chemtools.programs.molcas.strategy.recovery import apply_recovery
+
+    input_path = tmp_path / "job.nw"
+    target_path = tmp_path / "job_recovered.nw"
+    input_path.write_text(
+        "geometry\nH 0 0 0\nend\ntask scf energy\n",
+        encoding="utf-8",
+    )
+
+    recovered = apply_recovery(
+        str(input_path),
+        recovery={
+            "failure_class": "memory_exceeded",
+            "current_memory_mb": 4000,
+        },
+        write_to=str(target_path),
+    )
+
+    assert recovered["error"] == "input_format_mismatch"
+    assert recovered["changes_applied"] == []
+    assert not target_path.exists()

@@ -1,0 +1,143 @@
+{
+  "schema_version": "chemtools.openbabel-conversion-fixtures/1",
+  "recorded_with": {
+    "openbabel_version": "3.1.0",
+    "rdkit_version": "2025.09.5",
+    "runner_result_schema": "chemtools.openbabel-conversion-result/1"
+  },
+  "cases": [
+    {
+      "id": "water_smiles_to_molblock",
+      "purpose": "Small neutral connectivity conversion without coordinates.",
+      "request": {
+        "format": "smiles",
+        "source": "O",
+        "output_format": "molblock"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "matched",
+        "coordinate_status": "not_generated",
+        "converted_text_contains": ["V2000", "M  END"],
+        "source_rdkit": {"canonical_smiles": "O", "formula": "H2O", "atom_count": 1, "heavy_atom_count": 1, "bond_count": 0, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "O", "formula": "H2O", "atom_count": 1, "heavy_atom_count": 1, "bond_count": 0, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "difference_fields": [],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "acetate_smiles_to_molblock",
+      "purpose": "Charged molecular connectivity survives the declared conversion.",
+      "request": {
+        "format": "smiles",
+        "source": "CC(=O)[O-]",
+        "output_format": "molblock"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "matched",
+        "coordinate_status": "not_generated",
+        "converted_text_contains": ["V2000", "M  END"],
+        "source_rdkit": {"canonical_smiles": "CC(=O)[O-]", "formula": "C2H3O2-", "atom_count": 4, "heavy_atom_count": 4, "bond_count": 3, "formal_charge": -1, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "CC(=O)[O-]", "formula": "C2H3O2-", "atom_count": 4, "heavy_atom_count": 4, "bond_count": 3, "formal_charge": -1, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "difference_fields": [],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "benzene_smiles_to_molblock",
+      "purpose": "Aromatic perception agrees after a declared conversion.",
+      "request": {
+        "format": "smiles",
+        "source": "c1ccccc1",
+        "output_format": "molblock"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "matched",
+        "coordinate_status": "not_generated",
+        "converted_text_contains": ["V2000", "M  END"],
+        "source_rdkit": {"canonical_smiles": "c1ccccc1", "formula": "C6H6", "atom_count": 6, "heavy_atom_count": 6, "bond_count": 6, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 6, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "c1ccccc1", "formula": "C6H6", "atom_count": 6, "heavy_atom_count": 6, "bond_count": 6, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 6, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "difference_fields": [],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "sodium_chloride_smiles_to_molblock",
+      "purpose": "Disconnected ionic fragments remain visible as a warning.",
+      "request": {
+        "format": "smiles",
+        "source": "[Na+].[Cl-]",
+        "output_format": "molblock"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "matched",
+        "coordinate_status": "not_generated",
+        "converted_text_contains": ["V2000", "M  END"],
+        "source_rdkit": {"canonical_smiles": "[Cl-].[Na+]", "formula": "ClNa", "atom_count": 2, "heavy_atom_count": 2, "bond_count": 0, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 2, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "[Cl-].[Na+]", "formula": "ClNa", "atom_count": 2, "heavy_atom_count": 2, "bond_count": 0, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 2, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "difference_fields": [],
+        "warning_codes": ["multiple_fragments"]
+      }
+    },
+    {
+      "id": "methyl_radical_smiles_to_molblock",
+      "purpose": "An explicit radical remains explicit and is reported as a warning.",
+      "request": {
+        "format": "smiles",
+        "source": "[CH3]",
+        "output_format": "molblock"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "matched",
+        "coordinate_status": "not_generated",
+        "converted_text_contains": ["V2000", "M  END"],
+        "source_rdkit": {"canonical_smiles": "[CH3]", "formula": "CH3", "atom_count": 1, "heavy_atom_count": 1, "bond_count": 0, "formal_charge": 0, "radical_electrons": 1, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "[CH3]", "formula": "CH3", "atom_count": 1, "heavy_atom_count": 1, "bond_count": 0, "formal_charge": 0, "radical_electrons": 1, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "difference_fields": [],
+        "warning_codes": ["radical_electrons"]
+      }
+    },
+    {
+      "id": "fluoroethanol_chiral_smiles_to_molblock",
+      "purpose": "Known 0D MOL stereochemistry disagreement that must remain visible.",
+      "request": {
+        "format": "smiles",
+        "source": "C[C@H](O)F",
+        "output_format": "molblock"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "different",
+        "coordinate_status": "not_generated",
+        "converted_text_contains": ["V2000", "M  END"],
+        "source_rdkit": {"canonical_smiles": "C[C@H](O)F", "formula": "C2H5FO", "atom_count": 4, "heavy_atom_count": 4, "bond_count": 3, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 1, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "CC(O)F", "formula": "C2H5FO", "atom_count": 4, "heavy_atom_count": 4, "bond_count": 3, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 1, "stereo_bond_count": 0},
+        "difference_fields": ["canonical_smiles"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "ethanol_molblock_to_smiles",
+      "purpose": "MOL-to-canonical-SMILES conversion with supplied 2D coordinates.",
+      "request": {
+        "format": "molblock",
+        "source": "ethanol\n  Chemtools\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2  3  1  0  0  0  0\nM  END\n",
+        "output_format": "smiles"
+      },
+      "expected": {
+        "status": "completed",
+        "comparison_status": "matched",
+        "coordinate_status": "not_applicable",
+        "converted_text_contains": ["CCO"],
+        "source_rdkit": {"canonical_smiles": "CCO", "formula": "C2H6O", "atom_count": 3, "heavy_atom_count": 3, "bond_count": 2, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "converted_rdkit": {"canonical_smiles": "CCO", "formula": "C2H6O", "atom_count": 3, "heavy_atom_count": 3, "bond_count": 2, "formal_charge": 0, "radical_electrons": 0, "fragment_count": 1, "aromatic_atom_count": 0, "stereocenter_count": 0, "stereo_bond_count": 0},
+        "difference_fields": [],
+        "warning_codes": []
+      }
+    }
+  ]
+}

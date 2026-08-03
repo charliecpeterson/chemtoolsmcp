@@ -10,7 +10,7 @@ small model can chain tool calls deterministically.
 
 This is a minimal first pass — it wires up the existing functions and produces
 correctly-shaped Diagnosis envelopes. Enriching next_actions[] with concrete
-tool invocations is follow-up work tracked in REFACTOR.md.
+tool invocations remains follow-up work in the project plan.
 """
 
 from __future__ import annotations

@@ -1,0 +1,41 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "grasp.parse_sum",
+  "program": "grasp",
+  "fixture": "fixtures/grasp.sum",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "grasp.parse_sum",
+    "method": "tools/call",
+    "params": {
+      "name": "parse_grasp_sum",
+      "arguments": {
+        "path": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "n_electrons",
+    "n_csfs",
+    "n_subshells",
+    "atomic_number",
+    "nuclear_mass_electron_units",
+    "speed_of_light_au",
+    "is_nonrel_limit",
+    "radial_grid"
+  ],
+  "expected_payload": {
+    "n_electrons": 90,
+    "n_csfs": 9,
+    "n_subshells": 27,
+    "atomic_number": 90.0,
+    "nuclear_mass_electron_units": 424310.0,
+    "speed_of_light_au": 137.035999139,
+    "is_nonrel_limit": false,
+    "radial_grid": {
+      "RNT": 0.000002,
+      "H": 0.05,
+      "N": 590
+    }
+  }
+}

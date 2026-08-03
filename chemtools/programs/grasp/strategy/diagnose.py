@@ -22,7 +22,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log
+from chemtools.programs.grasp.parse.rmcdhf_log import (
+    CYCLE_LIMIT_MARKER,
+    parse_rmcdhf_log,
+)
 from chemtools.programs.grasp.parse.sum_file import parse_sum
 
 
@@ -340,7 +343,7 @@ _FAILURE_PATTERNS: list[tuple[str, dict[str, Any]]] = [
         },
     ),
     (
-        "Convergence not reached",
+        CYCLE_LIMIT_MARKER,
         {
             "failure_class": "max_iter_exhausted",
             "severity": "warning",

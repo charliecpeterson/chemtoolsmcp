@@ -6,6 +6,9 @@ import re
 from typing import Any
 
 from chemtools.core.common import make_metadata, parse_float_after_delimiter, parse_scientific_float, split_tokens
+from chemtools.programs.nwchem.parse.geometry import (
+    extract_output_geometry,
+)
 from chemtools.programs.nwchem.parse.tasks import detect_energy_token, detect_method_token, detect_basis_token
 
 METHOD_PATTERNS: list[tuple[int, str, tuple[str, ...]]] = [
@@ -1211,61 +1214,22 @@ def _extract_last_geometry_labels(contents: str) -> list[str]:
 
 
 def _extract_last_geometry_atoms(contents: str) -> dict[str, Any]:
-    labels: list[str] = []
-    atoms: list[dict[str, Any]] = []
-    current: list[str] = []
-    current_atoms: list[dict[str, Any]] = []
-    in_geom = False
-    coordinate_unit = "angstrom"
-
-    for line in contents.splitlines():
-        if "Output coordinates in angstroms" in line:
-            in_geom = True
-            current = []
-            current_atoms = []
-            coordinate_unit = "angstrom"
-            continue
-        if "Output coordinates in a.u." in line:
-            in_geom = True
-            current = []
-            current_atoms = []
-            coordinate_unit = "bohr"
-            continue
-        if not in_geom:
-            continue
-        trimmed = line.strip()
-        if not trimmed or line.startswith("----"):
-            continue
-        if "No." in line and "Tag" in line and "Charge" in line:
-            continue
-        if "Atomic Mass" in line:
-            if current:
-                labels = current[:]
-                atoms = current_atoms[:]
-            in_geom = False
-            continue
-        parts = line.split()
-        if len(parts) >= 6:
-            try:
-                int(parts[0])
-                coords = _to_angstrom(
-                    [float(parts[3]), float(parts[4]), float(parts[5])],
-                    coordinate_unit,
-                )
-            except ValueError:
-                continue
-            current.append(parts[1])
-            current_atoms.append(
-                {
-                    "label": parts[1],
-                    "x": coords[0],
-                    "y": coords[1],
-                    "z": coords[2],
-                }
-            )
-
+    geometry = extract_output_geometry(
+        contents.splitlines(),
+        which="last",
+    )
+    parsed_atoms = geometry["atoms"] if geometry else []
+    atoms = [
+        {
+            "label": atom["label"],
+            "x": atom["x"],
+            "y": atom["y"],
+            "z": atom["z"],
+        }
+        for atom in parsed_atoms
+    ]
     return {
-        "labels": labels,
+        "labels": [atom["label"] for atom in atoms],
         "atoms": atoms,
         "atom_count": len(atoms),
     }

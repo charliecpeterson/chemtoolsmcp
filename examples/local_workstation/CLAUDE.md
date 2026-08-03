@@ -8,15 +8,15 @@ inside an apptainer container) and are monitored by PID.
 
 | Program | Local execution |
 |---|---|
-| NWChem | `nwchem_executable` in runner profile, or apptainer container via `runner_profiles.yaml` |
+| NWChem | `programs.nwchem` command arrays in `runner_profiles.yaml` |
 | Molcas | Apptainer container at `~/mycontainers/openmolcas-26.02.sif` (or override via `CHEMTOOLS_MOLCAS_CONTAINER`) |
 | DIRAC  | Apptainer container at `~/mycontainers/dirac-25.0.sif` (or override via `CHEMTOOLS_DIRAC_CONTAINER`) |
 | GRASP  | Apptainer container at `~/mycontainers/grasp2018.sif` (or override via `CHEMTOOLS_GRASP_CONTAINER`) |
 
-GRASP / Molcas / DIRAC use an env-var fallback for the container path —
-you don't need a runner profile if you have the container at the default
-location. NWChem needs a runner profile (it doesn't have an apptainer
-default).
+The read-only GRASP, Molcas, and DIRAC command builders can use their
+`CHEMTOOLS_*_CONTAINER` environment variables. Live typed launch tools require
+a runner profile so the execution target, allowed working directory,
+resources, and program installation are explicit.
 
 ## Runner profiles
 
@@ -28,8 +28,9 @@ NWChem-only profiles (in `runner_profiles.yaml`):
 | `local_mpirun` | MPI-parallel NWChem via `mpirun`. Set `mpi_ranks` to your core count. |
 | `local_apptainer` | NWChem inside apptainer container with `mpirun -np N`. |
 
-Molcas / DIRAC / GRASP execute via their respective `CHEMTOOLS_*_CONTAINER`
-env vars — no profile entry needed for basic execution.
+Molcas and DIRAC live launches also require profile entries. Their read-only
+prepare tools can still use the corresponding `CHEMTOOLS_*_CONTAINER`
+environment variable.
 
 ## Standard workflow
 

@@ -19,9 +19,9 @@ works fine for main-group and transition-metal chemistry, they break it
 | `dirac-fblock.md` | DIRAC | 38 tools exist; these are the actinide lessons on top |
 | `qe-qmcpack-oncvpsp.md` | Quantum ESPRESSO, QMCPACK, ONCVPSP/`ld1` | **no tooling, not installed** — read before installing |
 | `examples/` | all of the above | real inputs that ran, plus the 633-state reference table |
-| `atomic-library/` | GRASP · ATSP2K · DIRAC | **per-element seed library**: 31 elements × every state — configuration, J structure, converged DC+B energy, and the seeding recipe each state needs. Start here to run a new f-block calculation. |
+| [`chemtools/data/fblock`](../../chemtools/data/fblock) | GRASP · ATSP2K · DIRAC | **per-element seed library**: 31 elements × every state, including configuration, J structure, converged DC+B energy, and the seeding recipe each state needs. Start here to run a new f-block calculation. |
 
-Start with `atomic-library/` if you want the payload rather than the
+Start with [`chemtools/data/fblock`](../../chemtools/data/fblock) if you want the payload rather than the
 methodology: every validated configuration, its J blocks, its converged
 DC+Breit energy, and the seeding recipe it needs. Read the program notes when
 something breaks — they are organized by failure mode.

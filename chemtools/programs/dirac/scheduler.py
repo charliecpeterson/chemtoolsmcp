@@ -19,10 +19,10 @@ from typing import Any
 
 from chemtools.core.runner import (
     cancel_scheduler_job,
-    inspect_nwchem_run_status,
-    render_nwchem_run,
-    run_nwchem,
-    watch_nwchem_run as _watch_nwchem_run,
+    inspect_run_status,
+    render_calculation_run,
+    run_calculation,
+    watch_run,
 )
 
 
@@ -57,7 +57,7 @@ def launch_dirac_run(
     mol_basename = Path(mol_file).name
     overrides = {"mol_file": mol_basename}
     if dry_run:
-        result = render_nwchem_run(
+        result = render_calculation_run(
             input_path=input_path,
             profile=profile,
             profiles_path=profiles_path,
@@ -68,7 +68,7 @@ def launch_dirac_run(
         )
         result.pop("environment", None)
         return result
-    return run_nwchem(
+    return run_calculation(
         input_path=input_path,
         profile=profile,
         profiles_path=profiles_path,
@@ -91,7 +91,7 @@ def get_dirac_run_status(
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
     """Non-blocking status for a DIRAC job (HPC or local)."""
-    return inspect_nwchem_run_status(
+    return inspect_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
@@ -118,7 +118,7 @@ def watch_dirac_run(
     history_limit: int = 8,
 ) -> dict[str, Any]:
     """Poll a DIRAC job until it reaches a terminal state."""
-    return _watch_nwchem_run(
+    return watch_run(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,

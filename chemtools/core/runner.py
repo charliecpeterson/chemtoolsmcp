@@ -1,47 +1,60 @@
-"""Launcher and scheduler runtime — local subprocess and HPC scheduler glue.
+"""Legacy profile rendering and compatibility imports.
 
-This module is program-neutral: profile loading, SLURM/PBS submission,
-process status polling, job-id tracking, output tailing, and the program-
-neutral status / run plumbing. Per-program parsing (NWChem ``parse_tasks``,
-input-summary inspection, slow-phase detection, frequency / optimization
-progress) is delegated to ``programs/<name>/strategy/progress.py`` and
-loaded lazily after ``detect_program(contents)`` resolves the program.
+This module retains resource inspection plus version 1 render and launch
+behavior. Profile loading lives in ``execution.legacy_profiles``; process,
+scheduler, file, and optional NWChem progress status live in
+``execution.legacy_status``. Their public names are re-exported here for
+existing Python callers.
 
 Program-neutral entry points:
 
-  run_calculation         = run_nwchem
-  render_calculation_run  = render_nwchem_run
-  inspect_run_status      = inspect_nwchem_run_status   (accepts progress_summary_fn=)
-  watch_run               = watch_nwchem_run            (accepts progress_summary_fn=)
+  run_calculation
+  render_calculation_run
+  inspect_run_status      (accepts progress_summary_fn=)
+  watch_run               (accepts progress_summary_fn=)
 
-The NWChem-named originals are kept for back-compat with existing call
-sites. Per-program runners can pass ``progress_summary_fn=`` to inject
-their own progress builder instead of the program-default one fetched
-from ``programs/<name>/strategy/progress.py``.
+The NWChem-named aliases are also kept for compatibility.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import shlex
 import subprocess
-import time
 from copy import deepcopy
-from datetime import datetime, timezone
-UTC = timezone.utc
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from chemtools.core.common import detect_program, read_text
-
-
-DEFAULT_RUNNER_PROFILES = Path(__file__).resolve().parent.parent / "runner_profiles.example.json"
-RUNNER_PROFILES_ENV = "CHEMTOOLS_RUNNER_PROFILES"
+from chemtools.execution.legacy_profiles import (
+    DEFAULT_RUNNER_PROFILES,
+    RUNNER_PROFILES_ENV,
+    _format_template,
+    _resolve_profile,
+    declared_program_installation,
+    load_runner_profiles,
+    resolve_runner_profile,
+)
+from chemtools.execution.legacy_status import (
+    cancel_scheduler_job,
+    inspect_run_status,
+    tail_text_file,
+    watch_run,
+)
 
 # Session-level cache for partition specs (avoids repeated sinfo calls)
 _PARTITION_SPECS_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _declared_profile_installation(
+    profile: dict[str, Any],
+):
+    programs = profile.get("programs") or {}
+    if not isinstance(programs, dict) or len(programs) != 1:
+        return None, None
+    program = next(iter(programs))
+    return program, declared_program_installation(profile, program)
 
 
 def query_partition_specs(
@@ -172,29 +185,35 @@ def _detect_local_cpu_arch() -> str:
     return "arm" if "arm" in machine or "aarch" in machine else "generic"
 
 
-def archive_previous_outputs(job_dir: str, job_name: str) -> list[str]:
-    """If {job_name}.out/.err/.job already exist, rename them with a timestamp suffix.
-
-    Returns list of archived file paths.
-    """
+def archive_paths(paths: list[Path]) -> list[str]:
+    """Rename non-empty files with one timestamp, without overwriting."""
     archived: list[str] = []
     ts = datetime.now().strftime("%Y-%m-%dT%H-%M")
-    for ext in (".out", ".err", ".job"):
-        p = Path(job_dir) / f"{job_name}{ext}"
-        if p.exists() and p.stat().st_size > 0:
-            dest = p.with_name(f"{job_name}{ext}.{ts}")
+    for path in paths:
+        if path.exists() and path.stat().st_size > 0:
+            destination = path.with_name(f"{path.name}.{ts}")
             # Avoid overwriting an existing archive
-            if dest.exists():
+            if destination.exists():
                 counter = 2
-                while dest.exists():
-                    dest = p.with_name(f"{job_name}{ext}.{ts}.{counter}")
+                while destination.exists():
+                    destination = path.with_name(
+                        f"{path.name}.{ts}.{counter}"
+                    )
                     counter += 1
-            p.rename(dest)
-            archived.append(str(dest))
+            path.rename(destination)
+            archived.append(str(destination))
     return archived
 
 
-def run_nwchem(
+def archive_previous_outputs(job_dir: str, job_name: str) -> list[str]:
+    """Archive the legacy output, error, and scheduler script paths."""
+    return archive_paths([
+        Path(job_dir) / f"{job_name}{extension}"
+        for extension in (".out", ".err", ".job")
+    ])
+
+
+def run_calculation(
     input_path: str,
     profile: str,
     *,
@@ -208,7 +227,7 @@ def run_nwchem(
     context_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profiles = load_runner_profiles(profiles_path)
-    rendered = render_nwchem_run(
+    rendered = render_calculation_run(
         input_path=input_path,
         profile=profile,
         profiles=profiles,
@@ -297,7 +316,7 @@ def run_nwchem(
     raise ValueError(f"unsupported launcher kind: {rendered['launcher_kind']}")
 
 
-def render_nwchem_run(
+def render_calculation_run(
     input_path: str,
     profile: str,
     *,
@@ -357,6 +376,19 @@ def render_nwchem_run(
     )
     launcher = profile_payload.get("launcher", {})
     launcher_kind = launcher.get("kind", "direct")
+    declared_program, declared_installation = (
+        _declared_profile_installation(profile_payload)
+    )
+    if declared_installation is None:
+        program_command = None
+    else:
+        program_command = shlex.join(
+            _format_template(value, context)
+            for value in (
+                *declared_installation.launcher_argv,
+                *declared_installation.executable_argv,
+            )
+        )
 
     rendered: dict[str, Any] = {
         "profile": profile,
@@ -378,7 +410,10 @@ def render_nwchem_run(
     }
 
     if launcher_kind == "direct":
-        launcher_command = _format_template(launcher.get("command", "nwchem"), context)
+        launcher_command = _format_template(
+            program_command or launcher.get("command", "nwchem"),
+            context,
+        )
         context["launcher"] = launcher_command
         command = _format_template(
             profile_payload.get("execution", {}).get(
@@ -414,11 +449,27 @@ def render_nwchem_run(
         scheduler_type = (scheduler.get("system") or launcher.get("scheduler_type", "slurm")).lower()
         # Extra context fields for scheduler templates
         nwchem_executable = (
-            execution.get("nwchem_executable")
+            (
+                shlex.join(declared_installation.executable_argv)
+                if declared_program == "nwchem"
+                and declared_installation is not None
+                else None
+            )
+            or execution.get("nwchem_executable")
             or profile_payload.get("resources", {}).get("nwchem_executable")
             or "nwchem"
         )
-        mpi_launch = execution.get("mpi_launch") or profile_payload.get("resources", {}).get("mpi_launch") or ""
+        mpi_launch = (
+            (
+                shlex.join(declared_installation.launcher_argv)
+                if declared_program == "nwchem"
+                and declared_installation is not None
+                else None
+            )
+            or execution.get("mpi_launch")
+            or profile_payload.get("resources", {}).get("mpi_launch")
+            or ""
+        )
         # Multi-program container placeholders. Different programs put their
         # apptainer image path in different spots in the profile; resolve here
         # so script_template can reference {apptainer_sif} / {container_sif}.
@@ -428,8 +479,26 @@ def render_nwchem_run(
             or ""
         )
         container_sif = profile_payload.get("container_sif") or ""
-        pymolcas_command = execution.get("pymolcas_command") or "pymolcas"
-        pam_dirac_binary = profile_payload.get("pam_dirac_binary") or "pam-dirac"
+        pymolcas_command = (
+            (
+                shlex.join(declared_installation.executable_argv)
+                if declared_program == "molcas"
+                and declared_installation is not None
+                else None
+            )
+            or execution.get("pymolcas_command")
+            or "pymolcas"
+        )
+        pam_dirac_binary = (
+            (
+                shlex.join(declared_installation.executable_argv)
+                if declared_program == "dirac"
+                and declared_installation is not None
+                else None
+            )
+            or profile_payload.get("pam_dirac_binary")
+            or "pam-dirac"
+        )
         account = context.get("account")
         if account:
             if scheduler_type == "slurm":
@@ -453,6 +522,7 @@ def render_nwchem_run(
             "container_sif": container_sif,
             "pymolcas_command": pymolcas_command,
             "pam_dirac_binary": pam_dirac_binary,
+            "program_command": program_command or "",
             # Default mol_file to empty; DIRAC callers override via context_overrides.
             "mol_file": "",
         })
@@ -475,335 +545,6 @@ def render_nwchem_run(
         return rendered
 
     raise ValueError(f"unsupported launcher kind: {launcher_kind}")
-
-
-def load_runner_profiles(path: str | None = None) -> dict[str, Any]:
-    configured_path = path or os.environ.get(RUNNER_PROFILES_ENV)
-    source = Path(configured_path).resolve() if configured_path else DEFAULT_RUNNER_PROFILES.resolve()
-    if not source.is_file():
-        raise ValueError(f"runner profiles file does not exist: {source}")
-    text = source.read_text(encoding="utf-8")
-    if source.suffix.lower() == ".json" or text.lstrip().startswith("{"):
-        payload = json.loads(text)
-    else:
-        try:
-            import yaml  # type: ignore
-        except ImportError as exc:  # pragma: no cover
-            # Auto-try a .json sidecar before failing
-            json_sidecar = source.with_suffix(".json")
-            if json_sidecar.is_file():
-                return load_runner_profiles(str(json_sidecar))
-            raise ValueError(
-                f"YAML runner profiles require PyYAML, or use JSON instead: {source}"
-            ) from exc
-        payload = yaml.safe_load(text)
-    if not isinstance(payload, dict):
-        raise ValueError(f"runner profiles file must contain a mapping: {source}")
-    payload["__source__"] = str(source)
-    return payload
-
-
-def inspect_nwchem_run_status(
-    *,
-    output_path: str | None = None,
-    input_path: str | None = None,
-    error_path: str | None = None,
-    process_id: int | None = None,
-    profile: str | None = None,
-    job_id: str | None = None,
-    profiles_path: str | None = None,
-    progress_summary_fn: "Any" = None,
-) -> dict[str, Any]:
-    output_info = _file_info(output_path)
-    error_info = _file_info(error_path)
-    process_status = _process_status(process_id)
-    # Auto-detect job_id from .jobid file if not provided
-    jobid_stale_warning = None
-    if job_id is None:
-        _jf = _auto_jobid_path(output_path, input_path)
-        if _jf is not None:
-            try:
-                job_id = _jf.read_text(encoding="utf-8").strip() or None
-            except Exception:
-                pass
-    # Cross-check .jobid against .err file for stale job ID detection
-    if job_id:
-        _err_path = error_path
-        if not _err_path:
-            for p in (output_path, input_path):
-                if p:
-                    base = re.sub(r"\.(out|nw|log|nwout)$", "", str(Path(p).resolve()), flags=re.IGNORECASE)
-                    candidate = Path(base + ".err")
-                    if candidate.exists():
-                        _err_path = str(candidate)
-                        break
-        err_job_id = _extract_job_id_from_err(_err_path)
-        if err_job_id and err_job_id != job_id:
-            jobid_stale_warning = (
-                f"Stale .jobid detected: file says {job_id} but .err references job {err_job_id}. "
-                f"Using {err_job_id} from .err (more recent)."
-            )
-            job_id = err_job_id
-    scheduler_status = None
-    if profile and job_id:
-        scheduler_status = _scheduler_status(profile=profile, job_id=job_id, profiles_path=profiles_path)
-
-    input_raw_text: str | None = None
-    if input_path:
-        try:
-            input_raw_text = read_text(input_path)
-        except Exception:  # pragma: no cover
-            input_raw_text = None
-
-    input_summary = None
-    parsed_output = None
-    compact_summary = None
-    progress_summary = None
-    task_preview = None
-    if output_info["exists"]:
-        try:
-            contents = read_text(output_info["path"])
-            if detect_program(contents) == "nwchem":
-                # Lazy import — keeps core/runner.py free of static
-                # programs/* dependencies. The Phase 6c split moved the
-                # NWChem progress builder + slow-phase detector into
-                # programs/nwchem/strategy/progress.py.
-                from chemtools.programs.nwchem.strategy.progress import (
-                    load_input_summary,
-                    parse_progress_state,
-                    build_progress_summary,
-                    compact_program_summary,
-                )
-                if input_path:
-                    input_summary = load_input_summary(input_path, raw_text=input_raw_text)
-                parsed_output = parse_progress_state(contents, output_info["path"])
-                _build_progress = progress_summary_fn or build_progress_summary
-                progress_summary = _build_progress(
-                    contents,
-                    parsed_output,
-                    input_summary=input_summary,
-                )
-                compact_summary = compact_program_summary(
-                    parsed_output,
-                    progress_summary=progress_summary,
-                )
-                task_preview = parsed_output.get("generic_tasks", [])[:5]
-        except Exception as exc:  # pragma: no cover
-            parsed_output = {"error": str(exc), "incomplete": True}
-
-    overall_status = "unknown"
-    sched_status = (scheduler_status or {}).get("status")
-    if sched_status == "queued":
-        overall_status = "queued"
-    elif sched_status == "running" or process_status == "running":
-        overall_status = "running"
-    elif parsed_output and parsed_output.get("program_summary", {}).get("outcome") == "success":
-        overall_status = "completed_success"
-    elif parsed_output and parsed_output.get("program_summary", {}).get("outcome") == "failed":
-        overall_status = "completed_failed"
-    elif parsed_output and parsed_output.get("program_summary", {}).get("outcome") == "incomplete":
-        overall_status = "completed_incomplete"
-    elif sched_status == "failed":
-        overall_status = "completed_failed"
-    elif sched_status == "cancelled":
-        overall_status = "cancelled"
-    elif error_info["exists"] and error_info["size_bytes"] > 0:
-        overall_status = "error_only"
-    elif output_info["exists"]:
-        overall_status = "output_present_unknown"
-    else:
-        overall_status = "not_started"
-
-    result = {
-        "output_file": output_info,
-        "input_file": {"path": str(Path(input_path).resolve()) if input_path else None, "exists": bool(input_summary)},
-        "error_file": error_info,
-        "process": {
-            "process_id": process_id,
-            "status": process_status,
-        },
-        "scheduler": scheduler_status,
-        "output_summary": compact_summary,
-        "progress_summary": progress_summary,
-        "task_preview": task_preview,
-        "parsed_tasks": parsed_output if not compact_summary else None,
-        "overall_status": overall_status,
-    }
-    if jobid_stale_warning:
-        result["jobid_stale_warning"] = jobid_stale_warning
-    return result
-
-
-def watch_nwchem_run(
-    *,
-    output_path: str | None = None,
-    input_path: str | None = None,
-    error_path: str | None = None,
-    process_id: int | None = None,
-    profile: str | None = None,
-    job_id: str | None = None,
-    profiles_path: str | None = None,
-    poll_interval_seconds: float = 10.0,
-    adaptive_polling: bool = True,
-    max_poll_interval_seconds: float | None = 60.0,
-    timeout_seconds: float | None = 3600.0,
-    max_polls: int | None = None,
-    history_limit: int = 8,
-    stall_timeout_seconds: float | None = None,
-    progress_summary_fn: "Any" = None,
-) -> dict[str, Any]:
-    if poll_interval_seconds < 0:
-        raise ValueError("poll_interval_seconds must be non-negative")
-    if max_poll_interval_seconds is not None and max_poll_interval_seconds < 0:
-        raise ValueError("max_poll_interval_seconds must be non-negative when provided")
-    if timeout_seconds is not None and timeout_seconds < 0:
-        raise ValueError("timeout_seconds must be non-negative when provided")
-    if stall_timeout_seconds is not None and stall_timeout_seconds < 0:
-        raise ValueError("stall_timeout_seconds must be non-negative when provided")
-    if max_polls is not None and max_polls <= 0:
-        raise ValueError("max_polls must be positive when provided")
-    if history_limit <= 0:
-        raise ValueError("history_limit must be positive")
-
-    started = time.monotonic()
-    poll_count = 0
-    snapshots: list[dict[str, Any]] = []
-    final_status: dict[str, Any] | None = None
-    stop_reason = "unknown"
-    terminal = False
-    previous_signature: tuple[Any, ...] | None = None
-    stable_poll_count = 0
-    last_progress_time = started
-    last_sleep_seconds = 0.0
-
-    while True:
-        final_status = inspect_nwchem_run_status(
-            output_path=output_path,
-            input_path=input_path,
-            error_path=error_path,
-            process_id=process_id,
-            profile=profile,
-            job_id=job_id,
-            profiles_path=profiles_path,
-            progress_summary_fn=progress_summary_fn,
-        )
-        poll_count += 1
-        elapsed_seconds = time.monotonic() - started
-        snapshot = {
-            "poll": poll_count,
-            "elapsed_seconds": round(elapsed_seconds, 3),
-            "overall_status": final_status["overall_status"],
-            "current_phase": (final_status.get("output_summary") or {}).get("current_phase"),
-            "status_line": ((final_status.get("output_summary") or {}).get("status_line")
-                            or (final_status.get("progress_summary") or {}).get("status_line")),
-        }
-        signature = (
-            snapshot["overall_status"],
-            snapshot["current_phase"],
-            snapshot["status_line"],
-            ((final_status.get("process") or {}).get("status")),
-            (((final_status.get("output_file") or {}).get("size_bytes"))),
-        )
-        if not snapshots or snapshot != snapshots[-1]:
-            snapshots.append(snapshot)
-            if len(snapshots) > history_limit:
-                snapshots = snapshots[-history_limit:]
-
-        if previous_signature is None or signature != previous_signature:
-            stable_poll_count = 0
-            last_progress_time = time.monotonic()
-        else:
-            stable_poll_count += 1
-        previous_signature = signature
-
-        if _is_terminal_status(final_status):
-            terminal = True
-            stop_reason = "terminal_status"
-            break
-        if max_polls is not None and poll_count >= max_polls:
-            stop_reason = "max_polls_reached"
-            break
-        if timeout_seconds is not None and elapsed_seconds >= timeout_seconds:
-            stop_reason = "timeout_reached"
-            break
-        # Stall detection: the job is non-terminal (we passed the terminal check)
-        # but its output signature — including the output file size — has not
-        # changed for stall_timeout_seconds. That is the signature of a deadlocked
-        # SCF (100% CPU, no new lines) rather than a slow-but-progressing one.
-        if (
-            stall_timeout_seconds is not None
-            and (time.monotonic() - last_progress_time) >= stall_timeout_seconds
-        ):
-            stop_reason = "stalled_no_progress"
-            break
-        if poll_interval_seconds > 0:
-            last_sleep_seconds = _compute_watch_sleep_seconds(
-                base_interval_seconds=poll_interval_seconds,
-                stable_poll_count=stable_poll_count,
-                adaptive_polling=adaptive_polling,
-                max_poll_interval_seconds=max_poll_interval_seconds,
-            )
-            time.sleep(last_sleep_seconds)
-
-    assert final_status is not None
-    return {
-        "terminal": terminal,
-        "stop_reason": stop_reason,
-        "poll_count": poll_count,
-        "elapsed_seconds": round(time.monotonic() - started, 3),
-        "adaptive_polling": adaptive_polling,
-        "max_poll_interval_seconds": max_poll_interval_seconds,
-        "history_limit": history_limit,
-        "last_sleep_seconds": round(last_sleep_seconds, 3),
-        "final_status": final_status,
-        "history": snapshots,
-    }
-
-
-def tail_text_file(path: str, lines: int = 30, max_characters: int = 4000) -> dict[str, Any]:
-    file_path = Path(path).resolve()
-    if not file_path.is_file():
-        raise ValueError(f"file does not exist: {path}")
-    contents = file_path.read_text(encoding="utf-8", errors="replace")
-    all_lines = contents.splitlines()
-    excerpt_lines = all_lines[-lines:] if lines > 0 else all_lines
-    excerpt = "\n".join(excerpt_lines)
-    if len(excerpt) > max_characters:
-        excerpt = excerpt[-max_characters:]
-    last_nonempty_line = next((line for line in reversed(excerpt_lines) if line.strip()), None)
-    return {
-        "path": str(file_path),
-        "requested_lines": lines,
-        "returned_line_count": len(excerpt_lines),
-        "total_line_count": len(all_lines),
-        "tail_text": excerpt,
-        "last_nonempty_line": last_nonempty_line,
-    }
-
-
-def _resolve_profile(profiles: dict[str, Any], profile_name: str) -> dict[str, Any]:
-    defaults = deepcopy(profiles.get("defaults", {}))
-    profile = deepcopy((profiles.get("profiles") or {}).get(profile_name))
-    if not profile:
-        raise ValueError(f"unknown runner profile: {profile_name}")
-    return _deep_merge(defaults, profile)
-
-
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    merged = deepcopy(base)
-    for key, value in override.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = deepcopy(value)
-    return merged
-
-
-def _format_template(template: str | None, context: dict[str, Any]) -> str:
-    if template is None:
-        return ""
-    safe_context = {key: ("" if value is None else value) for key, value in context.items()}
-    return template.format_map(safe_context)
 
 
 def _render_environment(
@@ -840,301 +581,12 @@ def _render_submit_command(submit_command: str, submit_script_path: str) -> list
     return parts + [submit_script_path]
 
 
-def _auto_jobid_path(output_path: str | None, input_path: str | None) -> Path | None:
-    """Derive the .jobid file location from the output or input path."""
-    for p in (output_path, input_path):
-        if not p:
-            continue
-        base = re.sub(r"\.(out|nw|log|nwout|err)$", "", str(Path(p).resolve()), flags=re.IGNORECASE)
-        candidate = Path(base + ".jobid")
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _extract_job_id_from_err(error_path: str | None) -> str | None:
-    """Extract the most recent SLURM job ID from a .err file.
-
-    SLURM writes lines like:
-        slurmstepd: error: *** JOB 3031012 ON c511-043 CANCELLED ...
-    or general SLURM messages referencing the job ID.
-    """
-    if not error_path:
-        return None
-    try:
-        p = Path(error_path)
-        if not p.exists() or p.stat().st_size == 0:
-            return None
-        # Read last 4KB to find most recent job ID
-        text = p.read_text(encoding="utf-8", errors="replace")[-4096:]
-        matches = re.findall(r"JOB\s+(\d+)\s+ON", text)
-        if matches:
-            return matches[-1]  # most recent
-    except Exception:
-        pass
-    return None
-
-
-def _file_info(path: str | None) -> dict[str, Any]:
-    if not path:
-        return {
-            "path": None,
-            "exists": False,
-            "size_bytes": None,
-            "modified_utc": None,
-        }
-    file_path = Path(path).resolve()
-    if not file_path.exists():
-        return {
-            "path": str(file_path),
-            "exists": False,
-            "size_bytes": None,
-            "modified_utc": None,
-        }
-    stat = file_path.stat()
-    return {
-        "path": str(file_path),
-        "exists": True,
-        "size_bytes": stat.st_size,
-        "modified_utc": datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
-    }
-
-
-def _process_status(process_id: int | None) -> str:
-    if process_id is None:
-        return "unknown"
-    try:
-        waited_pid, _ = os.waitpid(process_id, os.WNOHANG)
-        if waited_pid == process_id:
-            return "exited"
-    except ChildProcessError:
-        pass
-    except OSError:  # pragma: no cover
-        pass
-    try:
-        os.kill(process_id, 0)
-    except ProcessLookupError:
-        return "not_found"
-    except PermissionError:
-        return "permission_denied"
-    try:
-        completed = subprocess.run(
-            ["ps", "-o", "stat=", "-p", str(process_id)],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10,
-        )
-        if completed.returncode == 0:
-            state = completed.stdout.strip()
-            if not state:
-                return "not_found"
-            if "Z" in state.upper():
-                return "zombie"
-    except Exception:  # pragma: no cover
-        pass
-    return "running"
-
-
-# Scheduler state → normalized status mappings
-_SLURM_STATE_MAP: dict[str, str] = {
-    "PENDING": "queued", "CONFIGURING": "queued", "SUSPENDED": "queued",
-    "RUNNING": "running", "COMPLETING": "running",
-    "COMPLETED": "completed",
-    "FAILED": "failed", "NODE_FAIL": "failed", "TIMEOUT": "failed",
-    "OUT_OF_MEMORY": "failed", "PREEMPTED": "failed", "REVOKED": "failed",
-    "DEADLINE": "failed", "BOOT_FAIL": "failed", "SPECIAL_EXIT": "failed",
-    "CANCELLED": "cancelled",
-}
-
-_PBS_STATE_MAP: dict[str, str] = {
-    "Q": "queued", "H": "queued", "W": "queued", "T": "queued", "S": "queued",
-    "R": "running", "E": "running",
-    "C": "completed", "F": "failed",
-}
-
-_LSF_STATE_MAP: dict[str, str] = {
-    "PEND": "queued", "PSUSP": "queued", "USUSP": "queued", "SSUSP": "queued",
-    "RUN": "running",
-    "DONE": "completed",
-    "EXIT": "failed", "ZOMBI": "failed",
-    "UNKWN": "unknown",
-}
-
-
-def _scheduler_status(profile: str, job_id: str, profiles_path: str | None) -> dict[str, Any]:
-    profiles = load_runner_profiles(profiles_path)
-    profile_payload = _resolve_profile(profiles, profile)
-    launcher = profile_payload.get("launcher", {})
-    scheduler = profile_payload.get("scheduler", {})
-    status_template = launcher.get("status_command")
-    scheduler_type = (scheduler.get("system") or launcher.get("scheduler_type", "slurm")).lower()
-
-    if not status_template:
-        return {
-            "job_id": job_id,
-            "status": "unsupported",
-            "scheduler_type": scheduler_type,
-            "command": None,
-            "return_code": None,
-            "raw_state": None,
-            "stdout": None,
-            "stderr": None,
-        }
-
-    command = shlex.split(_format_template(status_template, {"job_id": job_id}))
-    try:
-        completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
-    except Exception as exc:
-        return {
-            "job_id": job_id,
-            "status": "error",
-            "scheduler_type": scheduler_type,
-            "command": command,
-            "return_code": None,
-            "raw_state": None,
-            "error": str(exc),
-            "stdout": None,
-            "stderr": None,
-        }
-
-    stdout = completed.stdout.strip()
-    raw_state: str | None = None
-    normalized: str
-
-    if scheduler_type == "slurm":
-        # Works with "squeue -j {job_id} -h -o %T" (just the state word)
-        # or full squeue table — take last token of first non-header line
-        for line in stdout.splitlines():
-            line = line.strip()
-            if line and not line.upper().startswith("JOBID") and not line.startswith("-"):
-                raw_state = line.split()[-1].upper()
-                break
-        if raw_state:
-            normalized = _SLURM_STATE_MAP.get(raw_state, "unknown")
-        else:
-            # Empty squeue output = job aged out of queue (completed long ago)
-            normalized = "not_found"
-    elif scheduler_type == "pbs":
-        m = re.search(r"job_state\s*=\s*(\w+)", stdout, re.IGNORECASE)
-        if m:
-            raw_state = m.group(1).upper()
-            normalized = _PBS_STATE_MAP.get(raw_state, "unknown")
-        elif not stdout and completed.returncode != 0:
-            normalized = "not_found"
-        else:
-            normalized = "unknown"
-    elif scheduler_type == "lsf":
-        lines = [l for l in stdout.splitlines() if l.strip()]
-        if len(lines) >= 2:
-            header = lines[0].split()
-            data = lines[1].split()
-            if "STAT" in header and len(data) > header.index("STAT"):
-                raw_state = data[header.index("STAT")].upper()
-                normalized = _LSF_STATE_MAP.get(raw_state, "unknown")
-            else:
-                normalized = "unknown"
-        elif not stdout and completed.returncode != 0:
-            normalized = "not_found"
-        else:
-            normalized = "unknown"
-    else:
-        normalized = "running" if (completed.returncode == 0 and stdout) else "not_found"
-
-    return {
-        "job_id": job_id,
-        "status": normalized,
-        "scheduler_type": scheduler_type,
-        "raw_state": raw_state,
-        "command": command,
-        "return_code": completed.returncode,
-        "stdout": completed.stdout,
-        "stderr": completed.stderr,
-    }
-
-
-def cancel_scheduler_job(profile: str, job_id: str, profiles_path: str | None = None) -> dict[str, Any]:
-    """Send a cancel/delete command to the scheduler for the given job ID."""
-    profiles = load_runner_profiles(profiles_path)
-    profile_payload = _resolve_profile(profiles, profile)
-    launcher = profile_payload.get("launcher", {})
-    cancel_template = launcher.get("cancel_command")
-    if not cancel_template:
-        return {"job_id": job_id, "cancelled": False, "error": "no cancel_command configured in profile"}
-    command = shlex.split(_format_template(cancel_template, {"job_id": job_id}))
-    try:
-        completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
-        return {
-            "job_id": job_id,
-            "cancelled": completed.returncode == 0,
-            "command": command,
-            "return_code": completed.returncode,
-            "stdout": completed.stdout,
-            "stderr": completed.stderr,
-        }
-    except Exception as exc:
-        return {"job_id": job_id, "cancelled": False, "command": command, "error": str(exc)}
-
-
-def _is_terminal_status(status: dict[str, Any]) -> bool:
-    overall_status = status.get("overall_status")
-    if overall_status in {
-        "completed_success",
-        "completed_failed",
-        "completed_incomplete",
-        "cancelled",
-        "error_only",
-    }:
-        return True
-
-    scheduler = status.get("scheduler") or {}
-    sched_status = scheduler.get("status")
-    process = status.get("process") or {}
-    output_file = status.get("output_file") or {}
-
-    # HPC: scheduler reports a hard terminal state — job is done regardless of output
-    if sched_status in {"failed", "cancelled"}:
-        return True
-    # HPC: scheduler says completed (or aged out of squeue) and output file exists
-    if sched_status in {"completed", "not_found"} and output_file.get("exists"):
-        return True
-
-    if (
-        overall_status == "output_present_unknown"
-        and sched_status not in {"running", "queued"}
-        and process.get("status") not in {"running"}
-        and output_file.get("exists")
-    ):
-        return True
-    return False
-
-
-def _compute_watch_sleep_seconds(
-    *,
-    base_interval_seconds: float,
-    stable_poll_count: int,
-    adaptive_polling: bool,
-    max_poll_interval_seconds: float | None,
-) -> float:
-    if base_interval_seconds <= 0:
-        return 0.0
-    if not adaptive_polling:
-        return base_interval_seconds
-    multiplier = min(2 ** stable_poll_count, 8)
-    interval = base_interval_seconds * multiplier
-    if max_poll_interval_seconds is not None:
-        interval = min(interval, max_poll_interval_seconds)
-    return interval
-
-
 # ---------------------------------------------------------------------------
-# Program-neutral aliases
+# NWChem compatibility aliases
 # ---------------------------------------------------------------------------
-# These exist so future per-program runners can call `run_calculation` /
-# `watch_run` etc. without the leading "nwchem" in the name. The
-# NWChem-specific names stay for back-compat with existing call sites
-# (mcp/tools/nwchem.py, programs/nwchem/runner.py, etc.).
-run_calculation = run_nwchem
-render_calculation_run = render_nwchem_run
-inspect_run_status = inspect_nwchem_run_status
-watch_run = watch_nwchem_run
+# Public NWChem imports predate the multi-program runner. Keep them object
+# identical to the canonical functions during the compatibility window.
+run_nwchem = run_calculation
+render_nwchem_run = render_calculation_run
+inspect_nwchem_run_status = inspect_run_status
+watch_nwchem_run = watch_run

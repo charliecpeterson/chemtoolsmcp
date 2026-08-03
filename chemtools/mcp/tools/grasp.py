@@ -23,10 +23,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from chemtools.mcp.decorator import _tool
+from chemtools.application.grasp_execution import (
+    launch_grasp_workflow_with_service,
+    run_grasp_exe_with_service,
+    run_grasp_workflow_with_service,
+    terminate_grasp_with_service,
+)
+from chemtools.application.grasp_monitoring import (
+    inspect_grasp_status_with_service,
+    watch_grasp_status_with_service,
+)
+from chemtools.application.execution import LaunchStatusError
+from chemtools.mcp.decorator import _tool, get_execution_service
 
 from chemtools.programs.grasp.runtime import (
-    run_grasp_exe as _run_grasp_exe,
     container_available as _container_available,
     resolve_container as _resolve_container,
     append_session_note as _append_session_note,
@@ -49,6 +59,7 @@ from chemtools.programs.grasp.input.heredoc import (
     rbiotransform_input as _rbiotransform_input,
     rtransition_input as _rtransition_input,
 )
+from chemtools.programs.grasp.launch import GRASP_EXECUTABLES
 from chemtools.programs.grasp.parse.hfs import parse_hfs as _parse_hfs
 from chemtools.programs.grasp.parse.ris import parse_ris as _parse_ris
 from chemtools.programs.grasp.parse.transition import parse_transition as _parse_transition
@@ -60,13 +71,17 @@ from chemtools.programs.grasp.parse.rlevels import (
 from chemtools.programs.grasp.parse.lsjlbl import parse_lsjlbl as _parse_lsjlbl
 from chemtools.programs.grasp.parse.sum_file import parse_sum as _parse_sum
 from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log as _parse_rmcdhf_log
+from chemtools.programs.grasp.binary import (
+    inspect_grasp_mixing as _inspect_grasp_mixing,
+    inspect_grasp_radial_wfn as _inspect_grasp_radial_wfn,
+    merge_grasp_radial_wfns as _merge_grasp_radial_wfns,
+)
 from chemtools.programs.grasp.strategy.workflows import (
     plan_dhf_workflow as _plan_dhf_workflow,
     plan_nonrel_limit_workflow as _plan_nonrel_limit_workflow,
     plan_restart_from_workflow as _plan_restart_from_workflow,
     plan_hf_bootstrap_workflow as _plan_hf_bootstrap_workflow,
 )
-from chemtools.programs.grasp.strategy.runner import run_workflow as _run_workflow
 from chemtools.programs.grasp.docs import (
     list_docs as _list_grasp_docs,
     search_docs as _search_grasp_docs,
@@ -80,11 +95,27 @@ from chemtools.programs.grasp.strategy.diagnose import (
     suggest_grasp_recovery as _suggest_grasp_recovery,
 )
 from chemtools.programs.grasp.scheduler import (
-    launch_grasp_workflow_run as _launch_grasp_workflow_run,
-    get_grasp_run_status as _get_grasp_run_status,
     watch_grasp_run as _watch_grasp_run,
-    terminate_grasp_run as _terminate_grasp_run,
 )
+
+
+def _run_grasp_exe(exe: str, **kwargs: Any) -> dict[str, Any]:
+    return run_grasp_exe_with_service(
+        get_execution_service(),
+        exe,
+        **kwargs,
+    )
+
+
+def _run_workflow(
+    plan: dict[str, Any],
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return run_grasp_workflow_with_service(
+        get_execution_service(),
+        plan,
+        **kwargs,
+    )
 
 
 def grasp_tool_definitions() -> list[dict[str, Any]]:
@@ -441,6 +472,36 @@ def _handle_parse_rmcdhf_log(arguments: dict[str, Any]) -> dict[str, Any]:
     return _parse_rmcdhf_log(arguments["path"])
 
 
+@_tool("inspect_grasp_radial_wfn", program="grasp")
+def _handle_inspect_grasp_radial_wfn(
+    arguments: dict[str, Any],
+) -> dict[str, object]:
+    return _inspect_grasp_radial_wfn(arguments["path"])
+
+
+@_tool("inspect_grasp_mixing", program="grasp")
+def _handle_inspect_grasp_mixing(
+    arguments: dict[str, Any],
+) -> dict[str, object]:
+    return _inspect_grasp_mixing(
+        arguments["path"],
+        level_limit=arguments.get("level_limit", 256),
+        component_limit=arguments.get("component_limit", 5),
+        csf_path=arguments.get("csf_path"),
+    )
+
+
+@_tool("merge_grasp_radial_wfns", program="grasp")
+def _handle_merge_grasp_radial_wfns(
+    arguments: dict[str, Any],
+) -> dict[str, object]:
+    return _merge_grasp_radial_wfns(
+        arguments["donor_paths"],
+        arguments["output_path"],
+        overwrite=arguments.get("overwrite", False),
+    )
+
+
 # =============================================================================
 # Diagnosis / recovery tools (analysis-safe)
 # =============================================================================
@@ -562,7 +623,8 @@ def _handle_append_note(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("launch_grasp_workflow_run", needs="executable", program="grasp")
 def _handle_launch_grasp_workflow_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _launch_grasp_workflow_run(
+    return launch_grasp_workflow_with_service(
+        get_execution_service(),
         workflow_script_path=arguments["workflow_script_path"],
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path"),
@@ -576,7 +638,8 @@ def _handle_launch_grasp_workflow_run(arguments: dict[str, Any]) -> dict[str, An
 
 @_tool("get_grasp_run_status", needs="executable", program="grasp")
 def _handle_get_grasp_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _get_grasp_run_status(
+    return inspect_grasp_status_with_service(
+        get_execution_service(),
         output_path=arguments.get("output_file"),
         input_path=arguments.get("input_file"),
         error_path=arguments.get("error_file"),
@@ -589,31 +652,56 @@ def _handle_get_grasp_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("watch_grasp_run", needs="executable", program="grasp")
 def _handle_watch_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    process_id = arguments.get("process_id")
+    job_id = arguments.get("job_id")
+    profile = arguments.get("profile")
+    watch_arguments = {
+        "output_path": arguments.get("output_file"),
+        "input_path": arguments.get("input_file"),
+        "error_path": arguments.get("error_file"),
+        "profiles_path": arguments.get("profiles_path"),
+        "poll_interval_seconds": arguments.get(
+            "poll_interval_seconds",
+            10.0,
+        ),
+        "adaptive_polling": arguments.get("adaptive_polling", True),
+        "max_poll_interval_seconds": arguments.get(
+            "max_poll_interval_seconds",
+            60.0,
+        ),
+        "timeout_seconds": arguments.get("timeout_seconds", 3600.0),
+        "max_polls": arguments.get("max_polls"),
+        "history_limit": arguments.get("history_limit", 8),
+    }
+    result = None
+    if job_id is not None or process_id is not None:
+        try:
+            result = watch_grasp_status_with_service(
+                get_execution_service(),
+                process_id=process_id if job_id is None else None,
+                job_id=job_id,
+                profile=profile,
+                **watch_arguments,
+            )
+        except LaunchStatusError as exc:
+            if exc.as_dict()["error"] != "launch_not_owned":
+                raise
+    if result is not None:
+        return result
     return _watch_grasp_run(
-        output_path=arguments.get("output_file"),
-        input_path=arguments.get("input_file"),
-        error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
-        profiles_path=arguments.get("profiles_path"),
-        poll_interval_seconds=arguments.get("poll_interval_seconds", 10.0),
-        adaptive_polling=arguments.get("adaptive_polling", True),
-        max_poll_interval_seconds=arguments.get("max_poll_interval_seconds", 60.0),
-        timeout_seconds=arguments.get("timeout_seconds", 3600.0),
-        max_polls=arguments.get("max_polls"),
-        history_limit=arguments.get("history_limit", 8),
+        process_id=process_id,
+        profile=profile,
+        job_id=job_id,
+        **watch_arguments,
     )
 
 
 @_tool("terminate_grasp_run", needs="executable", program="grasp")
 def _handle_terminate_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    import os
-    profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
-    return _terminate_grasp_run(
+    return terminate_grasp_with_service(
+        get_execution_service(),
         job_id=arguments["job_id"],
         profile=arguments["profile"],
-        profiles_path=profiles_path,
     )
 
 
@@ -626,13 +714,17 @@ _DEFS: list[dict[str, Any]] = [
     {
         "name": "run_grasp_exe",
         "description": (
-            "Run any GRASP executable in the apptainer container. Generic "
-            "escape-hatch — prefer the typed run_grasp_<exe> tools when available."
+            "Run an allowlisted GRASP executable in the apptainer container. "
+            "Prefer the typed run_grasp_<exe> tools when available."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "exe": {"type": "string", "description": "Executable name (e.g. rmcdhf)"},
+                "exe": {
+                    "type": "string",
+                    "enum": sorted(GRASP_EXECUTABLES),
+                    "description": "Reviewed GRASP executable name.",
+                },
                 "working_dir": {"type": "string"},
                 "stdin_lines": {"type": ["string", "array"], "items": {"type": "string"}},
                 "args": {"type": "array", "items": {"type": "string"}},
@@ -1204,6 +1296,121 @@ _DEFS: list[dict[str, Any]] = [
             "required": ["path"],
         },
     },
+    {
+        "name": "inspect_grasp_radial_wfn",
+        "description": (
+            "Inspect a binary GRASP2018 .w, rwfn.inp, or rwfn.out file "
+            "without returning its radial arrays. Validates Fortran record "
+            "framing, the G92RWF header, every (n, kappa) identity, grid "
+            "length, finite value, and monotonic radial grid. Returns a "
+            "bounded orbital summary plus the file SHA-256."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to a GRASP2018 radial-wavefunction file.",
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "merge_grasp_radial_wfns",
+        "description": (
+            "Merge 2 to 16 validated GRASP2018 radial-wavefunction files. "
+            "For duplicate (n, kappa) orbitals, the earliest donor wins; "
+            "each later donor must add at least one orbital. Mixed byte "
+            "order is rejected. The output is written atomically and is "
+            "not replaced unless overwrite=true."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "donor_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 2,
+                    "maxItems": 16,
+                    "uniqueItems": True,
+                    "description": (
+                        "GRASP2018 radial-wavefunction files in precedence "
+                        "order."
+                    ),
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Destination for the merged file.",
+                },
+                "overwrite": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Replace an existing regular output file.",
+                },
+            },
+            "required": ["donor_paths", "output_path"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "inspect_grasp_mixing",
+        "description": (
+            "Inspect a binary GRASP2018 RMCDHF .m or RCI .cm mixing file. "
+            "Validates Fortran record framing, global and per-block counts, "
+            "J and parity codes, selected level indices, energies, every "
+            "CSF coefficient, and vector normalization. Returns "
+            "caller-bounded level and component summaries. With a "
+            "matching .c file, verifies its electron, orbital, block, CSF, "
+            "and symmetry counts, then resolves returned components to "
+            "configurations and coupling lines. Each returned level also "
+            "reports the coefficient weight included or omitted. The "
+            "filename suffix identifies only the expected producer; the "
+            "shared G92MIX "
+            "header does not encode it."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to a GRASP2018 .m or .cm file.",
+                },
+                "csf_path": {
+                    "type": "string",
+                    "description": (
+                        "Optional matching GRASP .c file. When supplied, "
+                        "validate its block ordering and resolve every "
+                        "returned component to its CSF."
+                    ),
+                },
+                "level_limit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2000,
+                    "default": 256,
+                    "description": (
+                        "Maximum per-level summaries to return across all "
+                        "blocks. Every level is still validated."
+                    ),
+                },
+                "component_limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 5,
+                    "description": (
+                        "Maximum leading CSF components returned per "
+                        "included level. Every coefficient is still "
+                        "validated."
+                    ),
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    },
     # ----- Diagnosis / recovery ---------------------------------------------
     {
         "name": "analyze_grasp_case",
@@ -1403,12 +1610,12 @@ _DEFS: list[dict[str, Any]] = [
     {
         "name": "launch_grasp_workflow_run",
         "description": (
-            "Submit a GRASP workflow shell script to the scheduler defined by a runner "
-            "profile. The script is the file the profile's script_template invokes via "
-            "`bash {input_file}` and typically chains rnucleus -> rcsfgenerate -> ... -> "
-            "rlevels in one apptainer-wrapped pass. Generate the script via "
-            "plan_grasp_dhf_workflow + the heredoc input builders before calling this. "
-            "Set dry_run=true to preview."
+            "Launch a GRASP shell workflow with a direct profile or submit it "
+            "through a Slurm profile. The configured target runs the ordered "
+            "rnucleus, rcsfgenerate, and later steps inside Apptainer and records "
+            "the exact workflow command, resources, and PID or job ID. Set "
+            "dry_run=true for the legacy read-only preview. PBS and LSF profiles "
+            "are not supported by the typed execution boundary."
         ),
         "inputSchema": {
             "type": "object",
@@ -1429,8 +1636,10 @@ _DEFS: list[dict[str, Any]] = [
     {
         "name": "get_grasp_run_status",
         "description": (
-            "Check the status of a GRASP run. For HPC jobs the scheduler job ID is "
-            "auto-detected from {job_name}.jobid alongside the workflow script."
+            "Check a GRASP workflow run. PIDs and Slurm job IDs owned by this "
+            "MCP use retained process handles or target-owned queue and "
+            "accounting queries. Unowned identifiers and auto-detected "
+            ".jobid files use the legacy status path."
         ),
         "inputSchema": {
             "type": "object",
@@ -1449,8 +1658,9 @@ _DEFS: list[dict[str, Any]] = [
     {
         "name": "watch_grasp_run",
         "description": (
-            "Poll GRASP status until terminal state or timeout. For HPC jobs omit "
-            "timeout_seconds to block until scheduler completion."
+            "Poll a GRASP workflow until terminal state or timeout. Owned PIDs "
+            "and Slurm job IDs use typed execution state; unowned identifiers "
+            "use the legacy watcher."
         ),
         "inputSchema": {
             "type": "object",
@@ -1475,8 +1685,8 @@ _DEFS: list[dict[str, Any]] = [
     {
         "name": "terminate_grasp_run",
         "description": (
-            "Cancel a running GRASP scheduler job. Provide job_id + profile "
-            "(profile resolves the scancel/qdel/bkill command)."
+            "Cancel a Slurm GRASP workflow launched by this MCP process. Provide "
+            "the recorded job_id and the same profile used for launch."
         ),
         "inputSchema": {
             "type": "object",

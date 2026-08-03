@@ -23,10 +23,16 @@ from typing import Any
 _ITER_RE = re.compile(r"^\s*Iteration number\s+(\d+)\s*$", re.M)
 _AVG_E_RE = re.compile(r"Average energy\s*=\s*(-?\d+\.\d+(?:[DdEe][+-]?\d+)?)\s+Hartrees")
 _FLOAT_RE = r"-?\d+\.\d+(?:[DdEe][+-]?\d+)?"
+CYCLE_LIMIT_MARKER = "Convergence not reached"
 
 # Convergence diagnostic patterns
 _MAX_CONV_RE = re.compile(r"maximum convergence parameter is\s*=?\s*(" + _FLOAT_RE + r")")
-_NOT_CONVERGED_RE = re.compile(r"SCF not converged|did NOT converge|NOT converged|orbitals diverging", re.I)
+_NOT_CONVERGED_RE = re.compile(
+    r"SCF not converged|did NOT converge|NOT converged|"
+    + re.escape(CYCLE_LIMIT_MARKER)
+    + r"|orbitals diverging",
+    re.I,
+)
 _CONVERGED_RE = re.compile(r"Convergence \(latest difference.*\) satisfied|RMCDHF: Execution complete", re.I)
 
 # Hard orbital-solver crash: the radial equation for a given orbital cannot be

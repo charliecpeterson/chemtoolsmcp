@@ -1,0 +1,27 @@
+schema_version: chemtools.knowledge-card/1
+id: qmcpack.variational_parameter_sidecar
+programs: [qmcpack]
+workflows: [jastrow_optimization]
+kind: provenance
+status: accepted
+confidence: high
+applies_when:
+  override_variational_parameters: present
+  sidecar_format: hdf5
+claim: >-
+  When an optimized QMCPACK XML file references a vp.h5 file through
+  override_variational_parameters, that HDF5 sidecar is authoritative. Inline
+  coefficient arrays in the XML can be stale display values and must not be
+  harvested as the optimized Jastrow.
+check:
+  tool: review_input
+  evidence: hdf5_sidecar_review
+  expected: present_and_valid
+failure:
+  severity: error
+  action: Carry the referenced vp.h5 sidecar or remove the override and re-optimize the Jastrow.
+sources:
+  - "notes/fblock/qe-qmcpack-oncvpsp.md#45-the-vph5-trap-this-one-is-vicious"
+tests:
+  - "tests/test_qmcpack_input.py::test_qmcpack_reviews_authoritative_variational_parameter_sidecars"
+  - "tests/test_qmcpack_input.py::test_qmcpack_rejects_missing_authoritative_variational_sidecar"

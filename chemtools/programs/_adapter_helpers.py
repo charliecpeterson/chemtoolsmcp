@@ -1,9 +1,9 @@
-"""Shared adapter helpers for Program plugin Parser implementations.
+"""Shared result-shaping helpers for program parser adapters.
 
 Every program's parse_tasks function returns a `generic_tasks` list with a
 common cross-program shape. This module turns that into the `TaskSummary`
 TypedDicts from `chemtools.core.types`, computes pre-derived scalars, and
-auto-picks a primary task. Per-program Parser plugins (`_plugin_parser.py`
+auto-picks a primary task. Per-program parser adapters (`_plugin_parser.py`
 in each program package) reuse these helpers.
 
 The generic_tasks shape is:
@@ -63,8 +63,7 @@ def to_task_summary(idx: int, generic: dict[str, Any], raw: dict[str, Any] | Non
     Line-range resolution order:
       1. generic.line_start / generic.line_end  (Molpro pattern)
       2. raw.boundary.line_start / .line_end    (future-proof)
-      3. raw.boundary.start_byte / .end_byte    (NWChem pattern — byte offsets used as placeholders)
-      4. (0, 0) fallback
+      3. (0, 0) fallback
     """
     raw = raw or {}
     kind = normalize_kind(generic.get("kind") or raw.get("kind"))
@@ -74,13 +73,13 @@ def to_task_summary(idx: int, generic: dict[str, Any], raw: dict[str, Any] | Non
     if outcome not in {"success", "failed", "incomplete", "unknown"}:
         outcome = "unknown"
 
-    # Line range — prefer 1-based line numbers from generic; fall back to byte boundaries.
+    # Byte offsets cannot satisfy the public 1-based line-range contract.
     line_start = generic.get("line_start")
     line_end = generic.get("line_end")
     if line_start is None or line_end is None:
         boundary = raw.get("boundary") or {}
-        line_start = boundary.get("line_start") or boundary.get("start_byte") or 0
-        line_end = boundary.get("line_end") or boundary.get("end_byte") or 0
+        line_start = boundary.get("line_start") or 0
+        line_end = boundary.get("line_end") or 0
 
     has_data = (
         generic.get("energy_hartree") is not None

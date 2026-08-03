@@ -1,0 +1,52 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "dirac.parse_scf_iterations",
+  "program": "dirac",
+  "fixture": "fixtures/dirac_scf.out",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "dirac.parse_scf_iterations",
+    "method": "tools/call",
+    "params": {
+      "name": "parse_dirac_scf_iterations",
+      "arguments": {
+        "output_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "n_iterations",
+    "iterations",
+    "final_energy_hartree"
+  ],
+  "expected_payload": {
+    "n_iterations": 3,
+    "iterations": [
+      {
+        "iter": 1,
+        "energy_hartree": -75.0,
+        "delta_e": 75.0,
+        "gradient_max": 0.0,
+        "step_size": 0.0,
+        "diis_n": null
+      },
+      {
+        "iter": 2,
+        "energy_hartree": -75.123456789,
+        "delta_e": -0.123,
+        "gradient_max": 0.00025,
+        "step_size": 0.00001,
+        "diis_n": 2
+      },
+      {
+        "iter": 3,
+        "energy_hartree": -75.12345679,
+        "delta_e": -1e-09,
+        "gradient_max": 1e-07,
+        "step_size": 5e-08,
+        "diis_n": 3
+      }
+    ],
+    "final_energy_hartree": -75.12345679
+  }
+}

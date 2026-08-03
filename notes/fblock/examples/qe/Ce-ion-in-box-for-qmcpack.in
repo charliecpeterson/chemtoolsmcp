@@ -8,7 +8,6 @@
   tot_charge = 3
   nspin = 2, starting_magnetization(1) = 0.1
   occupations = "smearing", smearing = "gaussian", degauss = 0.007
-  assume_isolated = "m-t"
   nbnd = 16
 /
 &ELECTRONS

@@ -1,14 +1,17 @@
 """GRASP Parser sub-protocol implementation.
 
-Adapts the file-specific GRASP parsers (rmcdhf .sum, .lsj.lbl, rmcdhf SCF
-log, rlevels output) into the chemtools Parser protocol so generic tools
+Adapts the file-specific GRASP parsers (RMCDHF/RCI summaries, properties,
+level tables, labels, and SCF logs) into the chemtools Parser protocol so generic tools
 like ``parse_output`` / ``summarize_output`` can route to them.
 
 Because GRASP doesn't have a single canonical "output" file, this parser
 dispatches by file extension:
 
-  *.sum           → rmcdhf summary (orbital list + final energy)
+  *.sum / *.csum  → RMCDHF or RCI summary (orbitals + final energy)
   *.lsj.lbl       → LSJ-coupled compositions
+  *.(c)h(lsj)     → hyperfine constants
+  *.(c)i          → isotope-shift factors
+  *.(c)t.lsj      → radiative-transition properties
   *.log           → if it contains "Iteration number" sections, treat as
                     rmcdhf SCF iteration trace; otherwise just the rmcdhf
                     input-log copy (no useful structured data)
@@ -23,6 +26,9 @@ from typing import Any
 
 from chemtools.core.types import ParsedRun, TaskSummary
 from chemtools.programs.grasp.parse.sum_file import parse_sum
+from chemtools.programs.grasp.parse.hfs import parse_hfs
+from chemtools.programs.grasp.parse.ris import parse_ris
+from chemtools.programs.grasp.parse.transition import parse_transition
 from chemtools.programs.grasp.parse.lsjlbl import parse_lsjlbl
 from chemtools.programs.grasp.parse.rlevels import parse_rlevels
 from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log
@@ -79,7 +85,7 @@ class _GraspParser:
         tasks = self._build_task_summaries(kind, parsed)
         derived: dict[str, Any] = {"grasp:file_kind": kind}
 
-        if kind == "rmcdhf_summary":
+        if kind in {"rmcdhf_summary", "rci_summary"}:
             if parsed.get("ground_energy_au") is not None:
                 derived["final_energy_hartree"] = parsed["ground_energy_au"]
             if parsed.get("speed_of_light_au") is not None:
@@ -91,6 +97,8 @@ class _GraspParser:
                 derived["grasp:n_subshells"] = parsed["n_subshells"]
             if parsed.get("subshells"):
                 derived["grasp:subshells"] = [s["label"] for s in parsed["subshells"]]
+            if kind == "rci_summary" and parsed.get("rci_corrections"):
+                derived["grasp:rci_corrections"] = parsed["rci_corrections"]
         elif kind == "rlevels":
             if parsed.get("ground_state_au") is not None:
                 derived["final_energy_hartree"] = parsed["ground_state_au"]
@@ -106,6 +114,27 @@ class _GraspParser:
                 derived["final_energy_hartree"] = parsed["final_energy_hartree"]
             derived["grasp:n_scf_iterations"] = parsed.get("n_iterations", 0)
             derived["grasp:scf_converged"] = parsed.get("converged", False)
+        elif kind == "hfs":
+            derived["grasp:n_hfs_levels"] = parsed.get("n_levels", 0)
+            for key in (
+                "nuclear_spin",
+                "dipole_moment_nm",
+                "quadrupole_moment_barn",
+            ):
+                if parsed.get(key) is not None:
+                    derived[f"grasp:{key}"] = parsed[key]
+        elif kind == "isotope_shift":
+            derived["grasp:n_isotope_shift_levels"] = parsed.get("n_levels", 0)
+        elif kind == "transition":
+            transitions = parsed.get("transitions", [])
+            derived["grasp:n_transitions"] = parsed.get("n_transitions", 0)
+            disagreements = [
+                item.get("length_gauge", {}).get("dt")
+                for item in transitions
+                if item.get("length_gauge", {}).get("dt") is not None
+            ]
+            if disagreements:
+                derived["grasp:max_gauge_disagreement"] = max(disagreements)
 
         return ParsedRun(
             program="grasp",
@@ -126,53 +155,97 @@ class _GraspParser:
         if kind == "rmcdhf_summary":
             return [TaskSummary(
                 index=0,
-                kind="scf",
+                kind="energy",
                 name="rmcdhf summary",
                 method="MCDHF",
                 basis=None,
                 energy_hartree=parsed.get("ground_energy_au"),
                 line_range=(1, 0),  # unknown
-                outcome="completed",
+                outcome="success",
+                has_usable_data=parsed.get("ground_energy_au") is not None,
+                selection_priority=1,
+            )]
+        if kind == "rci_summary":
+            return [TaskSummary(
+                index=0,
+                kind="energy",
+                name="rci summary",
+                method="RCI",
+                basis=None,
+                energy_hartree=parsed.get("ground_energy_au"),
+                line_range=(1, 0),
+                outcome="success",
                 has_usable_data=parsed.get("ground_energy_au") is not None,
                 selection_priority=1,
             )]
         if kind == "rlevels":
             return [TaskSummary(
                 index=0,
-                kind="other",
+                kind="energy",
                 name="rlevels energy table",
                 method="MCDHF",
                 basis=None,
                 energy_hartree=parsed.get("ground_state_au"),
                 line_range=(1, 0),
-                outcome="completed",
+                outcome="success",
                 has_usable_data=bool(parsed.get("levels")),
                 selection_priority=1,
             )]
         if kind == "lsj_label":
             return [TaskSummary(
                 index=0,
-                kind="other",
+                kind="property",
                 name="jj2lsj LSJ-coupled compositions",
                 method="MCDHF",
                 basis=None,
                 energy_hartree=None,
                 line_range=(1, 0),
-                outcome="completed",
+                outcome="success",
                 has_usable_data=bool(parsed.get("levels")),
                 selection_priority=0,
             )]
         if kind == "rmcdhf_log":
             return [TaskSummary(
                 index=0,
-                kind="scf",
+                kind="energy",
                 name="rmcdhf SCF trace",
                 method="MCDHF",
                 basis=None,
                 energy_hartree=parsed.get("final_energy_hartree"),
                 line_range=(1, 0),
-                outcome="completed" if parsed.get("converged") else "failed",
+                outcome="success" if parsed.get("converged") else "failed",
                 has_usable_data=bool(parsed.get("iterations")),
+                selection_priority=1,
+            )]
+        property_tasks = {
+            "hfs": (
+                "hyperfine structure",
+                "MCDHF/HFS",
+                bool(parsed.get("levels")),
+            ),
+            "isotope_shift": (
+                "isotope-shift factors",
+                "MCDHF/RIS",
+                bool(parsed.get("levels")),
+            ),
+            "transition": (
+                "radiative transitions",
+                "MCDHF/RTRANSITION",
+                bool(parsed.get("transitions")),
+            ),
+        }
+        if kind in property_tasks:
+            name, method, has_usable_data = property_tasks[kind]
+            return [TaskSummary(
+                index=0,
+                kind="property",
+                name=name,
+                method=method,
+                basis=None,
+                energy_hartree=None,
+                line_range=(1, 0),
+                outcome="success",
+                has_usable_data=has_usable_data,
                 selection_priority=1,
             )]
         return []
@@ -191,7 +264,8 @@ def _route(path: str, text: str) -> tuple[str, dict[str, Any]]:
     """Pick the right per-file-type parser based on extension + content.
 
     Returns ``(kind, parsed_dict)`` where ``kind`` is one of:
-      ``rmcdhf_summary``, ``lsj_label``, ``rlevels``, ``rmcdhf_log``.
+      ``rmcdhf_summary``, ``rci_summary``, ``hfs``, ``isotope_shift``,
+      ``transition``, ``lsj_label``, ``rlevels``, ``rmcdhf_log``.
     """
     p = Path(path)
     name = p.name
@@ -201,8 +275,25 @@ def _route(path: str, text: str) -> tuple[str, dict[str, Any]]:
     if name.endswith(".lsj.lbl"):
         return "lsj_label", parse_lsjlbl(text)
 
+    if suffix == ".csum":
+        return "rci_summary", parse_sum(text)
+
     if suffix == ".sum":
         return "rmcdhf_summary", parse_sum(text)
+
+    if "Nuclear spin" in text and (
+        "A(MHz)" in text or "A (MHz)" in text
+    ):
+        return "hfs", parse_hfs(text)
+
+    if (
+        "Normal mass shift parameter" in text
+        and "Specific mass shift parameter" in text
+    ):
+        return "isotope_shift", parse_ris(text)
+
+    if "ANGS(VAC)" in text and "AKI =" in text:
+        return "transition", parse_transition(text)
 
     # rlevels stdout typically captured as .out or piped through tee.
     # Detect by the table header.

@@ -30,37 +30,29 @@ from chemtools.mcp.decorator import (
     log_event,
     SERVER_NAME,
     SERVER_VERSION,
-    DEFAULT_PROTOCOL_VERSION,
 )
 from chemtools.mcp.server import (
+    ImageToolResult,
     make_response,
     make_success_result,
     make_error_result,
+    negotiate_protocol_version,
 )
 from chemtools.mcp import modes as _modes
-# Eager registration imports — ensure every program's @_tool decorators
-# have run before tool_definitions() is called.
-from chemtools.mcp.tools import generic as _generic_tools  # noqa: F401
-from chemtools.mcp.tools import nwchem as _nwchem_tools  # noqa: F401
-from chemtools.mcp.tools import molcas as _molcas_tools  # noqa: F401
-from chemtools.mcp.tools import dirac as _dirac_tools  # noqa: F401
-from chemtools.mcp.tools import grasp as _grasp_tools  # noqa: F401
+from chemtools.mcp.catalog import (
+    catalog_tool_definitions,
+    load_tool_modules,
+    register_builtin_backends,
+)
+
+# Dispatch composes backends and tools for callers that bypass the CLI.
+register_builtin_backends()
+load_tool_modules()
 
 
 def tool_definitions() -> list[dict[str, Any]]:
-    """Concatenate every program's tool-definition list + generics."""
-    from chemtools.mcp.tools.generic import generic_tool_definitions
-    from chemtools.mcp.tools.nwchem import _nwchem_tool_definitions
-    from chemtools.mcp.tools.molcas import molcas_tool_definitions
-    from chemtools.mcp.tools.dirac import dirac_tool_definitions
-    from chemtools.mcp.tools.grasp import grasp_tool_definitions
-    return (
-        generic_tool_definitions()
-        + _nwchem_tool_definitions()
-        + molcas_tool_definitions()
-        + dirac_tool_definitions()
-        + grasp_tool_definitions()
-    )
+    """Return generic and program tool definitions in catalog order."""
+    return catalog_tool_definitions()
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +100,10 @@ _TOOL_ALIASES: dict[str, tuple[str, Any]] = {
 }
 
 
-def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+def dispatch_tool(
+    name: str,
+    arguments: dict[str, Any],
+) -> dict[str, Any] | ImageToolResult:
     log_event(f"dispatch_tool start name={name}")
     alias = _TOOL_ALIASES.get(name)
     if alias:
@@ -140,12 +135,12 @@ def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool
         return None, True
     if method == "initialize":
         log_event("initialize requested")
-        requested_version = params.get("protocolVersion") or DEFAULT_PROTOCOL_VERSION
+        protocol_version = negotiate_protocol_version(params.get("protocolVersion"))
         return (
             make_response(
                 request_id,
                 {
-                    "protocolVersion": requested_version,
+                    "protocolVersion": protocol_version,
                     "capabilities": {"tools": {}},
                     "serverInfo": {
                         "name": SERVER_NAME,

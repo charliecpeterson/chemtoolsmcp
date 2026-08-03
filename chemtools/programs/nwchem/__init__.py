@@ -1,62 +1,38 @@
-"""NWChem program plugin.
-
-Assembled from submodules in `chemtools/programs/nwchem/{parse,binary,input,
-strategy,examples}/`. Importing this package registers the plugin with
-`chemtools.core.registry` so `registry.detect_from_file` and
-`registry.resolve` can find it.
-
-The sub-protocol attributes (`parser`, `drafter`, `strategist`, `binary`,
-`examples`) are initialized to `None` during the multi-program refactor and
-will be replaced with real implementations as code is moved into the
-submodules. Until then, callers that need NWChem functionality continue to
-import from the legacy flat modules (`chemtools.nwchem_tasks`, etc.).
-"""
+"""Validated NWChem backend declaration."""
 
 from __future__ import annotations
+
 import re
 
-from chemtools.core import registry
+from chemtools.core.program import (
+    ArtifactKindSpec,
+    ProgramBackend,
+    ProgramCapability,
+    validate_backend,
+)
+from chemtools.programs.nwchem._plugin_binary import NWCHEM_BINARY
+from chemtools.programs.nwchem._plugin_drafter import NWCHEM_DRAFTER
+from chemtools.programs.nwchem._plugin_examples import NWCHEM_EXAMPLES
+from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER
+from chemtools.programs.nwchem._plugin_strategist import NWCHEM_STRATEGIST
+from chemtools.programs.nwchem.consistency import NWCHEM_RUN_CONSISTENCY
 
 
-class _NwchemPlugin:
-    """Minimal NWChem plugin instance — to be filled in as the refactor lands."""
-
-    name: str = "nwchem"
-
-    file_extensions: dict[str, list[str]] = {
-        "input":         [".nw", ".nwi"],
-        "output":        [".out", ".nwo", ".log"],
-        "error":         [".err"],
-        "movecs":        [".movecs"],
-        "hessian":       [".hess"],
-        "freq_restart":  [".fdrst"],
-        "trajectory":    [".xyz"],
-        "jobid":         [".jobid"],
-        "scratch":       [".db", ".rmd"],
-        "normal_modes":  [".normal", ".nmode"],
-    }
-
-    # Sub-protocols — filled in as code moves into the submodules.
-    # (parser is assigned below, after the class is defined and after the
-    # parser module is imported, to avoid an import-cycle with parser code
-    # that may itself import this package.)
-    parser = None
-    drafter = None
-    strategist = None
-    binary = None
-    examples = None
-
-    _VERSION_RE = re.compile(r"NWChem(?:\s+version)?\s+(\d+\.\d+(?:\.\d+)?)", re.IGNORECASE)
+class _NwchemDetector:
+    _SHORT_BANNER_RE = re.compile(
+        r"^\s*NWChem\)?(?:\s+version)?\s+\d+\.\d+",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    _VERSION_RE = re.compile(
+        r"NWChem\)?(?:\s+version)?\s+(\d+\.\d+(?:\.\d+)?)",
+        re.IGNORECASE,
+    )
 
     def detect(self, output_head: str) -> bool:
         upper = output_head.upper()
         return (
             "NORTHWEST COMPUTATIONAL CHEMISTRY PACKAGE" in upper
-            or "NWCHEM" in upper
-            # Earliest reliable NWChem-specific signal — appears at the top of
-            # every output, before the banner. Useful when the head window
-            # doesn't reach the banner because the input echo is large.
-            or "ECHO OF INPUT DECK" in upper
+            or self._SHORT_BANNER_RE.search(output_head) is not None
         )
 
     def detect_version(self, output_head: str) -> str | None:
@@ -64,23 +40,73 @@ class _NwchemPlugin:
         return match.group(1) if match else None
 
 
-NWCHEM = _NwchemPlugin()
-
-# Wire up sub-protocols after the plugin instance exists. Imports are kept
-# inside this block so a consumer that touches `chemtools.programs.nwchem`
-# only pays for what it imports.
-from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER as _NWCHEM_PARSER  # noqa: E402
-from chemtools.programs.nwchem._plugin_strategist import NWCHEM_STRATEGIST as _NWCHEM_STRATEGIST  # noqa: E402
-from chemtools.programs.nwchem._plugin_drafter import NWCHEM_DRAFTER as _NWCHEM_DRAFTER  # noqa: E402
-from chemtools.programs.nwchem._plugin_examples import NWCHEM_EXAMPLES as _NWCHEM_EXAMPLES  # noqa: E402
-from chemtools.programs.nwchem._plugin_binary import NWCHEM_BINARY as _NWCHEM_BINARY  # noqa: E402
-NWCHEM.parser = _NWCHEM_PARSER
-NWCHEM.strategist = _NWCHEM_STRATEGIST
-NWCHEM.drafter = _NWCHEM_DRAFTER
-NWCHEM.examples = _NWCHEM_EXAMPLES
-NWCHEM.binary = _NWCHEM_BINARY
-
-registry.register(NWCHEM)
+NWCHEM = validate_backend(
+    ProgramBackend(
+        name="nwchem",
+        capabilities=frozenset(ProgramCapability),
+        artifact_kinds={
+            "nwchem.input": ArtifactKindSpec(
+                extensions=(".nw", ".nwi"),
+                default_roles=frozenset({"primary_input"}),
+                content_kind="text",
+            ),
+            "nwchem.output": ArtifactKindSpec(
+                extensions=(".out", ".nwo", ".log"),
+                default_roles=frozenset({"primary_output"}),
+                content_kind="text",
+            ),
+            "nwchem.error": ArtifactKindSpec(
+                extensions=(".err",),
+                default_roles=frozenset({"stderr"}),
+                content_kind="text",
+            ),
+            "nwchem.movecs": ArtifactKindSpec(
+                extensions=(".movecs",),
+                default_roles=frozenset({"checkpoint", "orbital"}),
+                content_kind="binary",
+            ),
+            "nwchem.hessian": ArtifactKindSpec(
+                extensions=(".hess",),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="text",
+            ),
+            "nwchem.freq_restart": ArtifactKindSpec(
+                extensions=(".fdrst",),
+                default_roles=frozenset({"checkpoint"}),
+                content_kind="unknown",
+            ),
+            "nwchem.trajectory": ArtifactKindSpec(
+                extensions=(".xyz",),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="text",
+            ),
+            "nwchem.jobid": ArtifactKindSpec(
+                extensions=(".jobid",),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="text",
+            ),
+            "nwchem.scratch": ArtifactKindSpec(
+                extensions=(".db", ".rmd"),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="binary",
+            ),
+            "nwchem.normal_modes": ArtifactKindSpec(
+                extensions=(".normal", ".nmode"),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="unknown",
+            ),
+        },
+        detector=_NwchemDetector(),
+        parser=NWCHEM_PARSER,
+        inputs=NWCHEM_DRAFTER,
+        binary=NWCHEM_BINARY,
+        diagnostics=NWCHEM_STRATEGIST,
+        resources=NWCHEM_STRATEGIST,
+        progress=NWCHEM_STRATEGIST,
+        consistency=NWCHEM_RUN_CONSISTENCY,
+        examples=NWCHEM_EXAMPLES,
+    )
+)
 
 
 __all__ = ["NWCHEM"]

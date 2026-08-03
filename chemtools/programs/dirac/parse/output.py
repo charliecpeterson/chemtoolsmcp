@@ -84,14 +84,17 @@ def looks_like_dirac(head: str) -> bool:
     plus the ``Release DIRAC`` and ``pam-dirac`` strings for back-compat
     with stdout-captured runs that strip the banner.
     """
-    return (
-        "DIRAC" in head
-        and (
-            "@@@@@" in head
-            or "DIRAC master" in head
-            or "Release DIRAC" in head
-            or "pam-dirac" in head
-        )
+    banner = re.search(
+        r"(?mi)^\s*(?:\*+\s*)?Release DIRAC(?:\d|\s+\d)",
+        head,
+    )
+    allocation = re.search(r"(?mi)^\s*DIRAC master\b", head)
+    launcher = re.search(r"(?mi)^\s*pam-dirac\b", head)
+    return "DIRAC" in head and (
+        "@@@@@" in head
+        or banner is not None
+        or allocation is not None
+        or launcher is not None
     )
 
 

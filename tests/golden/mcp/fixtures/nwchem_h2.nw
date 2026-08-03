@@ -1,0 +1,17 @@
+start chemtools_h2_review
+
+geometry units angstroms
+  H 0.0 0.0 0.0
+  H 0.0 0.0 0.74
+end
+
+basis
+  * library sto-3g
+end
+
+scf
+  singlet
+  thresh 1.0e-8
+end
+
+task scf energy

@@ -13,10 +13,15 @@ module just composes the orchestration logic.
 
 from __future__ import annotations
 from pathlib import Path
+import re
 from typing import Any
 
 from chemtools.core.common import read_text, make_metadata
-from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
+from chemtools.core.units import ANGSTROM_PER_BOHR
+from chemtools.programs.nwchem.parse.input import (
+    extract_nwchem_geometry_block,
+    inspect_nwchem_input,
+)
 from chemtools.programs.nwchem.input._utils import (
     _append_named_blocks_before_tasks,
     _build_cube_file_plan,
@@ -29,6 +34,13 @@ from chemtools.programs.nwchem.input._utils import (
 )
 
 
+_GEOMETRY_UNITS_RE = re.compile(
+    r"\bunits\s+(angstroms?|au|a\.u\.?|bohrs?)\b",
+    re.IGNORECASE,
+)
+_PYSCF_CUBE_MARGIN_BOHR = 3.0
+
+
 def draft_nwchem_cube_input(
     input_path: str,
     vectors_input: str,
@@ -38,6 +50,7 @@ def draft_nwchem_cube_input(
     orbital_requests: list[dict[str, Any]] | None = None,
     extent_angstrom: float = 6.0,
     grid_points: int = 120,
+    pyscf_compatible_grid_points: int | None = None,
     gaussian: bool = True,
     output_dir: str | None = None,
     base_name: str | None = None,
@@ -53,6 +66,12 @@ def draft_nwchem_cube_input(
     input_summary = inspect_nwchem_input(input_path)
     input_stem = Path(input_path).stem
     resolved_base_name = base_name or f"{input_stem}_cubes"
+    cube_grid = _pyscf_compatible_cube_grid(
+        input_path,
+        input_summary,
+        pyscf_compatible_grid_points,
+    )
+    limitxyz_lines = _pyscf_limitxyz_lines(cube_grid)
 
     dplot_blocks: list[str] = []
     cube_outputs: list[str] = []
@@ -70,6 +89,7 @@ def draft_nwchem_cube_input(
                 extent_angstrom=extent_angstrom,
                 grid_points=grid_points,
                 gaussian=gaussian,
+                limitxyz_lines=limitxyz_lines,
             )
         )
 
@@ -86,6 +106,7 @@ def draft_nwchem_cube_input(
                 extent_angstrom=extent_angstrom,
                 grid_points=grid_points,
                 gaussian=gaussian,
+                limitxyz_lines=limitxyz_lines,
             )
         )
 
@@ -104,10 +125,13 @@ def draft_nwchem_cube_input(
                 extent_angstrom=extent_angstrom,
                 grid_points=grid_points,
                 gaussian=gaussian,
+                limitxyz_lines=limitxyz_lines,
             )
         )
 
     contents = read_text(input_path)
+    if cube_grid is not None:
+        contents = _preserve_input_cartesian_frame(contents, input_path)
     cleaned = _remove_keyword_blocks(contents, {"dplot", "property", "driver"})
     cleaned = _append_named_blocks_before_tasks(cleaned, dplot_blocks)
     replaced_tasks = _replace_tasks_in_text(input_path, cleaned, ["task dplot"])
@@ -136,6 +160,7 @@ def draft_nwchem_cube_input(
         "orbital_spin": orbital_spin,
         "extent_angstrom": extent_angstrom,
         "grid_points": grid_points,
+        "cube_grid": cube_grid,
         "dplot_block_count": len(dplot_blocks),
         "dplot_blocks": dplot_blocks,
         "input_text": final_text,
@@ -154,6 +179,7 @@ def draft_nwchem_frontier_cube_input(
     include_density_modes: list[str] | None = None,
     extent_angstrom: float = 6.0,
     grid_points: int = 120,
+    pyscf_compatible_grid_points: int | None = None,
     gaussian: bool = True,
     output_dir: str | None = None,
     base_name: str | None = None,
@@ -219,6 +245,7 @@ def draft_nwchem_frontier_cube_input(
         density_modes=density_modes,
         extent_angstrom=extent_angstrom,
         grid_points=grid_points,
+        pyscf_compatible_grid_points=pyscf_compatible_grid_points,
         gaussian=gaussian,
         output_dir=output_dir,
         base_name=resolved_base_name,
@@ -233,6 +260,80 @@ def draft_nwchem_frontier_cube_input(
         }
     )
     return drafted
+
+
+def _pyscf_compatible_cube_grid(
+    input_path: str,
+    input_summary: dict[str, Any],
+    grid_points: int | None,
+) -> dict[str, Any] | None:
+    if grid_points is None:
+        return None
+    if isinstance(grid_points, bool) or not isinstance(grid_points, int) or not 20 <= grid_points <= 120:
+        raise ValueError("pyscf_compatible_grid_points must be an integer between 20 and 120")
+    if input_summary["geometry_block_count"] != 1:
+        raise ValueError(
+            "pyscf-compatible CUBE drafting requires exactly one Cartesian geometry block"
+        )
+    geometry = extract_nwchem_geometry_block(input_path)
+    units = _geometry_units(geometry["header_line"])
+    if units is None:
+        raise ValueError(
+            "pyscf-compatible CUBE drafting requires explicit geometry units"
+        )
+    coordinate_factor = 1.0 if units == "bohr" else 1.0 / ANGSTROM_PER_BOHR
+    coordinates_bohr = [
+        [atom[axis] * coordinate_factor for axis in ("x", "y", "z")]
+        for atom in geometry["atoms"]
+    ]
+    lower_bounds = [min(axis) - _PYSCF_CUBE_MARGIN_BOHR for axis in zip(*coordinates_bohr)]
+    upper_bounds = [max(axis) + _PYSCF_CUBE_MARGIN_BOHR for axis in zip(*coordinates_bohr)]
+    return {
+        "kind": "pyscf_compatible",
+        "source_geometry_units": units,
+        "coordinate_unit": "bohr",
+        "lower_bounds_bohr": lower_bounds,
+        "upper_bounds_bohr": upper_bounds,
+        "grid_points": [grid_points, grid_points, grid_points],
+        "nwchem_spacings": [grid_points - 1, grid_points - 1, grid_points - 1],
+        "pyscf_margin_bohr": _PYSCF_CUBE_MARGIN_BOHR,
+        "preserve_input_cartesian_frame": True,
+    }
+
+
+def _pyscf_limitxyz_lines(cube_grid: dict[str, Any] | None) -> list[str] | None:
+    if cube_grid is None:
+        return None
+    return [
+        "  limitxyz units bohr",
+        *[
+            f"   {lower:.12f}  {upper:.12f}  {spacings}"
+            for lower, upper, spacings in zip(
+                cube_grid["lower_bounds_bohr"],
+                cube_grid["upper_bounds_bohr"],
+                cube_grid["nwchem_spacings"],
+            )
+        ],
+    ]
+
+
+def _preserve_input_cartesian_frame(contents: str, input_path: str) -> str:
+    geometry = extract_nwchem_geometry_block(input_path)
+    header = geometry["header_line"].rstrip()
+    header_words = header.lower().split()
+    for control in ("nocenter", "noautosym", "noautoz"):
+        if control not in header_words:
+            header += f" {control}"
+    lines = contents.splitlines()
+    lines[geometry["start_line"]] = header
+    return "\n".join(lines) + ("\n" if contents.endswith("\n") else "")
+
+
+def _geometry_units(header_line: str) -> str | None:
+    match = _GEOMETRY_UNITS_RE.search(header_line)
+    if match is None:
+        return None
+    return "angstrom" if match.group(1).lower().startswith("angstrom") else "bohr"
 
 
 __all__ = ["draft_nwchem_cube_input", "draft_nwchem_frontier_cube_input"]

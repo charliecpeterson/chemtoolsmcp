@@ -8,6 +8,47 @@ from __future__ import annotations
 
 from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
 from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from chemtools.application.nwchem_pyscf import run_nwchem_pyscf_matched_reference
+from chemtools.mcp.decorator import get_execution_service
+
+
+@_tool("draft_nwchem_pyscf_reference")
+def _handle_draft_nwchem_pyscf_reference(arguments: dict[str, Any]) -> dict[str, Any]:
+    return draft_nwchem_pyscf_reference(
+        input_path=arguments["input_file"],
+        output_path=arguments.get("output_file"),
+        label=arguments.get("label"),
+        pyscf_method=arguments.get("pyscf_method"),
+        pyscf_xc=arguments.get("pyscf_xc"),
+        density_fit=arguments.get("density_fit"),
+        electron_total=arguments.get("electron_total"),
+    )
+
+
+@_tool("run_nwchem_pyscf_matched_reference", needs="executable")
+def _handle_run_nwchem_pyscf_matched_reference(
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    return run_nwchem_pyscf_matched_reference(
+        get_execution_service(),
+        input_path=arguments["input_file"],
+        output_path=arguments["output_file"],
+        working_directory=arguments["working_directory"],
+        pyscf_method=arguments["pyscf_method"],
+        pyscf_xc=arguments.get("pyscf_xc"),
+        density_fit=arguments["density_fit"],
+        electron_total=arguments["electron_total"],
+        reference_density_cube=arguments.get("reference_density_cube"),
+        density_cube_grid_points=arguments.get("density_cube_grid_points"),
+        label=arguments.get("label"),
+        max_cycles=arguments.get("max_cycles", 100),
+        convergence_tolerance=arguments.get("convergence_tolerance", 1e-9),
+        max_memory_mb=arguments.get("max_memory_mb", 2_048),
+        omp_threads=arguments.get("omp_threads", 1),
+        timeout_seconds=arguments.get("timeout_seconds", 120.0),
+        job_name=arguments.get("job_name", "nwchem_pyscf_match"),
+        dry_run=arguments.get("dry_run", False),
+    )
 
 
 @_tool("track_nwchem_spin_state")

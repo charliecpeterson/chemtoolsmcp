@@ -59,7 +59,6 @@ from chemtools import (  # noqa: E402
     inspect_input,
     inspect_runner_profiles,
     lint_nwchem_input,
-    launch_nwchem_run,
     parse_cube,
     parse_freq_progress,
     parse_mcscf_output,
@@ -96,7 +95,6 @@ from chemtools import (  # noqa: E402
     swap_nwchem_movecs,
     tail_nwchem_output,
     render_job_script,
-    terminate_nwchem_run,
     watch_nwchem_run,
     watch_multiple_nwchem_runs,
     init_session_log,
@@ -126,6 +124,7 @@ from chemtools import (  # noqa: E402
     suggest_hpc_resources,
     detect_hpc_accounts,
     suggest_partition,
+    draft_nwchem_pyscf_reference,
 )
 from chemtools.core.eval import evaluate_case, evaluate_cases  # noqa: E402
 from chemtools.programs.nwchem.docs import (  # noqa: E402
@@ -164,11 +163,6 @@ from chemtools.mcp.server import (  # noqa: E402
     make_error_result,
 )
 from chemtools.mcp import modes as _modes  # noqa: E402
-
-# Eagerly import Molcas + GRASP tool handlers so their @_tool decorators register
-# with _TOOL_REGISTRY before serve() starts dispatching.
-from chemtools.mcp.tools import molcas as _molcas_tools  # noqa: F401, E402
-from chemtools.mcp.tools import grasp as _grasp_tools  # noqa: F401, E402
 
 # Basis library: bundled inside the package at chemtools/data/nwchem/basis_library/
 # Can be overridden at runtime with CHEMTOOLS_BASIS_LIBRARY env var.
@@ -223,6 +217,44 @@ def _resolve_plugin_or_error(arguments: dict[str, Any]):
     try:
         plugin = _registry.resolve(program=program, path=output_file)
         return plugin, None
+    except _registry.ProgramDetectionAmbiguous as e:
+        return None, {
+            "error": "program_detection_ambiguous",
+            "message": str(e),
+            "candidates": list(e.candidates),
+        }
+    except _registry.ProgramContentMismatch as e:
+        return None, {
+            "error": "program_content_mismatch",
+            "message": str(e),
+            "program": e.program,
+            "detected_programs": list(e.candidates),
+        }
+    except _registry.ProgramDetectorError as e:
+        return None, {
+            "error": "program_detector_error",
+            "message": str(e),
+            "candidates": list(e.candidates),
+            "detector_failures": [
+                {
+                    "program": failure.program,
+                    "error_type": failure.error_type,
+                    "message": failure.message,
+                }
+                for failure in e.failures
+            ],
+        }
+    except _registry.ProgramDetectionSourceError as e:
+        return None, {
+            "error": "program_source_error",
+            "message": str(e),
+            "path": e.path,
+            "source_failure": {
+                "error_type": e.failure.error_type,
+                "message": e.failure.message,
+                "errno": e.failure.errno,
+            },
+        }
     except _registry.ProgramDetectionFailed as e:
         return None, {
             "error": "program_detection_failed",
@@ -269,4 +301,3 @@ def _dispatch_to_per_program_tool(
     if isinstance(result, dict):
         return {"program": plugin.name, **result}
     return {"program": plugin.name, "result": result}
-

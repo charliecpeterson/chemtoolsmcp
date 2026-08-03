@@ -1,0 +1,94 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "qe.review_scf",
+  "program": "qe",
+  "fixture": "fixtures/qe_si_scf.in",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "qe.review_scf",
+    "method": "tools/call",
+    "params": {
+      "name": "review_input",
+      "arguments": {
+        "input_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "schema_version",
+    "program",
+    "source",
+    "assessment",
+    "evidence",
+    "uncertainty",
+    "next_actions"
+  ],
+  "expected_payload": {
+    "schema_version": "chemtools.review-input/1",
+    "program": {
+      "name": "qe",
+      "resolved_by": "content"
+    },
+    "assessment": {
+      "verdict": {
+        "label": "checks_passed",
+        "confidence": 0.8,
+        "reasons": [
+          "The configured linter found no errors or warnings."
+        ]
+      }
+    },
+    "evidence": {
+      "artifact_classification": {
+        "status": "matched",
+        "candidates": [
+          {
+            "kind": "qe.input",
+            "roles": [
+              "primary_input"
+            ]
+          }
+        ]
+      },
+      "parser": {
+        "status": "completed",
+        "result": {
+          "format": "qe-pw-input/1",
+          "calculation": "scf",
+          "system": {
+            "ibrav": 2,
+            "nat": 2,
+            "ntyp": 1,
+            "ecutwfc_ry": 18.0
+          },
+          "k_points": {
+            "option": "automatic",
+            "grid": [4, 4, 4],
+            "shift": [1, 1, 1]
+          },
+          "pseudopotential_review": {
+            "status": "parsed",
+            "resolution": {
+              "basis": "input_directory_assumption"
+            },
+            "cutoff_review": {
+              "wavefunction_status": "meets_suggestion",
+              "density_status": "meets_suggestion",
+              "convergence_established": false
+            }
+          }
+        }
+      },
+      "lint": {
+        "status": "completed",
+        "summary": {
+          "errors": 0,
+          "warnings": 0,
+          "info": 0
+        }
+      }
+    },
+    "uncertainty": [],
+    "next_actions": []
+  }
+}

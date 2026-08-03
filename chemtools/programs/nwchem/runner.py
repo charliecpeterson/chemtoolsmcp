@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import math
 import os
+import shlex
 import signal
 from pathlib import Path
 from typing import Any
@@ -41,12 +42,12 @@ from chemtools.programs.nwchem.strategy.diagnose import (
 )
 from chemtools.core.runner import (
     cancel_scheduler_job,
+    inspect_run_status,
     load_runner_profiles,
-    render_nwchem_run,
-    run_nwchem,
-    inspect_nwchem_run_status,
+    render_calculation_run,
+    run_calculation,
     tail_text_file,
-    watch_nwchem_run as watch_nwchem_run_payload,
+    watch_run as watch_run_payload,
 )
 from chemtools.programs.nwchem.parse.freq import parse_trajectory
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII
@@ -73,8 +74,22 @@ def inspect_runner_profiles(profiles_path: str | None = None) -> dict[str, Any]:
                     (profile.get("scheduler") or {}).get("system")
                     or (profile.get("launcher") or {}).get("scheduler_type")
                 ),
-                "nwchem_executable": (profile.get("execution") or {}).get("nwchem_executable"),
-                "mpi_launch": (profile.get("execution") or {}).get("mpi_launch"),
+                "nwchem_executable": (
+                    shlex.join(
+                        ((profile.get("programs") or {}).get("nwchem") or {})
+                        .get("executable_argv") or ()
+                    )
+                    or (profile.get("execution") or {}).get(
+                        "nwchem_executable"
+                    )
+                ),
+                "mpi_launch": (
+                    shlex.join(
+                        ((profile.get("programs") or {}).get("nwchem") or {})
+                        .get("launcher_argv") or ()
+                    )
+                    or (profile.get("execution") or {}).get("mpi_launch")
+                ),
                 "resources": {
                     k: v for k, v in (profile.get("resources") or {}).items()
                     if k in {"nodes", "mpi_ranks", "omp_threads", "walltime", "partition", "account", "account_command", "node_memory_mb", "max_walltime", "cores_per_node", "max_nodes", "cpu_arch"}
@@ -147,7 +162,7 @@ def launch_nwchem_run(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     if dry_run:
-        result = render_nwchem_run(
+        result = render_calculation_run(
             input_path=input_path,
             profile=profile,
             profiles_path=profiles_path,
@@ -160,7 +175,7 @@ def launch_nwchem_run(
         if warnings:
             result["resource_warnings"] = warnings
         return result
-    result = run_nwchem(
+    result = run_calculation(
         input_path=input_path,
         profile=profile,
         profiles_path=profiles_path,
@@ -205,7 +220,7 @@ def check_nwchem_run_status(
     job_id: str | None = None,
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
-    return inspect_nwchem_run_status(
+    return inspect_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
@@ -386,7 +401,7 @@ def watch_nwchem_run(
     history_limit: int = 8,
     stall_timeout_seconds: float | None = 1800.0,
 ) -> dict[str, Any]:
-    watched = watch_nwchem_run_payload(
+    watched = watch_run_payload(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
@@ -420,6 +435,7 @@ def watch_nwchem_run(
         "stop_reason": watched["stop_reason"],
         "poll_count": watched["poll_count"],
         "elapsed_seconds": watched["elapsed_seconds"],
+        "overall_status": watched["final_status"]["overall_status"],
         "adaptive_polling": watched["adaptive_polling"],
         "max_poll_interval_seconds": watched["max_poll_interval_seconds"],
         "history_limit": watched["history_limit"],

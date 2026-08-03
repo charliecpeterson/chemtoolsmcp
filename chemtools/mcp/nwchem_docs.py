@@ -26,11 +26,14 @@ from chemtools.programs.nwchem.docs import (  # noqa: E402
     read_doc_excerpt,
     search_docs,
 )
+from chemtools.mcp.server import (  # noqa: E402
+    DEFAULT_PROTOCOL_VERSION,
+    negotiate_protocol_version,
+)
 
 
 SERVER_NAME = "nwchem-docs-mcp"
 SERVER_VERSION = "0.2.0"
-DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 LOG_PATH = os.environ.get("NWCHEM_DOCS_MCP_LOG")
 
 
@@ -170,11 +173,14 @@ def handle_request(message: dict[str, Any]) -> tuple[dict[str, Any] | None, bool
     log_event(f"handle_request method={method} id={request_id}")
 
     if method == "initialize":
+        params = message.get("params") or {}
         return (
             make_response(
                 request_id,
                 {
-                    "protocolVersion": DEFAULT_PROTOCOL_VERSION,
+                    "protocolVersion": negotiate_protocol_version(
+                        params.get("protocolVersion")
+                    ),
                     "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
                     "capabilities": {"tools": {}},
                 },

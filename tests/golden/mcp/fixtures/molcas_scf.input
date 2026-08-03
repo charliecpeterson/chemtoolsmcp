@@ -1,0 +1,14 @@
+&GATEWAY
+Coord
+h2.xyz
+Basis
+ANO-S-VDZP
+End of input
+
+&SEWARD
+End of input
+
+&SCF
+Charge
+0
+End of input

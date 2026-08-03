@@ -5,9 +5,9 @@ Modes:
   local    — NWChem runs as a foreground subprocess via a "direct" runner profile.
   hpc      — NWChem submitted to a scheduler via a "scheduler" runner profile.
 
-Each registered tool carries a capability tag (set via the ``needs=`` kwarg on
-``@_tool`` in ``chemtools/mcp/nwchem.py``). The active mode defines which tags
-are exposed at ``tools/list`` time; blocked tools are also refused at
+Each registered tool carries a capability tag set through the ``needs=`` kwarg
+on ``@_tool`` in the MCP tool modules. The active mode defines which tags are
+exposed at ``tools/list`` time; blocked tools are also refused at
 ``tools/call`` time with an explanatory error.
 """
 from __future__ import annotations
@@ -16,6 +16,8 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Iterable
+
+from chemtools.mcp.catalog import builtin_program_names
 
 VALID_MODES = ("analysis", "local", "hpc")
 
@@ -31,9 +33,8 @@ MODE_CAPABILITIES: dict[str, frozenset[str]] = {
     }),
 }
 
-# Known program tags. "generic" is treated specially — generic tools are
-# always visible regardless of the --programs filter.
-KNOWN_PROGRAMS = ("nwchem", "molcas", "dirac", "grasp")
+# "generic" is treated specially and is not a program backend.
+KNOWN_PROGRAMS = builtin_program_names()
 
 # Env var that selects mode explicitly (overrides auto-detect).
 MODE_ENV = "CHEMTOOLS_MODE"
@@ -49,6 +50,11 @@ TOOLSET_ENV = "CHEMTOOLS_TOOLSET"
 # a batch, diagnose a file, and follow up, without the full draft/registry/HPC
 # surface a small model would otherwise have to choose from.
 TOOLSETS: dict[str, frozenset[str]] = {
+    "guided": frozenset({
+        "review_input",
+        "inspect_run",
+        "search_knowledge_cards",
+    }),
     "triage": frozenset({
         "summarize_nwchem_outputs",          # batch triage entry point
         "analyze_nwchem_case",               # deep single-file diagnosis

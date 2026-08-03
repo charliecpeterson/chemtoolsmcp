@@ -455,6 +455,12 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                     "orbital_spin": {"type": "string", "default": "total"},
                     "extent_angstrom": {"type": "number", "default": 6.0},
                     "grid_points": {"type": "integer", "default": 120},
+                    "pyscf_compatible_grid_points": {
+                        "type": "integer",
+                        "minimum": 20,
+                        "maximum": 120,
+                        "description": "Derive a PySCF-compatible limitxyz grid from one explicit-unit Cartesian geometry. Overrides the symmetric extent_angstrom/grid_points box.",
+                    },
                     "gaussian": {"type": "boolean", "default": True},
                     "output_dir": {"type": "string"},
                     "base_name": {"type": "string"},
@@ -480,6 +486,12 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                     "include_density_modes": {"type": "array", "items": {"type": "string"}},
                     "extent_angstrom": {"type": "number", "default": 6.0},
                     "grid_points": {"type": "integer", "default": 120},
+                    "pyscf_compatible_grid_points": {
+                        "type": "integer",
+                        "minimum": 20,
+                        "maximum": 120,
+                        "description": "Derive a PySCF-compatible limitxyz grid from one explicit-unit Cartesian geometry. Overrides the symmetric extent_angstrom/grid_points box.",
+                    },
                     "gaussian": {"type": "boolean", "default": True},
                     "output_dir": {"type": "string"},
                     "base_name": {"type": "string"},
@@ -996,6 +1008,154 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         # ------------------------------------------------------------------
         # Case analysis and recovery
         # ------------------------------------------------------------------
+        {
+            "name": "draft_nwchem_pyscf_reference",
+            "description": (
+                "Extract defensible NWChem input/output evidence into a draft "
+                "reference for compare_pyscf_reference_calculation. It never "
+                "guesses the PySCF SCF flavour, density fitting, or electron "
+                "count: declare those fields explicitly and inspect "
+                "missing_required_fields before comparing."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {
+                        "type": "string",
+                        "description": "Path to the NWChem input file.",
+                    },
+                    "output_file": {
+                        "type": "string",
+                        "description": "Optional completed NWChem output for SCF outcome and final energy evidence.",
+                    },
+                    "label": {"type": "string"},
+                    "pyscf_method": {
+                        "type": "string",
+                        "enum": ["rhf", "uhf", "rks", "uks"],
+                        "description": "Caller-declared PySCF method corresponding to the NWChem calculation.",
+                    },
+                    "pyscf_xc": {
+                        "type": ["string", "null"],
+                        "description": "Caller-declared PySCF XC functional. Required for RKS and UKS; null for RHF and UHF. The NWChem xc line is retained separately as evidence.",
+                    },
+                    "density_fit": {
+                        "type": "boolean",
+                        "description": "Caller-declared PySCF density_fit setting.",
+                    },
+                    "electron_total": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Caller-declared effective electron count. Required because ECPs and center charges can change it.",
+                    },
+                },
+                "required": ["input_file"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "run_nwchem_pyscf_matched_reference",
+            "description": (
+                "Run one bounded PySCF single point from a completed NWChem "
+                "input/output pair, then return the strict evidence-only "
+                "comparison report. The PySCF method, functional for DFT, "
+                "density fitting, and effective electron count are explicit "
+                "caller declarations. The tool refuses to start PySCF when "
+                "the NWChem reference is incomplete."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_file": {"type": "string"},
+                    "output_file": {"type": "string"},
+                    "working_directory": {
+                        "type": "string",
+                        "description": "Existing local directory for PySCF temporary files.",
+                    },
+                    "label": {"type": "string"},
+                    "pyscf_method": {
+                        "type": "string",
+                        "enum": ["rhf", "uhf", "rks", "uks"],
+                    },
+                    "pyscf_xc": {
+                        "type": ["string", "null"],
+                        "description": "Required caller-declared PySCF functional for RKS and UKS; null for RHF and UHF.",
+                    },
+                    "density_fit": {"type": "boolean"},
+                    "electron_total": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Caller-declared effective electron count.",
+                    },
+                    "reference_density_cube": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "minLength": 1},
+                            "density_value_unit": {
+                                "type": "string",
+                                "enum": [
+                                    "electron_per_bohr3",
+                                    "electron_per_angstrom3",
+                                ],
+                            },
+                        },
+                        "required": ["path", "density_value_unit"],
+                        "additionalProperties": False,
+                        "description": "Caller-declared NWChem total-density CUBE. Requires density_cube_grid_points.",
+                    },
+                    "density_cube_grid_points": {
+                        "type": "integer",
+                        "minimum": 20,
+                        "maximum": 120,
+                        "description": "PySCF total-density CUBE grid size. Requires reference_density_cube.",
+                    },
+                    "max_cycles": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                        "default": 100,
+                    },
+                    "convergence_tolerance": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 0.0001,
+                        "default": 1e-9,
+                    },
+                    "max_memory_mb": {
+                        "type": "integer",
+                        "minimum": 64,
+                        "maximum": 262144,
+                        "default": 2048,
+                    },
+                    "omp_threads": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 128,
+                        "default": 1,
+                    },
+                    "timeout_seconds": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 3600,
+                        "default": 120,
+                    },
+                    "job_name": {"type": "string", "default": "nwchem_pyscf_match"},
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Render the PySCF launch after validating NWChem evidence, without running it.",
+                    },
+                },
+                "required": [
+                    "input_file",
+                    "output_file",
+                    "working_directory",
+                    "pyscf_method",
+                    "density_fit",
+                    "electron_total",
+                ],
+                "additionalProperties": False,
+            },
+        },
         {
             "name": "analyze_nwchem_case",
             "description": "One-shot NWChem case analysis: diagnosis, input lint, restart assets, spin-state review, and next-step planning. Automatically reads the .err file (same basename) for crash classification. Use detail='compact' for the agent-facing triage payload, 'full' for the human-readable summary.",

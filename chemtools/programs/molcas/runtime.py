@@ -6,7 +6,7 @@ classes of issue this module guards against:
   * Some Molcas builds segfault in CASPT2's distributed-amplitude code path
     when run with ``-np > 1`` (Global Arrays / ARMCI binding mismatch with
     the host MPI). The runner profile carries
-    ``execution.parallel_caspt2_supported`` (default True); when False and
+    ``programs.molcas.parallel_caspt2_supported`` (default True); when False and
     the input contains ``&CASPT2``, the launcher forces ``MOLCAS_NPROCS=1``
     and emits a warning.
 
@@ -43,6 +43,12 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from chemtools.execution.legacy_profiles import (
+    declared_program_installation,
+    expanded_profile_path,
+    program_settings,
+)
+
 
 _CASPT2_HEADER_RE = re.compile(r"^\s*&CASPT2\b", re.M | re.I)
 
@@ -50,6 +56,27 @@ _CASPT2_HEADER_RE = re.compile(r"^\s*&CASPT2\b", re.M | re.I)
 def detect_caspt2(input_text: str) -> bool:
     """True if the input has an &CASPT2 module block."""
     return bool(_CASPT2_HEADER_RE.search(input_text))
+
+
+def _resolve_parallelism(
+    *,
+    has_caspt2: bool,
+    parallel_caspt2_supported: bool,
+    requested_np: int,
+) -> tuple[int, tuple[str, ...]]:
+    if (
+        has_caspt2
+        and not parallel_caspt2_supported
+        and requested_np > 1
+    ):
+        return 1, (
+            "Input contains &CASPT2 and profile sets "
+            "parallel_caspt2_supported=False; forcing -np 1 "
+            f"(requested {requested_np}). Set "
+            "parallel_caspt2_supported=True in the runner profile once "
+            "your Molcas build is known to handle parallel CASPT2.",
+        )
+    return requested_np, ()
 
 
 def prepare_launch(
@@ -69,10 +96,11 @@ def prepare_launch(
         Path to the Molcas input file (.input).
     profile
         Optional runner-profile dict. The fields consulted:
-          * ``execution.parallel_caspt2_supported`` (bool, default True)
-          * ``execution.apptainer_sif`` (str, optional — path to a .sif image)
-          * ``execution.pymolcas_command`` (str, default "pymolcas")
+          * ``programs.molcas.parallel_caspt2_supported`` (bool, default True)
+          * ``programs.molcas.launcher_argv`` (array, optional)
+          * ``programs.molcas.executable_argv`` (array, required in the block)
           * ``execution.env`` (dict, optional — extra env vars)
+        Previous execution field locations remain compatibility inputs.
     requested_np
         MPI rank count the caller asked for (positive int). May be lowered
         to 1 if the input contains &CASPT2 and the profile disables parallel
@@ -95,29 +123,40 @@ def prepare_launch(
 
     profile = profile or {}
     exec_cfg = (profile.get("execution") or {}) if isinstance(profile, dict) else {}
-    parallel_caspt2_supported = bool(exec_cfg.get("parallel_caspt2_supported", True))
-
-    warnings: list[str] = []
-    effective_np = requested_np
-    if has_caspt2 and not parallel_caspt2_supported and requested_np > 1:
-        warnings.append(
-            f"Input contains &CASPT2 and profile sets parallel_caspt2_supported=False; "
-            f"forcing -np 1 (requested {requested_np}). Set parallel_caspt2_supported=True "
-            "in the runner profile once your Molcas build is known to handle parallel CASPT2."
+    molcas_cfg = program_settings(profile, "molcas")
+    parallel_caspt2_supported = bool(
+        molcas_cfg.get(
+            "parallel_caspt2_supported",
+            exec_cfg.get("parallel_caspt2_supported", True),
         )
-        effective_np = 1
+    )
+
+    effective_np, warning_values = _resolve_parallelism(
+        has_caspt2=has_caspt2,
+        parallel_caspt2_supported=parallel_caspt2_supported,
+        requested_np=requested_np,
+    )
+    warnings = list(warning_values)
 
     project = job_name or input_path.stem
+    declared = declared_program_installation(profile, "molcas")
     pymolcas_cmd = exec_cfg.get("pymolcas_command", "pymolcas")
     # Container resolution: explicit arg > profile > env var.
     # Mirrors the GRASP pattern (CHEMTOOLS_GRASP_CONTAINER).
-    sif = (
-        apptainer_sif
-        or exec_cfg.get("apptainer_sif")
-        or os.environ.get("CHEMTOOLS_MOLCAS_CONTAINER")
-    )
+    if apptainer_sif is not None:
+        sif = str(apptainer_sif)
+    elif declared is not None:
+        sif = None
+    else:
+        sif = (
+            exec_cfg.get("apptainer_sif")
+            or os.environ.get("CHEMTOOLS_MOLCAS_CONTAINER")
+        )
     if sif:
-        sif = os.path.expanduser(sif)
+        sif = expanded_profile_path(
+            str(sif),
+            field_name="Molcas container path",
+        )
 
     env: dict[str, str] = {
         "MOLCAS_PROJECT": project,
@@ -133,11 +172,26 @@ def prepare_launch(
     # Build the launch command. Two shapes:
     #   * Native:        pymolcas -np N <input>
     #   * Containerized: apptainer exec <sif> pymolcas -np N <input>
-    inner_cmd = [pymolcas_cmd, "-np", str(effective_np), str(input_path)]
+    executable = (
+        list(declared.executable_argv)
+        if declared is not None
+        else [pymolcas_cmd]
+    )
+    inner_cmd = [*executable, "-np", str(effective_np), str(input_path)]
     if sif:
         command = ["apptainer", "exec", str(sif), *inner_cmd]
+    elif declared is not None:
+        command = [*declared.launcher_argv, *inner_cmd]
     else:
         command = inner_cmd
+
+    if (
+        sif is None
+        and declared is not None
+        and len(declared.launcher_argv) == 3
+        and declared.launcher_argv[:2] == ("apptainer", "exec")
+    ):
+        sif = declared.launcher_argv[2]
 
     return {
         "command": command,

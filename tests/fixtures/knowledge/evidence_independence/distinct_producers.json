@@ -1,0 +1,109 @@
+{
+  "schema": "chemtools.run-artifacts/1",
+  "run": {"run_uid": "run-distinct-producers"},
+  "artifacts": [
+    {
+      "artifact_id": "artifact-relativistic-ordering",
+      "roles": ["auxiliary_output"],
+      "kind": "grasp.ordering",
+      "producing_step": null,
+      "metadata": {}
+    },
+    {
+      "artifact_id": "artifact-nonrelativistic-ordering",
+      "roles": ["auxiliary_output"],
+      "kind": "atsp2k.ordering",
+      "producing_step": null,
+      "metadata": {}
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "observation-relativistic-ordering",
+      "artifact_id": "artifact-relativistic-ordering",
+      "observed_at": "2026-07-31T12:00:00+00:00",
+      "location": {
+        "path": "/reference/grasp/ordering.txt",
+        "entry_type": "file",
+        "root_name": null,
+        "relative_path": null
+      },
+      "exists": true,
+      "size_bytes": null,
+      "modified_ns": null,
+      "sha256": null,
+      "hash_status": "not_requested",
+      "directory_manifest_schema": null,
+      "directory_manifest_sha256": null
+    },
+    {
+      "observation_id": "observation-nonrelativistic-ordering",
+      "artifact_id": "artifact-nonrelativistic-ordering",
+      "observed_at": "2026-07-31T12:00:00+00:00",
+      "location": {
+        "path": "/reference/atsp2k/ordering.txt",
+        "entry_type": "file",
+        "root_name": null,
+        "relative_path": null
+      },
+      "exists": true,
+      "size_bytes": null,
+      "modified_ns": null,
+      "sha256": null,
+      "hash_status": "not_requested",
+      "directory_manifest_schema": null,
+      "directory_manifest_sha256": null
+    }
+  ],
+  "expectations": [],
+  "provenance": [
+    {
+      "event_id": "event-grasp-ordering",
+      "event_type": "measured",
+      "occurred_at": "2026-07-31T12:00:00+00:00",
+      "actor": {
+        "producer_type": "program",
+        "name": "grasp",
+        "version": "2018",
+        "commit": null
+      },
+      "run_uid": "run-distinct-producers",
+      "step_id": "grasp-ordering",
+      "inputs": [],
+      "outputs": [
+        {
+          "artifact_id": "artifact-relativistic-ordering",
+          "observation_id": "observation-relativistic-ordering"
+        }
+      ],
+      "evidence": "recorded",
+      "parameters": {
+        "starting_guess_class": "thomas_fermi"
+      }
+    },
+    {
+      "event_id": "event-atsp2k-ordering",
+      "event_type": "measured",
+      "occurred_at": "2026-07-31T12:00:00+00:00",
+      "actor": {
+        "producer_type": "program",
+        "name": "atsp2k",
+        "version": "modified-2026-06",
+        "commit": null
+      },
+      "run_uid": "run-distinct-producers",
+      "step_id": "atsp2k-ordering",
+      "inputs": [],
+      "outputs": [
+        {
+          "artifact_id": "artifact-nonrelativistic-ordering",
+          "observation_id": "observation-nonrelativistic-ordering"
+        }
+      ],
+      "evidence": "recorded",
+      "parameters": {
+        "starting_guess_class": "nonrelativistic_hartree_fock"
+      }
+    }
+  ]
+}

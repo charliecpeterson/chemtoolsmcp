@@ -1,0 +1,29 @@
+schema_version: chemtools.knowledge-card/1
+id: qmcpack.determinant_only_vmc_offsets
+programs: [qmcpack]
+workflows: [qe_to_qmcpack]
+kind: validation
+status: accepted
+confidence: high
+applies_when:
+  wavefunction: determinant_only
+  compared_states: multiple
+  trial_scf_energies: matched
+claim: >-
+  Determinant-only VMC should be compared with matched trial-SCF energies
+  across two or more states before Jastrow optimization. A small positive,
+  state-ordered VMC-minus-trial offset is the expected reference pattern;
+  negative or state-scrambled offsets require investigation of the
+  Hamiltonian, pseudopotential card, or orbital mapping.
+check:
+  tool: inspect_qmcpack_determinant_vmc_offsets
+  expected:
+    all_vmc_minus_trial_offsets_positive: true
+    offset_trend_in_supplied_state_order: strictly_decreasing
+failure:
+  severity: error
+  action: Do not optimize the Jastrow or compare production energies until the mismatch is explained.
+sources:
+  - "notes/fblock/qe-qmcpack-oncvpsp.md#43-the-trial-wavefunction-and-the-qmc-hamiltonian-must-share-conventions"
+tests:
+  - "tests/test_qmcpack_scalar.py::test_determinant_only_vmc_offsets_preserve_positive_state_ordered_evidence"

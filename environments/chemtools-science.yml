@@ -1,0 +1,12 @@
+# Optional companion runtime for fixed Chemtools science operations.
+# Keep Chemtools MCP itself outside this environment.
+name: chemtools-science
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pyscf
+  - rdkit
+  - openbabel
+  - h5py
+  - pip

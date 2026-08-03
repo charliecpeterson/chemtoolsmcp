@@ -1,31 +1,17 @@
-"""Plugin protocol for per-program implementations.
+"""Program provider protocols and capability-backed backend declarations.
 
-A `Program` is a plugin instance assembled in `chemtools/programs/<name>/__init__.py`.
-It bundles sub-protocols that match the planned directory layout:
-
-    programs/<name>/parse.py       -> Parser
-    programs/<name>/binary.py      -> BinaryReader  (optional)
-    programs/<name>/input.py       -> Drafter
-    programs/<name>/strategy.py    -> Strategist
-    programs/<name>/examples.py    -> ExamplesCorpus (optional)
-
-Each sub-protocol is `@runtime_checkable`, so the MCP layer can do
-`isinstance(plugin.parser, Parser)` capability checks before registering tools.
-
-A program does not have to implement every method on every sub-protocol —
-unsupported methods raise `NotImplementedError` and the MCP wrapper turns that
-into a clean "not supported for this program" tool error.
-
-Registration: `chemtools/programs/<name>/__init__.py` calls
-    chemtools.core.registry.register(PLUGIN)
-on import. The CLI entry point (`chemtools-<name>`) imports the program module,
-triggering registration, then registers MCP tools that dispatch through the
-registry.
+`ProgramBackend` is the current built-in contract. The broader `Program`
+protocol remains temporarily for Python compatibility while callers move from
+provider presence to operation-level capability checks.
 """
 
 from __future__ import annotations
-from typing import Protocol, runtime_checkable, Any
+from dataclasses import dataclass
+from enum import Enum
+import re
+from typing import Any, Literal, Mapping, Protocol, runtime_checkable
 
+from chemtools.core.artifacts import ArtifactRole
 from chemtools.core.types import (
     ParsedRun,
     TaskSummary,
@@ -159,6 +145,14 @@ class Drafter(Protocol):
         ...
 
 
+@runtime_checkable
+class PathInputReviewer(Protocol):
+    """Optional path-aware extension for checks that inspect related files."""
+
+    def lint_input_file(self, path: str) -> list[LintIssue]:
+        ...
+
+
 # ============================================================
 # Strategist — diagnosis, recovery, resource recommendations
 # ============================================================
@@ -232,12 +226,12 @@ class ExamplesCorpus(Protocol):
 
 
 # ============================================================
-# Program — the plugin instance that bundles the sub-protocols
+# Legacy Program protocol
 # ============================================================
 
 @runtime_checkable
 class Program(Protocol):
-    """A program plugin instance.
+    """Compatibility shape used before `ProgramBackend`.
 
     Required attributes/methods:
         name                — short identifier, e.g. "nwchem"
@@ -252,9 +246,8 @@ class Program(Protocol):
         binary              — Fortran-unformatted / scratch readers
         examples            — bundled example input corpus
 
-    Programs are registered with the global registry in
-    `chemtools/programs/<name>/__init__.py` so importing the program module
-    is the only side effect needed to make it discoverable.
+    New built-ins use `ProgramBackend`. Keep this protocol until legacy Python
+    callers no longer require `drafter`, `strategist`, or `file_extensions`.
     """
 
     name: str
@@ -275,11 +268,282 @@ class Program(Protocol):
         ...
 
 
+class ProgramCapability(str, Enum):
+    OUTPUT_PARSE = "output.parse"
+    OUTPUT_TASK_INDEX = "output.task_index"
+    OUTPUT_GEOMETRY = "output.geometry"
+    OUTPUT_ORBITALS = "output.orbitals"
+    OUTPUT_FREQUENCIES = "output.frequencies"
+    OUTPUT_TRAJECTORY = "output.trajectory"
+    OUTPUT_THERMOCHEMISTRY = "output.thermochemistry"
+    INPUT_PARSE = "input.parse"
+    INPUT_DRAFT = "input.draft"
+    INPUT_LINT = "input.lint"
+    INPUT_PATCH = "input.patch"
+    BINARY_READ = "binary.read"
+    BINARY_WRITE = "binary.write"
+    DIAGNOSIS_RUN = "diagnosis.run"
+    DIAGNOSIS_RECOVERY = "diagnosis.recovery"
+    RESOURCES_ESTIMATE = "resources.estimate"
+    PROGRESS_INSPECT = "progress.inspect"
+    RUN_CONSISTENCY = "run.consistency"
+    EXAMPLES_READ = "examples.read"
+
+
+@runtime_checkable
+class ProgramDetector(Protocol):
+    def detect(self, output_head: str) -> bool:
+        ...
+
+    def detect_version(self, output_head: str) -> str | None:
+        ...
+
+
+@runtime_checkable
+class DiagnosticAdapter(Protocol):
+    def diagnose(self, parsed: ParsedRun) -> Diagnosis:
+        ...
+
+    def suggest_recovery(
+        self, parsed: ParsedRun, diagnosis: Diagnosis
+    ) -> list[NextAction]:
+        ...
+
+
+@runtime_checkable
+class ResourceAdvisor(Protocol):
+    def suggest_resources(
+        self, input_path: str, profile: dict[str, Any]
+    ) -> dict[str, Any]:
+        ...
+
+
+@runtime_checkable
+class ProgressAdapter(Protocol):
+    def progress_summary(self, output_path: str) -> dict[str, Any]:
+        ...
+
+
+@runtime_checkable
+class RunConsistencyAdapter(Protocol):
+    def compare_input_output(
+        self,
+        input_path: str,
+        output_path: str,
+        parsed_input: Mapping[str, Any],
+        parsed_output: Mapping[str, Any],
+        artifact_paths: tuple[str, ...],
+    ) -> Mapping[str, Any]:
+        ...
+
+
+@dataclass(frozen=True)
+class ArtifactKindSpec:
+    extensions: tuple[str, ...] = ()
+    filenames: tuple[str, ...] = ()
+    default_roles: frozenset[ArtifactRole] = frozenset()
+    content_kind: Literal["text", "binary", "unknown"] = "unknown"
+
+    def __post_init__(self) -> None:
+        if self.content_kind not in {"text", "binary", "unknown"}:
+            raise ValueError(
+                "content_kind must be 'text', 'binary', or 'unknown'"
+            )
+        object.__setattr__(
+            self,
+            "default_roles",
+            frozenset(ArtifactRole(role) for role in self.default_roles),
+        )
+
+
+class UnsupportedCapabilityError(LookupError):
+    def __init__(
+        self,
+        program: str,
+        capability: ProgramCapability,
+        available_capabilities: frozenset[ProgramCapability],
+    ) -> None:
+        self.program = program
+        self.capability = capability
+        self.available_capabilities = tuple(
+            sorted(item.value for item in available_capabilities)
+        )
+        super().__init__(
+            f"{program!r} does not support {capability.value!r}; "
+            f"available capabilities: {list(self.available_capabilities)}"
+        )
+
+
+class InvalidProgramBackend(ValueError):
+    """Raised when a backend declaration contradicts its providers."""
+
+
+@dataclass(frozen=True)
+class ProgramBackend:
+    name: str
+    capabilities: frozenset[ProgramCapability]
+    artifact_kinds: Mapping[str, ArtifactKindSpec]
+    detector: ProgramDetector
+    parser: Parser | None = None
+    inputs: Drafter | None = None
+    binary: BinaryReader | None = None
+    diagnostics: DiagnosticAdapter | None = None
+    resources: ResourceAdvisor | None = None
+    progress: ProgressAdapter | None = None
+    consistency: RunConsistencyAdapter | None = None
+    examples: ExamplesCorpus | None = None
+
+    def supports(self, capability: ProgramCapability) -> bool:
+        return capability in self.capabilities
+
+    @property
+    def file_extensions(self) -> dict[str, list[str]]:
+        return {
+            kind.removeprefix(f"{self.name}."): [
+                *spec.extensions,
+                *spec.filenames,
+            ]
+            for kind, spec in self.artifact_kinds.items()
+        }
+
+    @property
+    def drafter(self) -> Drafter | None:
+        return self.inputs
+
+    @property
+    def strategist(self) -> Strategist | None:
+        if (
+            self.diagnostics is not None
+            and self.diagnostics is self.resources
+            and self.diagnostics is self.progress
+        ):
+            return self.diagnostics
+        return None
+
+    def detect(self, output_head: str) -> bool:
+        return self.detector.detect(output_head)
+
+    def detect_version(self, output_head: str) -> str | None:
+        return self.detector.detect_version(output_head)
+
+    def require(self, capability: ProgramCapability) -> ProgramBackend:
+        if not self.supports(capability):
+            raise UnsupportedCapabilityError(
+                self.name, capability, self.capabilities
+            )
+        return self
+
+
+_CAPABILITY_REQUIREMENTS: dict[
+    ProgramCapability, tuple[tuple[str, str], ...]
+] = {
+    ProgramCapability.OUTPUT_PARSE: (("parser", "parse_output"),),
+    ProgramCapability.OUTPUT_TASK_INDEX: (("parser", "task_index"),),
+    ProgramCapability.OUTPUT_GEOMETRY: (("parser", "get_geometry"),),
+    ProgramCapability.OUTPUT_ORBITALS: (("parser", "get_orbitals"),),
+    ProgramCapability.OUTPUT_FREQUENCIES: (("parser", "get_frequency"),),
+    ProgramCapability.OUTPUT_TRAJECTORY: (("parser", "get_trajectory"),),
+    ProgramCapability.OUTPUT_THERMOCHEMISTRY: (("parser", "get_thermochem"),),
+    ProgramCapability.INPUT_PARSE: (("parser", "parse_input"),),
+    ProgramCapability.INPUT_DRAFT: (("inputs", "draft_input"),),
+    ProgramCapability.INPUT_LINT: (("inputs", "lint_input"),),
+    ProgramCapability.INPUT_PATCH: (("inputs", "patch_input"),),
+    ProgramCapability.BINARY_READ: (
+        ("binary", "supported_kinds"),
+        ("binary", "parse"),
+    ),
+    ProgramCapability.BINARY_WRITE: (("binary", "write"),),
+    ProgramCapability.DIAGNOSIS_RUN: (("diagnostics", "diagnose"),),
+    ProgramCapability.DIAGNOSIS_RECOVERY: (
+        ("diagnostics", "suggest_recovery"),
+    ),
+    ProgramCapability.RESOURCES_ESTIMATE: (
+        ("resources", "suggest_resources"),
+    ),
+    ProgramCapability.PROGRESS_INSPECT: (
+        ("progress", "progress_summary"),
+    ),
+    ProgramCapability.RUN_CONSISTENCY: (
+        ("consistency", "compare_input_output"),
+    ),
+    ProgramCapability.EXAMPLES_READ: (
+        ("examples", "list_examples"),
+        ("examples", "read_example"),
+    ),
+}
+
+
+def validate_backend(backend: ProgramBackend) -> ProgramBackend:
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", backend.name):
+        raise InvalidProgramBackend(
+            f"invalid backend name {backend.name!r}; expected lowercase identifier"
+        )
+
+    for detector_method in ("detect", "detect_version"):
+        if not callable(getattr(backend.detector, detector_method, None)):
+            raise InvalidProgramBackend(
+                f"backend {backend.name!r} detector.{detector_method} is unavailable"
+            )
+
+    if not backend.artifact_kinds:
+        raise InvalidProgramBackend(
+            f"backend {backend.name!r} must declare at least one artifact kind"
+        )
+    for kind, spec in backend.artifact_kinds.items():
+        if not kind.startswith(f"{backend.name}."):
+            raise InvalidProgramBackend(
+                f"artifact kind {kind!r} must start with {backend.name + '.'!r}"
+            )
+        if not isinstance(spec, ArtifactKindSpec):
+            raise InvalidProgramBackend(
+                f"artifact kind {kind!r} must use ArtifactKindSpec"
+            )
+        if not spec.extensions and not spec.filenames:
+            raise InvalidProgramBackend(
+                f"artifact kind {kind!r} has no accepted extension or filename"
+            )
+        if any(not extension.startswith(".") for extension in spec.extensions):
+            raise InvalidProgramBackend(
+                f"artifact kind {kind!r} contains an invalid extension"
+            )
+        if not spec.default_roles or any(not role for role in spec.default_roles):
+            raise InvalidProgramBackend(
+                f"artifact kind {kind!r} must declare non-empty default roles"
+            )
+
+    for capability in backend.capabilities:
+        if not isinstance(capability, ProgramCapability):
+            raise InvalidProgramBackend(
+                f"backend {backend.name!r} has an unknown capability {capability!r}"
+            )
+        for provider_name, method_name in _CAPABILITY_REQUIREMENTS[capability]:
+            provider = getattr(backend, provider_name)
+            if not callable(getattr(provider, method_name, None)):
+                raise InvalidProgramBackend(
+                    f"backend {backend.name!r} declares {capability.value!r} "
+                    f"but {provider_name}.{method_name} is unavailable"
+                )
+
+    return backend
+
+
 __all__ = [
     "Parser",
     "BinaryReader",
     "Drafter",
+    "PathInputReviewer",
     "Strategist",
     "ExamplesCorpus",
     "Program",
+    "ProgramCapability",
+    "ProgramDetector",
+    "DiagnosticAdapter",
+    "ResourceAdvisor",
+    "ProgressAdapter",
+    "RunConsistencyAdapter",
+    "ArtifactKindSpec",
+    "UnsupportedCapabilityError",
+    "InvalidProgramBackend",
+    "ProgramBackend",
+    "validate_backend",
 ]

@@ -1,0 +1,25 @@
+schema_version: chemtools.knowledge-card/1
+id: qmcpack.jastrow_vmc_energy_gate
+programs: [qmcpack]
+workflows: [jastrow_optimization]
+kind: validation
+status: accepted
+confidence: high
+applies_when:
+  wavefunction: optimized_jastrow
+  trial_scf_energy: matched
+claim: >-
+  For the heavy open-f-ion workflow, the retained VMC LocalEnergy mean after
+  Jastrow optimization must not exceed the matched trial-SCF energy. A higher
+  VMC energy means the optimization did not provide an acceptable trial state
+  for the subsequent DMC calculation.
+check:
+  tool: check_qmcpack_vmc_energy_gate
+  criterion: VMC LocalEnergy <= trial SCF energy
+failure:
+  severity: error
+  action: Re-optimize or replace the Jastrow seed before starting DMC.
+sources:
+  - "notes/fblock/qe-qmcpack-oncvpsp.md#44-jastrow-optimization-on-hostile-landscapes"
+tests:
+  - "tests/test_qmcpack_scalar.py::test_check_vmc_energy_gate_compares_matching_hartree_energies"

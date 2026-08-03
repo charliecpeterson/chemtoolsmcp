@@ -19,7 +19,9 @@ profiles:
     description: "Direct local execution on a workstation (single process)."
     launcher:
       kind: "direct"
-      command: "nwchem"
+    programs:
+      nwchem:
+        executable_argv: ["nwchem"]
     execution:
       command_template: "{launcher} {input_file} > {output_file} 2> {error_file}"
       working_directory: "{job_dir}"
@@ -45,7 +47,10 @@ profiles:
     description: "Local MPI launch via mpirun. Set mpi_ranks to the number of cores."
     launcher:
       kind: "direct"
-      command: "mpirun -np {mpi_ranks} nwchem"
+    programs:
+      nwchem:
+        launcher_argv: ["mpirun", "-np", "{mpi_ranks}"]
+        executable_argv: ["nwchem"]
     execution:
       command_template: "{launcher} {input_file} > {output_file} 2> {error_file}"
       working_directory: "{job_dir}"
@@ -85,8 +90,7 @@ profiles:
   #   {partition}          from resources.partition
   #   {account}            from resources.account
   #   {account_line}       "#SBATCH -A <account>" or "" if account is null
-  #   {nwchem_executable}  from execution.nwchem_executable
-  #   {mpi_launch}         from execution.mpi_launch (e.g. "ibrun" or "mpirun -np 48")
+  #   {program_command}    launcher_argv + executable_argv from programs.<name>
   #   {module_block}       rendered module load commands
   #   {pre_run_block}      rendered hooks.pre_run commands
   #   {job_dir}            directory containing the input file
@@ -94,7 +98,7 @@ profiles:
   # ---------------------------------------------------------------------------
 
   slurm_cpu:
-    description: "Generic SLURM cluster with srun. Customize nwchem_executable and partition."
+    description: "Generic SLURM cluster with srun. Customize programs.nwchem and partition."
     launcher:
       kind: "scheduler"
       submit_command: "sbatch"
@@ -119,11 +123,13 @@ profiles:
         cd {job_dir}
         export OMP_NUM_THREADS={omp_threads}
         {pre_run_block}
-        {mpi_launch} {nwchem_executable} {input_file}
+        {program_command} {input_file}
       submit_script_name: "{job_name}.job"
+    programs:
+      nwchem:
+        launcher_argv: ["srun"]
+        executable_argv: ["nwchem"]
     execution:
-      nwchem_executable: "nwchem"
-      mpi_launch: "srun"
       shell: "/bin/bash"
     resources:
       nodes: 1
@@ -191,11 +197,14 @@ profiles:
         {module_block}
         cd {job_dir}
         {pre_run_block}
-        {mpi_launch} {nwchem_executable} {input_file}
+        {program_command} {input_file}
       submit_script_name: "{job_name}.job"
+    programs: &stampede3_programs
+      nwchem:
+        launcher_argv: ["ibrun"]
+        executable_argv:
+          - "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
     execution: &stampede3_execution
-      nwchem_executable: "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
-      mpi_launch: "ibrun"
       shell: "/bin/bash"
     resources:
       # --- Default job resources (overridden by suggest_nwchem_resources) ---
@@ -229,6 +238,7 @@ profiles:
       walltime, 16-node max.  Use for testing inputs and short runs.
     launcher: *stampede3_launcher
     scheduler: *stampede3_scheduler
+    programs: *stampede3_programs
     execution: *stampede3_execution
     resources:
       nodes: 1
@@ -256,6 +266,7 @@ profiles:
       correlated methods.  Charge rate: 1.5 SU/node-hr.
     launcher: *stampede3_launcher
     scheduler: *stampede3_scheduler
+    programs: *stampede3_programs
     execution: *stampede3_execution
     resources:
       nodes: 1
@@ -285,6 +296,7 @@ profiles:
       in pre_run if NWChem segfaults on SPR.
     launcher: *stampede3_launcher
     scheduler: *stampede3_scheduler
+    programs: *stampede3_programs
     execution: *stampede3_execution
     resources:
       nodes: 1
@@ -308,7 +320,7 @@ profiles:
     file_rules: *stampede3_file_rules
 
   pbs_cpu:
-    description: "Generic PBS/Torque cluster. Customize nwchem_executable and resources."
+    description: "Generic PBS/Torque cluster. Customize programs.nwchem and resources."
     launcher:
       kind: "scheduler"
       submit_command: "qsub"
@@ -330,11 +342,13 @@ profiles:
         cd {job_dir}
         export OMP_NUM_THREADS={omp_threads}
         {pre_run_block}
-        {mpi_launch} {nwchem_executable} {input_file}
+        {program_command} {input_file}
       submit_script_name: "{job_name}.job"
+    programs:
+      nwchem:
+        launcher_argv: ["mpirun", "-np", "{mpi_ranks}"]
+        executable_argv: ["nwchem"]
     execution:
-      nwchem_executable: "nwchem"
-      mpi_launch: "mpirun -np {mpi_ranks}"
       shell: "/bin/bash"
     resources:
       nodes: 1
@@ -358,9 +372,9 @@ profiles:
   # ---------------------------------------------------------------------------
   # Molcas / OpenMolcas profiles
   #
-  # Two Molcas-specific fields that the launcher (prepare_molcas_launch) reads:
+  # Molcas installation and runtime settings live under programs.molcas:
   #
-  #   execution.parallel_caspt2_supported  (bool, default true)
+  #   programs.molcas.parallel_caspt2_supported  (bool, default true)
   #       Some Molcas builds segfault in CASPT2's parallel solver because
   #       Global Arrays was linked against the wrong ARMCI network. The
   #       robust fix is to rebuild GA with `--with-mpi-ts` and rebuild
@@ -368,9 +382,8 @@ profiles:
   #       launcher will force `-np 1` for any input containing &CASPT2 and
   #       emit a warning.
   #
-  #   execution.apptainer_sif              (string, optional)
-  #       Path to a .sif container. If set, the launcher wraps pymolcas with
-  #       `apptainer exec <sif>`. Leave unset for a native install.
+  # Container launches use explicit launcher_argv tokens. Native installs
+  # leave launcher_argv empty.
   #
   # The launcher also sets MOLCAS_PROJECT to the input-file stem (overridable
   # via job_name) so each run gets isolated scratch — prevents the
@@ -382,12 +395,14 @@ profiles:
     description: "OpenMolcas installed natively on this workstation."
     launcher:
       kind: "direct"
-      command: "pymolcas"
+    programs:
+      molcas:
+        executable_argv: ["pymolcas"]
+        parallel_caspt2_supported: true
     execution:
-      command_template: "pymolcas -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
+      command_template: "{launcher} -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
       working_directory: "{job_dir}"
       shell: "/bin/bash"
-      parallel_caspt2_supported: true
     resources:
       mpi_ranks: 2
       omp_threads: 1
@@ -400,13 +415,18 @@ profiles:
     description: "OpenMolcas in an apptainer container where GA was built --with-mpi-ts (parallel CASPT2 works)."
     launcher:
       kind: "direct"
-      command: "apptainer exec /path/to/openmolcas-26.02.sif pymolcas"
+    programs:
+      molcas:
+        launcher_argv:
+          - "apptainer"
+          - "exec"
+          - "/path/to/openmolcas-26.02.sif"
+        executable_argv: ["pymolcas"]
+        parallel_caspt2_supported: true
     execution:
-      command_template: "apptainer exec /path/to/openmolcas-26.02.sif pymolcas -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
+      command_template: "{launcher} -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
       working_directory: "{job_dir}"
       shell: "/bin/bash"
-      parallel_caspt2_supported: true
-      apptainer_sif: "/path/to/openmolcas-26.02.sif"
     resources:
       mpi_ranks: 4
       omp_threads: 1
@@ -419,13 +439,18 @@ profiles:
     description: "OpenMolcas container where parallel CASPT2 SIGSEGVs (GA built with default ARMCI). Launcher auto-forces -np 1 for any &CASPT2 input."
     launcher:
       kind: "direct"
-      command: "apptainer exec /path/to/openmolcas-25.02.sif pymolcas"
+    programs:
+      molcas:
+        launcher_argv:
+          - "apptainer"
+          - "exec"
+          - "/path/to/openmolcas-25.02.sif"
+        executable_argv: ["pymolcas"]
+        parallel_caspt2_supported: false
     execution:
-      command_template: "apptainer exec /path/to/openmolcas-25.02.sif pymolcas -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
+      command_template: "{launcher} -np {mpi_ranks} {input_file} > {output_file} 2> {error_file}"
       working_directory: "{job_dir}"
       shell: "/bin/bash"
-      parallel_caspt2_supported: false   # <-- the guard rail
-      apptainer_sif: "/path/to/openmolcas-25.02.sif"
     resources:
       mpi_ranks: 4
       omp_threads: 1

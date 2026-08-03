@@ -155,25 +155,34 @@ def _build_next_actions(
             })
 
     elif context == "watch_run":
-        overall = result.get("overall_status", "")
+        overall = (
+            result.get("overall_status")
+            or (result.get("final_status") or {}).get("overall_status", "")
+        )
 
-        if overall == "completed":
+        if overall in {"completed", "completed_success"}:
             actions.append({
                 "priority": 1,
                 "tool": "analyze_nwchem_case",
                 "params": {"output_file": output_file, "input_file": input_file},
-                "reason": "Job completed — run full analysis to determine next steps.",
+                "reason": "Job completed. Run full analysis to determine next steps.",
                 "confidence": 0.95,
             })
-        elif overall in ("failed", "error"):
+        elif overall in {
+            "failed",
+            "error",
+            "completed_failed",
+            "completed_incomplete",
+            "error_only",
+        }:
             actions.append({
                 "priority": 1,
                 "tool": "analyze_nwchem_case",
                 "params": {"output_file": output_file, "input_file": input_file},
-                "reason": "Job failed — diagnose the failure.",
+                "reason": "Job ended without a confirmed success. Diagnose the output.",
                 "confidence": 0.90,
             })
-        elif overall == "running":
+        elif overall in {"queued", "running"}:
             actions.append({
                 "priority": 1,
                 "tool": "watch_nwchem_run",

@@ -31,8 +31,8 @@ from chemtools.mcp.tools._nwchem_base import (  # noqa: F401
 #
 # Older tests and external callers still import these symbols from
 # ``chemtools.mcp.tools.nwchem``. We re-export them via ``__getattr__`` to
-# avoid circular-import problems (dispatch.py eagerly imports this module
-# via tools/__init__.py and would not yet exist at this point in startup).
+# avoid circular-import problems while dispatch loads this module from the
+# built-in catalog.
 # ---------------------------------------------------------------------------
 
 

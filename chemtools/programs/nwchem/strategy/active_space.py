@@ -1,7 +1,7 @@
 """TCE / MCSCF setup orchestrators.
 
-These are the "thick tool" implementations described in REFACTOR.md item
-12 — they collapse the multi-step setup that an LLM would otherwise have
+These are the "thick tool" implementations: they collapse the multi-step setup
+that an LLM would otherwise have
 to drive (parse MOs, decide freeze count, check ordering, suggest swaps,
 draft the input) into a single deterministic Python call.
 

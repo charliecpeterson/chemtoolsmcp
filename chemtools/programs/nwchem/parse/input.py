@@ -5,12 +5,20 @@ import re
 from typing import Any
 
 from chemtools.programs.nwchem.input.basis_library import extract_nwchem_geometry_elements, normalize_element_symbol
+from chemtools.programs.nwchem.parse.state import (
+    SPIN_MULTIPLICITIES,
+    parse_task_states,
+)
 from chemtools.core.common import normalize_path, read_text
 
 
 CHARGE_RE = re.compile(r"^\s*charge\s+([+-]?\d+)\s*$", re.IGNORECASE)
 MULT_RE = re.compile(r"^\s*(?:mult|multiplicity)\s+(\d+)\s*$", re.IGNORECASE)
 NOPEN_RE = re.compile(r"^\s*nopen\s+(\d+)\s*$", re.IGNORECASE)
+SPIN_WORD_RE = re.compile(
+    r"^\s*(singlet|doublet|triplet|quartet|quintet|sextet|septet|octet)\s*$",
+    re.IGNORECASE,
+)
 TASK_RE = re.compile(r"^\s*task\s+([A-Za-z0-9_\-]+)(?:\s+([A-Za-z0-9_\-]+))?", re.IGNORECASE)
 SET_GEOMETRY_RE = re.compile(r"^\s*set\s+geometry\s+([A-Za-z0-9_\-]+)", re.IGNORECASE)
 GEOMETRY_RE = re.compile(r"^\s*geometry\b", re.IGNORECASE)
@@ -61,8 +69,6 @@ TRANSITION_METALS = {
     "Au",
     "Hg",
 }
-
-
 # Sub-keywords that can follow the file list in a `vectors input` directive.
 # Fragment filenames stop at the first of these (and at an inline `#` comment).
 _VECTORS_SUBKEYWORDS = {"output", "swap", "reorder", "project", "rotate", "lock"}
@@ -198,12 +204,22 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
     nopens: list[int] = []
     tasks: list[dict[str, str | None]] = []
     geometry_refs: list[str] = []
+    wavefunction_module: str | None = None
 
     for line in contents.splitlines():
+        stripped = line.strip().lower()
+        if stripped in {"scf", "dft"}:
+            wavefunction_module = stripped
+        elif END_RE.match(line):
+            wavefunction_module = None
         if match := CHARGE_RE.match(line):
             charges.append(int(match.group(1)))
         if match := MULT_RE.match(line):
             multiplicities.append(int(match.group(1)))
+        elif wavefunction_module and (match := SPIN_WORD_RE.match(line)):
+            multiplicities.append(
+                SPIN_MULTIPLICITIES[match.group(1).lower()]
+            )
         if match := NOPEN_RE.match(line):
             nopens.append(int(match.group(1)))
         if match := TASK_RE.match(line):
@@ -233,6 +249,7 @@ def inspect_nwchem_input(path: str) -> dict[str, Any]:
         "multiplicities_seen": multiplicities,
         "nopens_seen": nopens,
         "tasks": tasks,
+        "task_states": parse_task_states(path),
         "geometry_names_selected": geometry_refs,
         "geometry_block_count": geometry["geometry_block_count"],
         "start_present": any(START_RE.match(line) for line in contents.splitlines()),

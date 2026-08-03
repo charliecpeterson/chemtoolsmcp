@@ -14,16 +14,39 @@ chemtools/
   core/                          Program-agnostic infrastructure
     registry.py                  QC-program plugin registry (auto-detect from output)
     program.py                   Parser / Drafter / Strategist / BinaryReader protocols
-    runner.py                    Generic SLURM/PBS submit + render + watch + status
-    run_registry.py              SQLite registry (runs, campaigns, workflows)
+    runner.py                    Legacy render/run plus compatibility imports
+    monitoring.py                Shared polling, terminal checks, and watch history
+    run_records.py               SQLite run records + execution links
+    run_registry.py              Compatibility facade + campaigns/workflows
+    slurm.py                     Typed Slurm status results and evidence
     eval.py                      Multi-program case evaluator
     types.py                     ParsedRun / TaskSummary / GeometryAtom typed dicts
 
+  application/                   Permission and workflow coordination
+    execution_monitoring.py       Shared owned-status projection and polling
+    execution_policy.py          Permission decisions and public service errors
+    execution.py                 Launch, status, cancellation, and ownership
+    dirac_monitoring.py           Typed DIRAC local and Slurm watching
+    grasp_monitoring.py           Typed GRASP workflow local and Slurm watching
+    molcas_monitoring.py          Typed Molcas local and Slurm watching
+    nwchem_monitoring.py         Typed NWChem local and Slurm watching
+
+  execution/                     Program-neutral execution adapters
+    _common.py                   Command rendering, root checks, and staging
+    local.py                     Local launch, status, completion, and signals
+    slurm.py                     Slurm scripts, status, submission, and cancellation
+    executors.py                 Compatibility imports for the split adapters
+    launch_registry.py           Persistent launch state and run links
+    legacy_profiles.py           Version 1 profile loading and typed conversion
+    legacy_status.py             Unowned process, scheduler, and file status
+
   programs/<name>/               Per-program plugins
-    nwchem/                      97 tools — input drafting, TCE, freq restart, HPC
-    molcas/                      44 tools — CASSCF/CASPT2 chain, recovery rule engine
-    dirac/                       38 tools — 4c/X2C, AOC + KPSELE, Cm-class workflow
-    grasp/                       37 tools — multi-exe atomic workflows, hf bootstrap
+    nwchem/                      101 tools: input drafting, TCE, freq restart, HPC
+    molcas/                      45 tools: CASSCF/CASPT2 chain, recovery rules
+    dirac/                       39 tools: 4c/X2C, AOC, and Cm-class workflows
+    grasp/                       51 tools: multi-executable atomic workflows
+    qe/                          20 tools: pw.x input/output and QE-to-QMCPACK review
+    qmcpack/                     14 tools: input, HDF5 metadata, and QMC analysis
 
   data/<name>/                   Bundled per-program data
     nwchem/basis_library/        608 basis files
@@ -35,13 +58,15 @@ chemtools/
 
   mcp/                           MCP server
     cli.py                       Entry point — main() / serve() / arg parsing
+    catalog.py                   Built-in program and tool-module membership
     server.py                    JSON-RPC transport
     dispatch.py                  tool_definitions() + dispatch_tool + handle_request
     decorator.py                 @_tool decorator + shared registries
     modes.py                     Mode + program-filter logic
     tools/                       Per-program tool definitions + handlers
-      generic.py                 36 program-agnostic tools
-      nwchem.py / molcas.py / dirac.py / grasp.py
+      generic.py                 56 low-level program-agnostic tools
+      guided.py                  Guided cross-program workflow tools
+      nwchem.py / molcas.py / dirac.py / grasp.py / qe.py
 ```
 
 ## Entry points
@@ -66,29 +91,39 @@ chemtools --programs molcas  # only Molcas tools visible
 Programmatic introspection:
 
 ```python
-from chemtools.mcp.tools.nwchem import tool_definitions
+from chemtools.mcp.dispatch import tool_definitions
 defs = tool_definitions()
 print(f"{len(defs)} tools registered")
 ```
 
 ## Plugin contract
 
-Each program in `chemtools/programs/<name>/` registers a `Program` plugin
-with `chemtools.core.registry` so generic tools (e.g. `parse_output`,
-`summarize_output`) can dispatch to it. The protocol surface is in
-`chemtools/core/program.py`:
+Each package under `chemtools/programs/<name>/` now exports a validated
+`ProgramBackend` without changing global registry state. The built-in catalog
+owns program membership, registers those backends at MCP composition time, and
+names each program's MCP tool-definition provider.
 
-| Sub-protocol | Required | Used by |
-|---|---|---|
-| `Parser`     | yes | `parse_output`, `summarize_output`, `extract_geometry`, etc. |
-| `Drafter`    | optional | program-specific input builders |
-| `Strategist` | optional | recovery / diagnosis / case-review tools |
-| `BinaryReader` | optional | binary checkpoint readers (movecs, hessian, h5) |
-| `Examples`   | optional | example-input registry |
+`chemtools/core/program.py` also contains the new operation-level
+`ProgramCapability` and `ProgramBackend` contract:
 
-Each program also has an `MCP module` at `chemtools/mcp/tools/<name>.py`
-that exports `<name>_tool_definitions()` (consumed by `dispatch.py`'s
-aggregator) and decorates handler functions with `@_tool(name, program=..., needs=...)`.
+| Backend field | Declared operations |
+|---|---|
+| `parser` | Output, task, geometry, orbital, frequency, trajectory, thermochemistry, and input parsing |
+| `inputs` | Input drafting, linting, and patching |
+| `binary` | Program-specific binary reads and writes |
+| `diagnostics` | Diagnosis and recovery advice |
+| `resources` | Target-aware resource estimates |
+| `progress` | In-progress output inspection |
+| `consistency` | Input-output and related-artifact checks |
+| `examples` | Curated example listing and reading |
+
+Provider presence does not advertise an operation. Each backend declares the
+capabilities it supports, and registration checks those declarations against
+callable provider methods.
+
+Each program also has an MCP module at `chemtools/mcp/tools/<name>.py`.
+`chemtools.mcp.catalog` names its definition provider, and importing that
+module registers handlers with `@_tool(name, program=..., needs=...)`.
 
 ## Runner profiles
 

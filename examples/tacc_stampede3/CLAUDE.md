@@ -95,8 +95,8 @@ scp ~/mycontainers/dirac-25.0.sif       stampede3:$WORK/containers/
 scp ~/mycontainers/grasp2018.sif        stampede3:$WORK/containers/
 ```
 
-Then edit the profile's `execution.apptainer_sif` (Molcas/GRASP) or
-`container_sif` (DIRAC) to match your TACC path if it differs.
+Then edit each program's `launcher_argv` container path under
+`programs.molcas`, `programs.dirac`, or `programs.grasp`.
 
 ## Standard workflow (single job)
 

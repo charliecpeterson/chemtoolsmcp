@@ -86,6 +86,9 @@ tacc/2026-*.txt
 # Claude Code local state
 .claude/
 
+# Codex project-local MCP configuration
+.codex/config.toml
+
 # Per-machine config (container paths, runner profiles) — see .env.example
 .env
 

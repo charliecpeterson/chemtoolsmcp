@@ -1,0 +1,27 @@
+schema_version: chemtools.knowledge-card/1
+id: cross_program.same_starting_guess_class_is_one_measurement
+programs: ["*"]
+workflows: [cross_validation]
+kind: provenance
+status: accepted
+confidence: high
+applies_when:
+  compared_runs: multiple
+  starting_guess_class: recorded
+claim: >-
+  Agreement between runs that use the same starting-guess class counts as one
+  starting-class measurement. Class diversity must be recorded explicitly;
+  different classes still do not prove either result is correct.
+check:
+  evaluator: assess_starting_guess_class_diversity
+  passing_verdict: distinct_recorded_classes
+  scope: starting_guess_class_only
+failure:
+  severity: warning
+  action: Add a comparison run from a different recorded starting-guess class.
+sources:
+  - "notes/fblock/README.md#the-five-things-that-generalize"
+  - "notes/fblock/grasp-fblock.md#61-the-false-vacuum-the-worst-one"
+tests:
+  - "tests/test_knowledge_evidence.py::test_same_starting_guess_class_counts_as_one_measurement"
+  - "tests/test_knowledge_evidence.py::test_distinct_starting_guess_classes_pass_class_diversity_check"

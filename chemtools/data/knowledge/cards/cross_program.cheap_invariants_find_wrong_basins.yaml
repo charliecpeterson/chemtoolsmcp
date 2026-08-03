@@ -1,0 +1,27 @@
+schema_version: chemtools.knowledge-card/1
+id: cross_program.cheap_invariants_find_wrong_basins
+programs: ["*"]
+workflows: [run_validation]
+kind: validation
+status: draft
+confidence: high
+applies_when:
+  expected_relation: scientifically_scoped
+  compared_values: recorded_and_comparable
+claim: >-
+  A scoped sign or ordering check can expose a result in an unintended basin.
+  The expected relation must come from a curated scientific rule; the numeric
+  check does not choose that expectation.
+check:
+  evaluators: [assess_expected_sign, assess_monotonicity]
+  passing_verdict: satisfied
+  scope: caller_supplied_expectation_only
+failure:
+  severity: warning
+  action: Inspect the starting state, convergence path, and value provenance.
+sources:
+  - "notes/fblock/grasp-fblock.md#61-the-false-vacuum-the-worst-one"
+  - "notes/fblock/qe-qmcpack-oncvpsp.md#32-the-f-orientation-problem"
+tests:
+  - "tests/test_knowledge_invariants.py::test_synthetic_sign_cases_pin_pass_and_failure"
+  - "tests/test_knowledge_invariants.py::test_synthetic_monotonicity_cases_pin_pass_and_failure"

@@ -29,16 +29,50 @@ split (after the @_tool decorator + registries moved to
 
 from __future__ import annotations
 import argparse
+import base64
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from chemtools.mcp import modes as _modes
 
 
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05",)
+DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[-1]
+
 # Transport mode: "content-length" (LSP-style) or "jsonl" (newline-delimited).
 # read_message infers from the first byte and sets this so write_message
 # uses the matching framing.
 TRANSPORT_MODE = "content-length"
+_MAX_IMAGE_CONTENT_BYTES = 8 * 1024 * 1024
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+@dataclass(frozen=True)
+class ImageToolResult:
+    """A JSON payload accompanied by one validated PNG tool-result block."""
+
+    payload: dict[str, Any]
+    image: bytes
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.payload, dict):
+            raise TypeError("image tool payload must be a dictionary")
+        if not isinstance(self.image, bytes):
+            raise TypeError("image tool content must be bytes")
+        if len(self.image) > _MAX_IMAGE_CONTENT_BYTES:
+            raise ValueError(
+                f"image tool content exceeds {_MAX_IMAGE_CONTENT_BYTES} bytes"
+            )
+        if not self.image.startswith(_PNG_SIGNATURE):
+            raise ValueError("image tool content is not a PNG")
+
+
+def negotiate_protocol_version(requested_version: Any) -> str:
+    """Return the requested version when supported, otherwise our latest."""
+    if requested_version in SUPPORTED_PROTOCOL_VERSIONS:
+        return requested_version
+    return DEFAULT_PROTOCOL_VERSION
 
 
 def read_message(stream: Any) -> dict[str, Any] | None:
@@ -93,8 +127,25 @@ def write_message(stream: Any, payload: dict[str, Any]) -> None:
     stream.flush()
 
 
-def make_success_result(payload: dict[str, Any]) -> dict[str, Any]:
+def make_success_result(
+    payload: dict[str, Any] | ImageToolResult,
+) -> dict[str, Any]:
     """Wrap a tool's payload in the MCP `content` schema (success)."""
+    if isinstance(payload, ImageToolResult):
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(payload.payload, separators=(",", ":")),
+                },
+                {
+                    "type": "image",
+                    "data": base64.b64encode(payload.image).decode("ascii"),
+                    "mimeType": "image/png",
+                },
+            ],
+            "isError": False,
+        }
     return {
         "content": [
             {
@@ -165,7 +216,7 @@ def build_arg_parser(prog: str, description: str) -> argparse.ArgumentParser:
         "--toolset",
         default=None,
         help=(
-            "Curated tool subset: a preset name (e.g. 'triage') or a "
+            "Curated tool subset: a preset name (e.g. 'guided') or a "
             "comma-separated list of tool names. Trims the surface for small "
             "models / focused work. Default: read CHEMTOOLS_TOOLSET, else none."
         ),
@@ -184,7 +235,11 @@ def build_arg_parser(prog: str, description: str) -> argparse.ArgumentParser:
 
 
 __all__ = [
+    "SUPPORTED_PROTOCOL_VERSIONS",
+    "DEFAULT_PROTOCOL_VERSION",
     "TRANSPORT_MODE",
+    "ImageToolResult",
+    "negotiate_protocol_version",
     "read_message",
     "write_message",
     "make_response",

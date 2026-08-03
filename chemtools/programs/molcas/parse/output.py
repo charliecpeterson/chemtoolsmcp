@@ -88,6 +88,13 @@ def parse_tasks(path: str, contents: str) -> dict[str, Any]:
 
     generic_tasks = []
     for task in tasks:
+        return_code = task.get("return_code")
+        if return_code in _CLEAN_RETURN_CODES:
+            outcome = "success"
+        elif return_code:
+            outcome = "failed"
+        else:
+            outcome = "incomplete"
         generic_kind = {
             "optimization": "optimization",
             "frequency": "frequency",
@@ -103,7 +110,8 @@ def parse_tasks(path: str, contents: str) -> dict[str, Any]:
                 "line_end": task["line_end"],
                 "extra": {
                     "module": task["module"],
-                    "return_code": task.get("return_code"),
+                    "return_code": return_code,
+                    "outcome": outcome,
                 },
             }
         )
@@ -303,4 +311,3 @@ def parse_output_full(
         "active_space_summary": active_space_summary,
         "warnings": aggregated_warnings,
     }
-

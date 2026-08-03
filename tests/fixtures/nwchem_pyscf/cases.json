@@ -1,0 +1,101 @@
+{
+  "schema_version": "chemtools.nwchem-pyscf-fixtures/1",
+  "recorded_with": {
+    "nwchem_version": "7.2.2",
+    "container": "/home/charlie/mycontainers/nwchem_7.2.2.sif",
+    "executor": "apptainer exec with mpirun -np 2",
+    "host_class": "linux-4090"
+  },
+  "cases": [
+    {
+      "id": "h2_rhf_sto3g",
+      "input_file": "h2_rhf_sto3g.nw",
+      "output_file": "h2_rhf_sto3g.out",
+      "error_file": "h2_rhf_sto3g.err",
+      "input_sha256": "bdedcc31f6b75f1b5f5c7368624460e4fcdc94d129ee5e2de793ee3c67299e94",
+      "output_sha256": "36b28eef0656b68460d7d40cd99c4a48b54ec70385af0876dfecdd7556eefe04",
+      "expected": {
+        "pyscf_method": "rhf",
+        "pyscf_xc": null,
+        "density_fit": false,
+        "electron_total": 2,
+        "scf_status": "converged",
+        "scf_converged": true,
+        "multiplicity": 1,
+        "total_hartree": -1.116759310191
+      }
+    },
+    {
+      "id": "h2o_rhf_sto3g",
+      "input_file": "h2o_rhf_sto3g.nw",
+      "output_file": "h2o_rhf_sto3g.out",
+      "error_file": "h2o_rhf_sto3g.err",
+      "input_sha256": "f94d4907a59d666ba391e5729343877de7773d87dcfdbf4dc387e9721359e20c",
+      "output_sha256": "a8370405a66846a47a66ca0bb5aeabe167620b386cec3cdc896f1b802a4d5b3b",
+      "expected": {
+        "pyscf_method": "rhf",
+        "pyscf_xc": null,
+        "density_fit": false,
+        "electron_total": 10,
+        "scf_status": "converged",
+        "scf_converged": true,
+        "multiplicity": 1,
+        "total_hartree": -74.962991605334
+      }
+    },
+    {
+      "id": "o2_uhf_triplet_sto3g",
+      "input_file": "o2_uhf_triplet_sto3g.nw",
+      "output_file": "o2_uhf_triplet_sto3g.out",
+      "error_file": "o2_uhf_triplet_sto3g.err",
+      "input_sha256": "2e8d37ecd664b75adece19983fc7afeb926f77f6b4d843746339abbeb0362c86",
+      "output_sha256": "162c48ff3907ee32aa5b317435abfaa4d21a71bed4cb5795fb420955c998c5d1",
+      "expected": {
+        "pyscf_method": "uhf",
+        "pyscf_xc": null,
+        "density_fit": false,
+        "electron_total": 16,
+        "scf_status": "converged",
+        "scf_converged": true,
+        "multiplicity": 3,
+        "total_hartree": -147.633870815574
+      }
+    },
+    {
+      "id": "h2_rks_b3lyp_sto3g",
+      "input_file": "h2_rks_b3lyp_sto3g.nw",
+      "output_file": "h2_rks_b3lyp_sto3g.out",
+      "error_file": "h2_rks_b3lyp_sto3g.err",
+      "input_sha256": "56cc9d3e4ea6824bcd5e3fd1dd844064f6374e42cb67cf94ccefe81c2cff2a60",
+      "output_sha256": "24367ce6cd2b789f7d041ad0e44c37465f29f5def79edd9a89d8d8d6aa3c0583",
+      "expected": {
+        "pyscf_method": "rks",
+        "pyscf_xc": "b3lyp",
+        "density_fit": false,
+        "electron_total": 2,
+        "scf_status": "converged",
+        "scf_converged": true,
+        "multiplicity": 1,
+        "total_hartree": -1.165418268854
+      }
+    },
+    {
+      "id": "h2o_rhf_sto3g_maxiter1",
+      "input_file": "h2o_rhf_sto3g_maxiter1.nw",
+      "output_file": "h2o_rhf_sto3g_maxiter1.out",
+      "error_file": "h2o_rhf_sto3g_maxiter1.err",
+      "input_sha256": "5846d4beaa2773d4b274ca38dc85742a0798039443d1dd17a90301c95100d0cd",
+      "output_sha256": "567c8d2a49a5b6239c9d089273c0b3ef14380fdfbdb7400e581e63096c0c3ef3",
+      "expected": {
+        "pyscf_method": "rhf",
+        "pyscf_xc": null,
+        "density_fit": false,
+        "electron_total": 10,
+        "scf_status": "failed",
+        "scf_converged": false,
+        "multiplicity": 1,
+        "printed_total_hartree": -74.92438481796
+      }
+    }
+  ]
+}

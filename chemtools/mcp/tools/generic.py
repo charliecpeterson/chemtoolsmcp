@@ -28,6 +28,9 @@ from chemtools import (  # noqa: E402
     advance_workflow,
     append_session_log,
     basis_library_summary,
+    compare_cube_densities,
+    compare_cube_orbitals,
+    compare_cube_orbital_subspaces,
     compute_reaction_energy,
     create_campaign,
     create_workflow,
@@ -59,12 +62,66 @@ from chemtools.mcp.decorator import (  # noqa: E402
     ACTIVE_MODE,
 )
 from chemtools.mcp import modes as _modes  # noqa: E402
+from chemtools.core.program import (  # noqa: E402
+    ProgramBackend,
+    ProgramCapability,
+    UnsupportedCapabilityError,
+)
 
 
 def _tool(name: str, *, needs: str = "none"):
     """Generic @_tool wrapper — every handler in this module is
     program-tagged 'generic' so it's always visible."""
     return _raw_tool(name, needs=needs, program="generic")
+
+
+def _require_capability_or_error(
+    plugin: Any,
+    capability: ProgramCapability,
+) -> dict[str, Any] | None:
+    # Legacy third-party Program implementations remain callable until the
+    # registry compatibility union is removed.
+    if not isinstance(plugin, ProgramBackend):
+        return None
+    try:
+        plugin.require(capability)
+    except UnsupportedCapabilityError as error:
+        return {
+            "error": "unsupported_capability",
+            "program": error.program,
+            "capability": error.capability.value,
+            "available_capabilities": list(error.available_capabilities),
+        }
+    return None
+
+
+def _program_detector_error_payload(error: Any) -> dict[str, Any]:
+    return {
+        "error": "program_detector_error",
+        "message": str(error),
+        "candidates": list(error.candidates),
+        "detector_failures": [
+            {
+                "program": failure.program,
+                "error_type": failure.error_type,
+                "message": failure.message,
+            }
+            for failure in error.failures
+        ],
+    }
+
+
+def _program_source_error_payload(error: Any) -> dict[str, Any]:
+    return {
+        "error": "program_source_error",
+        "message": str(error),
+        "path": error.path,
+        "source_failure": {
+            "error_type": error.failure.error_type,
+            "message": error.failure.message,
+            "errno": error.failure.errno,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -95,31 +152,26 @@ def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("summarize_run")
 def _handle_summarize_run(arguments: dict[str, Any]) -> dict[str, Any]:
     """Flagship plugin-dispatch tool — combines parser + strategist for any program."""
-    from chemtools.core import registry as _registry
-
     output_file = arguments["output_file"]
-    program = arguments.get("program")
-
-    try:
-        plugin = _registry.resolve(program=program, path=output_file)
-    except _registry.ProgramDetectionFailed as e:
-        return {
-            "error": "program_detection_failed",
-            "message": str(e),
-            "registered_programs": _registry.list_programs(),
-        }
-    except _registry.ProgramNotRegistered as e:
-        return {
-            "error": "program_not_registered",
-            "message": str(e),
-            "registered_programs": _registry.list_programs(),
-        }
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_PARSE
+    )
+    if err is not None:
+        return err
 
     parsed = plugin.parser.parse_output(output_file)
     diagnosis: dict[str, Any] | None = None
-    if plugin.strategist is not None:
+    if isinstance(plugin, ProgramBackend):
+        strategist = (
+            plugin.require(ProgramCapability.DIAGNOSIS_RUN).diagnostics
+            if plugin.supports(ProgramCapability.DIAGNOSIS_RUN)
+            else None
+        )
+    else:
+        strategist = plugin.strategist
+    if strategist is not None:
         try:
-            diagnosis = plugin.strategist.diagnose(parsed)
+            diagnosis = strategist.diagnose(parsed)
         except NotImplementedError:
             diagnosis = None
     return {
@@ -133,7 +185,11 @@ def _handle_summarize_run(arguments: dict[str, Any]) -> dict[str, Any]:
 # Generic auto-detect parser/geometry dispatchers (Phase 4)
 # ---------------------------------------------------------------------------
 
-def _resolve_plugin_or_error(arguments: dict[str, Any]):
+def _resolve_plugin_or_error(
+    arguments: dict[str, Any],
+    *,
+    capability: ProgramCapability | None = None,
+):
     """Shared dispatch logic: resolve plugin from `program` override or auto-
     detect from `output_file`. Returns (plugin, None) on success or
     (None, error_dict) on failure."""
@@ -142,7 +198,29 @@ def _resolve_plugin_or_error(arguments: dict[str, Any]):
     program = arguments.get("program")
     try:
         plugin = _registry.resolve(program=program, path=output_file)
+        if capability is None:
+            return plugin, None
+        capability_error = _require_capability_or_error(plugin, capability)
+        if capability_error is not None:
+            return None, capability_error
         return plugin, None
+    except _registry.ProgramDetectionAmbiguous as e:
+        return None, {
+            "error": "program_detection_ambiguous",
+            "message": str(e),
+            "candidates": list(e.candidates),
+        }
+    except _registry.ProgramContentMismatch as e:
+        return None, {
+            "error": "program_content_mismatch",
+            "message": str(e),
+            "program": e.program,
+            "detected_programs": list(e.candidates),
+        }
+    except _registry.ProgramDetectorError as e:
+        return None, _program_detector_error_payload(e)
+    except _registry.ProgramDetectionSourceError as e:
+        return None, _program_source_error_payload(e)
     except _registry.ProgramDetectionFailed as e:
         return None, {
             "error": "program_detection_failed",
@@ -159,7 +237,9 @@ def _resolve_plugin_or_error(arguments: dict[str, Any]):
 
 @_tool("parse_output")
 def _handle_parse_output_generic(arguments: dict[str, Any]) -> dict[str, Any]:
-    plugin, err = _resolve_plugin_or_error(arguments)
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_PARSE
+    )
     if err is not None:
         return err
     parsed = plugin.parser.parse_output(arguments["output_file"])
@@ -169,7 +249,9 @@ def _handle_parse_output_generic(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("extract_geometry")
 def _handle_extract_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
-    plugin, err = _resolve_plugin_or_error(arguments)
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_GEOMETRY
+    )
     if err is not None:
         return err
     geom = plugin.parser.get_geometry(
@@ -180,7 +262,9 @@ def _handle_extract_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("parse_thermochem")
 def _handle_parse_thermochem_generic(arguments: dict[str, Any]) -> dict[str, Any]:
-    plugin, err = _resolve_plugin_or_error(arguments)
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_THERMOCHEMISTRY
+    )
     if err is not None:
         return err
     payload = plugin.parser.get_thermochem(
@@ -191,7 +275,9 @@ def _handle_parse_thermochem_generic(arguments: dict[str, Any]) -> dict[str, Any
 
 @_tool("parse_frequencies")
 def _handle_parse_frequencies_generic(arguments: dict[str, Any]) -> dict[str, Any]:
-    plugin, err = _resolve_plugin_or_error(arguments)
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_FREQUENCIES
+    )
     if err is not None:
         return err
     payload = plugin.parser.get_frequency(
@@ -202,7 +288,9 @@ def _handle_parse_frequencies_generic(arguments: dict[str, Any]) -> dict[str, An
 
 @_tool("parse_trajectory")
 def _handle_parse_trajectory_generic(arguments: dict[str, Any]) -> dict[str, Any]:
-    plugin, err = _resolve_plugin_or_error(arguments)
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_TRAJECTORY
+    )
     if err is not None:
         return err
     payload = plugin.parser.get_trajectory(
@@ -216,7 +304,9 @@ def _handle_inspect_geometry_generic(arguments: dict[str, Any]) -> dict[str, Any
     from chemtools.core.geometry import inspect_geometry as _core_inspect
     from chemtools.core.units import ANGSTROM_PER_BOHR
 
-    plugin, err = _resolve_plugin_or_error(arguments)
+    plugin, err = _resolve_plugin_or_error(
+        arguments, capability=ProgramCapability.OUTPUT_GEOMETRY
+    )
     if err is not None:
         return err
 
@@ -345,12 +435,32 @@ def _handle_apply_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
     """Auto-detecting apply_recovery. Currently only Molcas has a
     mechanical-fix patcher. NWChem returns a not_implemented envelope."""
     from chemtools.mcp.tools.molcas import _handle_apply_molcas_recovery
+    from chemtools.application.input_review import (
+        InputReviewError,
+        detect_input_content_candidates,
+    )
     from chemtools.core import registry as _registry
 
     program = arguments.get("program")
     if program is None:
         if arguments.get("output_file"):
-            program = _registry.detect_from_file(arguments["output_file"])
+            try:
+                program = _registry.resolve(
+                    program=None,
+                    path=arguments["output_file"],
+                ).name
+            except _registry.ProgramDetectionAmbiguous as error:
+                return {
+                    "error": "program_detection_ambiguous",
+                    "message": str(error),
+                    "candidates": list(error.candidates),
+                }
+            except _registry.ProgramDetectorError as error:
+                return _program_detector_error_payload(error)
+            except _registry.ProgramDetectionSourceError as error:
+                return _program_source_error_payload(error)
+            except _registry.ProgramDetectionFailed:
+                pass
         if program is None and arguments.get("input_file"):
             try:
                 head = open(arguments["input_file"], "r", encoding="utf-8",
@@ -362,6 +472,29 @@ def _handle_apply_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
                     program = "nwchem"
             except OSError:
                 pass
+    elif arguments.get("output_file"):
+        try:
+            _registry.resolve(
+                program=program,
+                path=arguments["output_file"],
+            )
+        except _registry.ProgramContentMismatch as error:
+            return {
+                "error": "program_content_mismatch",
+                "message": str(error),
+                "program": error.program,
+                "detected_programs": list(error.candidates),
+            }
+        except _registry.ProgramDetectorError as error:
+            return _program_detector_error_payload(error)
+        except _registry.ProgramDetectionSourceError as error:
+            return _program_source_error_payload(error)
+        except _registry.ProgramNotRegistered as error:
+            return {
+                "error": "program_not_registered",
+                "message": str(error),
+                "registered_programs": _registry.list_programs(),
+            }
     if program is None:
         return {
             "error": "program_detection_failed",
@@ -371,6 +504,35 @@ def _handle_apply_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
                 "provide an output_file that hints at the program."
             ),
         }
+
+    if arguments.get("input_file"):
+        try:
+            detected_input_programs = detect_input_content_candidates(
+                (
+                    item
+                    for item in _registry.iter_programs()
+                    if isinstance(item, ProgramBackend)
+                ),
+                arguments["input_file"],
+            )
+        except InputReviewError as error:
+            if error.code == "source_not_file":
+                return error.as_dict()
+        else:
+            if (
+                detected_input_programs
+                and program not in detected_input_programs
+            ):
+                return {
+                    "error": "program_content_mismatch",
+                    "message": (
+                        "recovery input content matches "
+                        f"{', '.join(detected_input_programs)}, "
+                        f"but selected program is {program}"
+                    ),
+                    "program": program,
+                    "detected_programs": list(detected_input_programs),
+                }
 
     def _nwchem_not_implemented(_args: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -508,6 +670,36 @@ def _handle_parse_cube_file(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@_tool("compare_cube_densities")
+def _handle_compare_cube_densities(arguments: dict[str, Any]) -> dict[str, Any]:
+    return compare_cube_densities(
+        arguments["reference_cube"],
+        arguments["candidate_cube"],
+        reference_density_unit=arguments["reference_density_unit"],
+        candidate_density_unit=arguments["candidate_density_unit"],
+    )
+
+
+@_tool("compare_cube_orbitals")
+def _handle_compare_cube_orbitals(arguments: dict[str, Any]) -> dict[str, Any]:
+    return compare_cube_orbitals(
+        arguments["reference_cube"],
+        arguments["candidate_cube"],
+        reference_orbital_label=arguments["reference_orbital_label"],
+        candidate_orbital_label=arguments["candidate_orbital_label"],
+    )
+
+
+@_tool("compare_cube_orbital_subspaces")
+def _handle_compare_cube_orbital_subspaces(
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    return compare_cube_orbital_subspaces(
+        arguments["reference_orbitals"],
+        arguments["candidate_orbitals"],
+    )
+
+
 # ---------------------------------------------------------------------------
 # Preflight / job-script tools
 # ---------------------------------------------------------------------------
@@ -619,6 +811,7 @@ def _handle_register_run_generic(arguments: dict[str, Any]) -> dict[str, Any]:
         workflow_step_id=arguments.get("workflow_step_id"),
         parent_run_id=arguments.get("parent_run_id"),
         tags=arguments.get("tags"),
+        run_uid=arguments.get("run_uid"),
     )
 
 
@@ -661,6 +854,7 @@ def _handle_list_runs_generic(arguments: dict[str, Any]) -> dict[str, Any]:
 def _do_get_run_summary(arguments: dict[str, Any]) -> dict[str, Any]:
     return get_run_summary(
         run_id=arguments.get("run_id"),
+        run_uid=arguments.get("run_uid"),
         job_name=arguments.get("job_name"),
     )
 
@@ -781,7 +975,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                     },
                     "program": {
                         "type": "string",
-                        "enum": ["nwchem", "molcas", "dirac", "grasp"],
+                        "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"],
                         "description": "Optional program override; if omitted, auto-detect from the file head.",
                     },
                 },
@@ -807,7 +1001,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"],
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"],
                                 "description": "Optional program override; auto-detected from file head if omitted."},
                 },
                 "required": ["output_file"],
@@ -828,7 +1022,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"]},
                     "task_index": {"type": ["integer", "null"], "default": None,
                         "description": "0-indexed task. None = primary task (final geometry for opt, input for energy/freq)."},
                 },
@@ -849,7 +1043,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"]},
                     "task_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
@@ -868,7 +1062,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"]},
                     "task_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
@@ -878,15 +1072,17 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "parse_trajectory",
             "description": (
-                "Auto-detecting trajectory parser for geometry optimizations / "
-                "MD. Returns per-iteration energy + gradient norm + step + "
-                "geometry. Dispatches to the plugin's parser.get_trajectory()."
+                "Auto-detecting trajectory parser for geometry optimizations "
+                "and molecular dynamics. Returns the backend trajectory "
+                "contract with per-frame geometry, provenance, available "
+                "optimization evidence, and bounded structural analysis where "
+                "supported. Dispatches to the plugin's parser.get_trajectory()."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"]},
                     "task_index": {"type": ["integer", "null"], "default": None},
                 },
                 "required": ["output_file"],
@@ -909,7 +1105,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "output_file": {"type": "string"},
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"]},
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"]},
                     "max_bond_length": {"type": "number", "default": 2.5},
                     "min_safe_distance": {"type": "number", "default": 0.6},
                     "covalent_tolerance": {"type": "number", "default": 1.20},
@@ -1233,6 +1429,130 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "compare_cube_densities",
+            "description": (
+                "Compare two explicitly declared electron-density CUBE files "
+                "only when they have the same nuclear geometry and exact "
+                "real-space grid. Density values are converted from their "
+                "declared units before electron-count, L1, L2, RMS, and "
+                "maximum-difference metrics are calculated. The tool refuses "
+                "grid or geometry mismatch and does not resample fields."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reference_cube": {"type": "string", "minLength": 1},
+                    "candidate_cube": {"type": "string", "minLength": 1},
+                    "reference_density_unit": {
+                        "type": "string",
+                        "enum": [
+                            "electron_per_bohr3",
+                            "electron_per_angstrom3",
+                        ],
+                        "description": "Scalar density unit declared for the reference CUBE values.",
+                    },
+                    "candidate_density_unit": {
+                        "type": "string",
+                        "enum": [
+                            "electron_per_bohr3",
+                            "electron_per_angstrom3",
+                        ],
+                        "description": "Scalar density unit declared for the candidate CUBE values.",
+                    },
+                },
+                "required": [
+                    "reference_cube",
+                    "candidate_cube",
+                    "reference_density_unit",
+                    "candidate_density_unit",
+                ],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "compare_cube_orbitals",
+            "description": (
+                "Compare one caller-matched non-degenerate orbital CUBE pair "
+                "on the same nuclear geometry and exact real-space grid. "
+                "Reports signed normalized overlap, the candidate phase flip "
+                "when needed, phase-aligned overlap, and aligned L2 distance. "
+                "The tool refuses density, spin-density, and potential fields; "
+                "it does not choose orbital correspondence, resample grids, or "
+                "compare degenerate subspaces."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reference_cube": {"type": "string", "minLength": 1},
+                    "candidate_cube": {"type": "string", "minLength": 1},
+                    "reference_orbital_label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Caller-declared identity of the reference non-degenerate orbital.",
+                    },
+                    "candidate_orbital_label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Caller-declared identity of the candidate non-degenerate orbital.",
+                    },
+                },
+                "required": [
+                    "reference_cube",
+                    "candidate_cube",
+                    "reference_orbital_label",
+                    "candidate_orbital_label",
+                ],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "compare_cube_orbital_subspaces",
+            "description": (
+                "Compare two caller-declared equal-size orbital CUBE "
+                "subspaces on one exact grid and nuclear geometry. The tool "
+                "orthonormalizes the sampled fields, then reports the raw "
+                "cross-overlap matrix plus phase- and rotation-invariant "
+                "principal overlaps and angles. It refuses rank-deficient "
+                "sets, density/potential fields, mismatched grids, and does "
+                "not choose the subspace membership."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reference_orbitals": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {"type": "string", "minLength": 1},
+                                "orbital_label": {"type": "string", "minLength": 1},
+                            },
+                            "required": ["path", "orbital_label"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "candidate_orbitals": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {"type": "string", "minLength": 1},
+                                "orbital_label": {"type": "string", "minLength": 1},
+                            },
+                            "required": ["path", "orbital_label"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["reference_orbitals", "candidate_orbitals"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "preflight_check",
             "description": (
                 "Run all pre-submission checks on a NWChem input and return a pass/fail report. "
@@ -1393,12 +1713,13 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "register_nwchem_run — same schema plus a ``program`` field. "
                 "Use this when registering Molcas runs or building cross-"
                 "program campaigns (e.g. CrO atomization with Cr at NWChem "
-                "CCSD(T) + CrO at Molcas CASPT2). Returns a run_id."
+                "CCSD(T) + CrO at Molcas CASPT2). Returns the local run_id "
+                "and portable run_uid."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp"],
+                    "program": {"type": "string", "enum": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"],
                                 "description": "QC program that produced this run."},
                     "job_name": {"type": "string"},
                     "input_file": {"type": "string"},
@@ -1417,6 +1738,14 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                     "workflow_step_id": {"type": "string"},
                     "parent_run_id": {"type": "integer"},
                     "tags": {"type": "object"},
+                    "run_uid": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": (
+                            "Portable ID to preserve when importing a run. "
+                            "Generated when omitted."
+                        ),
+                    },
                 },
                 "required": ["job_name"],
                 "additionalProperties": False,
@@ -1471,13 +1800,14 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
             "name": "get_run_summary",
             "description": (
                 "Get detailed info for a single registered run, including its "
-                "restart chain. Generic version — runs are addressable by "
-                "run_id or job_name regardless of program."
+                "restart chain. Generic runs are addressable by "
+                "run_id, run_uid, or job_name regardless of program."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "run_id": {"type": "integer"},
+                    "run_uid": {"type": "string", "format": "uuid"},
                     "job_name": {"type": "string"},
                 },
                 "additionalProperties": False,

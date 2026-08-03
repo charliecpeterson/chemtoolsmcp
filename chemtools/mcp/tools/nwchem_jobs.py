@@ -8,6 +8,17 @@ from __future__ import annotations
 
 from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
 from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from chemtools.application.nwchem_execution import (
+    launch_nwchem_with_service,
+    register_nwchem_launch_with_service,
+    terminate_nwchem_with_service,
+)
+from chemtools.application.nwchem_monitoring import (
+    inspect_nwchem_status_with_service,
+    watch_nwchem_status_with_service,
+)
+from chemtools.application.execution import LaunchStatusError
+from chemtools.mcp.decorator import get_execution_service
 
 
 @_tool("plan_nwchem_workflow")
@@ -41,7 +52,9 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     dry_run = arguments.get("dry_run", False)
     auto_watch = arguments.get("auto_watch", True)
     auto_register = arguments.get("auto_register", True)
-    result = launch_nwchem_run(
+    execution_service = get_execution_service()
+    result = launch_nwchem_with_service(
+        execution_service,
         input_path=arguments["input_file"],
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path"),
@@ -54,16 +67,16 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
     # Auto-register in the run registry
     if not dry_run and auto_register:
         try:
-            reg = register_run(
+            reg = register_nwchem_launch_with_service(
+                execution_service,
+                launch_id=result["launch_id"],
                 job_name=result.get("job_name", arguments.get("job_name", "")),
                 input_file=arguments["input_file"],
-                output_file=result.get("output_file"),
                 profile=arguments["profile"],
                 campaign_id=arguments.get("campaign_id"),
                 workflow_id=arguments.get("workflow_id"),
                 workflow_step_id=arguments.get("workflow_step_id"),
                 parent_run_id=arguments.get("parent_run_id"),
-                mpi_ranks=arguments.get("resource_overrides", {}).get("mpi_ranks") if arguments.get("resource_overrides") else None,
             )
             result["registry"] = reg
         except Exception as exc:
@@ -80,58 +93,51 @@ def _handle_launch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
         in_file = arguments["input_file"]
         profiles_path = arguments.get("profiles_path")
         profile = arguments["profile"]
-        watch_result = watch_nwchem_run(
+        watch_result = watch_nwchem_status_with_service(
+            execution_service,
+            job_id=result["job_id"],
+            profile=profile,
             output_path=out_file,
             input_path=in_file,
-            profile=profile,
-            job_id=result["job_id"],
+            error_path=result.get("error_file"),
             profiles_path=profiles_path,
             poll_interval_seconds=30.0,
             adaptive_polling=True,
             max_poll_interval_seconds=120.0,
-            timeout_seconds=None,   # no timeout — let the scheduler walltime govern
+            timeout_seconds=None,
         )
         result["watch"] = watch_result
-
-        # Auto-update registry with final status
-        if auto_register and result.get("registry", {}).get("run_id"):
-            try:
-                run_id = result["registry"]["run_id"]
-                overall = watch_result.get("overall_status", "")
-                status_map = {
-                    "completed": "completed",
-                    "failed": "failed",
-                    "error": "failed",
-                    "timelimit": "timelimited",
-                    "cancelled": "cancelled",
-                }
-                reg_status = status_map.get(overall, overall)
-                if reg_status:
-                    update_kwargs: dict[str, Any] = {"run_id": run_id, "status": reg_status}
-                    # Extract energy from watch result if available
-                    prog = watch_result.get("progress_summary", {})
-                    tasks = prog.get("tasks", []) if prog else []
-                    if tasks:
-                        last_task = tasks[-1]
-                        if last_task.get("energy") is not None:
-                            update_kwargs["energy_hartree"] = last_task["energy"]
-                    update_run_status(**update_kwargs)
-            except Exception:
-                pass  # best-effort
     return result
 
 
 @_tool("get_nwchem_run_status", needs="executable")
 def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    status = check_nwchem_run_status(
+    process_id = arguments.get("process_id")
+    job_id = arguments.get("job_id")
+    profile = arguments.get("profile")
+    status = inspect_nwchem_status_with_service(
+        get_execution_service(),
         output_path=arguments.get("output_file"),
         input_path=arguments.get("input_file"),
         error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
+        process_id=process_id,
+        profile=profile,
+        job_id=job_id,
         profiles_path=arguments.get("profiles_path"),
     )
+    inspected_process_id = (
+        process_id
+        if (status.get("process") or {}).get("status") == "running"
+        else None
+    )
+    scheduler = status.get("scheduler") or {}
+    typed_scheduler = scheduler.get("source") in {
+        "queue",
+        "accounting",
+        "record",
+    }
+    inspected_profile = None if typed_scheduler else profile
+    inspected_job_id = None if typed_scheduler else job_id
     # Add compact progress summary when output file is available
     if arguments.get("output_file"):
         try:
@@ -139,9 +145,9 @@ def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
                 output_path=arguments["output_file"],
                 input_path=arguments.get("input_file"),
                 error_path=arguments.get("error_file"),
-                process_id=arguments.get("process_id"),
-                profile=arguments.get("profile"),
-                job_id=arguments.get("job_id"),
+                process_id=inspected_process_id,
+                profile=inspected_profile,
+                job_id=inspected_job_id,
                 profiles_path=arguments.get("profiles_path"),
             )
             status["progress"] = progress
@@ -167,33 +173,60 @@ def _handle_tail_nwchem_output(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("terminate_nwchem_run", needs="executable")
 def _handle_terminate_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
-    return terminate_nwchem_run(
+    return terminate_nwchem_with_service(
+        get_execution_service(),
         process_id=arguments.get("process_id"),
         signal_name=arguments.get("signal_name", "term"),
         job_id=arguments.get("job_id"),
         profile=arguments.get("profile"),
-        profiles_path=profiles_path,
     )
 
 
 @_tool("watch_nwchem_run", needs="executable")
 def _handle_watch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    result = watch_nwchem_run(
-        output_path=arguments.get("output_file"),
-        input_path=arguments.get("input_file"),
-        error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
-        profiles_path=arguments.get("profiles_path"),
-        poll_interval_seconds=arguments.get("poll_interval_seconds", 10.0),
-        adaptive_polling=arguments.get("adaptive_polling", True),
-        max_poll_interval_seconds=arguments.get("max_poll_interval_seconds", 60.0),
-        timeout_seconds=arguments.get("timeout_seconds", 3600.0),
-        max_polls=arguments.get("max_polls"),
-        history_limit=arguments.get("history_limit", 8),
-    )
+    job_id = arguments.get("job_id")
+    process_id = arguments.get("process_id")
+    profile = arguments.get("profile")
+    service = get_execution_service()
+
+    watch_arguments = {
+        "output_path": arguments.get("output_file"),
+        "input_path": arguments.get("input_file"),
+        "error_path": arguments.get("error_file"),
+        "profiles_path": arguments.get("profiles_path"),
+        "poll_interval_seconds": arguments.get(
+            "poll_interval_seconds",
+            10.0,
+        ),
+        "adaptive_polling": arguments.get("adaptive_polling", True),
+        "max_poll_interval_seconds": arguments.get(
+            "max_poll_interval_seconds",
+            60.0,
+        ),
+        "timeout_seconds": arguments.get("timeout_seconds", 3600.0),
+        "max_polls": arguments.get("max_polls"),
+        "history_limit": arguments.get("history_limit", 8),
+    }
+    result = None
+    if job_id is not None or process_id is not None:
+        try:
+            result = watch_nwchem_status_with_service(
+                service,
+                process_id=process_id if job_id is None else None,
+                job_id=job_id,
+                profile=profile,
+                **watch_arguments,
+            )
+        except LaunchStatusError as exc:
+            if exc.as_dict()["error"] != "launch_not_owned":
+                raise
+    if result is None:
+        result = watch_nwchem_run(
+            process_id=process_id,
+            profile=profile,
+            job_id=job_id,
+            **watch_arguments,
+        )
     result["next_actions"] = _build_next_actions(
         "watch_run", result,
         output_file=arguments.get("output_file", ""),

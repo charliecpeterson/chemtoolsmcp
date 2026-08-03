@@ -1,0 +1,6 @@
+<UPF version="2.0.1">
+<PP_HEADER element="Si" pseudo_type="PAW" relativistic="scalar"
+ functional="PBE" z_valence="4.0" is_ultrasoft="true" is_paw="true"
+ has_so="false" core_correction="true" wfc_cutoff="16.0"
+ rho_cutoff="70.0"/>
+</UPF>

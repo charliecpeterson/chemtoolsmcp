@@ -1,0 +1,109 @@
+{
+  "schema": "chemtools.run-artifacts/1",
+  "run": {"run_uid": "comparison-same-starting-class"},
+  "artifacts": [
+    {
+      "artifact_id": "artifact-grasp-tf-run-a",
+      "roles": ["primary_output"],
+      "kind": "grasp.rmcdhf_summary",
+      "producing_step": null,
+      "metadata": {}
+    },
+    {
+      "artifact_id": "artifact-grasp-tf-run-b",
+      "roles": ["primary_output"],
+      "kind": "grasp.rmcdhf_summary",
+      "producing_step": null,
+      "metadata": {}
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "observation-grasp-tf-run-a",
+      "artifact_id": "artifact-grasp-tf-run-a",
+      "observed_at": "2026-07-31T12:00:00+00:00",
+      "location": {
+        "path": "/reference/grasp/tf-run-a.sum",
+        "entry_type": "file",
+        "root_name": null,
+        "relative_path": null
+      },
+      "exists": true,
+      "size_bytes": null,
+      "modified_ns": null,
+      "sha256": null,
+      "hash_status": "not_requested",
+      "directory_manifest_schema": null,
+      "directory_manifest_sha256": null
+    },
+    {
+      "observation_id": "observation-grasp-tf-run-b",
+      "artifact_id": "artifact-grasp-tf-run-b",
+      "observed_at": "2026-07-31T12:00:00+00:00",
+      "location": {
+        "path": "/reference/grasp/tf-run-b.sum",
+        "entry_type": "file",
+        "root_name": null,
+        "relative_path": null
+      },
+      "exists": true,
+      "size_bytes": null,
+      "modified_ns": null,
+      "sha256": null,
+      "hash_status": "not_requested",
+      "directory_manifest_schema": null,
+      "directory_manifest_sha256": null
+    }
+  ],
+  "expectations": [],
+  "provenance": [
+    {
+      "event_id": "event-grasp-tf-run-a",
+      "event_type": "calculated",
+      "occurred_at": "2026-07-31T12:00:00+00:00",
+      "actor": {
+        "producer_type": "program",
+        "name": "grasp",
+        "version": "2018",
+        "commit": null
+      },
+      "run_uid": "run-grasp-tf-a",
+      "step_id": "rmcdhf",
+      "inputs": [],
+      "outputs": [
+        {
+          "artifact_id": "artifact-grasp-tf-run-a",
+          "observation_id": "observation-grasp-tf-run-a"
+        }
+      ],
+      "evidence": "recorded",
+      "parameters": {
+        "starting_guess_class": "thomas_fermi"
+      }
+    },
+    {
+      "event_id": "event-grasp-tf-run-b",
+      "event_type": "calculated",
+      "occurred_at": "2026-07-31T12:00:00+00:00",
+      "actor": {
+        "producer_type": "program",
+        "name": "grasp",
+        "version": "2018",
+        "commit": null
+      },
+      "run_uid": "run-grasp-tf-b",
+      "step_id": "rmcdhf",
+      "inputs": [],
+      "outputs": [
+        {
+          "artifact_id": "artifact-grasp-tf-run-b",
+          "observation_id": "observation-grasp-tf-run-b"
+        }
+      ],
+      "evidence": "recorded",
+      "parameters": {
+        "starting_guess_class": "thomas_fermi"
+      }
+    }
+  ]
+}

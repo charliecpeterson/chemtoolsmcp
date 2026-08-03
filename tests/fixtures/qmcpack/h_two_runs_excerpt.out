@@ -1,0 +1,14 @@
+QMCPACK 1.0.0
+  Project = H
+  ParticleSet e : 0 1
+  ParticleSet ion0 : 0 1
+  Start VMCSingleOMP
+  QMC Execution time = 1.3405175831e+01 secs
+  Total Execution time = 1.3476763781e+01 secs
+QMCPACK 1.0.0
+  Project = H
+  ParticleSet e : 0 1
+  ParticleSet ion0 : 0 1
+  Start VMCSingleOMP
+  QMC Execution time = 1.3250650895e+01 secs
+  Total Execution time = 1.3315375550e+01 secs

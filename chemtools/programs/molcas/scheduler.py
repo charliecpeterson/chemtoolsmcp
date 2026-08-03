@@ -7,11 +7,11 @@ machinery (sbatch invocation, job-id parsing, ``.jobid`` writing, ``squeue``
 polling, output tailing) is generic; this module is just the public Molcas
 naming.
 
-Profiles consumed here have ``launcher.kind = "scheduler"`` and an
-``execution.apptainer_sif`` (or ``apptainer_sif`` top-level) pointing at the
-containerized Molcas image. The script_template should reference
-``{apptainer_sif}``, ``{job_name}``, ``{input_file}``, etc. — see the
-TACC Stampede3 example profiles.
+Profiles consumed here have ``launcher.kind = "scheduler"`` and a
+``programs.molcas`` block containing launcher and executable arrays. The
+script template can reference ``{program_command}``, ``{job_name}``, and
+``{input_file}``; see the TACC Stampede3 example profiles. Previous
+program-specific fields remain compatibility inputs.
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ from typing import Any
 
 from chemtools.core.runner import (
     cancel_scheduler_job,
-    inspect_nwchem_run_status,
-    render_nwchem_run,
-    run_nwchem,
-    watch_nwchem_run as _watch_nwchem_run,
+    inspect_run_status,
+    render_calculation_run,
+    run_calculation,
+    watch_run,
 )
 
 
@@ -42,8 +42,7 @@ def launch_molcas_run(
 
     Uses the program-neutral engine in ``chemtools/core/runner.py``. The
     profile's ``scheduler.script_template`` is rendered with the standard
-    placeholders plus Molcas-specific ones (``{apptainer_sif}``,
-    ``{pymolcas_command}``).
+    placeholders, including the neutral ``{program_command}``.
 
     Parameters
     ----------
@@ -55,7 +54,7 @@ def launch_molcas_run(
         When True, render the submit script but do NOT call sbatch.
     """
     if dry_run:
-        result = render_nwchem_run(
+        result = render_calculation_run(
             input_path=input_path,
             profile=profile,
             profiles_path=profiles_path,
@@ -65,7 +64,7 @@ def launch_molcas_run(
         )
         result.pop("environment", None)
         return result
-    return run_nwchem(
+    return run_calculation(
         input_path=input_path,
         profile=profile,
         profiles_path=profiles_path,
@@ -90,11 +89,11 @@ def get_molcas_run_status(
 
     Reads the ``.jobid`` file alongside the input/output if ``job_id`` is
     not supplied. NOTE: the generic Molcas-output parser path is not yet
-    wired into ``inspect_nwchem_run_status``, so ``progress_summary`` will
+    wired into ``inspect_run_status``, so ``progress_summary`` will
     be None for Molcas runs; ``overall_status`` still works via scheduler
     state + file presence.
     """
-    return inspect_nwchem_run_status(
+    return inspect_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
@@ -121,7 +120,7 @@ def watch_molcas_run(
     history_limit: int = 8,
 ) -> dict[str, Any]:
     """Poll a Molcas job until it reaches a terminal state."""
-    return _watch_nwchem_run(
+    return watch_run(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,

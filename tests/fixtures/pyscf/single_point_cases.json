@@ -1,0 +1,169 @@
+{
+  "schema_version": "chemtools.pyscf-single-point-fixtures/1",
+  "recorded_with": {
+    "pyscf_version": "2.13.1",
+    "python_version": "3.12.13",
+    "runner_result_schema": "chemtools.pyscf-single-point-result/1"
+  },
+  "cases": [
+    {
+      "id": "h2_rhf_sto3g",
+      "purpose": "Closed-shell Hartree-Fock reference for the restricted SCF entry point.",
+      "request": {
+        "schema_version": "chemtools.pyscf-single-point-request/1",
+        "atoms": [
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.0},
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.74}
+        ],
+        "charge": 0,
+        "multiplicity": 1,
+        "method": "rhf",
+        "basis": "sto-3g",
+        "xc": null,
+        "density_fit": false,
+        "max_cycles": 100,
+        "convergence_tolerance": 1e-9,
+        "max_memory_mb": 2048
+      },
+      "expected": {
+        "status": "completed",
+        "scf_converged": true,
+        "electrons": {"total": 2, "alpha": 1, "beta": 1},
+        "total_hartree": -1.1167593073964253,
+        "energy_tolerance_hartree": 1e-10
+      }
+    },
+    {
+      "id": "o2_uhf_triplet_sto3g",
+      "purpose": "Open-shell triplet reference for the unrestricted Hartree-Fock entry point.",
+      "request": {
+        "schema_version": "chemtools.pyscf-single-point-request/1",
+        "atoms": [
+          {"element": "O", "x": 0.0, "y": 0.0, "z": -0.603},
+          {"element": "O", "x": 0.0, "y": 0.0, "z": 0.603}
+        ],
+        "charge": 0,
+        "multiplicity": 3,
+        "method": "uhf",
+        "basis": "sto-3g",
+        "xc": null,
+        "density_fit": false,
+        "max_cycles": 100,
+        "convergence_tolerance": 1e-9,
+        "max_memory_mb": 2048
+      },
+      "expected": {
+        "status": "completed",
+        "scf_converged": true,
+        "electrons": {"total": 16, "alpha": 9, "beta": 7},
+        "total_hartree": -147.6338708202829,
+        "energy_tolerance_hartree": 1e-10
+      }
+    },
+    {
+      "id": "h2_rks_pbe_sto3g",
+      "purpose": "Closed-shell DFT reference for the restricted Kohn-Sham entry point.",
+      "request": {
+        "schema_version": "chemtools.pyscf-single-point-request/1",
+        "atoms": [
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.0},
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.74}
+        ],
+        "charge": 0,
+        "multiplicity": 1,
+        "method": "rks",
+        "basis": "sto-3g",
+        "xc": "pbe",
+        "density_fit": false,
+        "max_cycles": 100,
+        "convergence_tolerance": 1e-9,
+        "max_memory_mb": 2048
+      },
+      "expected": {
+        "status": "completed",
+        "scf_converged": true,
+        "electrons": {"total": 2, "alpha": 1, "beta": 1},
+        "total_hartree": -1.1520727951590921,
+        "energy_tolerance_hartree": 1e-10
+      }
+    },
+    {
+      "id": "h_uks_pbe_sto3g",
+      "purpose": "Open-shell DFT reference for the unrestricted Kohn-Sham entry point.",
+      "request": {
+        "schema_version": "chemtools.pyscf-single-point-request/1",
+        "atoms": [
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.0}
+        ],
+        "charge": 0,
+        "multiplicity": 2,
+        "method": "uks",
+        "basis": "sto-3g",
+        "xc": "pbe",
+        "density_fit": false,
+        "max_cycles": 100,
+        "convergence_tolerance": 1e-9,
+        "max_memory_mb": 2048
+      },
+      "expected": {
+        "status": "completed",
+        "scf_converged": true,
+        "electrons": {"total": 1, "alpha": 1, "beta": 0},
+        "total_hartree": -0.4643756632505113,
+        "energy_tolerance_hartree": 1e-10
+      }
+    },
+    {
+      "id": "h2_stretched_rhf_cycle_limit",
+      "purpose": "A completed process whose one-cycle RHF calculation is intentionally unconverged.",
+      "request": {
+        "schema_version": "chemtools.pyscf-single-point-request/1",
+        "atoms": [
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.0},
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 5.0}
+        ],
+        "charge": 0,
+        "multiplicity": 1,
+        "method": "rhf",
+        "basis": "sto-3g",
+        "xc": null,
+        "density_fit": false,
+        "max_cycles": 1,
+        "convergence_tolerance": 1e-12,
+        "max_memory_mb": 2048
+      },
+      "expected": {
+        "status": "completed",
+        "scf_converged": false,
+        "warning_codes": ["scf_not_converged"],
+        "electrons": {"total": 2, "alpha": 1, "beta": 1},
+        "total_hartree": -0.5990248715061531,
+        "energy_tolerance_hartree": 1e-10
+      }
+    },
+    {
+      "id": "h2_uhf_doublet_electron_spin_inconsistent",
+      "purpose": "A typed request that reaches PySCF but must fail because two electrons cannot have doublet spin.",
+      "request": {
+        "schema_version": "chemtools.pyscf-single-point-request/1",
+        "atoms": [
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.0},
+          {"element": "H", "x": 0.0, "y": 0.0, "z": 0.74}
+        ],
+        "charge": 0,
+        "multiplicity": 2,
+        "method": "uhf",
+        "basis": "sto-3g",
+        "xc": null,
+        "density_fit": false,
+        "max_cycles": 100,
+        "convergence_tolerance": 1e-9,
+        "max_memory_mb": 2048
+      },
+      "expected": {
+        "status": "runtime_error",
+        "message_contains": "Electron number 2 and spin 1 are not consistent"
+      }
+    }
+  ]
+}

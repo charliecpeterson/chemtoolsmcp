@@ -1,0 +1,84 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "generic.guided_review_nwchem",
+  "program": "generic",
+  "fixture": "fixtures/nwchem_h2.nw",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "generic.guided_review_nwchem",
+    "method": "tools/call",
+    "params": {
+      "name": "review_input",
+      "arguments": {
+        "input_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "schema_version",
+    "program",
+    "source",
+    "assessment",
+    "evidence",
+    "uncertainty",
+    "next_actions"
+  ],
+  "expected_payload": {
+    "schema_version": "chemtools.review-input/1",
+    "program": {
+      "name": "nwchem",
+      "resolved_by": "content"
+    },
+    "assessment": {
+      "verdict": {
+        "label": "review_required",
+        "confidence": 0.8,
+        "reasons": [
+          "The configured linter found 1 warning(s)."
+        ]
+      }
+    },
+    "evidence": {
+      "artifact_classification": {
+        "status": "matched",
+        "candidates": [
+          {
+            "kind": "nwchem.input",
+            "roles": [
+              "primary_input"
+            ]
+          }
+        ]
+      },
+      "parser": {
+        "status": "completed",
+        "result": {
+          "atom_count": 2,
+          "multiplicity": 1,
+          "tasks": [
+            {
+              "module": "scf",
+              "operation": "energy"
+            }
+          ]
+        }
+      },
+      "lint": {
+        "status": "completed",
+        "summary": {
+          "errors": 0,
+          "warnings": 1,
+          "info": 2
+        }
+      }
+    },
+    "uncertainty": [],
+    "next_actions": [
+      {
+        "action": "edit_input",
+        "reason": "Module 'scf' does not explicitly write a movecs file.",
+        "priority": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "chemtools.synthetic-optimizer-sentinels/1",
+  "provenance": "synthetic_contract_cases",
+  "units": "arbitrary",
+  "cases": [
+    {
+      "id": "minimize_dominating_pass",
+      "objective_direction": "minimize",
+      "failure_value": 100.0,
+      "valid_lower_bound": 10.0,
+      "valid_upper_bound": 40.0,
+      "expected_verdict": "satisfied"
+    },
+    {
+      "id": "minimize_attractive_failure",
+      "objective_direction": "minimize",
+      "failure_value": 1.0,
+      "valid_lower_bound": 10.0,
+      "valid_upper_bound": 40.0,
+      "expected_verdict": "violated"
+    },
+    {
+      "id": "maximize_dominating_pass",
+      "objective_direction": "maximize",
+      "failure_value": -100.0,
+      "valid_lower_bound": -10.0,
+      "valid_upper_bound": 40.0,
+      "expected_verdict": "satisfied"
+    },
+    {
+      "id": "maximize_attractive_failure",
+      "objective_direction": "maximize",
+      "failure_value": 50.0,
+      "valid_lower_bound": -10.0,
+      "valid_upper_bound": 40.0,
+      "expected_verdict": "violated"
+    }
+  ]
+}

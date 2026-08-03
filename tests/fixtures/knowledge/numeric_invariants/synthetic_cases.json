@@ -1,0 +1,41 @@
+{
+  "schema_version": "chemtools.synthetic-numeric-invariants/1",
+  "provenance": "synthetic_contract_cases",
+  "units": "arbitrary",
+  "cases": [
+    {
+      "id": "expected_positive_pass",
+      "check": "sign",
+      "value": 0.18,
+      "expected_sign": "positive",
+      "tolerance": 0.0,
+      "expected_verdict": "satisfied"
+    },
+    {
+      "id": "wrong_sign_failure",
+      "check": "sign",
+      "value": -0.04,
+      "expected_sign": "positive",
+      "tolerance": 0.0,
+      "expected_verdict": "violated"
+    },
+    {
+      "id": "nonincreasing_pass",
+      "check": "monotonicity",
+      "values": [-10.0, -10.2, -10.25],
+      "expected_direction": "nonincreasing",
+      "tolerance": 0.0,
+      "expected_verdict": "satisfied",
+      "expected_violating_pairs": []
+    },
+    {
+      "id": "nonincreasing_basin_jump_failure",
+      "check": "monotonicity",
+      "values": [-10.0, -10.2, -10.1, -10.3],
+      "expected_direction": "nonincreasing",
+      "tolerance": 0.0,
+      "expected_verdict": "violated",
+      "expected_violating_pairs": [[2, 3]]
+    }
+  ]
+}

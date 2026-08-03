@@ -1,0 +1,30 @@
+schema_version: chemtools.knowledge-card/1
+id: qmcpack.fblock_dmc_reference_protocol
+programs: [qmcpack]
+workflows: [dmc_production]
+kind: workflow
+status: accepted
+confidence: high
+applies_when:
+  system_class: heavy_open_f_ion
+  pseudopotential: semilocal
+  locality_treatment: tmove_controlled
+claim: >-
+  The accepted f-block reference input orders linear Jastrow optimization,
+  VMC gating, then a decreasing T-move DMC time-step ladder. It includes one
+  no-T-move calculation at an interior ladder point with matching controls so
+  the locality shift can be measured. This is a reviewed reference protocol,
+  not a convergence proof for a new system.
+check:
+  evidence: dmc_campaign
+  expected:
+    production_order: linear_vmc_dmc
+    reference_timestep_ladder: true
+    interior_no_tmove_control: true
+failure:
+  severity: warning
+  action: Record and justify any deviation before treating the campaign as comparable with the reference workflow.
+sources:
+  - "notes/fblock/qe-qmcpack-oncvpsp.md#46-production-dmc-protocol-that-has-held-up"
+tests:
+  - "tests/test_qmcpack_input.py::test_qmcpack_dmc_campaign_records_reference_production_order"

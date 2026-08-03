@@ -1,0 +1,25 @@
+schema_version: chemtools.knowledge-card/1
+id: pyscf.scf_convergence_is_separate_from_execution
+programs: [pyscf]
+workflows: [single_point_scf]
+kind: validation
+status: accepted
+confidence: high
+applies_when:
+  runner_operation: pyscf_single_point
+  execution_status: completed
+claim: >-
+  A completed bounded PySCF single-point process does not establish SCF
+  convergence. A result with scf.converged false, including one with a finite
+  reported energy, is not eligible as a converged SCF result.
+check:
+  evidence: result.scf.converged
+  expected: true
+  scope: bounded_molecular_single_point_runner
+failure:
+  severity: error
+  action: Do not use the reported energy as a converged SCF result; inspect the warning and revise the explicitly recorded SCF controls or chemical model.
+sources:
+  - "docs/pyscf-single-point-fixtures.md#completion-and-convergence-are-separate-facts"
+tests:
+  - "tests/test_pyscf_fixtures.py::test_pyscf_fixture_corpus_distinguishes_execution_from_convergence"

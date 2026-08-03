@@ -1,0 +1,67 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "molcas.parse_scf",
+  "program": "molcas",
+  "fixture": "fixtures/molcas_scf.out",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "molcas.parse_scf",
+    "method": "tools/call",
+    "params": {
+      "name": "parse_molcas_output",
+      "arguments": {
+        "output_file": "$FIXTURE"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "metadata",
+    "tasks_overview",
+    "task_payloads",
+    "energy_summary",
+    "active_space_summary",
+    "warnings"
+  ],
+  "expected_payload": {
+    "metadata": {
+      "program": "molcas"
+    },
+    "tasks_overview": [
+      {
+        "program": "molcas",
+        "kind": "scf",
+        "line_start": 2,
+        "line_end": 4,
+        "extra": {
+          "module": "SCF",
+          "return_code": "_RC_ALL_IS_WELL_"
+        }
+      }
+    ],
+    "task_payloads": [
+      {
+        "task_index": 0,
+        "module": "SCF",
+        "kind": "scf",
+        "line_range": [
+          2,
+          4
+        ],
+        "return_code": "_RC_ALL_IS_WELL_",
+        "details": {
+          "method": "SCF",
+          "final_energy": {
+            "total": -75.0239826189
+          },
+          "converged": true
+        }
+      }
+    ],
+    "energy_summary": {
+      "scf_total_hartree": -75.0239826189,
+      "primary_energy_hartree": -75.0239826189,
+      "primary_label": "SCF"
+    },
+    "warnings": []
+  }
+}

@@ -1,0 +1,25 @@
+schema_version: chemtools.knowledge-card/1
+id: grasp.rmcdhf.zero_exit_requires_convergence
+programs: [grasp]
+workflows: [scf]
+kind: validation
+status: accepted
+confidence: high
+applies_when:
+  executable: rmcdhf
+  process_exit_code: 0
+claim: >-
+  An rmcdhf process exit code of zero does not establish SCF convergence. The
+  RMCDHF log must contain positive convergence evidence, and a cycle-limit
+  termination is a failed scientific task.
+check:
+  evidence: rmcdhf_log_convergence_marker
+  expected: true
+failure:
+  severity: error
+  action: Do not use the reported energy or promote the orbital files.
+sources:
+  - "notes/fblock/grasp-fblock.md#5-convergence-the-trap-that-must-be-tooled"
+  - "notes/fblock/README.md#the-five-things-that-generalize"
+tests:
+  - "tests/test_session_parsers.py::test_zero_exit_rmcdhf_requires_positive_convergence_evidence"

@@ -2,8 +2,8 @@
 
 Importing this module registers every @_tool handler with the shared
 `_TOOL_REGISTRY` in chemtools.mcp.decorator. The accompanying
-`dirac_tool_definitions()` is appended into the multi-program tool list
-exposed by `chemtools/mcp/tools/nwchem.py:tool_definitions()`.
+`dirac_tool_definitions()` is loaded into the multi-program tool list through
+`chemtools.mcp.catalog`.
 
 Phase DC ships the read-only tool surface:
 
@@ -67,17 +67,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from chemtools.mcp.decorator import _tool as _raw_tool
+from chemtools.application.dirac_execution import (
+    launch_dirac_with_service,
+    terminate_dirac_with_service,
+)
+from chemtools.application.dirac_monitoring import (
+    inspect_dirac_status_with_service,
+    watch_dirac_status_with_service,
+)
+from chemtools.application.execution import LaunchStatusError
+from chemtools.mcp.decorator import (
+    _tool as _raw_tool,
+    get_execution_service,
+)
 
 
 def _tool(name: str, *, needs: str = "none", program: str = "dirac"):
     """Program-scoped @_tool wrapper for DIRAC. Set program='generic' on the
     decorator call to register a cross-program tool here."""
     return _raw_tool(name, needs=needs, program=program)
-
-
-# Make sure the DIRAC plugin is registered when this module is loaded.
-import chemtools.programs.dirac  # noqa: F401,E402
 
 from chemtools.programs.dirac.parse import (  # noqa: E402
     parse_output as _parse_output,
@@ -138,10 +146,7 @@ from chemtools.programs.dirac.runtime import (  # noqa: E402
     prepare_launch as _prepare_launch,
 )
 from chemtools.programs.dirac.scheduler import (  # noqa: E402
-    launch_dirac_run as _launch_dirac_run,
-    get_dirac_run_status as _get_dirac_run_status,
     watch_dirac_run as _watch_dirac_run,
-    terminate_dirac_run as _terminate_dirac_run,
 )
 
 
@@ -981,10 +986,11 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "launch_dirac_run",
             "description": (
-                "Submit a DIRAC job to the scheduler defined by a runner profile. "
-                "Renders the submit script (which calls pam-dirac with --inp and --mol "
-                "via the profile's script_template), calls sbatch / qsub, parses the "
-                "job ID, and writes {job_name}.jobid. Set dry_run=true to preview."
+                "Launch DIRAC with a direct profile or submit it through a Slurm "
+                "profile. Live execution records the exact pam-dirac arguments, "
+                "paired .inp and .mol paths, resources, and PID or job ID. Set "
+                "dry_run=true for the legacy read-only preview. PBS and LSF "
+                "profiles are not supported by the typed execution boundary."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1006,9 +1012,10 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "get_dirac_run_status",
             "description": (
-                "Check the status of a DIRAC run. For HPC jobs the scheduler job ID "
-                "is auto-detected from {job_name}.jobid. Returns scheduler state "
-                "(queued/running/completed/failed/cancelled) and an overall_status."
+                "Check a DIRAC run. PIDs and Slurm job IDs owned by this MCP "
+                "use retained process handles or target-owned queue and "
+                "accounting queries. Unowned identifiers and auto-detected "
+                ".jobid files use the legacy status path."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1027,8 +1034,9 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "watch_dirac_run",
             "description": (
-                "Poll DIRAC status until terminal state or timeout. For HPC jobs, "
-                "omit timeout_seconds to block until scheduler completion."
+                "Poll DIRAC status until terminal state or timeout. Owned PIDs "
+                "and Slurm job IDs use typed execution state; unowned "
+                "identifiers use the legacy watcher."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1053,8 +1061,8 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "terminate_dirac_run",
             "description": (
-                "Cancel a running DIRAC scheduler job. Provide job_id + profile "
-                "(profile resolves the scancel/qdel/bkill command)."
+                "Cancel a Slurm DIRAC job launched by this MCP process. Provide "
+                "the recorded job_id and the same profile used for launch."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1610,7 +1618,8 @@ def _handle_get_dirac_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("launch_dirac_run", needs="executable")
 def _handle_launch_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _launch_dirac_run(
+    return launch_dirac_with_service(
+        get_execution_service(),
         input_path=arguments["input_file"],
         mol_file=arguments["mol_file"],
         profile=arguments["profile"],
@@ -1625,7 +1634,8 @@ def _handle_launch_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("get_dirac_run_status", needs="executable")
 def _handle_get_dirac_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _get_dirac_run_status(
+    return inspect_dirac_status_with_service(
+        get_execution_service(),
         output_path=arguments.get("output_file"),
         input_path=arguments.get("input_file"),
         error_path=arguments.get("error_file"),
@@ -1638,29 +1648,54 @@ def _handle_get_dirac_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("watch_dirac_run", needs="executable")
 def _handle_watch_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
+    process_id = arguments.get("process_id")
+    job_id = arguments.get("job_id")
+    profile = arguments.get("profile")
+    watch_arguments = {
+        "output_path": arguments.get("output_file"),
+        "input_path": arguments.get("input_file"),
+        "error_path": arguments.get("error_file"),
+        "profiles_path": arguments.get("profiles_path"),
+        "poll_interval_seconds": arguments.get(
+            "poll_interval_seconds",
+            10.0,
+        ),
+        "adaptive_polling": arguments.get("adaptive_polling", True),
+        "max_poll_interval_seconds": arguments.get(
+            "max_poll_interval_seconds",
+            60.0,
+        ),
+        "timeout_seconds": arguments.get("timeout_seconds", 3600.0),
+        "max_polls": arguments.get("max_polls"),
+        "history_limit": arguments.get("history_limit", 8),
+    }
+    result = None
+    if job_id is not None or process_id is not None:
+        try:
+            result = watch_dirac_status_with_service(
+                get_execution_service(),
+                process_id=process_id if job_id is None else None,
+                job_id=job_id,
+                profile=profile,
+                **watch_arguments,
+            )
+        except LaunchStatusError as exc:
+            if exc.as_dict()["error"] != "launch_not_owned":
+                raise
+    if result is not None:
+        return result
     return _watch_dirac_run(
-        output_path=arguments.get("output_file"),
-        input_path=arguments.get("input_file"),
-        error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
-        profiles_path=arguments.get("profiles_path"),
-        poll_interval_seconds=arguments.get("poll_interval_seconds", 10.0),
-        adaptive_polling=arguments.get("adaptive_polling", True),
-        max_poll_interval_seconds=arguments.get("max_poll_interval_seconds", 60.0),
-        timeout_seconds=arguments.get("timeout_seconds", 3600.0),
-        max_polls=arguments.get("max_polls"),
-        history_limit=arguments.get("history_limit", 8),
+        process_id=process_id,
+        profile=profile,
+        job_id=job_id,
+        **watch_arguments,
     )
 
 
 @_tool("terminate_dirac_run", needs="executable")
 def _handle_terminate_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    import os
-    profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
-    return _terminate_dirac_run(
+    return terminate_dirac_with_service(
+        get_execution_service(),
         job_id=arguments["job_id"],
         profile=arguments["profile"],
-        profiles_path=profiles_path,
     )

@@ -15,8 +15,14 @@
     "workstation_serial": {
       "description": "Single-process local launch. Replace the launcher command with the exact command used on this machine.",
       "launcher": {
-        "kind": "direct",
-        "command": "/path/to/nwchem"
+        "kind": "direct"
+      },
+      "programs": {
+        "nwchem": {
+          "executable_argv": [
+            "/path/to/nwchem"
+          ]
+        }
       },
       "execution": {
         "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
@@ -42,8 +48,19 @@
     "workstation_mpi": {
       "description": "Local MPI launch. Replace the launcher command and rank count to match this workstation.",
       "launcher": {
-        "kind": "direct",
-        "command": "mpirun -np {mpi_ranks} /path/to/nwchem"
+        "kind": "direct"
+      },
+      "programs": {
+        "nwchem": {
+          "launcher_argv": [
+            "mpirun",
+            "-np",
+            "{mpi_ranks}"
+          ],
+          "executable_argv": [
+            "/path/to/nwchem"
+          ]
+        }
       },
       "execution": {
         "command_template": "{launcher} {input_file} > {output_file} 2> {error_file}",
@@ -69,8 +86,14 @@
     "workstation_wrapper": {
       "description": "Local wrapper-script launch. Point the launcher command at a site-specific shell script if setup requires modules, conda, or environment sourcing.",
       "launcher": {
-        "kind": "direct",
-        "command": "/absolute/path/to/run_nwchem_local.sh"
+        "kind": "direct"
+      },
+      "programs": {
+        "nwchem": {
+          "executable_argv": [
+            "/absolute/path/to/run_nwchem_local.sh"
+          ]
+        }
       },
       "execution": {
         "command_template": "{launcher} {input_file} {output_file} {error_file}",
