@@ -18,6 +18,7 @@ works fine for main-group and transition-metal chemistry, they break it
 | `atsp2k.md` | ATSP2K (`hf`/`mchf`) | **no tooling** — this is the spec-in-prose |
 | `dirac-fblock.md` | DIRAC | 38 tools exist; these are the actinide lessons on top |
 | `qe-qmcpack-oncvpsp.md` | Quantum ESPRESSO, QMCPACK, ONCVPSP/`ld1` | **no tooling, not installed** — read before installing |
+| `catalog-state-semantics.md` | the bundled f-block catalog itself | dataset is **current and correct**; these are semantics the records do not carry |
 | `examples/` | all of the above | real inputs that ran, plus the 633-state reference table |
 | [`chemtools/data/fblock`](../../chemtools/data/fblock) | GRASP · ATSP2K · DIRAC | **per-element seed library**: 31 elements × every state, including configuration, J structure, converged DC+B energy, and the seeding recipe each state needs. Start here to run a new f-block calculation. |
 
