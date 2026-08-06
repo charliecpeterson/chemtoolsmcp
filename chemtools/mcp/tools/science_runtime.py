@@ -595,7 +595,10 @@ def science_runtime_tool_definitions() -> list[dict[str, Any]]:
                 "and fixed SCF controls only. It records execution evidence "
                 "separately from SCF convergence and does not accept Python "
                 "source, custom method objects, periodic cells, geometry "
-                "optimization, or multireference methods."
+                "optimization, or multireference methods. For a single atom, "
+                "charge and spin are accepted but atomic-symmetry occupations "
+                "are not constrained or verified; cataloged f-block states are "
+                "therefore unsupported."
             ),
             "inputSchema": {
                 "type": "object",

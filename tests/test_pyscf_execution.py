@@ -53,6 +53,45 @@ def test_render_pyscf_single_point_uses_fixed_companion_contract(
     assert plan.program_arguments == (str(runner), "pyscf-single-point")
     assert plan.environment["PYSCF_TMPDIR"] == str(tmp_path.resolve())
     assert preview["command"] == [str(interpreter), str(runner), "pyscf-single-point"]
+    assert preview["schema_version"] == "chemtools.pyscf-launch/2"
+    assert preview["atomic_state_control"] == {"status": "not_applicable"}
+    assert preview["warnings"] == []
+
+
+def test_atomic_fblock_preview_refuses_to_claim_configuration_control(
+    tmp_path,
+    monkeypatch,
+):
+    interpreter = _interpreter(tmp_path)
+    runner = tmp_path / "science_runner.py"
+    runner.write_text("# fixed runner\n")
+    monkeypatch.setattr(
+        pyscf_execution,
+        "resolve_science_runtime_python",
+        lambda: interpreter,
+    )
+    monkeypatch.setattr(pyscf_execution, "science_runner_path", lambda: runner)
+    arguments = {
+        **_arguments(tmp_path),
+        "atoms": [{"element": "Tm", "x": 0.0, "y": 0.0, "z": 0.0}],
+        "charge": 15,
+        "multiplicity": 7,
+        "method": "uhf",
+    }
+
+    _, _, preview = pyscf_execution.render_pyscf_single_point(**arguments)
+
+    assert preview["atomic_state_control"] == {
+        "status": "unconstrained",
+        "atomic_symmetry": False,
+        "irrep_occupations": False,
+        "post_scf_population_check": False,
+        "catalog_state_supported": False,
+    }
+    assert [warning["code"] for warning in preview["warnings"]] == [
+        "atomic_configuration_unconstrained",
+        "fblock_catalog_transfer_unsupported",
+    ]
 
 
 def test_render_pyscf_single_point_can_request_a_fixed_density_cube(

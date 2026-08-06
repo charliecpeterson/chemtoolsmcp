@@ -13,6 +13,10 @@ from chemtools.reference.fblock import (
     bundled_fblock_directory,
     load_fblock_catalog,
 )
+from chemtools.reference.fblock_configuration import (
+    encoded_electron_count,
+    parse_shell_configuration,
+)
 
 
 def test_bundled_fblock_catalog_has_exact_versioned_coverage():
@@ -21,8 +25,8 @@ def test_bundled_fblock_catalog_has_exact_versioned_coverage():
     assert catalog.metadata.to_dict() == {
         "schema_version": "chemtools.fblock-dataset/1",
         "dataset_id": "fblock.atomic_seeds",
-        "dataset_version": "2",
-        "rebuild_date": "2026-07-28",
+        "dataset_version": "3",
+        "rebuild_date": "2026-08-05",
         "element_count": 31,
         "state_count": 633,
         "role_counts": {"fit": 493, "holdout": 140},
@@ -34,7 +38,7 @@ def test_bundled_fblock_catalog_has_exact_versioned_coverage():
         },
         "staged_birth_state_count": 51,
         "catalog_sha256": (
-            "6b2a59951c11ab141bbe0dfe4806f9b1fc4248b80f8cf2eb780ac1b426495eeb"
+            "ba3397c7ff0634c489cc0dded2a857ef0b8151897618c7b2daa4d90502aadbec"
         ),
     }
     assert catalog.metadata.redistribution.status == "allowed"
@@ -77,6 +81,64 @@ def test_multi_donor_lineage_remains_typed_and_immutable():
     assert isinstance(state.estimate_from, tuple)
     assert len(state.estimate_from) == 2
     assert all(isinstance(donor, str) for donor in state.estimate_from)
+
+
+def test_configuration_parser_does_not_use_ambiguous_slug_grammar():
+    shells = parse_shell_configuration("5f(1)6d(1)7s(2)")
+
+    assert [(shell.label, shell.electrons) for shell in shells] == [
+        ("5f", 1),
+        ("6d", 1),
+        ("7s", 2),
+    ]
+
+
+def test_every_complete_state_encodes_the_declared_ion_charge():
+    catalog = load_fblock_catalog()
+
+    checked = 0
+    for element in catalog.elements:
+        for state in element.states:
+            if not state.confline:
+                continue
+            assert encoded_electron_count(state.confline, state.core or "") == (
+                element.atomic_number - state.ion
+            )
+            checked += 1
+    assert checked == 616
+
+
+@pytest.mark.parametrize(
+    ("element", "old_slug", "new_slug", "ion"),
+    (
+        ("Gd", "ion2_4f66s1", "ion3_4f66s1", 3),
+        ("Gd", "ion1_4f76s1", "ion2_4f76s1", 2),
+        ("Gd", "ion1_4f65d16s1", "ion2_4f65d16s1", 2),
+        ("Lu", "ion2_4f136s1", "ion3_4f136s1", 3),
+        ("Lu", "ion1_4f146s1", "ion2_4f146s1", 2),
+        ("Lu", "ion1_4f135d16s1", "ion2_4f135d16s1", 2),
+        ("Pa", "ion2_5f17s1", "ion3_5f17s1", 3),
+        ("Pa", "ion1_5f27s1", "ion2_5f27s1", 2),
+        ("Pa", "ion1_5f16d17s1", "ion2_5f16d17s1", 2),
+        ("Cm", "ion2_5f67s1", "ion3_5f67s1", 3),
+        ("Cm", "ion1_5f77s1", "ion2_5f77s1", 2),
+        ("Cm", "ion1_5f66d17s1", "ion2_5f66d17s1", 2),
+        ("Lr", "ion2_5f137s1", "ion3_5f137s1", 3),
+        ("Lr", "ion1_5f147s1", "ion2_5f147s1", 2),
+        ("Lr", "ion1_5f136d17s1", "ion2_5f136d17s1", 2),
+    ),
+)
+def test_v3_corrects_charge_slugs_without_aliasing_old_identifiers(
+    element,
+    old_slug,
+    new_slug,
+    ion,
+):
+    record = load_fblock_catalog().element(element)
+
+    assert record.state(new_slug).ion == ion
+    with pytest.raises(KeyError, match="unknown f-block state"):
+        record.state(old_slug)
 
 
 def test_bundled_access_uses_package_data_and_old_copy_is_absent():

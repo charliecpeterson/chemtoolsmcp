@@ -103,26 +103,36 @@ def parse_sum(path_or_text: str) -> dict[str, Any]:
     if subshells:
         out["subshells"] = subshells
 
-    # Eigenenergies (Level / J / Parity / Hartrees / Kaysers / eV)
-    # Anchored to the Eigenenergies header
-    eigen_block = re.search(
-        r"Eigenenergies.*?(?=Weights of major contributors|\Z)",
-        text, re.DOTALL,
-    )
-    eigen_text = eigen_block.group(0) if eigen_block else ""
+    # An RCI .csum writes one Eigenenergies/contributors pair per J/parity
+    # block, followed by optional correction-only energy tables. Match only
+    # sections terminated by the contributor header so every ASF block is
+    # retained and the diagnostic correction tables stay excluded.
+    eigen_sections: list[str] = []
+    section_start = 0
+    for contributors in re.finditer(
+        r"Weights of major contributors to ASF:",
+        text,
+    ):
+        header = text.rfind("Eigenenergies", section_start, contributors.start())
+        if header >= 0:
+            eigen_sections.append(text[header:contributors.start()])
+        section_start = contributors.end()
     levels: list[dict[str, Any]] = []
-    for m in _EIGEN_RE.finditer(eigen_text):
-        levels.append({
-            "level": int(m.group(1)),
-            "j_str": m.group(2),
-            "parity": m.group(3),
-            "energy_hartree": _todouble(m.group(4)),
-            "energy_cm1": _todouble(m.group(5)),
-            "energy_ev": _todouble(m.group(6)),
-        })
+    for eigen_text in eigen_sections:
+        for m in _EIGEN_RE.finditer(eigen_text):
+            levels.append({
+                "level": int(m.group(1)),
+                "j_str": m.group(2),
+                "parity": m.group(3),
+                "energy_hartree": _todouble(m.group(4)),
+                "energy_cm1": _todouble(m.group(5)),
+                "energy_ev": _todouble(m.group(6)),
+            })
     if levels:
         out["eigenenergies"] = levels
-        out["ground_energy_au"] = levels[0]["energy_hartree"]
+        out["ground_energy_au"] = min(
+            level["energy_hartree"] for level in levels
+        )
 
     # rci writes a .csum in the same format but adds a Hamiltonian-decomposition
     # block listing which corrections sit on top of Dirac-Coulomb. Report it so

@@ -23,9 +23,9 @@ def test_manifest_pins_every_external_donor_occurrence():
         "schema_version": "chemtools.fblock-donor-alias-manifest/1",
         "status": "scientific_review_required",
         "dataset_id": "fblock.atomic_seeds",
-        "dataset_version": "2",
+        "dataset_version": "3",
         "catalog_sha256": (
-            "6b2a59951c11ab141bbe0dfe4806f9b1fc4248b80f8cf2eb780ac1b426495eeb"
+            "ba3397c7ff0634c489cc0dded2a857ef0b8151897618c7b2daa4d90502aadbec"
         ),
         "record_count": 132,
         "unresolved_count": 132,

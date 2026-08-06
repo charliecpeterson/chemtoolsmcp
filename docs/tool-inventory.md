@@ -13,7 +13,7 @@ The JSON companion contains every tool description and input schema.
 
 - Default protocol version: `2024-11-05`
 - Supported protocol versions: `2024-11-05`
-- Public tool definitions: 328
+- Public tool definitions: 329
 - Compatibility aliases: 13
 
 ### Programs
@@ -24,7 +24,7 @@ The JSON companion contains every tool description and input schema.
 | `nwchem` | 101 |
 | `molcas` | 45 |
 | `dirac` | 39 |
-| `grasp` | 51 |
+| `grasp` | 52 |
 | `qe` | 20 |
 | `qmcpack` | 14 |
 
@@ -32,7 +32,7 @@ The JSON companion contains every tool description and input schema.
 
 | Capability | Tools |
 | --- | ---: |
-| `none` | 256 |
+| `none` | 257 |
 | `registry` | 18 |
 | `runner_profile` | 4 |
 | `executable_or_scheduler` | 5 |
@@ -43,9 +43,9 @@ The JSON companion contains every tool description and input schema.
 
 | Mode | All programs |
 | --- | ---: |
-| `analysis` | 274 |
-| `local` | 325 |
-| `hpc` | 328 |
+| `analysis` | 275 |
+| `local` | 326 |
+| `hpc` | 329 |
 
 ### Program filters
 
@@ -56,7 +56,7 @@ Counts include the 58 generic tools where the active mode permits them.
 | `nwchem` | 141 | 156 | 159 |
 | `molcas` | 93 | 102 | 103 |
 | `dirac` | 88 | 96 | 97 |
-| `grasp` | 81 | 108 | 109 |
+| `grasp` | 82 | 109 | 110 |
 | `qe` | 71 | 77 | 78 |
 | `qmcpack` | 65 | 71 | 72 |
 
@@ -405,6 +405,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `try_molcas_run_with_recovery` | `molcas` | `executable` | `local`, `hpc` |
 | `update_nwchem_run_status` | `nwchem` | `registry` | `analysis`, `local`, `hpc` |
 | `update_run_status` | `generic` | `registry` | `analysis`, `local`, `hpc` |
+| `validate_grasp_fblock_artifacts` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `validate_molcas_caspt2_setup` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `validate_nwchem_tce_setup` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `watch_dirac_run` | `dirac` | `executable` | `local`, `hpc` |

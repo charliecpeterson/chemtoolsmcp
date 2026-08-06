@@ -59,6 +59,38 @@ COSCI_RESOLVE_OUT = """
 """
 
 
+GRASP_MULTI_BLOCK_CSUM = """
+Eigenenergies:
+Level  J Parity       Hartrees              Kaysers                eV
+  1   5/2 -   -8.85246198044431D+03 -1.94289082987637D+09 -2.40887760159539D+05
+Weights of major contributors to ASF:
+Level J Parity      CSF contributions
+  1   5/2 -      1.00000
+Self Energy Corrections:
+Eigenenergies:
+Level  J Parity       Hartrees              Kaysers                eV
+  1   5/2 -   -8.84677361312425D+03 -1.94164237755570D+09 -2.40732971800581D+05
+Eigenenergies:
+Level  J Parity       Hartrees              Kaysers                eV
+  1   7/2 -   -8.85245246910603D+03 -1.94288874237891D+09 -2.40887501342841D+05
+Weights of major contributors to ASF:
+Level J Parity      CSF contributions
+  1   7/2 -      1.00000
+"""
+
+
+def test_grasp_csum_parser_keeps_every_asf_block_and_excludes_qed_tables():
+    parsed = parse_grasp_sum(GRASP_MULTI_BLOCK_CSUM)
+
+    assert [
+        (level["j_str"], level["parity"], level["energy_hartree"])
+        for level in parsed["eigenenergies"]
+    ] == [
+        ("5/2", "-", -8852.46198044431),
+        ("7/2", "-", -8852.45246910603),
+    ]
+
+
 def test_cosci_resolve_states():
     r = parse_cosci_energies(COSCI_RESOLVE_OUT)
     assert r["n_states"] == 2

@@ -1,9 +1,20 @@
 # F-block catalog: state semantics the records do not carry
 
-Suggestions, not changes. Nothing in the repo was modified. Raised
-2026-08-04 from a week of ECP-fitting work against the same GRASP dataset
+Raised 2026-08-04 from a week of ECP-fitting work against the same GRASP dataset
 this catalog bundles (`chemtools/data/fblock/grasp/fblock-all.json`), where
 each item below cost real time before it was understood.
+
+Implemented 2026-08-05 in dataset contract v3. Exact lookup now returns
+occupancy, transfer risk, and f/d separation; GRASP artifact validation binds
+generated CSFs and ASFs to the catalog; generic NWChem and PySCF atomic paths
+disclose that occupation control is unavailable. The same audit also found
+and corrected 15 charge/slug mismatches in Gd, Lu, Pa, Cm, and Lr. The encoded
+GRASP configurations, J/CSF blocks, and energies were already correct.
+
+A second GRASP execution audit now covers multireference and mixed excitation
+lists, conditional ASF prompts, labeled block selection, and correlation-
+orbital node policy. The results and retained live cases are in
+[`grasp-atomic-semantics-audit.md`](grasp-atomic-semantics-audit.md).
 
 **First, the good news, verified rather than assumed.** All 633 states in
 the bundled catalog agree with the corrected upstream references to better

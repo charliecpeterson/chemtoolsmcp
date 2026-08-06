@@ -11,19 +11,19 @@ from chemtools.mcp.inventory import (
 def test_inventory_pins_live_registry_totals():
     summary = build_inventory()["summary"]
 
-    assert summary["tool_count"] == 328
+    assert summary["tool_count"] == 329
     assert summary["alias_count"] == 13
     assert summary["by_program"] == {
         "generic": 58,
         "nwchem": 101,
         "molcas": 45,
         "dirac": 39,
-        "grasp": 51,
+        "grasp": 52,
         "qe": 20,
         "qmcpack": 14,
     }
     assert summary["by_capability"] == {
-        "none": 256,
+        "none": 257,
         "registry": 18,
         "runner_profile": 4,
         "executable_or_scheduler": 5,
@@ -31,15 +31,15 @@ def test_inventory_pins_live_registry_totals():
         "scheduler": 3,
     }
     assert summary["by_mode"] == {
-        "analysis": 274,
-        "local": 325,
-        "hpc": 328,
+        "analysis": 275,
+        "local": 326,
+        "hpc": 329,
     }
     assert summary["by_program_filter"] == {
         "nwchem": {"analysis": 141, "local": 156, "hpc": 159},
         "molcas": {"analysis": 93, "local": 102, "hpc": 103},
         "dirac": {"analysis": 88, "local": 96, "hpc": 97},
-        "grasp": {"analysis": 81, "local": 108, "hpc": 109},
+        "grasp": {"analysis": 82, "local": 109, "hpc": 110},
         "qe": {"analysis": 71, "local": 77, "hpc": 78},
         "qmcpack": {"analysis": 65, "local": 71, "hpc": 72},
     }
@@ -54,7 +54,7 @@ def test_inventory_records_schema_and_owner_for_every_tool():
         "protocol_version": "2024-11-05",
         "supported_protocol_versions": ["2024-11-05"],
     }
-    assert len(inventory["tools"]) == 328
+    assert len(inventory["tools"]) == 329
     assert all(tool["program"] for tool in inventory["tools"])
     assert all(tool["capability"] for tool in inventory["tools"])
     assert all(isinstance(tool["input_schema"], dict) for tool in inventory["tools"])

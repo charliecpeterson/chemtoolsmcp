@@ -10,11 +10,14 @@ configuration, the J structure, and where the starting orbitals come from.
 That knowledge is what is captured here. **597 of the 633 states cannot be
 converged from a cold start** — only 36 work from the default estimate.
 
-Everything comes from a production campaign, not from worked examples, and the
-GRASP numbers are the **v2 references** (rebuilt 2026-07-28 with a
+Everything comes from a production campaign, not from worked examples. The
+GRASP numbers remain the **v2 references** rebuilt 2026-07-28 with a
 per-configuration J ceiling — the earlier vintage silently truncated the J
 manifold of high-f configurations, worth up to 250 meV; see
-[`notes/fblock/grasp-fblock.md`](../../../notes/fblock/grasp-fblock.md) §7).
+[`notes/fblock/grasp-fblock.md`](../../../notes/fblock/grasp-fblock.md) §7.
+Dataset contract v3, dated 2026-08-05, corrects 15 Gd, Lu, Pa, Cm, and Lr
+charge/slug mismatches without changing their configurations, CSFs, or
+energies. It also adds explicit cross-program state semantics.
 
 ---
 
@@ -26,6 +29,7 @@ grasp/
   <El>.md                per-element recipe table (31 files)
   stdin-examples/        complete answer sequences, one per seeding class
 donor-aliases.json       consumer-scoped review ledger for external donors
+state-semantics.json      catalog-bound SCF transfer hazards and policy
 atsp/
   <El>.md                per-element hf configuration inputs (31 files)
 dirac/                   the hard actinide jobs
@@ -130,15 +134,20 @@ thorium = catalog.element("Th")
 neutral = thorium.state("ion0_6d27s2")
 ```
 
-The loader checks the pinned catalog bytes and scientific structure. It does
-not infer a seed, donor, method, or success status that the dataset does not
-record.
+The loader checks the pinned catalog bytes and scientific structure. For all
+616 states with a complete GRASP configuration, it also requires the encoded
+electron count to equal `Z - ion`. The 17 incomplete Y extension rows remain
+explicitly partial. The parser reads `4f(1)6d(1)7s(2)` configuration fields;
+it never tries to recover occupations from ambiguous slugs.
 
 The MCP tool `lookup_grasp_fblock_state` exposes the same boundary. Pass an
 element alone to list its exact state slugs, or add a state slug to retrieve
-the configuration, J blocks, CSF counts, energies, and recorded seed lineage.
-Every result carries the component's review status, method scope, catalog
-hash, and known limitations.
+the configuration, J blocks, CSF counts, energies, recorded seed lineage, and
+explicit shell populations. Exact results classify closed-anchor and f/d
+transfer risk. Paired one-electron states include signed `E_d - E_f` at the
+catalog's DC+Breit method. The reference is recommendation-eligible only for
+GRASP2018; cross-program transfer remains false until a target-specific
+constraint and population check exist.
 
 `plan_fblock_atomic_state` turns one exact state into the recorded 13-line
 ATSP2K input and the static-nucleus GRASP chain through low-frequency Breit
@@ -147,6 +156,31 @@ energy checks. It marks orbital merging, staged births, missing ECP cards, and
 unresolved donor aliases as manual requirements. Seventeen Y extension states
 retain reference energies but lack complete GRASP prompt fields, so the tool
 returns `incomplete_reference_input` for those states.
+
+`validate_grasp_fblock_artifacts` checks a generated `.c` file against one
+exact catalog state: electron count, every J and parity label, and every CSF
+count must match. Pass an RMCDHF `.m` or RCI `.cm` file to bind the ASF block
+labels, counts, and returned dominant components back to those CSFs. Because
+the catalog workflow is a configuration average, every ASF in every block
+must be present; a structurally valid partial mixing file is rejected. The
+full-catalog check script generated all 616 complete states with GRASP2018;
+all passed, with only the 17 documented Y rows skipped.
+
+Generic correlation workflows use a stricter input contract than the static
+catalog references. Independent `rcsfgenerate` lists retain their own active
+set, 2J range, and excitation rank. RMCDHF and RCI selections carry an expected
+ordered `(2J, parity, NCSF)` table that is checked against the generated CSF
+file before execution. Correlation layers must also state the varied and
+spectroscopic masks explicitly. See
+[`notes/fblock/grasp-atomic-semantics-audit.md`](../../../notes/fblock/grasp-atomic-semantics-audit.md)
+for the manual sources and five live checks.
+
+The generic NWChem atomic drafter and bounded PySCF runner do not translate
+catalog occupations. NWChem now requires an explicit multiplicity for every
+charged atom instead of guessing one from electron parity. Both paths report
+their atomic occupation as unconstrained and require a post-SCF population
+check. They must not be used to claim reproduction of a cataloged f-block
+state.
 
 `donor-aliases.json` inventories all 132 external alias occurrences, covering
 41 labels used by 25 elements. Each record is keyed by the consuming element

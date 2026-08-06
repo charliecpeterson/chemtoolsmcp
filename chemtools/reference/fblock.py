@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Any, Mapping
 
+from chemtools.reference.fblock_configuration import encoded_electron_count
 from chemtools.reference.fblock_models import (
     FBLOCK_DATASET_SCHEMA,
     FBlockCatalog,
@@ -372,6 +373,7 @@ def _validation(value: Any) -> None:
         "catalog_sha256_pinned",
         "unique_state_slugs_per_element",
         "j_block_and_ncsf_lengths_match",
+        "electron_count_matches_ion_charge",
         "energies_are_finite",
         "seed_class_totals_pinned",
     }
@@ -511,6 +513,20 @@ def _validate_coverage(
         raise ValueError(
             f"staged-birth count changed: {staged_birth_count}"
         )
+    for element in elements:
+        for state in element.states:
+            if not state.confline:
+                continue
+            electron_count = encoded_electron_count(
+                state.confline,
+                state.core or "",
+            )
+            expected = element.atomic_number - state.ion
+            if electron_count != expected:
+                raise ValueError(
+                    f"{element.symbol}.{state.slug} encodes {electron_count} "
+                    f"electrons, expected {expected} for ion {state.ion}+"
+                )
 
 
 def _contained_path(root: Path, relative_path: str) -> Path:

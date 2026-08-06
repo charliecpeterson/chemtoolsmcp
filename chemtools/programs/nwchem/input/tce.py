@@ -640,8 +640,8 @@ def draft_nwchem_atom_input(
     """Generate a NWChem input for a single atom (for atomization energies, IPs, etc.).
 
     Automatically looks up the neutral ground-state multiplicity for common elements.
-    For ions, provide ``multiplicity`` explicitly or it will be estimated from electron
-    count parity (with a warning).
+    Charged atoms require an explicit multiplicity because electron parity does not
+    identify an atomic term.
 
     Parameters
     ----------
@@ -654,8 +654,8 @@ def draft_nwchem_atom_input(
     charge:
         Total charge.  0 for neutral atom.
     multiplicity:
-        Spin multiplicity (2S+1).  If None, looked up from the ground-state table;
-        for ions, estimated from electron-count parity.
+        Spin multiplicity (2S+1). If None, looked up from the neutral ground-state
+        table. Charged atoms require an explicit value.
     xc_functional:
         XC functional used when ``method="dft"``.
     basis_assignments / ecp_assignments:
@@ -671,32 +671,55 @@ def draft_nwchem_atom_input(
     """
     from pathlib import Path as _Path
 
-    sym = element[0].upper() + element[1:].lower()
+    from chemtools.core.common import ELEMENT_TO_Z
+
+    if not isinstance(element, str) or not element.strip():
+        raise ValueError("element must be a non-empty symbol")
+    sym = element.strip()[0].upper() + element.strip()[1:].lower()
+    if sym not in ELEMENT_TO_Z:
+        raise ValueError(f"Unknown element '{sym}'.")
+    if isinstance(charge, bool) or not isinstance(charge, int):
+        raise ValueError("charge must be an integer")
+    n_electrons = ELEMENT_TO_Z[sym] - charge
+    if n_electrons <= 0:
+        raise ValueError(
+            f"Element {sym} (Z={ELEMENT_TO_Z[sym]}) with charge {charge:+d} "
+            f"has {n_electrons} electrons."
+        )
 
     # --- Determine multiplicity ---
     mult_source = "provided"
     if multiplicity is None:
-        neutral_mult = _ATOM_GROUND_MULT.get(sym)
-        if neutral_mult is None:
+        if charge != 0:
             raise ValueError(
-                f"Unknown element '{sym}' or no ground-state table entry; "
-                "provide multiplicity explicitly."
+                f"multiplicity is required for charged atom {sym}{charge:+d}; "
+                "electron-count parity does not determine the atomic term"
             )
-        if charge == 0:
+        neutral_mult = _ATOM_GROUND_MULT.get(sym)
+        if neutral_mult is not None:
             multiplicity = neutral_mult
             mult_source = "ground_state_table"
         else:
-            from chemtools.programs.nwchem.input._utils import ELEMENT_TO_Z
-            z = ELEMENT_TO_Z.get(sym, 0)
-            n_electrons = z - charge
-            if n_electrons <= 0:
-                raise ValueError(
-                    f"Element {sym} (Z={z}) with charge {charge:+d} has {n_electrons} electrons."
-                )
-            # Parity rule: even electrons → even nopen, odd → odd nopen
-            ion_nopen = n_electrons % 2
-            multiplicity = ion_nopen + 1
-            mult_source = "estimated_from_parity"
+            raise ValueError(
+                f"No neutral ground-state table entry for '{sym}'; "
+                "provide multiplicity explicitly."
+            )
+
+    if (
+        isinstance(multiplicity, bool)
+        or not isinstance(multiplicity, int)
+        or multiplicity < 1
+    ):
+        raise ValueError("multiplicity must be a positive integer")
+    if multiplicity - 1 > n_electrons:
+        raise ValueError(
+            f"multiplicity {multiplicity} exceeds the {n_electrons}-electron limit"
+        )
+    if (n_electrons - (multiplicity - 1)) % 2:
+        raise ValueError(
+            f"multiplicity {multiplicity} has the wrong parity for "
+            f"{n_electrons} electrons"
+        )
 
     nopen = multiplicity - 1
 
@@ -775,11 +798,16 @@ def draft_nwchem_atom_input(
         out_path.write_text(input_text, encoding="utf-8")
         written_file = str(out_path.resolve())
 
-    warnings: list[str] = []
-    if mult_source == "estimated_from_parity":
+    warnings = [
+        "Atomic orbital occupation is unconstrained; charge and multiplicity "
+        "do not uniquely identify an atomic configuration. Verify the "
+        "post-SCF orbital populations."
+    ]
+    atomic_number = ELEMENT_TO_Z[sym]
+    if 57 <= atomic_number <= 71 or 89 <= atomic_number <= 103:
         warnings.append(
-            f"Multiplicity {multiplicity} for {sym}{charge:+d} is estimated from electron-count parity only. "
-            "Verify the correct ground state for this ion before running."
+            "This generic C1 input cannot preserve or validate a cataloged "
+            "f-block occupation. Do not use it to reproduce a GRASP catalog state."
         )
 
     return {
@@ -794,6 +822,11 @@ def draft_nwchem_atom_input(
         "method": method_norm,
         "basis": basis,
         "start_name": resolved_start,
+        "occupation_control": {
+            "status": "unconstrained",
+            "catalog_state_supported": False,
+            "post_scf_population_check_required": True,
+        },
         "warnings": warnings,
     }
 

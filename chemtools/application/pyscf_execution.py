@@ -21,10 +21,11 @@ from chemtools.integrations.science_runtime import (
     resolve_science_runtime_python,
     science_runner_path,
 )
+from chemtools.core.common import ELEMENT_TO_Z
 from chemtools.science_runner import PYSCF_SINGLE_POINT_REQUEST_SCHEMA
 
 
-PYSCF_LAUNCH_SCHEMA = "chemtools.pyscf-launch/1"
+PYSCF_LAUNCH_SCHEMA = "chemtools.pyscf-launch/2"
 
 
 def render_pyscf_single_point(
@@ -134,6 +135,7 @@ def render_pyscf_single_point(
         "request_sha256": hashlib.sha256(request_text.encode("utf-8")).hexdigest(),
         "resources": {"omp_threads": omp_threads},
         "timeout_seconds": plan.timeout_seconds,
+        **_atomic_state_control(atoms),
     }
     return plan, target, preview
 
@@ -171,6 +173,49 @@ def run_pyscf_single_point(
             "stderr": executed.result.stderr,
         }
     return response
+
+
+def _atomic_state_control(atoms: list[dict[str, Any]]) -> dict[str, object]:
+    if not isinstance(atoms, list) or len(atoms) != 1:
+        return {
+            "atomic_state_control": {"status": "not_applicable"},
+            "warnings": [],
+        }
+    atom = atoms[0] if isinstance(atoms[0], dict) else {}
+    element_value = atom.get("element")
+    element = (
+        element_value[:1].upper() + element_value[1:].lower()
+        if isinstance(element_value, str) and element_value
+        else ""
+    )
+    atomic_number = ELEMENT_TO_Z.get(element)
+    warnings = [{
+        "code": "atomic_configuration_unconstrained",
+        "message": (
+            "The bounded PySCF runner sets charge and spin but does not set "
+            "atomic symmetry, irrep occupations, or a post-SCF population check."
+        ),
+    }]
+    if atomic_number is not None and (
+        57 <= atomic_number <= 71 or 89 <= atomic_number <= 103
+    ):
+        warnings.append({
+            "code": "fblock_catalog_transfer_unsupported",
+            "message": (
+                "This runner cannot preserve or validate a cataloged f-block "
+                "occupation; use the catalog only as a GRASP2018 reference."
+            ),
+        })
+    return {
+        "atomic_state_control": {
+            "status": "unconstrained",
+            "atomic_symmetry": False,
+            "irrep_occupations": False,
+            "post_scf_population_check": False,
+            "catalog_state_supported": False,
+        },
+        "warnings": warnings,
+    }
 
 
 __all__ = ["render_pyscf_single_point", "run_pyscf_single_point"]

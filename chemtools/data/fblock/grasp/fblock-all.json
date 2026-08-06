@@ -6604,8 +6604,8 @@
     "seeding": "donor: ion4_4f6"
    },
    {
-    "slug": "ion2_4f66s1",
-    "ion": 2,
+    "slug": "ion3_4f66s1",
+    "ion": 3,
     "config": "4f(6)6s(1)",
     "core": "Kr",
     "confline": "4d(10,i)5s(2,i)5p(6,i)4f(6,i)6s(1,i)",
@@ -6656,17 +6656,17 @@
     "seeding": "multi-donor merge: ion4_4f6 + ion9_6s1"
    },
    {
-    "slug": "ion1_4f76s1",
-    "ion": 1,
+    "slug": "ion2_4f76s1",
+    "ion": 2,
     "config": "4f(7)6s(1)",
     "core": "Kr",
     "confline": "4d(10,i)5s(2,i)5p(6,i)4f(7,i)6s(1,i)",
     "role": "fit",
-    "note": "ion1 ground",
+    "note": "ion2 ground",
     "hf_seed": false,
     "estimate_from": [
      "ion3_4f7",
-     "ion2_4f66s1"
+     "ion3_4f66s1"
     ],
     "vary_first": null,
     "core_menu": 4,
@@ -6707,11 +6707,11 @@
     "E_DC_au": -11273.587638193228,
     "E_DCB_au": -11263.209754150803,
     "E_rel_au": -29.815651577002427,
-    "seeding": "multi-donor merge: ion3_4f7 + ion2_4f66s1"
+    "seeding": "multi-donor merge: ion3_4f7 + ion3_4f66s1"
    },
    {
-    "slug": "ion1_4f65d16s1",
-    "ion": 1,
+    "slug": "ion2_4f65d16s1",
+    "ion": 2,
     "config": "4f(6)5d(1)6s(1)",
     "core": "Kr",
     "confline": "4d(10,i)5s(2,i)5p(6,i)4f(6,i)5d(1,i)6s(1,i)",
@@ -6719,7 +6719,7 @@
     "note": null,
     "hf_seed": false,
     "estimate_from": [
-     "ion2_4f66s1",
+     "ion3_4f66s1",
      "ion3_4f65d1"
     ],
     "vary_first": null,
@@ -6765,7 +6765,7 @@
     "E_DC_au": -11273.295752630176,
     "E_DCB_au": -11262.913637297734,
     "E_rel_au": -29.519534723933248,
-    "seeding": "multi-donor merge: ion2_4f66s1 + ion3_4f65d1"
+    "seeding": "multi-donor merge: ion3_4f66s1 + ion3_4f65d1"
    },
    {
     "slug": "ion0_4f75d16s2",
@@ -6776,7 +6776,7 @@
     "role": "fit",
     "note": "neutral ground",
     "hf_seed": false,
-    "estimate_from": "ion1_4f65d16s1",
+    "estimate_from": "ion2_4f65d16s1",
     "vary_first": null,
     "core_menu": 4,
     "active_set": "6s,5p,5d,4f",
@@ -6820,7 +6820,7 @@
     "E_DC_au": -11274.205787497882,
     "E_DCB_au": -11263.828077646764,
     "E_rel_au": -30.43397507296322,
-    "seeding": "donor: ion1_4f65d16s1"
+    "seeding": "donor: ion2_4f65d16s1"
    },
    {
     "slug": "ion0_4f86s2",
@@ -6831,7 +6831,7 @@
     "role": "holdout",
     "note": "f-d competition",
     "hf_seed": false,
-    "estimate_from": "ion1_4f76s1",
+    "estimate_from": "ion2_4f76s1",
     "vary_first": null,
     "core_menu": 4,
     "active_set": "6s,5p,4d,4f",
@@ -6869,7 +6869,7 @@
     "E_DC_au": -11274.218449228414,
     "E_DCB_au": -11263.844261421276,
     "E_rel_au": -30.450158847475905,
-    "seeding": "donor: ion1_4f76s1"
+    "seeding": "donor: ion2_4f76s1"
    },
    {
     "slug": "ion11_5p5",
@@ -12364,8 +12364,8 @@
     "seeding": "donor: ion4_4f13"
    },
    {
-    "slug": "ion2_4f136s1",
-    "ion": 2,
+    "slug": "ion3_4f136s1",
+    "ion": 3,
     "config": "4f(13)6s(1)",
     "core": "Kr",
     "confline": "4d(10,i)5s(2,i)5p(6,i)4f(13,i)6s(1,i)",
@@ -12396,17 +12396,17 @@
     "seeding": "multi-donor merge: ion4_4f13 + donor_chems  +  staged birth `6s`"
    },
    {
-    "slug": "ion1_4f146s1",
-    "ion": 1,
+    "slug": "ion2_4f146s1",
+    "ion": 2,
     "config": "4f(14)6s(1)",
     "core": "Kr",
     "confline": "4d(10,i)5s(2,i)5p(6,i)4f(14,i)6s(1,i)",
     "role": "fit",
-    "note": "ion1 ground",
+    "note": "ion2 ground",
     "hf_seed": false,
     "estimate_from": [
      "ion3_4f14",
-     "ion2_4f136s1"
+     "ion3_4f136s1"
     ],
     "vary_first": null,
     "core_menu": 4,
@@ -12421,11 +12421,11 @@
     "E_DC_au": -14571.8252377,
     "E_DCB_au": -14556.9586901249,
     "E_rel_au": -122.58237270820064,
-    "seeding": "multi-donor merge: ion3_4f14 + ion2_4f136s1"
+    "seeding": "multi-donor merge: ion3_4f14 + ion3_4f136s1"
    },
    {
-    "slug": "ion1_4f135d16s1",
-    "ion": 1,
+    "slug": "ion2_4f135d16s1",
+    "ion": 2,
     "config": "4f(13)5d(1)6s(1)",
     "core": "Kr",
     "confline": "4d(10,i)5s(2,i)5p(6,i)4f(13,i)5d(1,i)6s(1,i)",
@@ -12433,7 +12433,7 @@
     "note": null,
     "hf_seed": false,
     "estimate_from": [
-     "ion2_4f136s1",
+     "ion3_4f136s1",
      "ion3_4f135d1"
     ],
     "vary_first": null,
@@ -12461,7 +12461,7 @@
     "E_DC_au": -14571.489493659217,
     "E_DCB_au": -14556.618534167532,
     "E_rel_au": -122.24221675083209,
-    "seeding": "multi-donor merge: ion2_4f136s1 + ion3_4f135d1"
+    "seeding": "multi-donor merge: ion3_4f136s1 + ion3_4f135d1"
    },
    {
     "slug": "ion0_4f145d16s2",
@@ -12472,7 +12472,7 @@
     "role": "fit",
     "note": "neutral ground",
     "hf_seed": false,
-    "estimate_from": "ion1_4f135d16s1",
+    "estimate_from": "ion2_4f135d16s1",
     "vary_first": null,
     "core_menu": 4,
     "active_set": "6s,5p,5d,4f",
@@ -12488,7 +12488,7 @@
     "E_DC_au": -14572.448124292001,
     "E_DCB_au": -14557.58170293236,
     "E_rel_au": -123.20538551566096,
-    "seeding": "donor: ion1_4f135d16s1"
+    "seeding": "donor: ion2_4f135d16s1"
    },
    {
     "slug": "ion18_5p5",
@@ -13956,8 +13956,8 @@
     "seeding": "donor: ion4_5f1"
    },
    {
-    "slug": "ion2_5f17s1",
-    "ion": 2,
+    "slug": "ion3_5f17s1",
+    "ion": 3,
     "config": "5f(1)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(1,i)7s(1,i)",
@@ -13985,17 +13985,17 @@
     "seeding": "donor: ion4_5f1  +  staged birth `7s`"
    },
    {
-    "slug": "ion1_5f27s1",
-    "ion": 1,
+    "slug": "ion2_5f27s1",
+    "ion": 2,
     "config": "5f(2)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(2,i)7s(1,i)",
     "role": "fit",
-    "note": "ion1 ground",
+    "note": "ion2 ground",
     "hf_seed": false,
     "estimate_from": [
      "ion3_5f2",
-     "ion2_5f17s1"
+     "ion3_5f17s1"
     ],
     "vary_first": null,
     "core_menu": 5,
@@ -14022,11 +14022,11 @@
     "E_DC_au": -27273.66154901143,
     "E_DCB_au": -27237.545202126792,
     "E_rel_au": -3.24213297489041,
-    "seeding": "multi-donor merge: ion3_5f2 + ion2_5f17s1"
+    "seeding": "multi-donor merge: ion3_5f2 + ion3_5f17s1"
    },
    {
-    "slug": "ion1_5f16d17s1",
-    "ion": 1,
+    "slug": "ion2_5f16d17s1",
+    "ion": 2,
     "config": "5f(1)6d(1)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(1,i)6d(1,i)7s(1,i)",
@@ -14034,7 +14034,7 @@
     "note": null,
     "hf_seed": false,
     "estimate_from": [
-     "ion2_5f17s1",
+     "ion3_5f17s1",
      "ion3_5f16d1"
     ],
     "vary_first": null,
@@ -14062,7 +14062,7 @@
     "E_DC_au": -27273.633433116283,
     "E_DCB_au": -27237.51359763359,
     "E_rel_au": -3.2105284816898347,
-    "seeding": "multi-donor merge: ion2_5f17s1 + ion3_5f16d1"
+    "seeding": "multi-donor merge: ion3_5f17s1 + ion3_5f16d1"
    },
    {
     "slug": "ion0_5f26d17s2",
@@ -14073,7 +14073,7 @@
     "role": "fit",
     "note": "neutral ground",
     "hf_seed": false,
-    "estimate_from": "ion1_5f16d17s1",
+    "estimate_from": "ion2_5f16d17s1",
     "vary_first": null,
     "core_menu": 5,
     "active_set": "7s,6p,6d,5f",
@@ -14103,7 +14103,7 @@
     "E_DC_au": -27274.231006455186,
     "E_DCB_au": -27238.11470092377,
     "E_rel_au": -3.8116317718668142,
-    "seeding": "donor: ion1_5f16d17s1"
+    "seeding": "donor: ion2_5f16d17s1"
    },
    {
     "slug": "ion0_5f37s2",
@@ -14114,7 +14114,7 @@
     "role": "holdout",
     "note": "f-d competition",
     "hf_seed": false,
-    "estimate_from": "ion1_5f27s1",
+    "estimate_from": "ion2_5f27s1",
     "vary_first": null,
     "core_menu": 5,
     "active_set": "7s,6p,5d,5f",
@@ -14144,7 +14144,7 @@
     "E_DC_au": -27274.126418353135,
     "E_DCB_au": -27238.012739029975,
     "E_rel_au": -3.7096698780733277,
-    "seeding": "donor: ion1_5f27s1"
+    "seeding": "donor: ion2_5f27s1"
    },
    {
     "slug": "ion6_6p5",
@@ -18465,8 +18465,8 @@
     "seeding": "donor: ion4_5f6"
    },
    {
-    "slug": "ion2_5f67s1",
-    "ion": 2,
+    "slug": "ion3_5f67s1",
+    "ion": 3,
     "config": "5f(6)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(6,i)7s(1,i)",
@@ -18517,17 +18517,17 @@
     "seeding": "multi-donor merge: ion4_5f6 + donor_Am7s"
    },
    {
-    "slug": "ion1_5f77s1",
-    "ion": 1,
+    "slug": "ion2_5f77s1",
+    "ion": 2,
     "config": "5f(7)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(7,i)7s(1,i)",
     "role": "fit",
-    "note": "ion1 ground",
+    "note": "ion2 ground",
     "hf_seed": false,
     "estimate_from": [
      "ion3_5f7",
-     "ion2_5f67s1"
+     "ion3_5f67s1"
     ],
     "vary_first": null,
     "core_menu": 5,
@@ -18568,11 +18568,11 @@
     "E_DC_au": -31323.88651598292,
     "E_DCB_au": -31279.89750556847,
     "E_rel_au": -23.584846682872012,
-    "seeding": "multi-donor merge: ion3_5f7 + ion2_5f67s1"
+    "seeding": "multi-donor merge: ion3_5f7 + ion3_5f67s1"
    },
    {
-    "slug": "ion1_5f66d17s1",
-    "ion": 1,
+    "slug": "ion2_5f66d17s1",
+    "ion": 2,
     "config": "5f(6)6d(1)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(6,i)6d(1,i)7s(1,i)",
@@ -18580,7 +18580,7 @@
     "note": null,
     "hf_seed": false,
     "estimate_from": [
-     "ion2_5f67s1",
+     "ion3_5f67s1",
      "ion3_5f66d1"
     ],
     "vary_first": null,
@@ -18626,7 +18626,7 @@
     "E_DC_au": -31323.67251571734,
     "E_DCB_au": -31279.679363898988,
     "E_rel_au": -23.366705013388128,
-    "seeding": "multi-donor merge: ion2_5f67s1 + ion3_5f66d1"
+    "seeding": "multi-donor merge: ion3_5f67s1 + ion3_5f66d1"
    },
    {
     "slug": "ion0_5f76d17s2",
@@ -18637,7 +18637,7 @@
     "role": "fit",
     "note": "neutral ground",
     "hf_seed": false,
-    "estimate_from": "ion1_5f66d17s1",
+    "estimate_from": "ion2_5f66d17s1",
     "vary_first": null,
     "core_menu": 5,
     "active_set": "7s,6p,6d,5f",
@@ -18681,7 +18681,7 @@
     "E_DC_au": -31324.48387459827,
     "E_DCB_au": -31280.494785785086,
     "E_rel_au": -24.18212689948632,
-    "seeding": "donor: ion1_5f66d17s1"
+    "seeding": "donor: ion2_5f66d17s1"
    },
    {
     "slug": "ion0_5f87s2",
@@ -18692,7 +18692,7 @@
     "role": "holdout",
     "note": "f-d competition",
     "hf_seed": false,
-    "estimate_from": "ion1_5f77s1",
+    "estimate_from": "ion2_5f77s1",
     "vary_first": null,
     "core_menu": 5,
     "active_set": "7s,6p,5d,5f",
@@ -18730,7 +18730,7 @@
     "E_DC_au": -31324.521199636554,
     "E_DCB_au": -31280.53561712883,
     "E_rel_au": -24.222958243230096,
-    "seeding": "donor: ion1_5f77s1"
+    "seeding": "donor: ion2_5f77s1"
    },
    {
     "slug": "ion11_6p5",
@@ -24225,8 +24225,8 @@
     "seeding": "donor: ion4_5f13"
    },
    {
-    "slug": "ion2_5f137s1",
-    "ion": 2,
+    "slug": "ion3_5f137s1",
+    "ion": 3,
     "config": "5f(13)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(13,i)7s(1,i)",
@@ -24257,17 +24257,17 @@
     "seeding": "multi-donor merge: ion4_5f13 + donor_chems  +  staged birth `7s`"
    },
    {
-    "slug": "ion1_5f147s1",
-    "ion": 1,
+    "slug": "ion2_5f147s1",
+    "ion": 2,
     "config": "5f(14)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(14,i)7s(1,i)",
     "role": "fit",
-    "note": "ion1 ground",
+    "note": "ion2 ground",
     "hf_seed": false,
     "estimate_from": [
      "ion3_5f14",
-     "ion2_5f137s1"
+     "ion3_5f137s1"
     ],
     "vary_first": null,
     "core_menu": 5,
@@ -24282,11 +24282,11 @@
     "E_DC_au": -37706.63562205,
     "E_DCB_au": -37649.2873253656,
     "E_rel_au": -96.7578492856992,
-    "seeding": "multi-donor merge: ion3_5f14 + ion2_5f137s1"
+    "seeding": "multi-donor merge: ion3_5f14 + ion3_5f137s1"
    },
    {
-    "slug": "ion1_5f136d17s1",
-    "ion": 1,
+    "slug": "ion2_5f136d17s1",
+    "ion": 2,
     "config": "5f(13)6d(1)7s(1)",
     "core": "Xe",
     "confline": "4f(14,i)5d(10,i)6s(2,i)6p(6,i)5f(13,i)6d(1,i)7s(1,i)",
@@ -24294,7 +24294,7 @@
     "note": null,
     "hf_seed": false,
     "estimate_from": [
-     "ion2_5f137s1",
+     "ion3_5f137s1",
      "ion3_5f136d1"
     ],
     "vary_first": null,
@@ -24322,7 +24322,7 @@
     "E_DC_au": -37706.19203941072,
     "E_DCB_au": -37648.83881536748,
     "E_rel_au": -96.30933928758168,
-    "seeding": "multi-donor merge: ion2_5f137s1 + ion3_5f136d1"
+    "seeding": "multi-donor merge: ion3_5f137s1 + ion3_5f136d1"
    },
    {
     "slug": "ion0_5f146d17s2",
@@ -24333,7 +24333,7 @@
     "role": "fit",
     "note": "neutral ground",
     "hf_seed": false,
-    "estimate_from": "ion1_5f136d17s1",
+    "estimate_from": "ion2_5f136d17s1",
     "vary_first": null,
     "core_menu": 5,
     "active_set": "7s,6p,6d,5f",
@@ -24349,7 +24349,7 @@
     "E_DC_au": -37707.249531544,
     "E_DCB_au": -37649.90109640156,
     "E_rel_au": -97.37162032166088,
-    "seeding": "donor: ion1_5f136d17s1"
+    "seeding": "donor: ion2_5f136d17s1"
    },
    {
     "slug": "ion1_5f147s2",
@@ -24360,7 +24360,7 @@
     "role": "fit",
     "note": "Lr+ ground (7s2 closed; relativistic)",
     "hf_seed": false,
-    "estimate_from": "ion1_5f147s1",
+    "estimate_from": "ion2_5f147s1",
     "vary_first": null,
     "core_menu": 5,
     "active_set": "7s,6p,5d,5f",
@@ -24374,7 +24374,7 @@
     "E_DC_au": -37707.11781164,
     "E_DCB_au": -37649.769022219,
     "E_rel_au": -97.23954613909882,
-    "seeding": "donor: ion1_5f147s1"
+    "seeding": "donor: ion2_5f147s1"
    },
    {
     "slug": "ion0_5f147s27p1",

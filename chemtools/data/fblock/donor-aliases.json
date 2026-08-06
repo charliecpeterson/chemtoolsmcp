@@ -2,8 +2,8 @@
   "schema_version": "chemtools.fblock-donor-alias-manifest/1",
   "dataset": {
     "id": "fblock.atomic_seeds",
-    "version": "2",
-    "catalog_sha256": "6b2a59951c11ab141bbe0dfe4806f9b1fc4248b80f8cf2eb780ac1b426495eeb"
+    "version": "3",
+    "catalog_sha256": "ba3397c7ff0634c489cc0dded2a857ef0b8151897618c7b2daa4d90502aadbec"
   },
   "status": "scientific_review_required",
   "resolution_policy": "Resolve an alias only from a recorded donor artifact or an explicit scientific review; never infer a target from the alias spelling.",
@@ -305,7 +305,7 @@
     },
     {
       "element": "Lu",
-      "consumer_state": "ion2_4f136s1",
+      "consumer_state": "ion3_4f136s1",
       "alias": "donor_chems",
       "status": "unresolved"
     },
@@ -455,7 +455,7 @@
     },
     {
       "element": "Cm",
-      "consumer_state": "ion2_5f67s1",
+      "consumer_state": "ion3_5f67s1",
       "alias": "donor_Am7s",
       "status": "unresolved"
     },
@@ -791,7 +791,7 @@
     },
     {
       "element": "Lr",
-      "consumer_state": "ion2_5f137s1",
+      "consumer_state": "ion3_5f137s1",
       "alias": "donor_chems",
       "status": "unresolved"
     },
@@ -803,4 +803,3 @@
     }
   ]
 }
-

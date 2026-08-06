@@ -20,6 +20,7 @@ from chemtools.reference.fblock_lookup import (
     FBlockLookupResult,
     lookup_grasp_fblock_state,
 )
+from chemtools.reference.fblock_grasp import catalog_parity
 from chemtools.reference.fblock_models import (
     FBlockCatalogLoadError,
     FBlockComponent,
@@ -28,7 +29,7 @@ from chemtools.reference.fblock_models import (
 )
 
 
-FBLOCK_PLAN_SCHEMA = "chemtools.fblock-atomic-plan/1"
+FBLOCK_PLAN_SCHEMA = "chemtools.fblock-atomic-plan/2"
 MAX_ATSP_RECIPE_BYTES = 64 * 1024
 _ATSP_COMPONENT_ID = "atsp_hf_recipes"
 _ATSP_METADATA_RE = re.compile(
@@ -435,9 +436,10 @@ def _grasp_dict(
 ) -> dict[str, object]:
     expected = {
         "blocks": [
-            {"j": j, "ncsf": ncsf}
+            {"j": j, "parity": catalog_parity(state), "ncsf": ncsf}
             for j, ncsf in zip(state.j_blocks, state.ncsf)
         ],
+        "electron_count": element.atomic_number - state.ion,
         "energies_au": {
             "dirac_coulomb": state.energy_dc_au,
             "dirac_coulomb_breit": state.energy_dcb_au,
@@ -475,7 +477,7 @@ def _grasp_dict(
     rmcdhf_tail.extend(["*", "*", "100"])
     rmcdhf_input = ["y", *selections, *rmcdhf_tail]
     stage_input = None
-    if state.vary_first is not None:
+    if state.vary_first is not None and sum(state.ncsf) > 1:
         stage_tail = ["5"] if sum(state.ncsf) > 1 else []
         stage_tail.extend([state.vary_first, "*", "100"])
         stage_input = ["y", *selections, *stage_tail]
@@ -535,9 +537,13 @@ def _grasp_dict(
         ],
         "expected": expected,
         "checks": [
-            "Require the rcsfgenerate block table to match every expected J and CSF count.",
+            "Use validate_grasp_fblock_artifacts to require the generated "
+            "electron count and every J, parity, and CSF count to match the "
+            "catalog.",
             "Require positive RMCDHF convergence evidence; process exit 0 is insufficient.",
-            "Select every ASF in every block and use (2J+1) weights for the configuration average.",
+            "Require each populated ASF block label in the mixing file to "
+            "match its CSF block, select every ASF, and use (2J+1) weights "
+            "for the configuration average.",
             "Run RCI with low-frequency transverse photon enabled and QED and mass shifts disabled.",
             "Use the serial RMCDHF build for these small diffuse outer-shell references.",
         ],
@@ -579,7 +585,7 @@ def _automation_requirements(
                 "the first donor wins duplicate orbitals."
             ),
         })
-    if state.vary_first is not None:
+    if state.vary_first is not None and sum(state.ncsf) > 1:
         requirements.append({
             "kind": "staged_orbital_birth",
             "orbitals": state.vary_first,
@@ -588,12 +594,29 @@ def _automation_requirements(
                 "RMCDHF input from that pass."
             ),
         })
+    elif state.vary_first is not None:
+        requirements.append({
+            "kind": "single_csf_orbital_birth",
+            "orbitals": state.vary_first,
+            "detail": (
+                "Do not run a staged single-orbital RMCDHF pass for a "
+                "single-CSF state; use the recorded converged donor directly."
+            ),
+        })
     prerequisite_preparation = [
         {
             "state": prerequisite.slug,
             "seed_class": prerequisite.seed_class,
             "donors": list(_donors(prerequisite)),
-            "vary_first": prerequisite.vary_first,
+            "vary_first": (
+                prerequisite.vary_first
+                if sum(prerequisite.ncsf) > 1
+                else None
+            ),
+            "single_csf_donor_only": (
+                prerequisite.vary_first is not None
+                and sum(prerequisite.ncsf) == 1
+            ),
         }
         for prerequisite in prerequisites
         if prerequisite.seed_class != "cold"

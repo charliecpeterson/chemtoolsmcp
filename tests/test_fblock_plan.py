@@ -69,7 +69,7 @@ def test_atsp_recipes_match_all_633_catalog_states_exactly():
 def test_thorium_plan_reproduces_recorded_false_vacuum_inputs():
     payload = plan_fblock_atomic_state("Th", "ion0_6d27s2").to_dict()
 
-    assert payload["schema_version"] == "chemtools.fblock-atomic-plan/1"
+    assert payload["schema_version"] == "chemtools.fblock-atomic-plan/2"
     assert payload["plan_status"] == "complete"
     assert payload["automation"]["status"] == "manual_steps_required"
     assert payload["automation"]["requirements"][0]["kind"] == (
@@ -195,6 +195,20 @@ def test_cold_state_plan_is_input_ready_and_omits_rmcdhf_weight_for_one_level():
     assert payload["grasp2018"]["inputs"]["rmcdhf"] == [
         "y", "1", "*", "*", "100",
     ]
+
+
+def test_single_csf_orbital_birth_uses_donor_without_invalid_stage():
+    payload = plan_fblock_atomic_state("Th", "ion3_7s1").to_dict()
+
+    assert "rmcdhf_stage" not in payload["grasp2018"]["inputs"]
+    assert payload["automation"]["requirements"][1] == {
+        "kind": "single_csf_orbital_birth",
+        "orbitals": "7s",
+        "detail": (
+            "Do not run a staged single-orbital RMCDHF pass for a "
+            "single-CSF state; use the recorded converged donor directly."
+        ),
+    }
 
 
 def test_incomplete_y_reference_refuses_to_infer_grasp_inputs():

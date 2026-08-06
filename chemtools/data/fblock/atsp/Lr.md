@@ -27,9 +27,9 @@ all / y / n / y / y / n / 99 2 / y / n / n
 | `ion4_5f13` | `  5s  5p  5d  6s  6p` | `5f(13)` |
 | `ion3_5f136d1` | `  5s  5p  5d  6s  6p` | `5f(13)6d(1)` |
 | `ion3_5f14` | `  5s  5p  5d  6s  6p  5f` | `(none)` |
-| `ion2_5f137s1` | `  5s  5p  5d  6s  6p` | `5f(13)7s(1)` |
-| `ion1_5f147s1` | `  5s  5p  5d  6s  6p  5f` | `7s(1)` |
-| `ion1_5f136d17s1` | `  5s  5p  5d  6s  6p` | `5f(13)6d(1)7s(1)` |
+| `ion3_5f137s1` | `  5s  5p  5d  6s  6p` | `5f(13)7s(1)` |
+| `ion2_5f147s1` | `  5s  5p  5d  6s  6p  5f` | `7s(1)` |
+| `ion2_5f136d17s1` | `  5s  5p  5d  6s  6p` | `5f(13)6d(1)7s(1)` |
 | `ion0_5f146d17s2` | `  5s  5p  5d  6s  6p  5f  7s` | `6d(1)` |
 | `ion1_5f147s2` | `  5s  5p  5d  6s  6p  5f  7s` | `(none)` |
 | `ion0_5f147s27p1` | `  5s  5p  5d  6s  6p  5f  7s` | `7p(1)` |

@@ -1,0 +1,30 @@
+{
+  "schema_version": "chemtools.fblock-state-semantics/1",
+  "dataset": {
+    "id": "fblock.atomic_seeds",
+    "version": "3",
+    "catalog_sha256": "ba3397c7ff0634c489cc0dded2a857ef0b8151897618c7b2daa4d90502aadbec"
+  },
+  "source": {
+    "path": "notes/fblock/catalog-state-semantics.md",
+    "recorded_at": "2026-08-04",
+    "scope": "Observed unconstrained-SCF basin failures, atomic-symmetry constraints, and reproducibility limits from downstream ECP fitting."
+  },
+  "closed_anchor_regimes": [
+    {
+      "series": "4f",
+      "bistable": ["Pm"],
+      "constraint_required": ["Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"]
+    },
+    {
+      "series": "5f",
+      "bistable": ["Np", "Pu", "Am", "Cm", "Bk", "Cf"],
+      "constraint_required": ["Es", "Fm", "Md", "No", "Lr"]
+    }
+  ],
+  "policies": {
+    "cross_program_transfer": "requires_explicit_constraint_translation_and_post_scf_population_check",
+    "d2h_f_p_separation": "insufficient",
+    "reproducibility": "Derived downstream values are expected to agree to about five or six significant figures, not bitwise."
+  }
+}

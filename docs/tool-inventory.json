@@ -9,19 +9,19 @@
     ]
   },
   "summary": {
-    "tool_count": 328,
+    "tool_count": 329,
     "alias_count": 13,
     "by_program": {
       "generic": 58,
       "nwchem": 101,
       "molcas": 45,
       "dirac": 39,
-      "grasp": 51,
+      "grasp": 52,
       "qe": 20,
       "qmcpack": 14
     },
     "by_capability": {
-      "none": 256,
+      "none": 257,
       "registry": 18,
       "runner_profile": 4,
       "executable_or_scheduler": 5,
@@ -29,9 +29,9 @@
       "scheduler": 3
     },
     "by_mode": {
-      "analysis": 274,
-      "local": 325,
-      "hpc": 328
+      "analysis": 275,
+      "local": 326,
+      "hpc": 329
     },
     "by_mode_and_program": {
       "analysis": {
@@ -39,7 +39,7 @@
         "nwchem": 88,
         "molcas": 40,
         "dirac": 35,
-        "grasp": 28,
+        "grasp": 29,
         "qe": 18,
         "qmcpack": 12
       },
@@ -48,7 +48,7 @@
         "nwchem": 99,
         "molcas": 45,
         "dirac": 39,
-        "grasp": 51,
+        "grasp": 52,
         "qe": 20,
         "qmcpack": 14
       },
@@ -57,7 +57,7 @@
         "nwchem": 101,
         "molcas": 45,
         "dirac": 39,
-        "grasp": 51,
+        "grasp": 52,
         "qe": 20,
         "qmcpack": 14
       }
@@ -79,9 +79,9 @@
         "hpc": 97
       },
       "grasp": {
-        "analysis": 81,
-        "local": 108,
-        "hpc": 109
+        "analysis": 82,
+        "local": 109,
+        "hpc": 110
       },
       "qe": {
         "analysis": 71,
@@ -2837,7 +2837,7 @@
         "local",
         "hpc"
       ],
-      "description": "Generate a NWChem input for a single atom (for atomization energies, ionization potentials, electron affinities). Automatically looks up the neutral ground-state multiplicity for common elements (H–Xe plus 5d metals). Use before compute_reaction_energy to run each atom at the same level of theory as the molecule. Always uses symmetry c1 and places the atom at the origin.",
+      "description": "Generate a NWChem input for a single atom (for atomization energies, ionization potentials, electron affinities). Automatically looks up the neutral ground-state multiplicity for common elements (H–Xe plus 5d metals). Use before compute_reaction_energy to run each atom at the same level of theory as the molecule. Charged atoms require an explicit multiplicity. Always uses symmetry c1, does not constrain orbital occupation, and places the atom at the origin. It cannot reproduce a cataloged f-block configuration without separate occupation control and validation.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2866,7 +2866,7 @@
           },
           "multiplicity": {
             "type": "integer",
-            "description": "Spin multiplicity. Auto-looked-up from ground-state table if omitted."
+            "description": "Spin multiplicity. Auto-looked-up only for neutral atoms; required explicitly when charge is nonzero."
           },
           "xc_functional": {
             "type": "string",
@@ -6559,7 +6559,7 @@
         "local",
         "hpc"
       ],
-      "description": "Look up an exact element or state in the versioned GRASP2018 f-block atomic catalog. Omit state to list the available state slugs for an element. An exact state result includes its configuration, J blocks, CSF counts, seed class, donor lineage, staged orbital birth, and DC and DC+Breit configuration-average energies. Every response includes the review status, catalog hash, method scope, and known limitations. These values are method-scoped references, not experimental levels.",
+      "description": "Look up an exact element or state in the versioned GRASP2018 f-block atomic catalog. Omit state to list the available state slugs for an element. An exact state result includes its configuration, J blocks, CSF counts, seed class, donor lineage, staged orbital birth, and DC and DC+Breit configuration-average energies. It also reports explicit shell populations, unconstrained-SCF transfer risk, the D2h p/f limitation, and signed f/d separation when the paired states exist. Every response includes the review status, GRASP-only recommendation scope, catalog hash, method scope, and known limitations. These values are method-scoped references, not experimental levels or generic SCF inputs.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -7863,7 +7863,7 @@
         "local",
         "hpc"
       ],
-      "description": "Build the recorded ATSP2K seed and GRASP2018 DC+Breit reference plan for one exact f-block catalog state. The result includes the 13-line ATSP2K input, GRASP interactive inputs, J and CSF expectations, energies, ordered donor prerequisites, staged births, and validation checks. Unresolved donor aliases are checked against a consumer-scoped review ledger, and unsupported orbital merging remains an explicit manual requirement. The tool does not run programs or invent donor mappings.",
+      "description": "Build the recorded ATSP2K seed and GRASP2018 DC+Breit reference plan for one exact f-block catalog state. The result includes the 13-line ATSP2K input, GRASP interactive inputs, electron/J/parity/CSF expectations, energies, ordered donor prerequisites, staged births, and validation checks. Unresolved donor aliases are checked against a consumer-scoped review ledger, and unsupported orbital merging remains an explicit manual requirement. The tool does not run programs or invent donor mappings.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -7946,23 +7946,86 @@
             "type": "integer",
             "default": 0
           },
+          "additional_generation_lists": {
+            "type": "array",
+            "description": "Further rcsfgenerate lists with independent active sets, 2J ranges, and excitation policies.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "configurations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "active_orbitals": {
+                  "type": "string"
+                },
+                "twoj_min": {
+                  "type": "integer"
+                },
+                "twoj_max": {
+                  "type": "integer"
+                },
+                "excitations": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "configurations",
+                "active_orbitals",
+                "twoj_min",
+                "twoj_max",
+                "excitations"
+              ],
+              "additionalProperties": false
+            }
+          },
           "block_level_selections": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
+          "expected_csf_blocks": {
+            "type": "array",
+            "description": "Expected generated block order. Each entry labels the matching block_level_selections item and is checked against rcsf.inp before RMCDHF runs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "two_j": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "parity": {
+                  "type": "string",
+                  "enum": [
+                    "+",
+                    "-"
+                  ]
+                },
+                "ncsf": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "two_j",
+                "parity",
+                "ncsf"
+              ],
+              "additionalProperties": false
+            }
+          },
           "orbitals_to_optimize": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "weighting": {
             "type": "string",
             "default": "5"
           },
           "spectroscopic_orbitals": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "max_scf_cycles": {
             "type": "integer",
@@ -7989,6 +8052,7 @@
           "twoj_min",
           "twoj_max",
           "block_level_selections",
+          "expected_csf_blocks",
           "name"
         ]
       }
@@ -8062,23 +8126,86 @@
             "type": "integer",
             "default": 0
           },
+          "additional_generation_lists": {
+            "type": "array",
+            "description": "Further rcsfgenerate lists with independent active sets, 2J ranges, and excitation policies.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "configurations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "active_orbitals": {
+                  "type": "string"
+                },
+                "twoj_min": {
+                  "type": "integer"
+                },
+                "twoj_max": {
+                  "type": "integer"
+                },
+                "excitations": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "configurations",
+                "active_orbitals",
+                "twoj_min",
+                "twoj_max",
+                "excitations"
+              ],
+              "additionalProperties": false
+            }
+          },
           "block_level_selections": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
+          "expected_csf_blocks": {
+            "type": "array",
+            "description": "Expected generated block order. Each entry labels the matching block_level_selections item and is checked against rcsf.inp before RMCDHF runs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "two_j": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "parity": {
+                  "type": "string",
+                  "enum": [
+                    "+",
+                    "-"
+                  ]
+                },
+                "ncsf": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "two_j",
+                "parity",
+                "ncsf"
+              ],
+              "additionalProperties": false
+            }
+          },
           "orbitals_to_optimize": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "weighting": {
             "type": "string",
             "default": "5"
           },
           "spectroscopic_orbitals": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "max_scf_cycles": {
             "type": "integer",
@@ -8099,6 +8226,7 @@
           "twoj_min",
           "twoj_max",
           "block_level_selections",
+          "expected_csf_blocks",
           "name"
         ]
       }
@@ -8164,23 +8292,86 @@
             "type": "integer",
             "default": 0
           },
+          "additional_generation_lists": {
+            "type": "array",
+            "description": "Further rcsfgenerate lists with independent active sets, 2J ranges, and excitation policies.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "configurations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "active_orbitals": {
+                  "type": "string"
+                },
+                "twoj_min": {
+                  "type": "integer"
+                },
+                "twoj_max": {
+                  "type": "integer"
+                },
+                "excitations": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "configurations",
+                "active_orbitals",
+                "twoj_min",
+                "twoj_max",
+                "excitations"
+              ],
+              "additionalProperties": false
+            }
+          },
           "block_level_selections": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
+          "expected_csf_blocks": {
+            "type": "array",
+            "description": "Expected generated block order. Each entry labels the matching block_level_selections item and is checked against rcsf.inp before RMCDHF runs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "two_j": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "parity": {
+                  "type": "string",
+                  "enum": [
+                    "+",
+                    "-"
+                  ]
+                },
+                "ncsf": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "two_j",
+                "parity",
+                "ncsf"
+              ],
+              "additionalProperties": false
+            }
+          },
           "orbitals_to_optimize": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "weighting": {
             "type": "string",
             "default": "5"
           },
           "spectroscopic_orbitals": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "max_scf_cycles": {
             "type": "integer",
@@ -8198,6 +8389,7 @@
           "twoj_min",
           "twoj_max",
           "block_level_selections",
+          "expected_csf_blocks",
           "name"
         ]
       }
@@ -8263,23 +8455,86 @@
             "type": "integer",
             "default": 0
           },
+          "additional_generation_lists": {
+            "type": "array",
+            "description": "Further rcsfgenerate lists with independent active sets, 2J ranges, and excitation policies.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "configurations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "active_orbitals": {
+                  "type": "string"
+                },
+                "twoj_min": {
+                  "type": "integer"
+                },
+                "twoj_max": {
+                  "type": "integer"
+                },
+                "excitations": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "configurations",
+                "active_orbitals",
+                "twoj_min",
+                "twoj_max",
+                "excitations"
+              ],
+              "additionalProperties": false
+            }
+          },
           "block_level_selections": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
+          "expected_csf_blocks": {
+            "type": "array",
+            "description": "Expected generated block order. Each entry labels the matching block_level_selections item and is checked against rcsf.inp before RMCDHF runs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "two_j": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "parity": {
+                  "type": "string",
+                  "enum": [
+                    "+",
+                    "-"
+                  ]
+                },
+                "ncsf": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "two_j",
+                "parity",
+                "ncsf"
+              ],
+              "additionalProperties": false
+            }
+          },
           "orbitals_to_optimize": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "weighting": {
             "type": "string",
             "default": "5"
           },
           "spectroscopic_orbitals": {
-            "type": "string",
-            "default": "*"
+            "type": "string"
           },
           "max_scf_cycles": {
             "type": "integer",
@@ -8298,6 +8553,7 @@
           "twoj_min",
           "twoj_max",
           "block_level_selections",
+          "expected_csf_blocks",
           "name"
         ]
       }
@@ -11917,6 +12173,36 @@
               "type": "string"
             }
           },
+          "expected_csf_blocks": {
+            "type": "array",
+            "description": "Expected generated block order. Each entry labels the matching block_level_selections item and is checked against rcsf.inp before RMCDHF runs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "two_j": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "parity": {
+                  "type": "string",
+                  "enum": [
+                    "+",
+                    "-"
+                  ]
+                },
+                "ncsf": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "two_j",
+                "parity",
+                "ncsf"
+              ],
+              "additionalProperties": false
+            }
+          },
           "default_settings": {
             "type": "boolean",
             "default": true
@@ -11928,7 +12214,8 @@
         },
         "required": [
           "working_dir",
-          "name"
+          "name",
+          "expected_csf_blocks"
         ]
       }
     },
@@ -11971,7 +12258,42 @@
           "excitations": {
             "type": "integer",
             "default": 0,
-            "description": "0=none; negative N = always doubly occupied"
+            "description": "Maximum substitution rank: 1=S, 2=S+D, 3=S+D+T; negative N also requires correlation orbitals to be doubly occupied."
+          },
+          "additional_lists": {
+            "type": "array",
+            "description": "Further generation lists with independent active sets, 2J ranges, and excitation policies.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "configurations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "active_orbitals": {
+                  "type": "string"
+                },
+                "twoj_min": {
+                  "type": "integer"
+                },
+                "twoj_max": {
+                  "type": "integer"
+                },
+                "excitations": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "configurations",
+                "active_orbitals",
+                "twoj_min",
+                "twoj_max",
+                "excitations"
+              ],
+              "additionalProperties": false
+            }
           },
           "ordering": {
             "type": "string",
@@ -12161,9 +12483,39 @@
               "type": "string"
             }
           },
+          "expected_csf_blocks": {
+            "type": "array",
+            "description": "Expected generated block order. Each entry labels the matching block_level_selections item and is checked against rcsf.inp before RMCDHF runs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "two_j": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "parity": {
+                  "type": "string",
+                  "enum": [
+                    "+",
+                    "-"
+                  ]
+                },
+                "ncsf": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "two_j",
+                "parity",
+                "ncsf"
+              ],
+              "additionalProperties": false
+            }
+          },
           "orbitals_to_optimize": {
             "type": "string",
-            "default": "*"
+            "description": "Explicit varied-orbital mask. For a correlation layer, vary only the newest layer, such as '5*'."
           },
           "weighting": {
             "type": "string",
@@ -12172,7 +12524,7 @@
           },
           "spectroscopic_orbitals": {
             "type": "string",
-            "default": "*"
+            "description": "Which varied orbitals require hydrogenic node counts: '*' means all; blank means none. Correlation orbitals normally use blank."
           },
           "max_scf_cycles": {
             "type": "integer",
@@ -12185,7 +12537,10 @@
         },
         "required": [
           "working_dir",
-          "block_level_selections"
+          "block_level_selections",
+          "expected_csf_blocks",
+          "orbitals_to_optimize",
+          "spectroscopic_orbitals"
         ]
       }
     },
@@ -12539,7 +12894,7 @@
         "local",
         "hpc"
       ],
-      "description": "Run a bounded molecular PySCF RHF, UHF, RKS, or UKS single-point calculation through the configured companion interpreter. The operation accepts typed atoms in angstroms and fixed SCF controls only. It records execution evidence separately from SCF convergence and does not accept Python source, custom method objects, periodic cells, geometry optimization, or multireference methods.",
+      "description": "Run a bounded molecular PySCF RHF, UHF, RKS, or UKS single-point calculation through the configured companion interpreter. The operation accepts typed atoms in angstroms and fixed SCF controls only. It records execution evidence separately from SCF convergence and does not accept Python source, custom method objects, periodic cells, geometry optimization, or multireference methods. For a single atom, charge and spin are accepted but atomic-symmetry occupations are not constrained or verified; cataloged f-block states are therefore unsupported.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -14445,6 +14800,64 @@
         "required": [
           "run_id",
           "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "validate_grasp_fblock_artifacts",
+      "program": "grasp",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Validate a generated GRASP2018 CSF list against one exact f-block catalog state. Checks the ion electron count and every J, parity, and CSF-count block. Optionally inspect a matching RMCDHF or RCI mixing file, validate its ASF block labels and counts against the CSFs, and resolve bounded leading components.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "element": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2,
+            "pattern": "^[A-Za-z]{1,2}$",
+            "description": "Exact element symbol in the catalog, such as Th, U, or Y. Matching is case-insensitive."
+          },
+          "state": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 32,
+            "pattern": "^ion[0-9]+_[a-z0-9]+$",
+            "description": "Exact catalog state slug, such as ion0_6d27s2."
+          },
+          "csf_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to the generated GRASP .c file."
+          },
+          "mixing_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional matching RMCDHF .m or RCI .cm file."
+          },
+          "level_limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 64
+          },
+          "component_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 3
+          }
+        },
+        "required": [
+          "element",
+          "state",
+          "csf_path"
         ],
         "additionalProperties": false
       }

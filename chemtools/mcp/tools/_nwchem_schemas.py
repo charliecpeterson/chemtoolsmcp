@@ -166,7 +166,9 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                 "potentials, electron affinities). Automatically looks up the neutral ground-state "
                 "multiplicity for common elements (H–Xe plus 5d metals). Use before "
                 "compute_reaction_energy to run each atom at the same level of theory as the molecule. "
-                "Always uses symmetry c1 and places the atom at the origin."
+                "Charged atoms require an explicit multiplicity. Always uses symmetry c1, does not "
+                "constrain orbital occupation, and places the atom at the origin. It cannot reproduce "
+                "a cataloged f-block configuration without separate occupation control and validation."
             ),
             "inputSchema": {
                 "type": "object",
@@ -192,7 +194,10 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                     },
                     "multiplicity": {
                         "type": "integer",
-                        "description": "Spin multiplicity. Auto-looked-up from ground-state table if omitted.",
+                        "description": (
+                            "Spin multiplicity. Auto-looked-up only for neutral atoms; "
+                            "required explicitly when charge is nonzero."
+                        ),
                     },
                     "xc_functional": {
                         "type": "string",

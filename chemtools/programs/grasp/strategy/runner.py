@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
+from chemtools.programs.grasp.parse.csf import load_grasp_csf_list
 from chemtools.programs.grasp.runtime import run_grasp_exe, append_session_note
 
 
@@ -82,6 +83,18 @@ def run_workflow(
                 break
         for action in step.get("post", []):
             _run_file_action(action, work)
+        expected_blocks = step.get("expected_csf_blocks")
+        if expected_blocks is not None:
+            try:
+                validate_csf_block_contract(
+                    work / "rcsf.inp",
+                    expected_blocks,
+                )
+            except ValueError as error:
+                transcript[-1]["ok"] = False
+                transcript[-1]["contract_error"] = str(error)
+                overall_ok = False
+                break
 
     if overall_ok:
         append_session_note(
@@ -100,6 +113,45 @@ def run_workflow(
         "transcript": transcript,
         "session_log": str(work / "grasp_session.md"),
     }
+
+
+def validate_csf_block_contract(
+    csf_path: str | Path,
+    expected_blocks: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Require generated CSF blocks to match labeled RMCDHF selections."""
+    document = load_grasp_csf_list(csf_path)
+    expected: list[dict[str, object]] = []
+    for index, block in enumerate(expected_blocks, start=1):
+        required = {"two_j", "parity", "ncsf"}
+        if set(block) != required:
+            raise ValueError(
+                f"expected CSF block {index} requires exactly {sorted(required)}"
+            )
+        parity = block["parity"]
+        if parity not in {"+", "-"}:
+            raise ValueError(
+                f"expected CSF block {index} parity must be '+' or '-'"
+            )
+        expected.append({
+            "two_j": int(block["two_j"]),
+            "parity": parity,
+            "ncsf": int(block["ncsf"]),
+        })
+    actual = [
+        {
+            "two_j": block.two_j,
+            "parity": block.parity,
+            "ncsf": len(block.entries),
+        }
+        for block in document.blocks
+    ]
+    if actual != expected:
+        raise ValueError(
+            "generated CSF block order does not match the labeled RMCDHF "
+            f"selection contract: expected {expected}, found {actual}"
+        )
+    return actual
 
 
 def _run_file_action(command: str, cwd: Path) -> None:

@@ -1,14 +1,14 @@
 {
   "schema_version": "chemtools.fblock-dataset/1",
   "dataset_id": "fblock.atomic_seeds",
-  "dataset_version": "2",
-  "rebuild_date": "2026-07-28",
+  "dataset_version": "3",
+  "rebuild_date": "2026-08-05",
   "description": "First-party f-block atomic seed and reference data for GRASP2018, ATSP2K, and selected DIRAC cases.",
   "catalog": {
     "relative_path": "grasp/fblock-all.json",
     "payload_schema": "fblock.element-map/legacy-v2",
-    "size_bytes": 460699,
-    "sha256": "6b2a59951c11ab141bbe0dfe4806f9b1fc4248b80f8cf2eb780ac1b426495eeb"
+    "size_bytes": 460700,
+    "sha256": "ba3397c7ff0634c489cc0dded2a857ef0b8151897618c7b2daa4d90502aadbec"
   },
   "coverage": {
     "elements": [
@@ -89,6 +89,17 @@
       }
     },
     {
+      "id": "state_semantics",
+      "paths": ["state-semantics.json"],
+      "status": "validated_reference",
+      "purposes": ["methodology_warning", "workflow_recipe"],
+      "review": {
+        "reviewed_by": "Charles Peterson",
+        "reviewed_at": "2026-08-05",
+        "scope": "Cross-program SCF occupation hazards, D2h p/f ambiguity, and downstream reproducibility expectations"
+      }
+    },
+    {
       "id": "dirac_u_5d_hole_ecp",
       "paths": ["dirac/U-5d-hole-ECP.mol", "dirac/U-5d-hole-ECP-cosci.inp"],
       "status": "validated_reference",
@@ -126,6 +137,7 @@
     "catalog_sha256_pinned": true,
     "unique_state_slugs_per_element": true,
     "j_block_and_ncsf_lengths_match": true,
+    "electron_count_matches_ion_charge": true,
     "energies_are_finite": true,
     "seed_class_totals_pinned": true
   },
@@ -143,6 +155,7 @@
     "The GRASP v2 rebuild fixed an earlier per-configuration J-ceiling truncation; older values must not be mixed with this catalog.",
     "QED and mass-shift terms are absent, which matters increasingly for the heaviest elements and s-like states.",
     "A converged SCF state may still occupy a false basin; the recorded seed and donor lineage is part of the reference.",
+    "GRASP inactive-shell markers do not transfer to generic NWChem or PySCF inputs; reproducing a catalog state requires program-specific occupation constraints and a post-SCF population check.",
     "The catalog contains 132 consumer-scoped external donor alias occurrences whose exact state or radial-wavefunction artifact is not bundled; all remain pending scientific review.",
     "Seventeen Y extension states retain energies and J/CSF expectations but lack complete GRASP interactive-input fields; lookup remains available but input planning must report the missing fields.",
     "DIRAC regression-failure and exploratory components are not positive workflow recommendations."

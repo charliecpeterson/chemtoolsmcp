@@ -16,9 +16,14 @@ from chemtools.reference.fblock_models import (
     FBlockElement,
     FBlockState,
 )
+from chemtools.reference.fblock_semantics import (
+    FBlockStateSemanticsManifest,
+    load_fblock_state_semantics,
+    state_semantics_dict,
+)
 
 
-FBLOCK_LOOKUP_SCHEMA = "chemtools.fblock-reference-lookup/1"
+FBLOCK_LOOKUP_SCHEMA = "chemtools.fblock-reference-lookup/2"
 MAX_STATE_SUMMARIES = 64
 _CATALOG_COMPONENT_ID = "grasp_v2_catalog"
 _STATE_SLUG_RE = re.compile(r"^ion[0-9]+_[a-z0-9]+$")
@@ -28,6 +33,7 @@ _STATE_SLUG_RE = re.compile(r"^ion[0-9]+_[a-z0-9]+$")
 class FBlockLookupResult:
     metadata: FBlockDatasetMetadata
     component: FBlockComponent
+    semantics: FBlockStateSemanticsManifest
     element: FBlockElement
     state: FBlockState | None
 
@@ -47,10 +53,17 @@ class FBlockLookupResult:
                 "total_count": len(self.element.states),
                 "returned_count": len(states),
                 "truncated": len(states) < len(self.element.states),
-                "states": [_state_summary(state) for state in states],
+                "states": [
+                    _state_summary(self.element, state, self.semantics)
+                    for state in states
+                ],
             }
         else:
-            payload["state"] = _state_dict(self.state)
+            payload["state"] = _state_dict(
+                self.element,
+                self.state,
+                self.semantics,
+            )
         return payload
 
 
@@ -60,6 +73,7 @@ def lookup_grasp_fblock_state(
 ) -> FBlockLookupResult:
     state_slug = _state_slug(state)
     catalog = load_fblock_catalog()
+    semantics = load_fblock_state_semantics(catalog=catalog)
     try:
         element_record = catalog.element(element)
     except KeyError:
@@ -84,6 +98,7 @@ def lookup_grasp_fblock_state(
     return FBlockLookupResult(
         metadata=catalog.metadata,
         component=catalog.metadata.component(_CATALOG_COMPONENT_ID),
+        semantics=semantics,
         element=element_record,
         state=state_record,
     )
@@ -109,6 +124,8 @@ def _reference_dict(
     return {
         "status": component.status,
         "recommendation_eligible": component.status == "validated_reference",
+        "recommendation_scope": "grasp2018_reference_only",
+        "cross_program_transfer_eligible": False,
         "dataset": {
             "id": metadata.dataset_id,
             "version": metadata.dataset_version,
@@ -158,7 +175,16 @@ def _element_dict(element: FBlockElement) -> dict[str, object]:
     }
 
 
-def _state_summary(state: FBlockState) -> dict[str, object]:
+def _state_summary(
+    element: FBlockElement,
+    state: FBlockState,
+    manifest: FBlockStateSemanticsManifest,
+) -> dict[str, object]:
+    semantics = state_semantics_dict(
+        element,
+        state,
+        manifest,
+    )
     return {
         "slug": state.slug,
         "ion": state.ion,
@@ -167,10 +193,16 @@ def _state_summary(state: FBlockState) -> dict[str, object]:
         "seed_class": state.seed_class,
         "staged_birth": state.vary_first is not None,
         "energy_relative_au": state.energy_relative_au,
+        "unconstrained_scf_risk": semantics["unconstrained_scf_risk"],
+        "cross_program_transfer_eligible": False,
     }
 
 
-def _state_dict(state: FBlockState) -> dict[str, object]:
+def _state_dict(
+    element: FBlockElement,
+    state: FBlockState,
+    manifest: FBlockStateSemanticsManifest,
+) -> dict[str, object]:
     estimate_from = state.estimate_from
     if isinstance(estimate_from, str):
         donors = [estimate_from]
@@ -205,6 +237,11 @@ def _state_dict(state: FBlockState) -> dict[str, object]:
             "dirac_coulomb_breit": state.energy_dcb_au,
             "relative_to_anchor": state.energy_relative_au,
         },
+        "semantics": state_semantics_dict(
+            element,
+            state,
+            manifest,
+        ),
     }
 
 

@@ -11,7 +11,20 @@ themselves are documented in the GRASP2018 manual chapter 7.
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+import re
+from typing import Any, Mapping, Sequence
+
+
+@dataclass(frozen=True)
+class RcsfGenerationList:
+    """One independently parameterized list in an rcsfgenerate union."""
+
+    configurations: tuple[str, ...]
+    active_orbitals: str
+    twoj_min: int
+    twoj_max: int
+    excitations: int = 0
 
 
 def rnucleus_input(
@@ -58,8 +71,11 @@ def rcsfgenerate_input(
     excitations: int = 0,
     ordering: str = "*",
     generate_more: bool = False,
+    additional_lists: Sequence[
+        RcsfGenerationList | Mapping[str, object]
+    ] | None = None,
 ) -> list[str]:
-    """Build rcsfgenerate stdin (single configuration list).
+    """Build rcsfgenerate stdin for one or more generation lists.
 
     Prompts:
       1. Ordering (* / r / s / u)
@@ -71,20 +87,130 @@ def rcsfgenerate_input(
       4. Active orbitals (e.g. ``7s,6p,5d,5f``)
       5. 2*J range (low, high) → e.g. ``0,16``
       6. Number of excitations (0 = no excitations, negative = always doubly occ)
-      7. Generate more lists? (y/n)
+      7. Generate more lists? (y/n). If yes, repeat prompts 3 through 7.
 
-    Multiple lists are supported by calling this builder again with chaining;
-    use ``configurations`` containing both lists and set ``generate_more=True``
-    on intermediate calls.
+    Put configurations sharing one active set, J range, and excitation policy
+    in ``configurations``. Use ``additional_lists`` when those policies differ.
+    For example, ordinary SD substitutions and a second ``-2`` list that
+    requires correlation orbitals to be doubly occupied are separate lists.
+
+    ``generate_more=True`` by itself previously emitted an incomplete answer
+    stream. It is now rejected; supply the following lists explicitly.
     """
+    if generate_more:
+        raise ValueError(
+            "generate_more=True leaves rcsfgenerate waiting for another "
+            "list; provide that list with additional_lists"
+        )
+    if ordering not in {"*", "r", "s", "u"}:
+        raise ValueError("ordering must be one of '*', 'r', 's', or 'u'")
+    if not 0 <= core <= 6:
+        raise ValueError("core must be between 0 and 6")
+
+    generation_lists = [
+        _generation_list(
+            configurations=configurations,
+            active_orbitals=active_orbitals,
+            twoj_min=twoj_min,
+            twoj_max=twoj_max,
+            excitations=excitations,
+        )
+    ]
+    generation_lists.extend(
+        _coerce_generation_list(specification)
+        for specification in additional_lists or ()
+    )
+
     lines: list[str] = [ordering, str(core)]
-    lines.extend(configurations)
-    lines.append("")  # blank line terminates config list
-    lines.append(active_orbitals)
-    lines.append(f"{twoj_min},{twoj_max}")
-    lines.append(str(excitations))
-    lines.append("y" if generate_more else "n")
+    for index, specification in enumerate(generation_lists):
+        lines.extend(specification.configurations)
+        lines.append("")
+        lines.append(specification.active_orbitals)
+        lines.append(f"{specification.twoj_min},{specification.twoj_max}")
+        lines.append(str(specification.excitations))
+        lines.append("y" if index < len(generation_lists) - 1 else "n")
     return lines
+
+
+def _coerce_generation_list(
+    value: RcsfGenerationList | Mapping[str, object],
+) -> RcsfGenerationList:
+    if isinstance(value, RcsfGenerationList):
+        return _generation_list(
+            configurations=value.configurations,
+            active_orbitals=value.active_orbitals,
+            twoj_min=value.twoj_min,
+            twoj_max=value.twoj_max,
+            excitations=value.excitations,
+        )
+    required = {
+        "configurations",
+        "active_orbitals",
+        "twoj_min",
+        "twoj_max",
+        "excitations",
+    }
+    unknown = set(value) - required
+    missing = required - set(value)
+    if unknown or missing:
+        raise ValueError(
+            "each additional rcsfgenerate list requires exactly "
+            f"{sorted(required)}; missing={sorted(missing)}, "
+            f"unknown={sorted(unknown)}"
+        )
+    configurations = value["configurations"]
+    if not isinstance(configurations, (list, tuple)) or not all(
+        isinstance(configuration, str) for configuration in configurations
+    ):
+        raise ValueError("additional-list configurations must be strings")
+    active_orbitals = value["active_orbitals"]
+    if not isinstance(active_orbitals, str):
+        raise ValueError("additional-list active_orbitals must be a string")
+    try:
+        twoj_min = int(value["twoj_min"])
+        twoj_max = int(value["twoj_max"])
+        excitations = int(value["excitations"])
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "additional-list J bounds and excitations must be integers"
+        ) from error
+    return _generation_list(
+        configurations=configurations,
+        active_orbitals=active_orbitals,
+        twoj_min=twoj_min,
+        twoj_max=twoj_max,
+        excitations=excitations,
+    )
+
+
+def _generation_list(
+    *,
+    configurations: Sequence[str],
+    active_orbitals: str,
+    twoj_min: int,
+    twoj_max: int,
+    excitations: int,
+) -> RcsfGenerationList:
+    if not all(
+        isinstance(configuration, str) for configuration in configurations
+    ):
+        raise ValueError("each rcsfgenerate configuration must be a string")
+    if not isinstance(active_orbitals, str):
+        raise ValueError("active_orbitals must be a string")
+    cleaned = tuple(configuration.strip() for configuration in configurations)
+    if not cleaned or any(not configuration for configuration in cleaned):
+        raise ValueError("each rcsfgenerate list requires configurations")
+    if not active_orbitals.strip():
+        raise ValueError("each rcsfgenerate list requires active_orbitals")
+    if twoj_min < 0 or twoj_max < twoj_min:
+        raise ValueError("2J bounds must satisfy 0 <= twoj_min <= twoj_max")
+    return RcsfGenerationList(
+        configurations=cleaned,
+        active_orbitals=active_orbitals.strip(),
+        twoj_min=twoj_min,
+        twoj_max=twoj_max,
+        excitations=excitations,
+    )
 
 
 def rangular_input(*, default_settings: bool = True) -> list[str]:
@@ -157,14 +283,30 @@ def rwfnestimate_input(
     # Source iteration: rwfnestimate keeps prompting until all subshells are
     # estimated. Pattern: source_num, [file_path,] subshell_pattern, ...
     # No "continue?" between sources — the binary just loops if subshells remain.
-    for src in sources:
+    source_index = 0
+    while source_index < len(sources):
+        src = sources[source_index]
         if src.startswith("file:"):
             # Custom syntax: "file:/path/to/rwfn.inp" → source 1 + file path
             lines.append("1")
             lines.append(src[5:])
-        else:
+        elif src == "1":
+            if source_index + 1 >= len(sources):
+                raise ValueError(
+                    "rwfnestimate file source 1 must be followed by a path"
+                )
+            source_index += 1
+            lines.append("1")
+            lines.append(sources[source_index])
+        elif src in {"2", "3"}:
             lines.append(src)
+        else:
+            raise ValueError(
+                "rwfnestimate sources must use '1', path, '2', '3', or "
+                "the 'file:path' shorthand"
+            )
         lines.append("*")  # all remaining subshells
+        source_index += 1
     # Non-default branch: trailing "Revise any of these estimates?" prompt
     if not (default_settings and speed_of_light_au is None and not revise_grid):
         lines.append("n")
@@ -188,9 +330,10 @@ def rmcdhf_input(
       1. Default settings? (y/n)
       2. [if 'n'] revise speed of light? + value
       3. For each CSF block: levels to optimize (e.g. "1-2" or "1")
-      4. Level weighting (5 = stat weight 2J+1, default)
+      4. If more than one ASF was selected, level weighting
+         (5 = statistical weight 2J+1)
       5. Orbitals to optimize (e.g. "*" for all, "5*" for n=5)
-      6. Spectroscopic orbitals (e.g. "*" = none)
+      6. Which varied orbitals are spectroscopic ("*" = all, blank = none)
       7. Max SCF cycles (e.g. 100)
 
     ``block_level_selections`` is a per-block list — Si has 5 blocks so
@@ -220,13 +363,18 @@ def rmcdhf_input(
         lines.append("n")
         lines.append("n")
 
-    if block_level_selections:
-        for sel in block_level_selections:
-            lines.append(sel)
+    if block_level_selections is None:
+        selections = ["1"]
+    elif not block_level_selections:
+        raise ValueError("block_level_selections must not be empty")
     else:
-        lines.append("1")  # single-block fallback: optimize level 1
-
-    lines.append(weighting)
+        selections = block_level_selections
+    selected_asfs = sum(_asf_selection_count(selection) for selection in selections)
+    if selected_asfs == 0:
+        raise ValueError("rmcdhf requires at least one selected ASF")
+    lines.extend(selections)
+    if selected_asfs > 1:
+        lines.append(weighting)
     lines.append(orbitals_to_optimize)
     lines.append(spectroscopic_orbitals)
     lines.append(str(max_scf_cycles))
@@ -237,6 +385,28 @@ def rmcdhf_input(
         lines.append("n")
         lines.append("1")
     return lines
+
+
+def _asf_selection_count(selection: str) -> int:
+    tokens = [
+        token for token in re.split(r"[\s,]+", selection.strip()) if token
+    ]
+    selected: set[int] = set()
+    for token in tokens:
+        match = re.fullmatch(r"(\d+)(?:-(\d+))?", token)
+        if match is None:
+            raise ValueError(f"invalid ASF selection token: {token!r}")
+        first = int(match.group(1))
+        last = int(match.group(2) or first)
+        if first < 1 or last < first:
+            raise ValueError(f"invalid ASF selection range: {token!r}")
+        overlap = selected.intersection(range(first, last + 1))
+        if overlap:
+            raise ValueError(
+                f"ASF selection contains duplicate indices: {sorted(overlap)}"
+            )
+        selected.update(range(first, last + 1))
+    return len(selected)
 
 
 def hf_input(

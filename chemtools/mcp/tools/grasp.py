@@ -82,6 +82,9 @@ from chemtools.programs.grasp.strategy.workflows import (
     plan_restart_from_workflow as _plan_restart_from_workflow,
     plan_hf_bootstrap_workflow as _plan_hf_bootstrap_workflow,
 )
+from chemtools.programs.grasp.strategy.runner import (
+    validate_csf_block_contract as _validate_csf_block_contract,
+)
 from chemtools.programs.grasp.docs import (
     list_docs as _list_grasp_docs,
     search_docs as _search_grasp_docs,
@@ -170,6 +173,7 @@ def _handle_run_rcsfgenerate(arguments: dict[str, Any]) -> dict[str, Any]:
             twoj_min=arguments["twoj_min"], twoj_max=arguments["twoj_max"],
             excitations=arguments.get("excitations", 0),
             ordering=arguments.get("ordering", "*"),
+            additional_lists=arguments.get("additional_lists"),
         ),
     )
     # Convenience: copy rcsf.out to rcsf.inp for the next step
@@ -206,6 +210,12 @@ def _handle_run_rwfnestimate(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("run_grasp_rmcdhf", needs="executable", program="grasp")
 def _handle_run_rmcdhf(arguments: dict[str, Any]) -> dict[str, Any]:
+    from pathlib import Path
+
+    _validate_csf_block_contract(
+        Path(arguments["working_dir"]) / "rcsf.inp",
+        arguments["expected_csf_blocks"],
+    )
     return _run_grasp_exe(
         "rmcdhf",
         working_dir=arguments["working_dir"],
@@ -213,9 +223,9 @@ def _handle_run_rmcdhf(arguments: dict[str, Any]) -> dict[str, Any]:
             default_settings=arguments.get("default_settings", True),
             speed_of_light_au=arguments.get("speed_of_light_au"),
             block_level_selections=arguments["block_level_selections"],
-            orbitals_to_optimize=arguments.get("orbitals_to_optimize", "*"),
+            orbitals_to_optimize=arguments["orbitals_to_optimize"],
             weighting=arguments.get("weighting", "5"),
-            spectroscopic_orbitals=arguments.get("spectroscopic_orbitals", "*"),
+            spectroscopic_orbitals=arguments["spectroscopic_orbitals"],
             max_scf_cycles=arguments.get("max_scf_cycles", 100),
         ),
         timeout_seconds=arguments.get("timeout_seconds", 600.0),
@@ -369,6 +379,12 @@ def _handle_run_rwfnmchfmcdf(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("run_grasp_rci", needs="executable", program="grasp")
 def _handle_run_rci(arguments: dict[str, Any]) -> dict[str, Any]:
     """Relativistic CI with Breit + QED corrections on top of rmcdhf."""
+    from pathlib import Path
+
+    _validate_csf_block_contract(
+        Path(arguments["working_dir"]) / f"{arguments['name']}.c",
+        arguments["expected_csf_blocks"],
+    )
     return _run_grasp_exe(
         "rci",
         working_dir=arguments["working_dir"],
@@ -709,6 +725,51 @@ def _handle_terminate_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
 # Tool definitions (JSONSchema)
 # =============================================================================
 
+_ADDITIONAL_GENERATION_LISTS_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "description": (
+        "Further rcsfgenerate lists with independent active sets, 2J ranges, "
+        "and excitation policies."
+    ),
+    "items": {
+        "type": "object",
+        "properties": {
+            "configurations": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "active_orbitals": {"type": "string"},
+            "twoj_min": {"type": "integer"},
+            "twoj_max": {"type": "integer"},
+            "excitations": {"type": "integer"},
+        },
+        "required": [
+            "configurations", "active_orbitals", "twoj_min", "twoj_max",
+            "excitations",
+        ],
+        "additionalProperties": False,
+    },
+}
+
+_EXPECTED_CSF_BLOCKS_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "description": (
+        "Expected generated block order. Each entry labels the matching "
+        "block_level_selections item and is checked against rcsf.inp before "
+        "RMCDHF runs."
+    ),
+    "items": {
+        "type": "object",
+        "properties": {
+            "two_j": {"type": "integer", "minimum": 0},
+            "parity": {"type": "string", "enum": ["+", "-"]},
+            "ncsf": {"type": "integer", "minimum": 1},
+        },
+        "required": ["two_j", "parity", "ncsf"],
+        "additionalProperties": False,
+    },
+}
+
 _DEFS: list[dict[str, Any]] = [
     # ----- Per-exe runners ---------------------------------------------------
     {
@@ -774,7 +835,36 @@ _DEFS: list[dict[str, Any]] = [
                 "twoj_max": {"type": "integer"},
                 "excitations": {
                     "type": "integer", "default": 0,
-                    "description": "0=none; negative N = always doubly occupied",
+                    "description": (
+                        "Maximum substitution rank: 1=S, 2=S+D, 3=S+D+T; "
+                        "negative N also requires correlation orbitals to be "
+                        "doubly occupied."
+                    ),
+                },
+                "additional_lists": {
+                    "type": "array",
+                    "description": (
+                        "Further generation lists with independent active "
+                        "sets, 2J ranges, and excitation policies."
+                    ),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "configurations": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "active_orbitals": {"type": "string"},
+                            "twoj_min": {"type": "integer"},
+                            "twoj_max": {"type": "integer"},
+                            "excitations": {"type": "integer"},
+                        },
+                        "required": [
+                            "configurations", "active_orbitals", "twoj_min",
+                            "twoj_max", "excitations",
+                        ],
+                        "additionalProperties": False,
+                    },
                 },
                 "ordering": {"type": "string", "default": "*"},
                 "copy_to_inp": {
@@ -836,16 +926,34 @@ _DEFS: list[dict[str, Any]] = [
                 "default_settings": {"type": "boolean", "default": True},
                 "speed_of_light_au": {"type": "number"},
                 "block_level_selections": {"type": "array", "items": {"type": "string"}},
-                "orbitals_to_optimize": {"type": "string", "default": "*"},
+                "expected_csf_blocks": _EXPECTED_CSF_BLOCKS_SCHEMA,
+                "orbitals_to_optimize": {
+                    "type": "string",
+                    "description": (
+                        "Explicit varied-orbital mask. For a correlation "
+                        "layer, vary only the newest layer, such as '5*'."
+                    ),
+                },
                 "weighting": {
                     "type": "string", "default": "5",
                     "description": "5 = stat weight 2J+1, 1 = equal, etc.",
                 },
-                "spectroscopic_orbitals": {"type": "string", "default": "*"},
+                "spectroscopic_orbitals": {
+                    "type": "string",
+                    "description": (
+                        "Which varied orbitals require hydrogenic node counts: "
+                        "'*' means all; blank means none. Correlation orbitals "
+                        "normally use blank."
+                    ),
+                },
                 "max_scf_cycles": {"type": "integer", "default": 100},
                 "timeout_seconds": {"type": "number", "default": 600},
             },
-            "required": ["working_dir", "block_level_selections"],
+            "required": [
+                "working_dir", "block_level_selections",
+                "expected_csf_blocks", "orbitals_to_optimize",
+                "spectroscopic_orbitals",
+            ],
         },
     },
     {
@@ -1058,10 +1166,11 @@ _DEFS: list[dict[str, Any]] = [
                 "self_energy": {"type": "boolean", "default": True},
                 "max_n_self_energy": {"type": "integer", "default": 3},
                 "block_level_selections": {"type": "array", "items": {"type": "string"}},
+                "expected_csf_blocks": _EXPECTED_CSF_BLOCKS_SCHEMA,
                 "default_settings": {"type": "boolean", "default": True},
                 "timeout_seconds": {"type": "number", "default": 600},
             },
-            "required": ["working_dir", "name"],
+            "required": ["working_dir", "name", "expected_csf_blocks"],
         },
     },
     # ----- Workflow planners (analysis-safe) ---------------------------------
@@ -1085,17 +1194,20 @@ _DEFS: list[dict[str, Any]] = [
                 "active_orbitals": {"type": "string"},
                 "twoj_min": {"type": "integer"}, "twoj_max": {"type": "integer"},
                 "excitations": {"type": "integer", "default": 0},
+                "additional_generation_lists": _ADDITIONAL_GENERATION_LISTS_SCHEMA,
                 "block_level_selections": {"type": "array", "items": {"type": "string"}},
-                "orbitals_to_optimize": {"type": "string", "default": "*"},
+                "expected_csf_blocks": _EXPECTED_CSF_BLOCKS_SCHEMA,
+                "orbitals_to_optimize": {"type": "string"},
                 "weighting": {"type": "string", "default": "5"},
-                "spectroscopic_orbitals": {"type": "string", "default": "*"},
+                "spectroscopic_orbitals": {"type": "string"},
                 "max_scf_cycles": {"type": "integer", "default": 100},
                 "name": {"type": "string"},
                 "speed_of_light_au": {"type": "number"},
                 "rwfnestimate_sources": {"type": "array", "items": {"type": "string"}},
             },
             "required": ["z", "a", "configurations", "active_orbitals",
-                         "twoj_min", "twoj_max", "block_level_selections", "name"],
+                         "twoj_min", "twoj_max", "block_level_selections",
+                         "expected_csf_blocks", "name"],
         },
     },
     {
@@ -1119,15 +1231,18 @@ _DEFS: list[dict[str, Any]] = [
                 "active_orbitals": {"type": "string"},
                 "twoj_min": {"type": "integer"}, "twoj_max": {"type": "integer"},
                 "excitations": {"type": "integer", "default": 0},
+                "additional_generation_lists": _ADDITIONAL_GENERATION_LISTS_SCHEMA,
                 "block_level_selections": {"type": "array", "items": {"type": "string"}},
-                "orbitals_to_optimize": {"type": "string", "default": "*"},
+                "expected_csf_blocks": _EXPECTED_CSF_BLOCKS_SCHEMA,
+                "orbitals_to_optimize": {"type": "string"},
                 "weighting": {"type": "string", "default": "5"},
-                "spectroscopic_orbitals": {"type": "string", "default": "*"},
+                "spectroscopic_orbitals": {"type": "string"},
                 "max_scf_cycles": {"type": "integer", "default": 100},
                 "name": {"type": "string"},
             },
             "required": ["z", "a", "configurations", "active_orbitals",
-                         "twoj_min", "twoj_max", "block_level_selections", "name"],
+                         "twoj_min", "twoj_max", "block_level_selections",
+                         "expected_csf_blocks", "name"],
         },
     },
     {
@@ -1154,16 +1269,18 @@ _DEFS: list[dict[str, Any]] = [
                 "active_orbitals": {"type": "string"},
                 "twoj_min": {"type": "integer"}, "twoj_max": {"type": "integer"},
                 "excitations": {"type": "integer", "default": 0},
+                "additional_generation_lists": _ADDITIONAL_GENERATION_LISTS_SCHEMA,
                 "block_level_selections": {"type": "array", "items": {"type": "string"}},
-                "orbitals_to_optimize": {"type": "string", "default": "*"},
+                "expected_csf_blocks": _EXPECTED_CSF_BLOCKS_SCHEMA,
+                "orbitals_to_optimize": {"type": "string"},
                 "weighting": {"type": "string", "default": "5"},
-                "spectroscopic_orbitals": {"type": "string", "default": "*"},
+                "spectroscopic_orbitals": {"type": "string"},
                 "max_scf_cycles": {"type": "integer", "default": 100},
                 "name": {"type": "string"},
             },
             "required": ["previous_w_file", "z", "a", "configurations",
                          "active_orbitals", "twoj_min", "twoj_max",
-                         "block_level_selections", "name"],
+                         "block_level_selections", "expected_csf_blocks", "name"],
         },
     },
     {
@@ -1192,16 +1309,18 @@ _DEFS: list[dict[str, Any]] = [
                 "active_orbitals": {"type": "string"},
                 "twoj_min": {"type": "integer"}, "twoj_max": {"type": "integer"},
                 "excitations": {"type": "integer", "default": 0},
+                "additional_generation_lists": _ADDITIONAL_GENERATION_LISTS_SCHEMA,
                 "block_level_selections": {"type": "array", "items": {"type": "string"}},
-                "orbitals_to_optimize": {"type": "string", "default": "*"},
+                "expected_csf_blocks": _EXPECTED_CSF_BLOCKS_SCHEMA,
+                "orbitals_to_optimize": {"type": "string"},
                 "weighting": {"type": "string", "default": "5"},
-                "spectroscopic_orbitals": {"type": "string", "default": "*"},
+                "spectroscopic_orbitals": {"type": "string"},
                 "max_scf_cycles": {"type": "integer", "default": 100},
                 "name": {"type": "string"},
             },
             "required": ["z", "a", "element_symbol", "hf_orbital_list", "hf_open_shell",
                          "configurations", "active_orbitals", "twoj_min", "twoj_max",
-                         "block_level_selections", "name"],
+                         "block_level_selections", "expected_csf_blocks", "name"],
         },
     },
     {

@@ -5,10 +5,10 @@ pseudopotential families for the entire f block: 31 elements (Y, La–Lu,
 Ac–Lr), 633 all-electron reference states, and downstream families for
 Gaussian-basis QC, plane-wave DFT, and quantum Monte Carlo.
 
-Written as **input for chemtools**, not as specifications. Nothing here is
+These began as input for chemtools. The table records what has since been
 implemented. The organizing claim is simple: f-block atoms break tooling that
-works fine for main-group and transition-metal chemistry, they break it
-*silently*, and the failure modes are specific enough to encode.
+works fine for main-group and transition-metal chemistry, often silently, and
+the failure modes are specific enough to encode.
 
 ## The files
 
@@ -19,6 +19,7 @@ works fine for main-group and transition-metal chemistry, they break it
 | `dirac-fblock.md` | DIRAC | 38 tools exist; these are the actinide lessons on top |
 | `qe-qmcpack-oncvpsp.md` | Quantum ESPRESSO, QMCPACK, ONCVPSP/`ld1` | **no tooling, not installed** — read before installing |
 | `catalog-state-semantics.md` | the bundled f-block catalog itself | dataset is **current and correct**; these are semantics the records do not carry |
+| `grasp-atomic-semantics-audit.md` | GRASP2018 | multireference, excitation, ASF-block, and orbital-role contracts are implemented and live-tested |
 | `examples/` | all of the above | real inputs that ran, plus the 633-state reference table |
 | [`chemtools/data/fblock`](../../chemtools/data/fblock) | GRASP · ATSP2K · DIRAC | **per-element seed library**: 31 elements × every state, including configuration, J structure, converged DC+B energy, and the seeding recipe each state needs. Start here to run a new f-block calculation. |
 

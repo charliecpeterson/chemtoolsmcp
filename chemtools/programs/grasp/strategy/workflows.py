@@ -51,10 +51,12 @@ def plan_dhf_workflow(
     twoj_min: int,
     twoj_max: int,
     excitations: int = 0,
+    additional_generation_lists: list[dict[str, object]] | None = None,
     block_level_selections: list[str],
-    orbitals_to_optimize: str = "*",
+    expected_csf_blocks: list[dict[str, object]],
+    orbitals_to_optimize: str | None = None,
     weighting: str = "5",
-    spectroscopic_orbitals: str = "*",
+    spectroscopic_orbitals: str | None = None,
     max_scf_cycles: int = 100,
     name: str,
     speed_of_light_au: float | None = None,
@@ -70,6 +72,17 @@ def plan_dhf_workflow(
     """
     if rwfnestimate_sources is None:
         rwfnestimate_sources = ["2"]  # Thomas-Fermi default
+    orbitals_to_optimize, spectroscopic_orbitals = _orbital_policy(
+        excitations=excitations,
+        additional_generation_lists=additional_generation_lists,
+        orbitals_to_optimize=orbitals_to_optimize,
+        spectroscopic_orbitals=spectroscopic_orbitals,
+    )
+    if len(block_level_selections) != len(expected_csf_blocks):
+        raise ValueError(
+            "block_level_selections and expected_csf_blocks must have the "
+            "same length"
+        )
 
     steps: list[dict[str, Any]] = [
         {
@@ -90,9 +103,11 @@ def plan_dhf_workflow(
                 active_orbitals=active_orbitals,
                 twoj_min=twoj_min, twoj_max=twoj_max,
                 excitations=excitations,
+                additional_lists=additional_generation_lists,
             ),
             "args": [],
             "post": ["cp rcsf.out rcsf.inp"],
+            "expected_csf_blocks": expected_csf_blocks,
             "description": f"Generate CSF list for {len(configurations)} configuration(s)",
         },
         {
@@ -158,6 +173,14 @@ def plan_dhf_workflow(
         "name": name,
         "speed_of_light_au": speed_of_light_au or 137.0359991390,
         "is_nonrel_limit": speed_of_light_au is not None and speed_of_light_au > 500,
+        "orbital_policy": {
+            "orbitals_to_optimize": orbitals_to_optimize,
+            "spectroscopic_orbitals": spectroscopic_orbitals,
+            "correlation_expansion": _has_correlation_expansion(
+                excitations,
+                additional_generation_lists,
+            ),
+        },
         "n_steps": len(steps),
         "steps": steps,
         "expected_outputs": [
@@ -239,10 +262,12 @@ def plan_hf_bootstrap_workflow(
     twoj_min: int,
     twoj_max: int,
     excitations: int = 0,
+    additional_generation_lists: list[dict[str, object]] | None = None,
     block_level_selections: list[str],
-    orbitals_to_optimize: str = "*",
+    expected_csf_blocks: list[dict[str, object]],
+    orbitals_to_optimize: str | None = None,
     weighting: str = "5",
-    spectroscopic_orbitals: str = "*",
+    spectroscopic_orbitals: str | None = None,
     max_scf_cycles: int = 100,
     name: str,
 ) -> dict[str, Any]:
@@ -267,6 +292,17 @@ def plan_hf_bootstrap_workflow(
     string (e.g. ``" 1s  2s  2p  3s  3p  3d  4s  4p  4d  4f  5s  5p  5d  6s  6p  7s"``).
     ``hf_open_shell`` is the open-shell occupation (e.g. ``"5f(10)"``).
     """
+    orbitals_to_optimize, spectroscopic_orbitals = _orbital_policy(
+        excitations=excitations,
+        additional_generation_lists=additional_generation_lists,
+        orbitals_to_optimize=orbitals_to_optimize,
+        spectroscopic_orbitals=spectroscopic_orbitals,
+    )
+    if len(block_level_selections) != len(expected_csf_blocks):
+        raise ValueError(
+            "block_level_selections and expected_csf_blocks must have the "
+            "same length"
+        )
     steps: list[dict[str, Any]] = [
         {
             "exe": "rnucleus",
@@ -286,9 +322,11 @@ def plan_hf_bootstrap_workflow(
                 active_orbitals=active_orbitals,
                 twoj_min=twoj_min, twoj_max=twoj_max,
                 excitations=excitations,
+                additional_lists=additional_generation_lists,
             ),
             "args": [],
             "post": ["cp rcsf.out rcsf.inp"],
+            "expected_csf_blocks": expected_csf_blocks,
             "description": f"Generate CSF list for {len(configurations)} configuration(s)",
         },
         {
@@ -364,6 +402,14 @@ def plan_hf_bootstrap_workflow(
         "name": name,
         "element": element_symbol,
         "z": z,
+        "orbital_policy": {
+            "orbitals_to_optimize": orbitals_to_optimize,
+            "spectroscopic_orbitals": spectroscopic_orbitals,
+            "correlation_expansion": _has_correlation_expansion(
+                excitations,
+                additional_generation_lists,
+            ),
+        },
         "n_steps": len(steps),
         "steps": steps,
         "expected_outputs": [
@@ -378,3 +424,39 @@ def plan_hf_bootstrap_workflow(
             f"Compare to plain DHF if you want to quantify the bootstrap improvement",
         ],
     }
+
+
+def _orbital_policy(
+    *,
+    excitations: int,
+    additional_generation_lists: list[dict[str, object]] | None,
+    orbitals_to_optimize: str | None,
+    spectroscopic_orbitals: str | None,
+) -> tuple[str, str]:
+    correlation_expansion = _has_correlation_expansion(
+        excitations,
+        additional_generation_lists,
+    )
+    if correlation_expansion and (
+        orbitals_to_optimize is None or spectroscopic_orbitals is None
+    ):
+        raise ValueError(
+            "correlation workflows require explicit orbitals_to_optimize "
+            "and spectroscopic_orbitals; for a new layer, vary only that "
+            "layer and use a blank spectroscopic selection"
+        )
+    return orbitals_to_optimize or "*", (
+        "*" if spectroscopic_orbitals is None else spectroscopic_orbitals
+    )
+
+
+def _has_correlation_expansion(
+    excitations: int,
+    additional_generation_lists: list[dict[str, object]] | None,
+) -> bool:
+    if excitations != 0:
+        return True
+    return any(
+        specification.get("excitations", 0) != 0
+        for specification in additional_generation_lists or ()
+    )
