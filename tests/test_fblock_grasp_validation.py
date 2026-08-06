@@ -42,7 +42,7 @@ def test_generated_pa_csfs_match_corrected_ion_and_every_catalog_block(tmp_path)
         path,
     )
 
-    assert payload["schema_version"] == "chemtools.fblock-grasp-validation/1"
+    assert payload["schema_version"] == "chemtools.fblock-grasp-validation/2"
     assert payload["valid"] is True
     assert payload["csf"]["electron_count"] == 88
     assert payload["csf"]["csf_count"] == 4
@@ -51,6 +51,19 @@ def test_generated_pa_csfs_match_corrected_ion_and_every_catalog_block(tmp_path)
         {"j": "3", "parity": "-", "ncsf": 2},
         {"j": "4", "parity": "-", "ncsf": 1},
     ]
+    assert payload["csf"]["multiplet_contract"] == {
+        "configuration": "4f14 5d10 6s2 6p6 5f1 7s1",
+        "parity": "-",
+        "microstates": 28,
+        "term_occurrences": 2,
+        "blocks": [
+            {"j": "2", "parity": "-", "ncsf": 1},
+            {"j": "3", "parity": "-", "ncsf": 2},
+            {"j": "4", "parity": "-", "ncsf": 1},
+        ],
+        "ls_jj_counts_consistent": True,
+    }
+    assert payload["angular_census"]["valid"] is True
 
 
 def test_catalog_validator_rejects_a_plausible_wrong_asf_symmetry(tmp_path):

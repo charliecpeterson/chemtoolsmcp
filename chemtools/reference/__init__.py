@@ -1,5 +1,13 @@
 """Typed access to committed and external scientific reference material."""
 
+from chemtools.reference.atomic_multiplets import (
+    ATOMIC_MULTIPLET_SCHEMA,
+    AtomicConfiguration,
+    AtomicConfigurationError,
+    AtomicSubshell,
+    analyze_atomic_multiplets,
+    parse_atomic_configuration,
+)
 from chemtools.reference.fblock import (
     FBLOCK_DATASET_SCHEMA,
     FBlockCatalog,
@@ -38,8 +46,16 @@ from chemtools.reference.fblock_semantics import (
     FBlockStateSemanticsManifest,
     load_fblock_state_semantics,
 )
+from chemtools.reference.grasp_angular_census import (
+    GRASP_ANGULAR_CENSUS_SCHEMA,
+    validate_grasp_csf_angular_census,
+)
 
 __all__ = [
+    "ATOMIC_MULTIPLET_SCHEMA",
+    "AtomicConfiguration",
+    "AtomicConfigurationError",
+    "AtomicSubshell",
     "FBLOCK_DATASET_SCHEMA",
     "FBlockCatalog",
     "FBlockCatalogLoadError",
@@ -54,10 +70,12 @@ __all__ = [
     "FBlockLookupResult",
     "FBLOCK_STATE_SEMANTICS_SCHEMA",
     "FBlockStateSemanticsManifest",
+    "GRASP_ANGULAR_CENSUS_SCHEMA",
     "ATSPElementRecipes",
     "ATSPStateRecipe",
     "FBLOCK_PLAN_SCHEMA",
     "FBlockAtomicPlan",
+    "analyze_atomic_multiplets",
     "bundled_fblock_directory",
     "load_fblock_catalog",
     "load_atsp_element_recipes",
@@ -65,5 +83,7 @@ __all__ = [
     "load_fblock_state_semantics",
     "lookup_grasp_fblock_state",
     "plan_fblock_atomic_state",
+    "parse_atomic_configuration",
+    "validate_grasp_csf_angular_census",
     "validate_grasp_fblock_artifacts",
 ]

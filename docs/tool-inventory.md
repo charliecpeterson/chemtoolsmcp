@@ -13,18 +13,18 @@ The JSON companion contains every tool description and input schema.
 
 - Default protocol version: `2024-11-05`
 - Supported protocol versions: `2024-11-05`
-- Public tool definitions: 329
+- Public tool definitions: 331
 - Compatibility aliases: 13
 
 ### Programs
 
 | Program | Tools |
 | --- | ---: |
-| `generic` | 58 |
+| `generic` | 59 |
 | `nwchem` | 101 |
 | `molcas` | 45 |
 | `dirac` | 39 |
-| `grasp` | 52 |
+| `grasp` | 53 |
 | `qe` | 20 |
 | `qmcpack` | 14 |
 
@@ -32,7 +32,7 @@ The JSON companion contains every tool description and input schema.
 
 | Capability | Tools |
 | --- | ---: |
-| `none` | 257 |
+| `none` | 259 |
 | `registry` | 18 |
 | `runner_profile` | 4 |
 | `executable_or_scheduler` | 5 |
@@ -43,22 +43,22 @@ The JSON companion contains every tool description and input schema.
 
 | Mode | All programs |
 | --- | ---: |
-| `analysis` | 275 |
-| `local` | 326 |
-| `hpc` | 329 |
+| `analysis` | 277 |
+| `local` | 328 |
+| `hpc` | 331 |
 
 ### Program filters
 
-Counts include the 58 generic tools where the active mode permits them.
+Counts include the 59 generic tools where the active mode permits them.
 
 | Program filter | Analysis | Local | HPC |
 | --- | ---: | ---: | ---: |
-| `nwchem` | 141 | 156 | 159 |
-| `molcas` | 93 | 102 | 103 |
-| `dirac` | 88 | 96 | 97 |
-| `grasp` | 82 | 109 | 110 |
-| `qe` | 71 | 77 | 78 |
-| `qmcpack` | 65 | 71 | 72 |
+| `nwchem` | 142 | 157 | 160 |
+| `molcas` | 94 | 103 | 104 |
+| `dirac` | 89 | 97 | 98 |
+| `grasp` | 84 | 111 | 112 |
+| `qe` | 72 | 78 | 79 |
+| `qmcpack` | 66 | 72 | 73 |
 
 ## Compatibility aliases
 
@@ -86,6 +86,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | --- | --- | --- | --- |
 | `advance_nwchem_workflow` | `nwchem` | `registry` | `analysis`, `local`, `hpc` |
 | `advance_workflow` | `generic` | `registry` | `analysis`, `local`, `hpc` |
+| `analyze_atomic_multiplets` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `analyze_case` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `analyze_dirac_open_shell` | `dirac` | `none` | `analysis`, `local`, `hpc` |
 | `analyze_dirac_open_shell_quality` | `dirac` | `none` | `analysis`, `local`, `hpc` |
@@ -405,6 +406,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `try_molcas_run_with_recovery` | `molcas` | `executable` | `local`, `hpc` |
 | `update_nwchem_run_status` | `nwchem` | `registry` | `analysis`, `local`, `hpc` |
 | `update_run_status` | `generic` | `registry` | `analysis`, `local`, `hpc` |
+| `validate_grasp_csf_angular_census` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `validate_grasp_fblock_artifacts` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `validate_molcas_caspt2_setup` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `validate_nwchem_tce_setup` | `nwchem` | `none` | `analysis`, `local`, `hpc` |

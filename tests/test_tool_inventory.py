@@ -11,19 +11,19 @@ from chemtools.mcp.inventory import (
 def test_inventory_pins_live_registry_totals():
     summary = build_inventory()["summary"]
 
-    assert summary["tool_count"] == 329
+    assert summary["tool_count"] == 331
     assert summary["alias_count"] == 13
     assert summary["by_program"] == {
-        "generic": 58,
+        "generic": 59,
         "nwchem": 101,
         "molcas": 45,
         "dirac": 39,
-        "grasp": 52,
+        "grasp": 53,
         "qe": 20,
         "qmcpack": 14,
     }
     assert summary["by_capability"] == {
-        "none": 257,
+        "none": 259,
         "registry": 18,
         "runner_profile": 4,
         "executable_or_scheduler": 5,
@@ -31,17 +31,17 @@ def test_inventory_pins_live_registry_totals():
         "scheduler": 3,
     }
     assert summary["by_mode"] == {
-        "analysis": 275,
-        "local": 326,
-        "hpc": 329,
+        "analysis": 277,
+        "local": 328,
+        "hpc": 331,
     }
     assert summary["by_program_filter"] == {
-        "nwchem": {"analysis": 141, "local": 156, "hpc": 159},
-        "molcas": {"analysis": 93, "local": 102, "hpc": 103},
-        "dirac": {"analysis": 88, "local": 96, "hpc": 97},
-        "grasp": {"analysis": 82, "local": 109, "hpc": 110},
-        "qe": {"analysis": 71, "local": 77, "hpc": 78},
-        "qmcpack": {"analysis": 65, "local": 71, "hpc": 72},
+        "nwchem": {"analysis": 142, "local": 157, "hpc": 160},
+        "molcas": {"analysis": 94, "local": 103, "hpc": 104},
+        "dirac": {"analysis": 89, "local": 97, "hpc": 98},
+        "grasp": {"analysis": 84, "local": 111, "hpc": 112},
+        "qe": {"analysis": 72, "local": 78, "hpc": 79},
+        "qmcpack": {"analysis": 66, "local": 72, "hpc": 73},
     }
 
 
@@ -54,7 +54,7 @@ def test_inventory_records_schema_and_owner_for_every_tool():
         "protocol_version": "2024-11-05",
         "supported_protocol_versions": ["2024-11-05"],
     }
-    assert len(inventory["tools"]) == 329
+    assert len(inventory["tools"]) == 331
     assert all(tool["program"] for tool in inventory["tools"])
     assert all(tool["capability"] for tool in inventory["tools"])
     assert all(isinstance(tool["input_schema"], dict) for tool in inventory["tools"])
@@ -68,7 +68,7 @@ def test_inventory_rendering_is_deterministic():
     assert render_json(first) == render_json(second)
     assert render_markdown(first) == render_markdown(second)
     assert (
-        "Counts include the 58 generic tools"
+        "Counts include the 59 generic tools"
         in render_markdown(first)
     )
 

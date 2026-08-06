@@ -6,12 +6,18 @@ from pathlib import Path
 
 from chemtools.programs.grasp.binary.mixing import inspect_grasp_mixing
 from chemtools.programs.grasp.parse.csf import CsfDocument, load_grasp_csf_list
+from chemtools.reference.atomic_multiplets import (
+    AtomicSubshell,
+    analyze_parsed_configuration,
+    atomic_configuration,
+)
 from chemtools.reference.fblock import load_fblock_catalog
 from chemtools.reference.fblock_configuration import parse_shell_configuration
 from chemtools.reference.fblock_models import FBlockElement, FBlockState
+from chemtools.reference.grasp_angular_census import validate_csf_angular_census
 
 
-FBLOCK_GRASP_VALIDATION_SCHEMA = "chemtools.fblock-grasp-validation/1"
+FBLOCK_GRASP_VALIDATION_SCHEMA = "chemtools.fblock-grasp-validation/2"
 _ANGULAR_MOMENTUM = {"s": 0, "p": 1, "d": 2, "f": 3, "g": 4, "h": 5}
 
 
@@ -39,6 +45,7 @@ def validate_grasp_fblock_artifacts(
         state_record,
         csf_document,
     )
+    angular_census = validate_csf_angular_census(csf_document)
     mixing = None
     if mixing_path is not None:
         mixing = inspect_grasp_mixing(
@@ -60,6 +67,7 @@ def validate_grasp_fblock_artifacts(
             "sha256": catalog.metadata.catalog_sha256,
         },
         "csf": csf_validation,
+        "angular_census": angular_census,
         "mixing": mixing,
         "valid": True,
     }
@@ -120,6 +128,13 @@ def _validate_csf(
         {"j": j, "parity": parity, "ncsf": count}
         for j, count in zip(state.j_blocks, state.ncsf)
     ]
+    multiplet = _multiplet_contract(state)
+    if multiplet["blocks"] != expected_blocks:
+        raise ValueError(
+            f"catalog CSF blocks disagree with independent angular census for "
+            f"{element.symbol}.{state.slug}: expected {expected_blocks}, "
+            f"derived {multiplet['blocks']}"
+        )
     actual_blocks = [
         {
             "j": block.j_label,
@@ -140,11 +155,45 @@ def _validate_csf(
         "electron_count": document.electron_count,
         "csf_count": document.csf_count,
         "blocks": actual_blocks,
+        "multiplet_contract": multiplet,
         "checks": {
             "electron_count_matches_ion_charge": True,
+            "catalog_blocks_match_multiplet_census": True,
             "j_parity_blocks_match_catalog": True,
             "csf_counts_match_catalog": True,
         },
+    }
+
+
+def _multiplet_contract(state: FBlockState) -> dict[str, object]:
+    shells = parse_shell_configuration(state.confline)
+    configuration = atomic_configuration(
+        AtomicSubshell(
+            principal=shell.principal,
+            angular_momentum=_ANGULAR_MOMENTUM[shell.orbital],
+            electrons=shell.electrons,
+        )
+        for shell in shells
+    )
+    analysis = analyze_parsed_configuration(configuration)
+    blocks = [
+        {
+            "j": block["j"],
+            "parity": block["parity"],
+            "ncsf": block["levels"],
+        }
+        for block in analysis["j_parity_blocks"]
+    ]
+    return {
+        "configuration": analysis["configuration"],
+        "parity": analysis["parity"],
+        "microstates": analysis["microstate_counts"]["determinant_weights"],
+        "term_occurrences": sum(
+            term["occurrences"]
+            for term in analysis["terms"]
+        ),
+        "blocks": blocks,
+        "ls_jj_counts_consistent": analysis["jj_coupling"]["consistent"],
     }
 
 

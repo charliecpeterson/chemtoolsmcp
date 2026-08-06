@@ -9,19 +9,19 @@
     ]
   },
   "summary": {
-    "tool_count": 329,
+    "tool_count": 331,
     "alias_count": 13,
     "by_program": {
-      "generic": 58,
+      "generic": 59,
       "nwchem": 101,
       "molcas": 45,
       "dirac": 39,
-      "grasp": 52,
+      "grasp": 53,
       "qe": 20,
       "qmcpack": 14
     },
     "by_capability": {
-      "none": 257,
+      "none": 259,
       "registry": 18,
       "runner_profile": 4,
       "executable_or_scheduler": 5,
@@ -29,69 +29,69 @@
       "scheduler": 3
     },
     "by_mode": {
-      "analysis": 275,
-      "local": 326,
-      "hpc": 329
+      "analysis": 277,
+      "local": 328,
+      "hpc": 331
     },
     "by_mode_and_program": {
       "analysis": {
-        "generic": 53,
+        "generic": 54,
         "nwchem": 88,
         "molcas": 40,
         "dirac": 35,
-        "grasp": 29,
+        "grasp": 30,
         "qe": 18,
         "qmcpack": 12
       },
       "local": {
-        "generic": 57,
+        "generic": 58,
         "nwchem": 99,
         "molcas": 45,
         "dirac": 39,
-        "grasp": 52,
+        "grasp": 53,
         "qe": 20,
         "qmcpack": 14
       },
       "hpc": {
-        "generic": 58,
+        "generic": 59,
         "nwchem": 101,
         "molcas": 45,
         "dirac": 39,
-        "grasp": 52,
+        "grasp": 53,
         "qe": 20,
         "qmcpack": 14
       }
     },
     "by_program_filter": {
       "nwchem": {
-        "analysis": 141,
-        "local": 156,
-        "hpc": 159
+        "analysis": 142,
+        "local": 157,
+        "hpc": 160
       },
       "molcas": {
-        "analysis": 93,
-        "local": 102,
-        "hpc": 103
+        "analysis": 94,
+        "local": 103,
+        "hpc": 104
       },
       "dirac": {
-        "analysis": 88,
-        "local": 96,
-        "hpc": 97
+        "analysis": 89,
+        "local": 97,
+        "hpc": 98
       },
       "grasp": {
-        "analysis": 82,
-        "local": 109,
-        "hpc": 110
+        "analysis": 84,
+        "local": 111,
+        "hpc": 112
       },
       "qe": {
-        "analysis": 71,
-        "local": 77,
-        "hpc": 78
+        "analysis": 72,
+        "local": 78,
+        "hpc": 79
       },
       "qmcpack": {
-        "analysis": 65,
-        "local": 71,
-        "hpc": 72
+        "analysis": 66,
+        "local": 72,
+        "hpc": 73
       }
     }
   },
@@ -193,6 +193,32 @@
         },
         "required": [
           "workflow_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "analyze_atomic_multiplets",
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Enumerate LS terms, repeated-term counts, allowed J/parity levels, pure-LS Lande factors, and the relativistic jj occupation/CSF census for a compact atomic configuration such as 4f7 6s2. Independently reconciles determinant, LS, J-level, and jj state counts. Hund guidance is limited to one open subshell. This is a symmetry preflight calculation; it does not calculate radial integrals, energies, SOC splittings, mixing, or unique LS labels for relativistic ASFs.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "configuration": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 256,
+            "description": "Compact nonrelativistic shell occupations, for example '2p2', '4f7 6s2', or '5f2 6d1 7s2'. Principal quantum numbers may be omitted when only angular structure matters."
+          }
+        },
+        "required": [
+          "configuration"
         ],
         "additionalProperties": false
       }
@@ -14805,6 +14831,31 @@
       }
     },
     {
+      "name": "validate_grasp_csf_angular_census",
+      "program": "grasp",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Independently validate the jj-coupled CSF multiplicity of every relativistic occupation and J/parity pair represented in a GRASP .c file. Reports each configuration's complete allowed J census and whether the file contains its full J manifold. This catches missing or duplicate coupling paths inside represented configurations. It does not prove that the requested excitation space was generated, assign LS terms to ASFs, or validate energies and SOC mixing.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "csf_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to a generated GRASP .c file."
+          }
+        },
+        "required": [
+          "csf_path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "validate_grasp_fblock_artifacts",
       "program": "grasp",
       "capability": "none",
@@ -14813,7 +14864,7 @@
         "local",
         "hpc"
       ],
-      "description": "Validate a generated GRASP2018 CSF list against one exact f-block catalog state. Checks the ion electron count and every J, parity, and CSF-count block. Optionally inspect a matching RMCDHF or RCI mixing file, validate its ASF block labels and counts against the CSFs, and resolve bounded leading components.",
+      "description": "Validate a generated GRASP2018 CSF list against one exact f-block catalog state. Checks the ion electron count and every J, parity, and CSF-count block. Optionally inspect a matching RMCDHF or RCI mixing file, validate its ASF block labels and counts against the CSFs, and resolve bounded leading components. The catalog block contract is also derived independently from LS/jj state counting, and each represented relativistic occupation is checked for complete coupling multiplicity at every present J.",
       "input_schema": {
         "type": "object",
         "properties": {

@@ -174,14 +174,49 @@ the single-configuration calculation has the right term ordering and is 7.3%
 low in the fine-structure interval. That is a method limitation, not a block
 labeling error.
 
+## Independent LS and jj census
+
+`analyze_atomic_multiplets` derives allowed LS terms, term recurrence counts,
+J/parity levels, and relativistic occupation counts from determinant weights.
+The four state counts (binomial subshell product, determinant weights, LS
+terms, and J levels) must agree. Its predicted J/parity and CSF counts match
+all 616 complete catalog configurations exactly.
+
+The retained differential harness compares the MCP implementation with the
+standalone source over every `s` through `f` occupancy plus five multishell
+cases:
+
+```bash
+.venv/bin/python scripts/check_atomic_multiplet_port.py \
+  --reference-root /path/to/multiplet_generator
+```
+
+The 2026-08-06 run reports 37 agreements, zero disagreements, and zero target
+refusals. Its JSON evidence is in
+`~/scratch/chemtoolsmcp-atomic-multiplet-differential-20260806.json`.
+
+`validate_grasp_csf_angular_census` applies the jj count to the relativistic
+occupations in a generated `.c` file. A live pass over 621 retained GRASP files
+found zero occupation/J multiplicity failures. The 616 catalog files and two
+unrestricted reference cases contain their full J manifolds. Three correlation
+or multireference cases correctly report restricted manifolds because their
+generation lists requested only selected J blocks.
+
+This check is independent of the catalog and of GRASP's block totals. It can
+catch a missing or duplicated coupling path for a represented configuration.
+It cannot prove that the generation recipe produced every intended excited
+configuration.
+
 ## Remaining limits
 
 - The live correlation tests use the manual's Li and Be cases. They validate
   GRASP semantics and prompt accounting, but they do not constitute a
   correlated f-block benchmark campaign.
-- The catalog does not carry LS term labels. J/parity, CSF counts, ASF counts,
-  dominant configurations, and energy ordering are checked; term assignment
-  still requires `jj2lsj` output or an external spectroscopy source.
+- The multiplet preflight enumerates allowed LS terms, but the catalog does not
+  carry computed ASF term labels. J/parity, CSF counts, ASF counts, dominant
+  configurations, and energy ordering are checked; assigning a specific LS
+  term to a mixed ASF still requires `jj2lsj` output or an external
+  spectroscopy source.
 - The 17 Y extension rows still lack enough GRASP input fields to generate
   CSFs.
 - NWChem was not used for this check. Its generic atomic path cannot preserve

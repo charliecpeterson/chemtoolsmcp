@@ -5,12 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.mcp.decorator import _tool
+from chemtools.reference.atomic_multiplets import analyze_atomic_multiplets
 from chemtools.reference.fblock_lookup import lookup_grasp_fblock_state
 from chemtools.reference.fblock_grasp import validate_grasp_fblock_artifacts
 from chemtools.reference.fblock_plan import plan_fblock_atomic_state
+from chemtools.reference.grasp_angular_census import (
+    validate_grasp_csf_angular_census,
+)
 
 
 _LOOKUP_ARGUMENTS = frozenset({"element", "state"})
+_MULTIPLET_ARGUMENTS = frozenset({"configuration"})
+_ANGULAR_CENSUS_ARGUMENTS = frozenset({"csf_path"})
 _VALIDATE_ARGUMENTS = frozenset({
     "element",
     "state",
@@ -19,6 +25,30 @@ _VALIDATE_ARGUMENTS = frozenset({
     "level_limit",
     "component_limit",
 })
+
+
+@_tool("analyze_atomic_multiplets")
+def _handle_analyze_atomic_multiplets(
+    arguments: dict[str, Any],
+) -> dict[str, object]:
+    unknown = sorted(set(arguments) - _MULTIPLET_ARGUMENTS)
+    if unknown:
+        raise ValueError(f"unknown atomic multiplet arguments: {unknown}")
+    if "configuration" not in arguments:
+        raise ValueError("configuration is required")
+    return analyze_atomic_multiplets(arguments["configuration"])
+
+
+@_tool("validate_grasp_csf_angular_census", program="grasp")
+def _handle_validate_grasp_csf_angular_census(
+    arguments: dict[str, Any],
+) -> dict[str, object]:
+    unknown = sorted(set(arguments) - _ANGULAR_CENSUS_ARGUMENTS)
+    if unknown:
+        raise ValueError(f"unknown GRASP angular census arguments: {unknown}")
+    if "csf_path" not in arguments:
+        raise ValueError("csf_path is required")
+    return validate_grasp_csf_angular_census(arguments["csf_path"])
 
 
 @_tool("lookup_grasp_fblock_state", program="grasp")
@@ -97,6 +127,62 @@ def reference_tool_definitions() -> list[dict[str, Any]]:
     }
     return [
         {
+            "name": "analyze_atomic_multiplets",
+            "description": (
+                "Enumerate LS terms, repeated-term counts, allowed J/parity "
+                "levels, pure-LS Lande factors, and the relativistic jj "
+                "occupation/CSF census for a compact atomic configuration "
+                "such as 4f7 6s2. Independently reconciles determinant, LS, "
+                "J-level, and jj state counts. Hund guidance is limited to "
+                "one open subshell. This is a symmetry preflight calculation; "
+                "it does not calculate radial integrals, energies, SOC "
+                "splittings, mixing, or unique LS labels for relativistic ASFs."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "configuration": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 256,
+                        "description": (
+                            "Compact nonrelativistic shell occupations, for "
+                            "example '2p2', '4f7 6s2', or '5f2 6d1 7s2'. "
+                            "Principal quantum numbers may be omitted when only "
+                            "angular structure matters."
+                        ),
+                    },
+                },
+                "required": ["configuration"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "validate_grasp_csf_angular_census",
+            "description": (
+                "Independently validate the jj-coupled CSF multiplicity of "
+                "every relativistic occupation and J/parity pair represented "
+                "in a GRASP .c file. Reports each configuration's complete "
+                "allowed J census and whether the file contains its full J "
+                "manifold. This catches missing or duplicate coupling paths "
+                "inside represented configurations. It does not prove that "
+                "the requested excitation space was generated, assign LS "
+                "terms to ASFs, or validate energies and SOC mixing."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "csf_path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Path to a generated GRASP .c file.",
+                    },
+                },
+                "required": ["csf_path"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "lookup_grasp_fblock_state",
             "description": (
                 "Look up an exact element or state in the versioned "
@@ -157,7 +243,10 @@ def reference_tool_definitions() -> list[dict[str, Any]]:
                 "every J, parity, and CSF-count block. Optionally inspect a "
                 "matching RMCDHF or RCI mixing file, validate its ASF block "
                 "labels and counts against the CSFs, and resolve bounded "
-                "leading components."
+                "leading components. The catalog block contract is also "
+                "derived independently from LS/jj state counting, and each "
+                "represented relativistic occupation is checked for complete "
+                "coupling multiplicity at every present J."
             ),
             "inputSchema": {
                 "type": "object",

@@ -159,12 +159,23 @@ returns `incomplete_reference_input` for those states.
 
 `validate_grasp_fblock_artifacts` checks a generated `.c` file against one
 exact catalog state: electron count, every J and parity label, and every CSF
-count must match. Pass an RMCDHF `.m` or RCI `.cm` file to bind the ASF block
-labels, counts, and returned dominant components back to those CSFs. Because
-the catalog workflow is a configuration average, every ASF in every block
-must be present; a structurally valid partial mixing file is rejected. The
-full-catalog check script generated all 616 complete states with GRASP2018;
-all passed, with only the 17 documented Y rows skipped.
+count must match. It now derives the same block census independently from the
+nonrelativistic configuration and checks every relativistic occupation/J pair
+in the `.c` file against jj-coupling combinatorics. Pass an RMCDHF `.m` or RCI
+`.cm` file to bind the ASF block labels, counts, and returned dominant
+components back to those CSFs. Because the catalog workflow is a configuration
+average, every ASF in every block must be present; a structurally valid partial
+mixing file is rejected. The full-catalog check script generated all 616
+complete states with GRASP2018; all passed, with only the 17 documented Y rows
+skipped.
+
+`analyze_atomic_multiplets` provides the corresponding preflight calculation
+for a compact configuration such as `4f7 6s2`: LS terms and recurrence counts,
+allowed J/parity levels, pure-LS Landé factors, and the relativistic occupation
+and CSF census. `validate_grasp_csf_angular_census` applies the jj count directly
+to any generated GRASP `.c` file, including multireference and correlation
+spaces. These are symmetry checks. They do not calculate radial integrals,
+SOC splittings, mixing, or unique LS labels for relativistic ASFs.
 
 Generic correlation workflows use a stricter input contract than the static
 catalog references. Independent `rcsfgenerate` lists retain their own active
