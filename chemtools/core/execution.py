@@ -260,6 +260,9 @@ class ExecutionTarget:
     hardware: HardwareDescription
     programs: Mapping[str, ProgramInstallation]
     scheduler: SchedulerDefaults | None = None
+    default_resources: ResourceRequest = field(
+        default_factory=ResourceRequest,
+    )
 
     def __post_init__(self) -> None:
         if not _TARGET_NAME_RE.fullmatch(self.name):
@@ -289,6 +292,8 @@ class ExecutionTarget:
             raise ValueError("local targets cannot define scheduler defaults")
         if self.executor == "slurm" and self.scheduler is None:
             raise ValueError("slurm targets require scheduler defaults")
+        if not isinstance(self.default_resources, ResourceRequest):
+            raise TypeError("default_resources must use ResourceRequest")
 
 
 @dataclass(frozen=True)

@@ -440,7 +440,9 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                 "user. Pass the token back only after explicit approval. Any "
                 "changed input or plan invalidates the token. Existing artifacts "
                 "block launch rather than being overwritten or silently archived. "
-                "NWChem currently supplies the guided launch provider."
+                "Select a schema-2 named target, use the configured default, "
+                "or provide a version 1 profile during migration. NWChem "
+                "currently supplies the guided launch provider."
             ),
             "annotations": {
                 "title": "Prepare or launch an approved calculation",
@@ -484,6 +486,14 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                         "type": "string",
                         "minLength": 1,
                         "description": "Configured runner-profile name.",
+                    },
+                    "target": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": (
+                            "Configured schema-2 target name. Omit to use "
+                            "the server's default target."
+                        ),
                     },
                     "profiles_path": {
                         "type": "string",
@@ -531,7 +541,7 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                         ),
                     },
                 },
-                "required": ["program", "input_file", "profile"],
+                "required": ["program", "input_file"],
                 "additionalProperties": False,
             },
         },

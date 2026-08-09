@@ -66,8 +66,9 @@ def launch_run(
     service: ExecutionService,
     *,
     input_file: str | Path,
-    profile: str,
+    profile: str | None = None,
     profiles_path: str | Path | None = None,
+    target: str | None = None,
     job_name: str | None = None,
     resources: Mapping[str, Any] | None = None,
     approval_token: str | None = None,
@@ -79,8 +80,18 @@ def launch_run(
             f"chemistry input is not a readable file: {input_path}",
             program=backend.name,
         )
-    if not isinstance(profile, str) or not profile.strip():
+    if profile is not None and (
+        not isinstance(profile, str) or not profile.strip()
+    ):
         _invalid(backend.name, "profile must be a non-empty string")
+    if target is not None and (
+        not isinstance(target, str) or not target.strip()
+    ):
+        _invalid(backend.name, "target must be a non-empty string")
+    if profile is not None and target is not None:
+        _invalid(backend.name, "provide profile or target, not both")
+    if profiles_path is not None and profile is None:
+        _invalid(backend.name, "profiles_path requires profile")
     if profiles_path is not None:
         configured_profiles = Path(profiles_path).expanduser().resolve()
         if not configured_profiles.is_file():
@@ -109,13 +120,24 @@ def launch_run(
         )
     assert backend.launches is not None
 
-    request = {
+    request: dict[str, Any] = {
         "input_file": str(input_path),
-        "profile": profile.strip(),
         "resources": normalized_resources,
     }
-    if normalized_profiles_path is not None:
-        request["profiles_path"] = normalized_profiles_path
+    if profile is not None:
+        request["profile"] = profile.strip()
+        if normalized_profiles_path is not None:
+            request["profiles_path"] = normalized_profiles_path
+    else:
+        try:
+            configured_target = service.resolve_target(
+                target.strip() if target is not None else None,
+                program=backend.name,
+            )
+        except ValueError as exc:
+            _invalid(backend.name, str(exc))
+        request["target"] = configured_target.name
+        request["execution_target"] = configured_target
     if job_name is not None:
         if not isinstance(job_name, str) or not job_name.strip():
             _invalid(backend.name, "job_name must be a non-empty string")

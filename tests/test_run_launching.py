@@ -20,8 +20,17 @@ from chemtools.core.program import (
     validate_backend,
 )
 from chemtools.core.execution import SlurmSubmissionResult
+from chemtools.core.execution import (
+    ExecutionTarget,
+    HardwareDescription,
+    ProgramInstallation,
+    ResourceRequest,
+    SchedulerDefaults,
+)
 from chemtools.execution.slurm import SlurmExecutor
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.mcp.catalog import BUILTIN_BACKENDS, load_backend
+from chemtools.programs.nwchem.launch import adapt_legacy_nwchem_profile
 import chemtools.execution.local as local_execution
 
 
@@ -75,6 +84,52 @@ def _prepare(
     )
 
 
+def _named_service(
+    tmp_path: Path,
+    *,
+    executor: str = "local",
+) -> ExecutionService:
+    scheduler = None
+    installation = ProgramInstallation(
+        launcher_argv=(
+            ("mpirun", "-np", "{mpi_ranks}")
+            if executor == "local"
+            else ("srun",)
+        ),
+        executable_argv=("nwchem",),
+        environment={"OMP_NUM_THREADS": "{omp_threads}"},
+        setup_lines=(
+            ()
+            if executor == "local"
+            else ("module purge", "module load nwchem")
+        ),
+    )
+    if executor == "slurm":
+        scheduler = SchedulerDefaults(
+            submit_argv=("sbatch", "{script_file}"),
+            status_argv=("squeue", "-j", "{job_id}"),
+            cancel_argv=("scancel", "{job_id}"),
+        )
+    target = ExecutionTarget(
+        name=f"named_{executor}",
+        executor=executor,
+        allowed_work_roots=(tmp_path,),
+        hardware=HardwareDescription(cores_per_node=20),
+        programs={"nwchem": installation},
+        scheduler=scheduler,
+        default_resources=ResourceRequest(
+            mpi_ranks=4,
+            omp_threads=2,
+            walltime="01:00:00" if executor == "slurm" else None,
+            partition="compute" if executor == "slurm" else None,
+        ),
+    )
+    return ExecutionService(
+        configured_targets={target.name: target},
+        default_target=target.name,
+    )
+
+
 def test_slurm_launch_preparation_is_read_only_and_exact(tmp_path):
     input_path = _input(tmp_path)
     before = {
@@ -112,6 +167,119 @@ def test_slurm_launch_preparation_is_read_only_and_exact(tmp_path):
         path.name: path.read_bytes()
         for path in tmp_path.iterdir()
     } == before
+
+
+def test_named_target_prepares_without_loading_runner_profiles(tmp_path):
+    input_path = _input(tmp_path)
+    service = _named_service(tmp_path)
+
+    prepared = launch_run(
+        NWCHEM,
+        service,
+        input_file=input_path,
+        resources={"mpi_ranks": 6},
+    )
+
+    plan = prepared["evidence"]["plan"]
+    assert prepared["status"] == "awaiting_approval"
+    assert plan["profile"] is None
+    assert plan["profiles_path"] is None
+    assert plan["target"] == "named_local"
+    assert plan["argv"] == [
+        "mpirun",
+        "-np",
+        "6",
+        "nwchem",
+        "uo2.nw",
+    ]
+    assert plan["resources"] == {
+        "nodes": 1,
+        "mpi_ranks": 6,
+        "omp_threads": 2,
+        "memory_mb_per_node": None,
+        "walltime": None,
+        "partition": None,
+        "account": None,
+    }
+
+
+def test_named_slurm_target_uses_target_owned_scheduler_commands(tmp_path):
+    _input(tmp_path)
+    service = _named_service(tmp_path, executor="slurm")
+
+    prepared = launch_run(
+        NWCHEM,
+        service,
+        input_file=tmp_path / "uo2.nw",
+        target="named_slurm",
+    )
+
+    plan = prepared["evidence"]["plan"]
+    assert plan["argv"] == ["srun", "nwchem", "uo2.nw"]
+    assert plan["resources"]["mpi_ranks"] == 4
+    assert plan["scheduler"]["submit_argv"] == [
+        "sbatch",
+        str(tmp_path / "uo2.job"),
+    ]
+
+
+@pytest.mark.parametrize("profile", ["local_mpirun", "slurm_cpu"])
+def test_named_target_render_matches_profile_migration_adapter(
+    tmp_path,
+    profile,
+):
+    _input(tmp_path)
+    profiles = load_runner_profiles(str(PROFILE_PATH))
+    adapted = adapt_legacy_nwchem_profile(
+        profiles,
+        profile,
+        allowed_work_roots=(tmp_path,),
+    )
+    named_service = ExecutionService(
+        configured_targets={profile: adapted.target},
+        default_target=profile,
+    )
+
+    migrated = launch_run(
+        NWCHEM,
+        ExecutionService(),
+        input_file=tmp_path / "uo2.nw",
+        profile=profile,
+        profiles_path=PROFILE_PATH,
+    )
+    named = launch_run(
+        NWCHEM,
+        named_service,
+        input_file=tmp_path / "uo2.nw",
+    )
+
+    migrated_plan = dict(migrated["evidence"]["plan"])
+    named_plan = dict(named["evidence"]["plan"])
+    migrated_plan.pop("profile")
+    migrated_plan.pop("profiles_path")
+    named_plan.pop("profile")
+    named_plan.pop("profiles_path")
+    assert named_plan == migrated_plan
+    assert named["approval"]["token"] == migrated["approval"]["token"]
+
+
+def test_launch_selection_rejects_ambiguous_or_missing_configuration(tmp_path):
+    _input(tmp_path)
+    with pytest.raises(LaunchRunError, match="provide profile or target"):
+        launch_run(
+            NWCHEM,
+            _named_service(tmp_path),
+            input_file=tmp_path / "uo2.nw",
+            profile="local_mpirun",
+            target="named_local",
+        )
+
+    with pytest.raises(LaunchRunError, match="no default_target"):
+        launch_run(
+            NWCHEM,
+            ExecutionService(),
+            input_file=tmp_path / "uo2.nw",
+        )
 
 
 def test_same_plan_returns_same_approval_token(tmp_path):

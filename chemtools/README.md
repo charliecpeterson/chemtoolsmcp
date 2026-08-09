@@ -39,6 +39,7 @@ chemtools/
     launches.py                  Persistent launch state and run links
 
   execution/                     Program-neutral execution adapters
+    targets.py                   Schema-2 named-target loading
     _common.py                   Command rendering, root checks, and staging
     local.py                     Local launch, status, completion, and signals
     slurm.py                     Slurm scripts, status, submission, and cancellation

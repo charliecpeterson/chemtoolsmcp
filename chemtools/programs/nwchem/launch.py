@@ -38,9 +38,12 @@ from chemtools.execution.profiles import (
 @dataclass(frozen=True)
 class LegacyNwchemTarget:
     target: ExecutionTarget
-    default_resources: ResourceRequest
     output_template: str
     error_template: str
+
+    @property
+    def default_resources(self) -> ResourceRequest:
+        return self.target.default_resources
 
 
 def _direct_installation(
@@ -120,8 +123,8 @@ def adapt_legacy_nwchem_profile(
             hardware=hardware_description(resources),
             programs={"nwchem": installation},
             scheduler=scheduler,
+            default_resources=resource_request(resources),
         ),
-        default_resources=resource_request(resources),
         output_template=file_rules.get(
             "output_file",
             "{job_name}.out",

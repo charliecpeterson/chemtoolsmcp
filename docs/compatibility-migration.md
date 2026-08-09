@@ -56,6 +56,12 @@ explicit profile and job ID. Arbitrary PID probing, PBS and LSF status parsing,
 Cancellation through MCP still requires a launch owned by the current
 execution service.
 
+Version 1 runner profiles remain available during execution migration.
+Schema-2 named targets are the current path for guided NWChem launch. Configure
+them with `CHEMTOOLS_TARGETS` or `chemtools --targets <path>`, and use
+`--enable-execution` only when the server should be allowed to start approved
+work. Run `chemtools --print-target-example` for the portable YAML template.
+
 ## Removal gate
 
 The compatibility names stay intact in `v0.1.0`. The generated inventory uses

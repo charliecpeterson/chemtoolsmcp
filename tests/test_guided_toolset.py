@@ -290,7 +290,7 @@ def test_plan_calculation_schema_is_bounded_and_read_only():
     assert schema["additionalProperties"] is False
 
 
-def test_launch_run_schema_requires_exact_two_call_approval():
+def test_launch_run_schema_pins_approval_and_target_selection():
     definition = next(
         item
         for item in tool_definitions()
@@ -298,7 +298,9 @@ def test_launch_run_schema_requires_exact_two_call_approval():
     )
     schema = definition["inputSchema"]
 
-    assert schema["required"] == ["program", "input_file", "profile"]
+    assert schema["required"] == ["program", "input_file"]
+    assert schema["properties"]["profile"]["minLength"] == 1
+    assert schema["properties"]["target"]["minLength"] == 1
     assert schema["properties"]["approval_token"]["pattern"] == (
         "^sha256:[0-9a-f]{64}$"
     )

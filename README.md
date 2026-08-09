@@ -1018,9 +1018,52 @@ surface remains eleven tools in every mode.
 Mode is auto-detected from your runner profile (see below). Override with
 `CHEMTOOLS_MODE=analysis` or the `--mode` flag.
 
+When `CHEMTOOLS_TARGETS` is configured, tool visibility defaults to analysis
+and execution permission comes from the target configuration or the explicit
+`--enable-execution` flag. This keeps target availability separate from
+permission to start work.
+
 ---
 
-## Runner profiles
+## Named execution targets
+
+Schema-2 targets are the current configuration path for guided NWChem launch.
+They contain trusted commands, allowed work roots, machine defaults, and local
+or Slurm settings. Print the bundled portable example with:
+
+```bash
+chemtools --print-target-example
+```
+
+Copy `chemtools/execution_targets.example.yaml`, replace the placeholder paths,
+and configure the MCP process:
+
+```json
+{
+  "mcpServers": {
+    "chemtools": {
+      "command": "chemtools",
+      "args": [
+        "--targets",
+        "/path/to/execution_targets.yaml",
+        "--enable-execution"
+      ]
+    }
+  }
+}
+```
+
+`enable_execution` defaults to `false`. A target file may name a
+`default_target`; otherwise each guided `launch_run` request must provide a
+`target`. The request can change typed resource values, but it cannot replace
+configured executables, launchers, scheduler commands, or allowed roots.
+
+Named local and Slurm NWChem targets produce the same rendered plans and
+approval tokens as equivalent version 1 profiles. Other low-level program
+launch tools still use version 1 profiles while their named-target providers
+are migrated.
+
+## Runner profiles (version 1 migration)
 
 To actually **launch** jobs (not just parse pre-existing output), point
 `CHEMTOOLS_RUNNER_PROFILES` at a YAML or JSON file describing your environment.
@@ -1080,11 +1123,11 @@ Termination only accepts a PID or job ID launched by the same running MCP
 server. Restart the server and its previous local process handles are no
 longer cancelable through this tool.
 
-The typed path currently supports direct and SLURM version 1 profiles whose
-working directory is the input directory. PBS, LSF, alternate working
-directories, and `write_script=false` scheduler submission are not supported
-yet. The tool returns a clear error instead of falling back to the older
-shell-based execution path.
+The typed path supports named local and Slurm NWChem targets plus direct and
+Slurm version 1 profiles whose working directory is the input directory. PBS,
+LSF, alternate working directories, and `write_script=false` scheduler
+submission are not supported. The tool returns a clear error instead of
+falling back to the older shell-based execution path.
 
 QE `pw.x` uses the same tracked launch boundary through `render_qe_launch` and
 `launch_qe_run`. Its typed plan passes `-in <input-file>` and requires the
@@ -1483,6 +1526,7 @@ chemtools/
     artifacts.py                 artifact, observation, and provenance records
     launches.py                  execution launch state + run links
   execution/
+    targets.py                   schema-2 named-target loading
     profiles.py                  version 1 profile loading + typed conversion
     resource_inspection.py       local and scheduler hardware discovery
     external_status.py           read-only file and external Slurm status

@@ -1,0 +1,67 @@
+# Portable schema-2 targets for a workstation and a generic Slurm host.
+# Copy this file to local configuration and replace every placeholder path.
+
+schema_version: "2.0"
+
+chemtools:
+  enable_execution: false
+  default_target: workstation
+
+targets:
+  workstation:
+    executor: local
+    allowed_work_roots:
+      - /absolute/path/to/calculations
+    hardware:
+      cores_per_node: 8
+      memory_mb_per_node: 32000
+      cpu_arch: x86_64
+    resources:
+      nodes: 1
+      mpi_ranks: 8
+      omp_threads: 1
+    programs:
+      nwchem:
+        launcher_argv: [mpirun, -np, "{mpi_ranks}"]
+        executable_argv: [/absolute/path/to/nwchem]
+        environment:
+          OMP_NUM_THREADS: "{omp_threads}"
+
+  slurm_cpu:
+    executor: slurm
+    allowed_work_roots:
+      - /absolute/path/to/scratch
+    hardware:
+      cores_per_node: 48
+      memory_mb_per_node: 192000
+      cpu_arch: x86_64
+    resources:
+      nodes: 1
+      mpi_ranks: 48
+      omp_threads: 1
+      walltime: "02:00:00"
+      partition: compute
+    scheduler:
+      submit_argv: [sbatch, "{script_file}"]
+      status_argv: [squeue, -j, "{job_id}", -h, -o, "%T"]
+      accounting_argv:
+        - sacct
+        - -n
+        - -X
+        - -j
+        - "{job_id}"
+        - -o
+        - State%30,ExitCode,ElapsedRaw
+        - -P
+      cancel_argv: [scancel, "{job_id}"]
+      job_id_regex: "Submitted batch job (\\d+)"
+      script_suffix: .job
+    programs:
+      nwchem:
+        launcher_argv: [srun]
+        executable_argv: [nwchem]
+        environment:
+          OMP_NUM_THREADS: "{omp_threads}"
+        setup_lines:
+          - module purge
+          - module load nwchem

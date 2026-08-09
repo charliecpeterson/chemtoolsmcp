@@ -1,10 +1,12 @@
 """Explicit MCP server state keeps filters and launch ownership together."""
 
 import json
+from pathlib import Path
 
 from chemtools.mcp import dispatch
 from chemtools.mcp.decorator import get_execution_service
 from chemtools.mcp.state import ServerState
+from chemtools.execution.targets import parse_target_catalog
 
 
 def test_explicit_state_filters_tools_without_mutating_other_servers():
@@ -77,3 +79,62 @@ def test_get_server_mode_reads_the_request_state():
     assert payload["mode"] == "hpc"
     assert payload["programs"] == ["molcas"]
     assert payload["toolset"] == ["get_server_mode"]
+    assert payload["execution_enabled"] is True
+    assert payload["default_target"] is None
+    assert payload["targets"] == []
+
+
+def test_state_binds_named_targets_and_explicit_permission(tmp_path):
+    catalog = parse_target_catalog(
+        {
+            "schema_version": "2.0",
+            "chemtools": {
+                "enable_execution": True,
+                "default_target": "workstation",
+            },
+            "targets": {
+                "workstation": {
+                    "executor": "local",
+                    "allowed_work_roots": [str(tmp_path)],
+                    "programs": {
+                        "nwchem": {
+                            "executable_argv": ["nwchem"],
+                        },
+                    },
+                },
+            },
+        },
+        source=Path(tmp_path) / "targets.yaml",
+    )
+
+    state = ServerState.create(
+        mode="analysis",
+        target_catalog=catalog,
+    )
+
+    assert state.mode == "analysis"
+    assert state.execution_service.enable_execution is True
+    assert state.execution_service.resolve_target(
+        program="nwchem"
+    ).name == "workstation"
+
+    response, _ = dispatch.handle_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "tools/call",
+            "params": {
+                "name": "get_server_mode",
+                "arguments": {},
+            },
+        },
+        state=state,
+    )
+    payload = json.loads(response["result"]["content"][0]["text"])
+    assert payload["execution_enabled"] is True
+    assert payload["default_target"] == "workstation"
+    assert payload["targets"] == [{
+        "name": "workstation",
+        "executor": "local",
+        "programs": ["nwchem"],
+    }]

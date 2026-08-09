@@ -44,10 +44,13 @@ from chemtools.programs.molcas.runtime import (
 @dataclass(frozen=True)
 class LegacyMolcasTarget:
     target: ExecutionTarget
-    default_resources: ResourceRequest
     output_template: str
     error_template: str
     parallel_caspt2_supported: bool
+
+    @property
+    def default_resources(self) -> ResourceRequest:
+        return self.target.default_resources
 
 
 @dataclass(frozen=True)
@@ -163,8 +166,8 @@ def adapt_legacy_molcas_profile(
             hardware=hardware_description(resources),
             programs={"molcas": installation},
             scheduler=scheduler,
+            default_resources=resource_request(resources),
         ),
-        default_resources=resource_request(resources),
         output_template=file_rules.get(
             "output_file",
             "{job_name}.out",

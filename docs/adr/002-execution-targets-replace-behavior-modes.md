@@ -330,6 +330,19 @@ operation combines drafting, staging, and launch.
 
 ## Migration
 
+Implementation status on 2026-08-09:
+
+- Schema-2 YAML and JSON target files load into immutable `ExecutionTarget`
+  models at the MCP composition root.
+- The target file records explicit execution permission and an optional
+  default target. Its presence does not change tool visibility or imply
+  permission.
+- Guided NWChem launch selects a named target or the configured default without
+  loading a version 1 runner profile. Local MPI and Slurm equivalence tests pin
+  the rendered plan and approval token against the migration adapter.
+- Version 1 profiles remain the fallback for existing low-level tools and for
+  program providers that have not moved to named targets.
+
 The migration will preserve current MCP behavior long enough to compare the
 old and new paths:
 

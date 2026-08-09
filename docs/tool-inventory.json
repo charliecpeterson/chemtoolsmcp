@@ -5737,7 +5737,7 @@
         "local",
         "hpc"
       ],
-      "description": "Report which mode this MCP server was started in (analysis, local, or hpc) and which tools are blocked. Useful when a tool fails with a 'not available in mode' error, or before suggesting a workflow that requires HPC submission.",
+      "description": "Report tool-visibility mode, explicit execution permission, configured target names, executors, installed programs, and blocked tools. Commands and allowed roots are not returned.",
       "input_schema": {
         "type": "object",
         "properties": {},
@@ -7559,7 +7559,7 @@
         "local",
         "hpc"
       ],
-      "description": "Prepare an exact launch for a reviewed chemistry input and require a second, explicitly approved call before starting anything. The first call returns a SHA-256 approval token bound to the input contents, configured target, resources, command, configured environment, output paths, and scheduler script. Environment values remain private; the plan returns their keys and a stable fingerprint. Show the plan to the user. Pass the token back only after explicit approval. Any changed input or plan invalidates the token. Existing artifacts block launch rather than being overwritten or silently archived. NWChem currently supplies the guided launch provider.",
+      "description": "Prepare an exact launch for a reviewed chemistry input and require a second, explicitly approved call before starting anything. The first call returns a SHA-256 approval token bound to the input contents, configured target, resources, command, configured environment, output paths, and scheduler script. Environment values remain private; the plan returns their keys and a stable fingerprint. Show the plan to the user. Pass the token back only after explicit approval. Any changed input or plan invalidates the token. Existing artifacts block launch rather than being overwritten or silently archived. Select a schema-2 named target, use the configured default, or provide a version 1 profile during migration. NWChem currently supplies the guided launch provider.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -7582,6 +7582,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Configured runner-profile name."
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Configured schema-2 target name. Omit to use the server's default target."
           },
           "profiles_path": {
             "type": "string",
@@ -7634,8 +7639,7 @@
         },
         "required": [
           "program",
-          "input_file",
-          "profile"
+          "input_file"
         ],
         "additionalProperties": false
       },

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Mapping
 
-from chemtools.core.execution import PreparedLaunch
+from chemtools.core.execution import ExecutionTarget, PreparedLaunch
 from chemtools.execution.profiles import (
     load_runner_profiles,
     resolve_runner_profile,
@@ -46,6 +47,29 @@ class _NwchemLaunchPlanner:
         self,
         request: Mapping[str, Any],
     ) -> PreparedLaunch:
+        configured_target = request.get("execution_target")
+        if configured_target is not None:
+            if not isinstance(configured_target, ExecutionTarget):
+                raise TypeError("execution_target must use ExecutionTarget")
+            input_file = Path(request["input_file"]).resolve()
+            if not input_file.is_file():
+                raise ValueError(f"input file does not exist: {input_file}")
+            values = asdict(configured_target.default_resources)
+            values.update(request.get("resources") or {})
+            job_name = str(request.get("job_name") or input_file.stem)
+            return PreparedLaunch(
+                plan=build_nwchem_launch_plan(
+                    input_file,
+                    resource_request(values),
+                    job_name=job_name,
+                ),
+                target=configured_target,
+                metadata={
+                    "target": configured_target.name,
+                    "target_source": "configured",
+                },
+            )
+
         profiles_path = request.get("profiles_path")
         profiles = load_runner_profiles(
             str(profiles_path) if profiles_path is not None else None

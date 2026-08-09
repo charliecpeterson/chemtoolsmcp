@@ -3,10 +3,15 @@
 import json
 import sys
 
+import pytest
 import yaml
 
 from chemtools.mcp import cli
-from chemtools.mcp.cli import _build_arg_parser, _profile_example_text
+from chemtools.mcp.cli import (
+    _build_arg_parser,
+    _profile_example_text,
+    _target_example_text,
+)
 
 
 def test_cli_prints_the_portable_local_profile():
@@ -33,6 +38,31 @@ def test_profile_example_option_is_part_of_the_shared_cli():
     ])
 
     assert arguments.print_profile_example == "slurm"
+
+
+def test_cli_prints_the_portable_target_example():
+    targets = yaml.safe_load(_target_example_text())
+
+    assert targets["schema_version"] == "2.0"
+    assert targets["chemtools"] == {
+        "enable_execution": False,
+        "default_target": "workstation",
+    }
+    assert set(targets["targets"]) == {"workstation", "slurm_cpu"}
+
+
+def test_target_options_are_part_of_the_shared_cli():
+    arguments = _build_arg_parser().parse_args([
+        "--targets",
+        "/config/targets.yaml",
+        "--target",
+        "workstation",
+        "--enable-execution",
+    ])
+
+    assert arguments.targets == "/config/targets.yaml"
+    assert arguments.target == "workstation"
+    assert arguments.enable_execution is True
 
 
 def test_cli_passes_one_resolved_state_to_the_server(monkeypatch):
@@ -83,6 +113,95 @@ def test_cli_defaults_to_the_guided_toolset(monkeypatch):
 
     assert len(captured) == 1
     assert captured[0].toolset == cli._modes.TOOLSETS["guided"]
+
+
+def test_cli_named_targets_separate_permission_from_mode(
+    tmp_path,
+    monkeypatch,
+):
+    config = tmp_path / "targets.json"
+    config.write_text(json.dumps({
+        "schema_version": "2.0",
+        "chemtools": {
+            "enable_execution": False,
+            "default_target": "workstation",
+        },
+        "targets": {
+            "workstation": {
+                "executor": "local",
+                "allowed_work_roots": [str(tmp_path)],
+                "programs": {
+                    "nwchem": {
+                        "executable_argv": ["nwchem"],
+                    },
+                },
+            },
+        },
+    }), encoding="utf-8")
+    captured = []
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "chemtools",
+            "--targets",
+            str(config),
+            "--enable-execution",
+        ],
+    )
+    monkeypatch.setattr(cli, "serve", captured.append)
+
+    cli.main()
+
+    state = captured[0]
+    assert state.mode == "analysis"
+    assert state.execution_service.enable_execution is True
+    assert state.execution_service.default_target == "workstation"
+    assert tuple(state.execution_service.configured_targets) == (
+        "workstation",
+    )
+
+
+def test_cli_rejects_implicit_permission_conflict_with_legacy_mode(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    config = tmp_path / "targets.json"
+    config.write_text(json.dumps({
+        "schema_version": "2.0",
+        "chemtools": {
+            "enable_execution": True,
+            "default_target": "workstation",
+        },
+        "targets": {
+            "workstation": {
+                "executor": "local",
+                "allowed_work_roots": [str(tmp_path)],
+                "programs": {
+                    "nwchem": {
+                        "executable_argv": ["nwchem"],
+                    },
+                },
+            },
+        },
+    }), encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "chemtools",
+            "--targets",
+            str(config),
+            "--mode",
+            "analysis",
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="2"):
+        cli.main()
+
+    assert "legacy --mode conflicts" in capsys.readouterr().err
 
 
 def test_cli_developer_toolset_keeps_the_complete_surface(monkeypatch):

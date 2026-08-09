@@ -11,6 +11,8 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
+from types import MappingProxyType
+from typing import Mapping
 from uuid import UUID, uuid4
 
 from chemtools.application.execution_policy import (
@@ -57,6 +59,10 @@ class ExecutionService:
     enable_execution: bool = False
     registry_db_path: str | Path | None = None
     instance_id: str = field(default_factory=lambda: str(uuid4()))
+    configured_targets: Mapping[str, ExecutionTarget] = field(
+        default_factory=dict,
+    )
+    default_target: str | None = None
     _local_executor: LocalExecutor = field(
         default_factory=LocalExecutor,
         init=False,
@@ -89,6 +95,48 @@ class ExecutionService:
             raise ValueError(
                 "instance_id must be a canonical UUID string"
             )
+        targets = dict(self.configured_targets)
+        for name, target in targets.items():
+            if name != target.name:
+                raise ValueError(
+                    f"configured target key {name!r} does not match "
+                    f"target name {target.name!r}"
+                )
+        object.__setattr__(
+            self,
+            "configured_targets",
+            MappingProxyType(targets),
+        )
+        if (
+            self.default_target is not None
+            and self.default_target not in targets
+        ):
+            raise ValueError(
+                f"unknown default target: {self.default_target!r}"
+            )
+
+    def resolve_target(
+        self,
+        name: str | None = None,
+        *,
+        program: str | None = None,
+    ) -> ExecutionTarget:
+        selected = name or self.default_target
+        if selected is None:
+            raise ValueError(
+                "target name is required; no default_target is configured"
+            )
+        try:
+            target = self.configured_targets[selected]
+        except KeyError as exc:
+            raise ValueError(
+                f"unknown execution target: {selected!r}"
+            ) from exc
+        if program is not None and program not in target.programs:
+            raise ValueError(
+                f"target {selected!r} has no {program!r} installation"
+            )
+        return target
 
     def check(
         self,

@@ -48,6 +48,7 @@ chemtools = [
     "runner_profiles.example.yaml",
     "runner_profiles.local.example.json",
     "runner_profiles.slurm.example.yaml",
+    "execution_targets.example.yaml",
     "data/**/*",
     "programs/*/data/**/*",
     "programs/*/examples/*.nw",

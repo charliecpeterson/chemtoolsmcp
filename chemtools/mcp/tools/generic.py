@@ -150,6 +150,18 @@ def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
     )
     summary["programs"] = sorted(state.programs) if state.programs else None
     summary["toolset"] = sorted(state.toolset) if state.toolset else None
+    summary["execution_enabled"] = (
+        state.execution_service.enable_execution
+    )
+    summary["default_target"] = state.execution_service.default_target
+    summary["targets"] = [
+        {
+            "name": target.name,
+            "executor": target.executor,
+            "programs": sorted(target.programs),
+        }
+        for target in state.execution_service.configured_targets.values()
+    ]
     return summary
 
 
@@ -849,9 +861,9 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "get_server_mode",
             "description": (
-                "Report which mode this MCP server was started in (analysis, local, or hpc) "
-                "and which tools are blocked. Useful when a tool fails with a 'not available "
-                "in mode' error, or before suggesting a workflow that requires HPC submission."
+                "Report tool-visibility mode, explicit execution permission, "
+                "configured target names, executors, installed programs, and "
+                "blocked tools. Commands and allowed roots are not returned."
             ),
             "inputSchema": {
                 "type": "object",

@@ -27,9 +27,12 @@ from chemtools.execution.profiles import (
 @dataclass(frozen=True)
 class LegacyQmcpackTarget:
     target: ExecutionTarget
-    default_resources: ResourceRequest
     output_template: str
     error_template: str
+
+    @property
+    def default_resources(self) -> ResourceRequest:
+        return self.target.default_resources
 
 
 def adapt_legacy_qmcpack_profile(
@@ -74,8 +77,10 @@ def adapt_legacy_qmcpack_profile(
             hardware=hardware_description(profile.get("resources") or {}),
             programs={"qmcpack": installation},
             scheduler=scheduler,
+            default_resources=resource_request(
+                profile.get("resources") or {}
+            ),
         ),
-        default_resources=resource_request(profile.get("resources") or {}),
         output_template=file_rules.get("output_file", "{job_name}.out"),
         error_template=file_rules.get("error_file", "{job_name}.err"),
     )

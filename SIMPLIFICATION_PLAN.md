@@ -473,6 +473,22 @@ contracts, with concrete program and execution adapters composed at startup.
         `6f54f7d000e5871b9bb9d5d6697dc09e070f31bdb8f0ef65ec9f5c05e59978a1`
         confirmed the facade is absent, and the repository-local `venv`
         contains that wheel.
+  - [x] Add schema-2 named target configuration as the replacement path for
+        version 1 profiles. `execution/targets.py` loads trusted local or Slurm
+        commands, allowed roots, hardware, resource defaults, and program
+        installations from YAML or JSON. The CLI composes the immutable
+        catalog with explicit execution permission and a default target while
+        keeping tool visibility separate. Guided NWChem launch now accepts a
+        configured target or the server default without loading a runner
+        profile. Exact local MPI and Slurm comparisons produced the same plan
+        and approval token as the migration adapter. Focused target,
+        execution, MCP, inventory, and six-program adapter checks passed 129
+        tests, followed by all 1,907 tests with the external corpus. Base and
+        DIRAC-extra isolated installs of wheel SHA-256
+        `430cace84ec246f27ab7cd9f314d1fdb91cda8aedc291118e1b1cf1465dccf2a`
+        loaded the bundled target example and prepared NWChem through a real
+        stdio exchange. The same wheel is installed in the repository-local
+        `venv`.
   - [x] Prepare guided NWChem plans without `render_calculation_run`. The
         provider now merges version 1 resource settings, expands the retained
         profile context, and builds the typed plan directly. It produced the

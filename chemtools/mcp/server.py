@@ -176,6 +176,36 @@ def build_arg_parser(prog: str, description: str) -> argparse.ArgumentParser:
         choices=("local", "slurm"),
         help="Print a bundled runner-profile example and exit.",
     )
+    parser.add_argument(
+        "--targets",
+        help=(
+            "Schema-2 target YAML or JSON path. Default: read "
+            "CHEMTOOLS_TARGETS."
+        ),
+    )
+    parser.add_argument(
+        "--target",
+        help="Default named target for this server process.",
+    )
+    permission = parser.add_mutually_exclusive_group()
+    permission.add_argument(
+        "--enable-execution",
+        action="store_true",
+        default=None,
+        help="Allow approved launches and owned cancellation.",
+    )
+    permission.add_argument(
+        "--disable-execution",
+        action="store_false",
+        dest="enable_execution",
+        default=None,
+        help="Disable launches and cancellation even if configured otherwise.",
+    )
+    parser.add_argument(
+        "--print-target-example",
+        action="store_true",
+        help="Print the bundled schema-2 target example and exit.",
+    )
     return parser
 
 

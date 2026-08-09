@@ -1468,6 +1468,12 @@ Progress:
 
 - [x] Add immutable launch-plan, resource, installation, target, scheduler,
       staging, and rendered-command models.
+- [x] Add schema-2 named target YAML and JSON loading at the MCP composition
+      root. Keep execution permission explicit and independent from legacy
+      tool-visibility mode. Guided NWChem launch can select a configured target
+      or the server default without reading a version 1 profile; equivalent
+      local and Slurm targets render the same approval-bound plan as the
+      migration adapter.
 - [x] Add render-only local and Slurm executors with argument-array assembly,
       expected stdout and stderr paths, and allowed-root checks.
 - [x] Add a schema 1.0 legacy-profile adapter for NWChem direct and Slurm

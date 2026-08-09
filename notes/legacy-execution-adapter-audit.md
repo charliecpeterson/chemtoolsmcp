@@ -46,8 +46,10 @@ Eight first-party runtime modules still import `execution.legacy_runner`:
 
 The guided interface has a typed, approval-gated launch and owned monitoring
 path for the five retained NWChem workflows. Its provider now reads version 1
-profile values from `execution.profiles` and builds the typed NWChem plan
-directly. No guided runtime path imports the old renderer.
+profile values from `execution.profiles` or selects a schema-2 target from the
+server catalog and builds the typed NWChem plan directly. No guided runtime
+path imports the old renderer. Equivalent named local MPI and Slurm targets
+produce the same approval-bound plan as the profile migration adapter.
 
 The direct provider produced the same prepared plan and executor rendering as
 the former path across all seven supported bundled local and Slurm profiles.

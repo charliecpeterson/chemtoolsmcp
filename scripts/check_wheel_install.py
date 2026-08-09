@@ -76,6 +76,7 @@ from chemtools.execution.resource_inspection import (
     get_local_resource_budget,
     query_partition_specs,
 )
+from chemtools.execution.targets import load_target_catalog
 from chemtools.knowledge.cards import load_knowledge_cards
 from chemtools.mcp.dispatch import dispatch_tool
 from chemtools.mcp.decorator import SERVER_VERSION
@@ -107,6 +108,7 @@ expected_install_root = Path(sys.argv[4]).resolve()
 install_layout = sys.argv[5]
 package_path = Path(chemtools.__file__).resolve()
 slurm_profile_path = package_path.parent / "runner_profiles.slurm.example.yaml"
+target_example_path = package_path.parent / "execution_targets.example.yaml"
 try:
     package_path.relative_to(repository)
 except ValueError:
@@ -127,6 +129,7 @@ for installed_path in (
 
 profiles = load_runner_profiles()
 slurm_profiles = load_runner_profiles(str(slurm_profile_path))
+target_catalog = load_target_catalog(str(target_example_path))
 cards = load_knowledge_cards()
 molcas_basis_sets = list_basis_sets()
 molcas_documents = list_molcas_docs()
@@ -150,6 +153,9 @@ assert slurm_profiles["profiles"]["slurm"]["programs"]["nwchem"] == {
     "launcher_argv": ["srun"],
     "executable_argv": ["nwchem"],
 }
+assert target_catalog.enable_execution is False
+assert target_catalog.default_target == "workstation"
+assert tuple(target_catalog.targets) == ("workstation", "slurm_cpu")
 assert cards
 assert len(molcas_basis_sets) == 71
 assert len(molcas_documents) == 133
@@ -228,6 +234,7 @@ print(json.dumps({
     "compatibility_aliases": True,
     "persistence_owners": True,
     "focused_nwchem_provider": True,
+    "named_target_catalog": True,
     "default_profile_count": len(profiles["profiles"]),
     "portable_slurm_profile": slurm_profiles["profiles"]["slurm"]["description"],
     "knowledge_card_count": len(cards),
@@ -288,6 +295,7 @@ from mcp.client.stdio import stdio_client
 chemtools = sys.argv[1]
 fixture = Path(sys.argv[2]).resolve()
 launch_input = Path(sys.argv[3]).resolve()
+target_config = Path(sys.argv[4]).resolve()
 
 
 def payload(result):
@@ -302,7 +310,11 @@ def payload(result):
 async def check():
     parameters = StdioServerParameters(
         command=chemtools,
-        args=["--mode", "analysis"],
+        args=[
+            "--targets",
+            str(target_config),
+            "--disable-execution",
+        ],
         env=dict(os.environ),
         cwd=Path.cwd(),
     )
@@ -397,7 +409,6 @@ async def check():
                 {
                     "program": "nwchem",
                     "input_file": str(launch_input),
-                    "profile": "local_mpirun",
                     "resources": {"mpi_ranks": 2},
                 },
             ))
@@ -480,6 +491,7 @@ def _check_mcp_exchange(
     *,
     fixture: Path,
     launch_input: Path,
+    target_config: Path,
     workspace: Path,
     environment: dict[str, str],
 ) -> dict:
@@ -491,6 +503,7 @@ def _check_mcp_exchange(
             str(chemtools),
             str(fixture),
             str(launch_input),
+            str(target_config),
         ],
         cwd=workspace,
         environment=environment,
@@ -620,6 +633,14 @@ def check_wheel(
         if "/home/" in printed_slurm.stdout or "/Users/" in printed_slurm.stdout:
             raise AssertionError("installed Slurm example contains a user path")
 
+        printed_targets = _run(
+            [str(chemtools), "--print-target-example"],
+            cwd=workspace,
+            environment=clean_environment,
+        )
+        if "/home/" in printed_targets.stdout or "/Users/" in printed_targets.stdout:
+            raise AssertionError("installed target example contains a user path")
+
         launch_input = workspace / "water.nw"
         launch_input.write_text(
             "start water_review\n"
@@ -638,11 +659,40 @@ def check_wheel(
             "task scf energy\n",
             encoding="utf-8",
         )
+        target_config = workspace / "targets.json"
+        target_config.write_text(json.dumps({
+            "schema_version": "2.0",
+            "chemtools": {
+                "enable_execution": False,
+                "default_target": "wheel_local",
+            },
+            "targets": {
+                "wheel_local": {
+                    "executor": "local",
+                    "allowed_work_roots": [str(workspace)],
+                    "resources": {
+                        "mpi_ranks": 1,
+                        "omp_threads": 1,
+                    },
+                    "programs": {
+                        "nwchem": {
+                            "launcher_argv": [
+                                "mpirun",
+                                "-np",
+                                "{mpi_ranks}",
+                            ],
+                            "executable_argv": ["nwchem"],
+                        },
+                    },
+                },
+            },
+        }), encoding="utf-8")
         mcp_exchange = _check_mcp_exchange(
             python,
             chemtools,
             fixture=fixture,
             launch_input=launch_input,
+            target_config=target_config,
             workspace=workspace,
             environment=clean_environment,
         )

@@ -41,11 +41,14 @@ from chemtools.programs.dirac.runtime import pam_dirac_arguments
 @dataclass(frozen=True)
 class LegacyDiracTarget:
     target: ExecutionTarget
-    default_resources: ResourceRequest
     output_template: str
     error_template: str
     master_memory_mb: int | None
     node_memory_mb: int | None
+
+    @property
+    def default_resources(self) -> ResourceRequest:
+        return self.target.default_resources
 
 
 def _profile_environment(
@@ -162,8 +165,8 @@ def adapt_legacy_dirac_profile(
             hardware=hardware_description(resources),
             programs={"dirac": installation},
             scheduler=scheduler,
+            default_resources=resource_request(resources),
         ),
-        default_resources=resource_request(resources),
         output_template=file_rules.get(
             "output_file",
             "{job_name}.out",
