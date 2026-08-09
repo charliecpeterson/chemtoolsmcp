@@ -1470,14 +1470,14 @@ Progress:
       staging, and rendered-command models.
 - [x] Add schema-2 named target YAML and JSON loading at the MCP composition
       root. Keep execution permission explicit and independent from legacy
-      tool-visibility mode. Guided NWChem, OpenMolcas, DIRAC, Quantum ESPRESSO,
-      and QMCPACK launch can select a configured target or the server default
-      without reading a version 1 profile; equivalent local and Slurm targets
-      render the same approval-bound plan as the migration adapter. Named
-      Molcas targets conservatively serialize CASPT2 and report the resource
-      adjustment. DIRAC approval binds both paired input files. QMCPACK also
-      retains its initialization-only `--dryrun` plan through the guided
-      approval boundary.
+      tool-visibility mode. Guided NWChem, OpenMolcas, DIRAC, GRASP workflow,
+      Quantum ESPRESSO, and QMCPACK launch can select a configured target or
+      the server default without reading a version 1 profile; equivalent local
+      and Slurm targets render the same approval-bound plan as the migration
+      adapter. Named Molcas targets conservatively serialize CASPT2 and report
+      the resource adjustment. DIRAC approval binds both paired input files.
+      QMCPACK also retains its initialization-only `--dryrun` plan through the
+      guided approval boundary.
 - [x] Add render-only local and Slurm executors with argument-array assembly,
       expected stdout and stderr paths, and allowed-root checks.
 - [x] Add a schema 1.0 legacy-profile adapter for NWChem direct and Slurm
@@ -1583,6 +1583,10 @@ Progress:
       Run the ordered shell workflow inside the target-owned container,
       preserve legacy previews, archive exact scheduler output paths, and
       restrict cancellation to jobs owned by the same MCP process.
+- [x] Add guided GRASP workflow launch preparation from schema-2 local and
+      Slurm targets, retaining version 1 profiles as the migration fallback.
+      Bind the exact workflow script and rendered container command to approval
+      while reporting the absent GRASP workflow parser and linter explicitly.
 - [x] Route explicit GRASP workflow status and watch requests through retained
       local process handles or target-owned Slurm queries for identifiers
       owned by the current service. Retain external file and explicit Slurm

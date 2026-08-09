@@ -4,8 +4,8 @@ Audit date: 2026-08-09
 
 The low-level execution tools are not dead compatibility code. They remain the
 only execution interface for several program backends. The guided `launch_run`
-contract has validated providers for NWChem, OpenMolcas, DIRAC, Quantum
-ESPRESSO, and QMCPACK.
+contract has validated providers for NWChem, OpenMolcas, DIRAC, GRASP workflow,
+Quantum ESPRESSO, and QMCPACK.
 
 ## Decision
 
@@ -68,8 +68,24 @@ of wheel SHA-256
 loaded the provider and portable DIRAC target entries. The same wheel is
 installed in the repository-local `venv`.
 
-The QE, QMCPACK, Molcas, and DIRAC guided plans do not replace their full
-version 1 preview contracts. Those previews still expose `launcher_command`,
+GRASP now exposes whole workflow-script execution through the shared guided
+launch path. Named targets own the container prefix and `bash` command; version
+1 profiles remain the migration fallback. Approval binds the workflow script
+and rendered command. Interactive stdin-driven executable and structured
+workflow calls remain low-level because they do not have one input-file
+contract.
+
+The GRASP local and Slurm parity matrix covered the container command,
+workflow-script identity, artifacts, target rendering, unsupported input-review
+evidence, and approval token. Focused workflow, launch, backend, boundary,
+inventory, and MCP checks passed 142 tests, followed by all 1,938 tests with
+the external corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+`8f547099d8b8d52ad784e3c594d3727cd4159462b50559fd8070a818e7643f52`
+loaded the provider and portable GRASP target entries. The same wheel is
+installed in the repository-local `venv`.
+
+The QE, QMCPACK, Molcas, DIRAC, and GRASP guided plans do not replace their
+full version 1 preview contracts. Those previews still expose `launcher_command`,
 `launcher_kind`, `restart_prefix`, `shell`, resolved profile paths, and
 scheduler-template fields. The QE adapter replaces the displayed command with
 its typed rendering; the QMCPACK dry run still displays the legacy command and

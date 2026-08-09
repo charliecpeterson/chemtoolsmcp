@@ -10,6 +10,7 @@ from chemtools.core.program import (
 )
 from chemtools.programs.grasp._plugin_parser import GRASP_PARSER
 from chemtools.programs.grasp._plugin_binary import GRASP_BINARY
+from chemtools.programs.grasp._plugin_launcher import GRASP_LAUNCH_PLANNER
 
 
 def _looks_like_grasp(output_head: str) -> bool:
@@ -65,6 +66,7 @@ GRASP = validate_backend(
                 ProgramCapability.OUTPUT_ORBITALS,
                 ProgramCapability.BINARY_READ,
                 ProgramCapability.BINARY_WRITE,
+                ProgramCapability.EXECUTION_PLAN,
             }
         ),
         artifact_kinds={
@@ -132,6 +134,7 @@ GRASP = validate_backend(
         detector=_GraspDetector(),
         parser=GRASP_PARSER,
         binary=GRASP_BINARY,
+        launches=GRASP_LAUNCH_PLANNER,
     )
 )
 

@@ -30,6 +30,12 @@ targets:
         executable_argv: [/absolute/path/to/pymolcas]
       dirac:
         executable_argv: [/absolute/path/to/pam-dirac]
+      grasp:
+        launcher_argv:
+          - apptainer
+          - exec
+          - /absolute/path/to/grasp2018.sif
+        executable_argv: [bash]
       qe:
         launcher_argv: [mpirun, -np, "{mpi_ranks}"]
         executable_argv: [/absolute/path/to/pw.x]
@@ -91,6 +97,15 @@ targets:
         setup_lines:
           - module purge
           - module load dirac
+      grasp:
+        launcher_argv:
+          - apptainer
+          - exec
+          - /absolute/path/to/grasp2018.sif
+        executable_argv: [bash]
+        setup_lines:
+          - module purge
+          - module load apptainer
       qe:
         launcher_argv: [srun]
         executable_argv: [pw.x]

@@ -86,6 +86,7 @@ from chemtools.persistence.launches import create_launch_record
 from chemtools.persistence.runs import register_run
 from chemtools.persistence.sqlite import connect_registry
 from chemtools.programs.dirac import DIRAC
+from chemtools.programs.grasp import GRASP
 from chemtools.programs.molcas import MOLCAS
 from chemtools.programs.molcas.docs import list_docs as list_molcas_docs
 from chemtools.programs.molcas.input.basis_library import list_basis_sets
@@ -169,6 +170,14 @@ assert target_catalog.resolve(program="dirac").programs[
     "dirac"
 ].executable_argv == ("/absolute/path/to/pam-dirac",)
 assert DIRAC.supports(ProgramCapability.EXECUTION_PLAN)
+assert target_catalog.resolve(program="grasp").programs[
+    "grasp"
+].launcher_argv == (
+    "apptainer",
+    "exec",
+    "/absolute/path/to/grasp2018.sif",
+)
+assert GRASP.supports(ProgramCapability.EXECUTION_PLAN)
 assert target_catalog.resolve(program="qe").programs["qe"].executable_argv == (
     "/absolute/path/to/pw.x",
 )
@@ -257,6 +266,7 @@ print(json.dumps({
     "focused_nwchem_provider": True,
     "named_target_catalog": True,
     "guided_dirac_launch_provider": True,
+    "guided_grasp_launch_provider": True,
     "guided_molcas_launch_provider": True,
     "guided_qe_launch_provider": True,
     "guided_qmcpack_launch_provider": True,

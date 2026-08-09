@@ -513,10 +513,11 @@ def test_generic_handlers_return_exact_unsupported_capability_error(
         "error": "unsupported_capability",
         "program": "grasp",
         "capability": capability.value,
-            "available_capabilities": [
-                "binary.read",
-                "binary.write",
-                "output.orbitals",
+        "available_capabilities": [
+            "binary.read",
+            "binary.write",
+            "execution.plan",
+            "output.orbitals",
             "output.parse",
             "output.task_index",
         ],
@@ -726,6 +727,7 @@ def test_builtin_backends_declare_exact_capabilities():
         "grasp": {
             "binary.read",
             "binary.write",
+            "execution.plan",
             "output.orbitals",
             "output.parse",
             "output.task_index",

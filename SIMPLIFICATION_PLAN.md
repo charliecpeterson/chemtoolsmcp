@@ -542,10 +542,22 @@ contracts, with concrete program and execution adapters composed at startup.
         `fdd03dd2a41a2ae25ff092eb441c8031ba8d63834b0acce46a9ce134255619ec`
         loaded the provider and bundled DIRAC target examples. The same wheel
         is installed in the repository-local `venv`.
+  - [x] Add a guided GRASP provider over its existing typed workflow plan.
+        Named local and Slurm targets own the container prefix and `bash`
+        command, while version 1 profiles remain the migration fallback. The
+        workflow script and rendered plan are approval-bound; input review
+        remains explicitly unsupported rather than treating shell syntax as a
+        scientific GRASP input grammar. Focused workflow, launch, backend,
+        boundary, inventory, and MCP checks passed 142 tests, followed by all
+        1,938 tests with the external corpus. Base and DIRAC-extra isolated
+        installs of wheel SHA-256
+        `8f547099d8b8d52ad784e3c594d3727cd4159462b50559fd8070a818e7643f52`
+        loaded the provider and bundled GRASP target examples. The same wheel
+        is installed in the repository-local `venv`.
   - [x] Retain low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch
-        calls behind explicit program or developer toolsets. GRASP has no
-        guided execution replacement. The QE, QMCPACK, Molcas, and DIRAC
-        low-level calls remain for their version 1 response contracts. Their
+        calls behind explicit program or developer toolsets. The QE, QMCPACK,
+        Molcas, DIRAC, and GRASP low-level calls remain for their version 1
+        response contracts or interactive behavior. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only
         after a guided provider passes accepted

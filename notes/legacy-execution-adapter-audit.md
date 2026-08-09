@@ -45,11 +45,12 @@ Eight first-party runtime modules still import `execution.legacy_runner`:
   caller.
 
 The guided interface has typed, approval-gated NWChem, OpenMolcas, DIRAC,
-Quantum ESPRESSO, and QMCPACK launch providers. Each reads version 1 profile
-values from `execution.profiles` or selects a schema-2 target from the server
-catalog and builds its program-owned plan directly. No guided runtime path
-imports the old renderer. Equivalent named local MPI and Slurm targets produce
-the same approval-bound plan as their profile migration adapters.
+GRASP workflow, Quantum ESPRESSO, and QMCPACK launch providers. Each reads
+version 1 profile values from `execution.profiles` or selects a schema-2 target
+from the server catalog and builds its program-owned plan directly. No guided
+runtime path imports the old renderer. Equivalent named local MPI and Slurm
+targets produce the same approval-bound plan as their profile migration
+adapters.
 
 The direct provider produced the same prepared plan and executor rendering as
 the former path across all seven supported bundled local and Slurm profiles.
@@ -65,11 +66,11 @@ Removal gates:
 2. Reimplement retained scheduler render and launch calls over typed targets
    without changing their response contracts.
 
-The Molcas, DIRAC, QE, and QMCPACK comparisons confirmed that typed plans cover
-commands and artifacts but not the full version 1 preview dictionaries. A
-shared replacement would recreate the old renderer as another response
-projector. Keep these low-level calls until their compatibility contracts are
-retired explicitly.
+The Molcas, DIRAC, GRASP workflow, QE, and QMCPACK comparisons confirmed that
+typed plans cover commands and artifacts but not the full version 1 preview
+dictionaries. A shared replacement would recreate the old renderer as another
+response projector. Keep these low-level calls until their compatibility
+contracts are retired explicitly.
 
 The retention decision and per-program evidence are recorded in
 [`low-level-execution-retention-audit.md`](low-level-execution-retention-audit.md).

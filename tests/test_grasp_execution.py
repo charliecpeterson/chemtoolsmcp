@@ -15,6 +15,7 @@ from chemtools.application.grasp_execution import (
     launch_grasp_workflow_with_service,
     terminate_grasp_with_service,
 )
+from chemtools.application.run_launching import launch_run
 from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor, SlurmExecutor
 from chemtools.persistence.launches import load_launch_record
@@ -28,6 +29,7 @@ from chemtools.programs.grasp.launch import (
     adapt_legacy_grasp_profile,
     build_grasp_workflow_launch_plan,
 )
+from chemtools.programs.grasp import GRASP
 from chemtools.programs.grasp.scheduler import (
     launch_grasp_workflow_run,
 )
@@ -202,6 +204,55 @@ def test_slurm_grasp_plan_keeps_workflow_as_one_ordered_script(
         "sbatch",
         str(tmp_path / "run_th.job"),
     )
+
+
+@pytest.mark.parametrize("profile_name", ["grasp_local", "grasp_slurm"])
+def test_guided_grasp_named_target_matches_profile(
+    tmp_path,
+    profile_name,
+):
+    workflow = _workflow(tmp_path)
+    profile_path = _profile_path(tmp_path)
+    profiles = load_runner_profiles(str(profile_path))
+    adapted = adapt_legacy_grasp_profile(
+        profiles,
+        profile_name,
+        allowed_work_roots=(tmp_path,),
+    )
+    named_service = ExecutionService(
+        configured_targets={profile_name: adapted.target},
+        default_target=profile_name,
+    )
+
+    migrated = launch_run(
+        GRASP,
+        ExecutionService(),
+        input_file=workflow,
+        profile=profile_name,
+        profiles_path=profile_path,
+    )
+    named = launch_run(
+        GRASP,
+        named_service,
+        input_file=workflow,
+    )
+
+    migrated_plan = dict(migrated["evidence"]["plan"])
+    named_plan = dict(named["evidence"]["plan"])
+    migrated_plan.pop("profile")
+    migrated_plan.pop("profiles_path")
+    named_plan.pop("profile")
+    named_plan.pop("profiles_path")
+    assert named_plan == migrated_plan
+    assert named["approval"]["token"] == migrated["approval"]["token"]
+    assert named["evidence"]["input_review"]["verdict"]["label"] == (
+        "unsupported"
+    )
+    assert [item["code"] for item in named["uncertainty"]] == [
+        "input_parser_unavailable",
+        "input_linter_unavailable",
+        "artifact_kind_unmatched",
+    ]
 
 
 def test_grasp_adapter_requires_explicit_container(tmp_path):
