@@ -150,17 +150,18 @@ that behavior for agents; plugin skills describe when and how to use it.
       the 121-name top-level facade or `api*` aggregators. Those broad imports
       are compatibility-only through the final compatibility release; see
       [notes/compatibility-surface-audit.md](notes/compatibility-surface-audit.md).
-- [ ] Tag one final compatibility release before intentionally breaking unused
+- [x] Tag one final compatibility release before intentionally breaking unused
       Python or MCP entry points. Release preparation now has a canonical
       `chemtools` MCP server identity, an accurate warning from the
       `chemtools-nwchem` command, and a concise migration note for executable,
       MCP, and Python callers. Focused checks passed 33 tests and the full
       suite passed 1,891 tests against the external corpus. Base and
       DIRAC-extra isolated installs of wheel SHA-256
-      `51aa9937cbbc56fc003197785fdc8267887c1304bdb6bc1644deb936ac3c1702`
+      `aecf564b9f9677d6de1c153c2c86a245568926780caa4e67eeaacee4b49b3e3e`
       reported `chemtools` through MCP, listed the eleven guided tools, and
-      preserved the compatibility imports. The final tag is the only
-      remaining release action.
+      preserved the compatibility imports. Annotated tag `v0.1.0` points to
+      commit `c9a4298`; all 1,891 tests also passed from a clean detached
+      worktree at that tag.
 
 Workflow-lock evidence (2026-08-07): the application test matrix now pins
 `review_input` and `inspect_run` verdicts, uncertainty codes, and next actions

@@ -67,6 +67,9 @@ the other maintained repositories under `/home/charlie/projects` and
 `chemtools`, `chemtools.api`, `chemtools.api_input`, or
 `chemtools.api_strategy` Python imports. The scan excluded virtual
 environments, dependency trees, build products, caches, and this repository.
+The broader scan was repeated on 2026-08-09 for the deprecated executables,
+all 15 hidden MCP names, and all 7 Python shims; it found no maintained caller
+outside this repository.
 
 Other maintained scripts already import focused application, program,
 integration, execution, or reference modules. Six test imports cover the
@@ -108,8 +111,10 @@ and Python callers. The compatibility ledger starts at `0.1.0` without
 promising a removal version.
 
 Focused compatibility and protocol checks passed 33 tests. The full suite
-passed 1,891 tests against the external corpus. Base and DIRAC-extra isolated
-installs of wheel SHA-256
-`51aa9937cbbc56fc003197785fdc8267887c1304bdb6bc1644deb936ac3c1702`
+passed 1,891 tests against the external corpus both in the development tree
+and in a clean detached worktree. Annotated tag `v0.1.0` points to commit
+`c9a4298`. Base and DIRAC-extra isolated installs of the exact-tag wheel
+SHA-256
+`aecf564b9f9677d6de1c153c2c86a245568926780caa4e67eeaacee4b49b3e3e`
 negotiated MCP `2025-11-25`, reported server name `chemtools`, listed the
 eleven guided tools, and preserved the compatibility imports.
