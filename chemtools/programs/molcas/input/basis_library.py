@@ -19,10 +19,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterable
 
-import chemtools as _chemtools_pkg
-
-
-_DATA_DIR = Path(_chemtools_pkg.__file__).resolve().parent / "data" / "molcas" / "basis_library"
+_DATA_DIR = (
+    Path(__file__).resolve().parents[3] / "data" / "molcas" / "basis_library"
+)
 
 _LABEL_LINE_RE = re.compile(r"^/([A-Za-z]{1,3})\.([^.]+)\.([^.]*)\.([^.]+)\.([^.]+)\.")
 

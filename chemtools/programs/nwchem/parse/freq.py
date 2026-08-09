@@ -22,6 +22,8 @@ METHOD_PATTERNS: list[tuple[int, str, tuple[str, ...]]] = [
 ]
 
 BOHR_TO_ANGSTROM = 0.529177210903
+NEAR_ZERO_FREQUENCY_THRESHOLD_CM1 = 20.0
+SIGNIFICANT_IMAGINARY_FREQUENCY_THRESHOLD_CM1 = -20.0
 FREQUENCY_ROW_RE = re.compile(
     r"^\s*(\d+)\s+([-\d.DEde+]+)\s+\|\|\s+([-\d.DEde+]+)\s+([-\d.DEde+]+)\s+([-\d.DEde+]+)\s+([-\d.DEde+]+)\s*$"
 )
@@ -120,13 +122,23 @@ def parse_freq(path: str, contents: str, include_displacements: bool = False) ->
             equilibrium_energy = token[1]
 
     thermochemistry = _parse_thermochemistry(contents)
-    near_zero_threshold = 20.0
-    significant_imaginary_threshold = -20.0
-    near_zero_modes = [mode for mode in modes if abs(mode["frequency_cm1"]) < near_zero_threshold]
-    significant_imaginary_modes = [
-        mode for mode in modes if mode["frequency_cm1"] <= significant_imaginary_threshold
+    near_zero_modes = [
+        mode
+        for mode in modes
+        if abs(mode["frequency_cm1"]) < NEAR_ZERO_FREQUENCY_THRESHOLD_CM1
     ]
-    vibrational_modes = [mode for mode in modes if abs(mode["frequency_cm1"]) >= near_zero_threshold]
+    significant_imaginary_modes = [
+        mode
+        for mode in modes
+        if mode["frequency_cm1"]
+        <= SIGNIFICANT_IMAGINARY_FREQUENCY_THRESHOLD_CM1
+    ]
+    vibrational_modes = [
+        mode
+        for mode in modes
+        if abs(mode["frequency_cm1"])
+        >= NEAR_ZERO_FREQUENCY_THRESHOLD_CM1
+    ]
     if include_displacements:
         labels = _extract_last_geometry_labels(contents)
         displacement_sections = _extract_normal_mode_displacements(contents, labels)

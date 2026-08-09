@@ -26,6 +26,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from chemtools.core.common import read_text
+from chemtools.programs.molcas.binary.orbitals import parse_inporb
+from chemtools.programs.molcas.parse.mos import parse_last_mo_block
+from chemtools.programs.molcas.parse.output import parse_output_full
+
 
 # Occupation-number thresholds (literature-cited / common practice).
 # The active-orbital window is the widely used [0.02, 1.98]: an orbital is
@@ -43,6 +48,110 @@ DEMOTE_THRESHOLD = 0.02    # occ < this → inert virtual (demote to secondary)
 # CASPT2 reference-weight quality bands
 REFW_HEALTHY = 0.85
 REFW_CAUTION = 0.70
+
+
+def analyze_active_space_source(
+    *,
+    output_file: str | None = None,
+    orbital_file: str | None = None,
+) -> dict[str, Any]:
+    """Load one Molcas source and analyze its active-space occupations."""
+    if not output_file and not orbital_file:
+        return {
+            "error": "missing_input",
+            "message": "Provide either output_file or orbital_file.",
+        }
+    if output_file:
+        contents = read_text(output_file)
+        full = parse_output_full(output_file, contents)
+        rasscf_payload = next(
+            (
+                payload["details"]
+                for payload in full["task_payloads"]
+                if payload["module"] == "RASSCF"
+            ),
+            None,
+        )
+        if not rasscf_payload:
+            return {
+                "error": "no_rasscf_task",
+                "message": (
+                    f"No RASSCF task found in {output_file}; "
+                    "supply orbital_file instead."
+                ),
+            }
+        return analyze_active_space(rasscf_payload)
+    assert orbital_file is not None
+    return analyze_active_space(
+        parse_inporb(orbital_file, parse_coefficients=False)
+    )
+
+
+def validate_caspt2_output(output_file: str) -> dict[str, Any]:
+    """Load the CASPT2 task from one Molcas output and assess its setup."""
+    contents = read_text(output_file)
+    full = parse_output_full(output_file, contents)
+    caspt2_payload = next(
+        (
+            payload["details"]
+            for payload in full["task_payloads"]
+            if payload["module"] == "CASPT2"
+        ),
+        None,
+    )
+    if not caspt2_payload:
+        return {
+            "error": "no_caspt2_task",
+            "message": f"No CASPT2 task found in {output_file}",
+        }
+    return validate_caspt2_setup(caspt2_payload)
+
+
+def suggest_orbital_swaps_from_output(
+    output_file: str,
+    *,
+    target_atom_pattern: str,
+    target_ao_pattern: str,
+    symmetry: int = 1,
+    top_dominant_aos: int = 1,
+) -> dict[str, Any]:
+    """Select one RASSCF task and suggest character-based orbital swaps."""
+    contents = read_text(output_file)
+    full = parse_output_full(output_file, contents)
+    rasscf_task = next(
+        (
+            payload
+            for payload in full["task_payloads"]
+            if payload["module"] == "RASSCF"
+        ),
+        None,
+    )
+    if not rasscf_task:
+        return {
+            "error": "no_rasscf_task",
+            "message": f"No RASSCF task in {output_file}",
+        }
+
+    line_start, line_end = rasscf_task["line_range"]
+    lines = contents.splitlines()
+    block_text = "\n".join(lines[line_start - 1 : line_end])
+    mo_block = parse_last_mo_block(block_text, parse_coefficients=True)
+    if mo_block is None:
+        return {
+            "error": "no_mo_block",
+            "message": "No MO block in RASSCF task",
+        }
+    return suggest_orbital_swaps_by_character(
+        mo_block=mo_block,
+        rasscf_orbital_specs=rasscf_task["details"].get(
+            "orbital_specs",
+            {},
+        ),
+        target_atom_pattern=target_atom_pattern,
+        target_ao_pattern=target_ao_pattern,
+        symmetry=symmetry,
+        top_dominant_aos=top_dominant_aos,
+    )
 
 
 def analyze_active_space(payload: dict[str, Any]) -> dict[str, Any]:

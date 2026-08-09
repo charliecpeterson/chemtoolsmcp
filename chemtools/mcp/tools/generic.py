@@ -15,57 +15,68 @@ multi-program MCP split.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if not any("chemtools" in p for p in sys.path):
-    sys.path.insert(0, str(_REPO_ROOT))
-
-# Public chemtools surface used by the generic handlers.
-from chemtools import (  # noqa: E402
-    advance_workflow,
-    append_session_log,
-    basis_library_summary,
+from chemtools.core.basis_advisor import suggest_basis_set
+from chemtools.core.cube import (
     compare_cube_densities,
     compare_cube_orbitals,
-    compare_cube_orbital_subspaces,
-    compute_reaction_energy,
+    parse_cube_file as parse_cube,
+    summarize_cube_file as summarize_cube,
+)
+from chemtools.core.cube_subspace import compare_cube_orbital_subspaces
+from chemtools.persistence.runs import (
+    get_run_summary,
+    list_runs,
+    register_run,
+    update_run_status,
+)
+from chemtools.application.run_registry import (
+    advance_workflow,
     create_campaign,
     create_workflow,
-    draft_initial_geometry,
     get_campaign_energies,
     get_campaign_status,
-    get_run_summary,
+)
+from chemtools.core.session import (
+    append_session_log,
     init_session_log,
-    list_runs,
     next_versioned_path,
-    parse_cube,
-    preflight_check,
-    register_run,
+)
+from chemtools.programs.nwchem.input.basis import basis_library_summary
+from chemtools.programs.nwchem.input.geometry import draft_initial_geometry
+from chemtools.programs.nwchem.output import compute_reaction_energy
+from chemtools.programs.nwchem.runner import (
     render_job_script,
-    suggest_basis_set,
-    suggest_memory,
-    suggest_relativistic_correction,
-    suggest_resources,
-    suggest_spin_state,
-    summarize_cube,
-    update_run_status,
     watch_multiple_nwchem_runs,
 )
+from chemtools.programs.nwchem.strategy.input_advisors import (
+    suggest_relativistic_correction,
+    suggest_spin_state,
+)
+from chemtools.programs.nwchem.strategy.resources import (
+    suggest_memory,
+    suggest_resources,
+)
+from chemtools.programs.nwchem.strategy.workflow_state import preflight_check
 
-from chemtools.mcp.decorator import (  # noqa: E402
+from chemtools.mcp.decorator import (
     _TOOL_CAPABILITIES,
     _TOOL_PROGRAMS,
     _tool as _raw_tool,
-    ACTIVE_MODE,
 )
-from chemtools.mcp import modes as _modes  # noqa: E402
-from chemtools.core.program import (  # noqa: E402
+from chemtools.mcp import modes as _modes
+from chemtools.core.program import (
     ProgramBackend,
     ProgramCapability,
     UnsupportedCapabilityError,
+)
+from chemtools.application.run_inspection import inspect_run_geometry
+from chemtools.application.input_review import InputReviewError
+from chemtools.application.recovery_planning import (
+    ApplyRecoveryResolutionError,
+    resolve_apply_recovery_program,
 )
 
 
@@ -130,18 +141,15 @@ def _program_source_error_payload(error: Any) -> dict[str, Any]:
 
 @_tool("get_server_mode")
 def _handle_get_server_mode(arguments: dict[str, Any]) -> dict[str, Any]:
-    # Pull the runtime program filter from the canonical decorator module
-    # (set by main() at startup). None means "no filter".
-    from chemtools.mcp.decorator import ACTIVE_PROGRAMS as _active_programs
-    from chemtools.mcp.decorator import ACTIVE_MODE as _active_mode
-    from chemtools.mcp.decorator import ACTIVE_TOOLSET as _active_toolset
+    from chemtools.mcp.decorator import get_server_state
     from chemtools.mcp.dispatch import tool_definitions
+    state = get_server_state()
     summary = _modes.summarize_mode(
-        _active_mode, _TOOL_CAPABILITIES, tool_definitions(),
-        programs=_active_programs, program_tags=_TOOL_PROGRAMS, toolset=_active_toolset,
+        state.mode, _TOOL_CAPABILITIES, tool_definitions(),
+        programs=state.programs, program_tags=_TOOL_PROGRAMS, toolset=state.toolset,
     )
-    summary["programs"] = sorted(_active_programs) if _active_programs else None
-    summary["toolset"] = sorted(_active_toolset) if _active_toolset else None
+    summary["programs"] = sorted(state.programs) if state.programs else None
+    summary["toolset"] = sorted(state.toolset) if state.toolset else None
     return summary
 
 
@@ -182,7 +190,7 @@ def _handle_summarize_run(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Generic auto-detect parser/geometry dispatchers (Phase 4)
+# Generic parser and geometry dispatchers
 # ---------------------------------------------------------------------------
 
 def _resolve_plugin_or_error(
@@ -301,63 +309,23 @@ def _handle_parse_trajectory_generic(arguments: dict[str, Any]) -> dict[str, Any
 
 @_tool("inspect_geometry")
 def _handle_inspect_geometry_generic(arguments: dict[str, Any]) -> dict[str, Any]:
-    from chemtools.core.geometry import inspect_geometry as _core_inspect
-    from chemtools.core.units import ANGSTROM_PER_BOHR
-
     plugin, err = _resolve_plugin_or_error(
         arguments, capability=ProgramCapability.OUTPUT_GEOMETRY
     )
     if err is not None:
         return err
-
-    raw = plugin.parser.get_geometry(arguments["output_file"])
-    if isinstance(raw, list):
-        atoms_raw = raw
-        source_units = "angstrom"
-    elif isinstance(raw, dict):
-        atoms_raw = list(raw.get("atoms") or [])
-        source_units = (raw.get("units") or "angstrom").lower()
-    else:
-        return {
-            "error": "no_geometry",
-            "message": f"Plugin {plugin.name} returned no geometry for {arguments['output_file']}.",
-        }
-    if not atoms_raw:
-        return {
-            "error": "no_geometry",
-            "message": f"Plugin {plugin.name} returned an empty geometry for {arguments['output_file']}.",
-        }
-
-    def _to_symbol_form(a: dict) -> dict:
-        if "symbol" in a:
-            return a
-        return {
-            **a,
-            "symbol": a.get("element") or a.get("Element"),
-        }
-    atoms = [_to_symbol_form(a) for a in atoms_raw]
-
-    if source_units == "bohr":
-        atoms = [
-            {**a, "x": a["x"] * ANGSTROM_PER_BOHR,
-                  "y": a["y"] * ANGSTROM_PER_BOHR,
-                  "z": a["z"] * ANGSTROM_PER_BOHR}
-            for a in atoms
-        ]
-
-    result = _core_inspect(
-        atoms,
+    return inspect_run_geometry(
+        plugin,
+        arguments["output_file"],
         max_bond_length=float(arguments.get("max_bond_length", 2.5)),
         min_safe_distance=float(arguments.get("min_safe_distance", 0.6)),
         covalent_tolerance=float(arguments.get("covalent_tolerance", 1.20)),
         measurements=arguments.get("measurements"),
-        units="angstrom",
     )
-    return {"program": plugin.name, **result}
 
 
 # ---------------------------------------------------------------------------
-# Generic case-analysis / recovery dispatchers (Phase 6a)
+# Generic case-analysis and recovery dispatchers
 # ---------------------------------------------------------------------------
 
 def _dispatch_to_per_program_tool(
@@ -388,8 +356,10 @@ def _handle_summarize_output_generic(arguments: dict[str, Any]) -> dict[str, Any
     """Auto-detecting summarize_output. Routes to summarize_nwchem_output
     or summarize_molcas_output. Returns the program-specific shape tagged
     with `program`."""
-    from chemtools.mcp.tools.nwchem import _handle_summarize_nwchem_output
     from chemtools.mcp.tools.molcas import _handle_summarize_molcas_output
+    from chemtools.mcp.tools.nwchem_parse import (
+        _handle_summarize_nwchem_output,
+    )
     return _dispatch_to_per_program_tool(
         {**arguments, "_tool_label": "summarize_output"},
         {
@@ -404,8 +374,8 @@ def _handle_analyze_case_generic(arguments: dict[str, Any]) -> dict[str, Any]:
     """Auto-detecting analyze_case. Routes to analyze_nwchem_case or
     analyze_molcas_case. Returns the program-specific shape tagged with
     `program`."""
-    from chemtools.mcp.tools.nwchem import _handle_analyze_nwchem_case
     from chemtools.mcp.tools.molcas import _handle_analyze_molcas_case
+    from chemtools.mcp.tools.nwchem_analysis import _handle_analyze_nwchem_case
     return _dispatch_to_per_program_tool(
         {**arguments, "_tool_label": "analyze_case"},
         {
@@ -419,8 +389,10 @@ def _handle_analyze_case_generic(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_suggest_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
     """Auto-detecting recovery suggester. Routes to suggest_nwchem_recovery
     or suggest_molcas_recovery."""
-    from chemtools.mcp.tools.nwchem import _handle_suggest_nwchem_recovery
     from chemtools.mcp.tools.molcas import _handle_suggest_molcas_recovery
+    from chemtools.mcp.tools.nwchem_analysis import (
+        _handle_suggest_nwchem_recovery,
+    )
     return _dispatch_to_per_program_tool(
         {**arguments, "_tool_label": "suggest_recovery"},
         {
@@ -435,104 +407,28 @@ def _handle_apply_recovery_generic(arguments: dict[str, Any]) -> dict[str, Any]:
     """Auto-detecting apply_recovery. Currently only Molcas has a
     mechanical-fix patcher. NWChem returns a not_implemented envelope."""
     from chemtools.mcp.tools.molcas import _handle_apply_molcas_recovery
-    from chemtools.application.input_review import (
-        InputReviewError,
-        detect_input_content_candidates,
-    )
     from chemtools.core import registry as _registry
 
-    program = arguments.get("program")
-    if program is None:
-        if arguments.get("output_file"):
-            try:
-                program = _registry.resolve(
-                    program=None,
-                    path=arguments["output_file"],
-                ).name
-            except _registry.ProgramDetectionAmbiguous as error:
-                return {
-                    "error": "program_detection_ambiguous",
-                    "message": str(error),
-                    "candidates": list(error.candidates),
-                }
-            except _registry.ProgramDetectorError as error:
-                return _program_detector_error_payload(error)
-            except _registry.ProgramDetectionSourceError as error:
-                return _program_source_error_payload(error)
-            except _registry.ProgramDetectionFailed:
-                pass
-        if program is None and arguments.get("input_file"):
-            try:
-                head = open(arguments["input_file"], "r", encoding="utf-8",
-                            errors="replace").read(4096)
-                lo = head.lower()
-                if "&seward" in lo or "&gateway" in lo or "&rasscf" in lo:
-                    program = "molcas"
-                elif "geometry" in lo and ("end" in lo or "task " in lo):
-                    program = "nwchem"
-            except OSError:
-                pass
-    elif arguments.get("output_file"):
-        try:
-            _registry.resolve(
-                program=program,
-                path=arguments["output_file"],
-            )
-        except _registry.ProgramContentMismatch as error:
-            return {
-                "error": "program_content_mismatch",
-                "message": str(error),
-                "program": error.program,
-                "detected_programs": list(error.candidates),
-            }
-        except _registry.ProgramDetectorError as error:
-            return _program_detector_error_payload(error)
-        except _registry.ProgramDetectionSourceError as error:
-            return _program_source_error_payload(error)
-        except _registry.ProgramNotRegistered as error:
-            return {
-                "error": "program_not_registered",
-                "message": str(error),
-                "registered_programs": _registry.list_programs(),
-            }
-    if program is None:
-        return {
-            "error": "program_detection_failed",
-            "message": (
-                "Could not auto-detect program for apply_recovery. Pass "
-                "`program='nwchem'` or `program='molcas'` explicitly, or "
-                "provide an output_file that hints at the program."
-            ),
-        }
-
-    if arguments.get("input_file"):
-        try:
-            detected_input_programs = detect_input_content_candidates(
-                (
-                    item
-                    for item in _registry.iter_programs()
-                    if isinstance(item, ProgramBackend)
-                ),
-                arguments["input_file"],
-            )
-        except InputReviewError as error:
-            if error.code == "source_not_file":
-                return error.as_dict()
+    selected_program = arguments.get("program")
+    if arguments.get("output_file"):
+        backend, resolution_error = _resolve_plugin_or_error(arguments)
+        if resolution_error is not None:
+            if resolution_error["error"] != "program_detection_failed":
+                return resolution_error
         else:
-            if (
-                detected_input_programs
-                and program not in detected_input_programs
-            ):
-                return {
-                    "error": "program_content_mismatch",
-                    "message": (
-                        "recovery input content matches "
-                        f"{', '.join(detected_input_programs)}, "
-                        f"but selected program is {program}"
-                    ),
-                    "program": program,
-                    "detected_programs": list(detected_input_programs),
-                }
+            selected_program = backend.name
+    try:
+        program = resolve_apply_recovery_program(
+            (
+                backend
+                for backend in _registry.iter_programs()
+                if isinstance(backend, ProgramBackend)
+            ),
+            input_file=arguments.get("input_file"),
+            selected_program=selected_program,
+        )
+    except (ApplyRecoveryResolutionError, InputReviewError) as error:
+        return error.as_dict()
 
     def _nwchem_not_implemented(_args: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -632,7 +528,14 @@ def _handle_suggest_memory(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
     hw = arguments.get("hw_specs")
     if not hw and arguments.get("profile"):
-        from chemtools.core.runner import load_runner_profiles, _resolve_profile, query_partition_specs, get_local_resource_budget
+        from chemtools.execution.resource_inspection import (
+            get_local_resource_budget,
+            query_partition_specs,
+        )
+        from chemtools.execution.profiles import (
+            _resolve_profile,
+            load_runner_profiles,
+        )
         profiles_path = arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES")
         profiles = load_runner_profiles(profiles_path)
         profile_payload = _resolve_profile(profiles, arguments["profile"])
@@ -648,7 +551,9 @@ def _handle_suggest_resources(arguments: dict[str, Any]) -> dict[str, Any]:
         else:
             hw = get_local_resource_budget()
     if not hw:
-        from chemtools.core.runner import get_local_resource_budget
+        from chemtools.execution.resource_inspection import (
+            get_local_resource_budget,
+        )
         hw = get_local_resource_budget()
     return suggest_resources(input_file=arguments["input_file"], hw_specs=hw)
 

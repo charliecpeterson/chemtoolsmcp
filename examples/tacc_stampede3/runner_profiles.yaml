@@ -45,8 +45,7 @@ profiles:
     programs: &tacc_nwchem_programs
       nwchem:
         launcher_argv: ["ibrun"]
-        executable_argv:
-          - "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem"
+        executable_argv: ["nwchem"]
     execution: &tacc_execution
       shell: "/bin/bash"
     resources:

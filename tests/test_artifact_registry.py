@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pytest
 
-from chemtools.core.artifact_registry import (
+from chemtools.persistence.artifacts import (
     ArtifactPersistenceConflict,
     UnknownRunUidError,
     load_run_artifacts,
@@ -27,8 +27,8 @@ from chemtools.core.artifacts import (
     RunArtifacts,
     StepRef,
 )
-from chemtools.core.registry_db import connect_registry
-from chemtools.core.run_registry import (
+from chemtools.persistence.sqlite import connect_registry
+from chemtools.persistence.runs import (
     get_run_summary,
     list_runs,
     register_run,

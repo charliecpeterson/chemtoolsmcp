@@ -1,0 +1,1931 @@
+{
+  "schema": "chemtools.reference-corpus/1",
+  "description": "Pinned ORCA 6.1.1 serial experiments awaiting broader scientific review.",
+  "cases": [
+    {
+      "id": "orca.h2_hf_serial_smoke",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/00_h2_serial_smoke/h2.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "ORCA 6.1 manual quick-start example",
+          "attribution": "FACCTs GmbH",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 45,
+          "sha256": "802d7216c242617df23ee15d08379bd51e6c4fed5b44df280893078353345342"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/00_h2_serial_smoke/h2.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 40373,
+          "sha256": "d70dcdb80a18ba5c3119fa4e61c796534b6b12dc1083fdd195d112f4f60af1a4"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "scf_cycles": 7,
+        "final_energy_hartree": -1.128893619388
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm the serial runtime and basic ORCA output contract before promotion."
+      },
+      "tags": ["serial", "hf", "single-point", "installation-smoke"]
+    },
+    {
+      "id": "orca.water_r2scan3c_opt_freq",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/01_water_r2scan3c_opt_freq/water.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 114,
+          "sha256": "9237c4282a1dbaa0b4719925ed753f7bd1cdb580aca8f363e9080f5ce2c6ceef"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/01_water_r2scan3c_opt_freq/water.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 155703,
+          "sha256": "52005367134dffa51f73aca977cb6841b2de1d7f1ae32f4c262d19af78bcd58a"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "optimization_cycles": 4,
+        "final_energy_hartree": -76.418938720848,
+        "vibrational_frequencies_cm1": [1653.27, 3813.56, 3932.69],
+        "imaginary_mode_count": 0
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review optimization, frequency, thermochemistry, and informational-warning evidence before promotion."
+      },
+      "tags": ["r2scan-3c", "optimization", "frequency", "thermochemistry"]
+    },
+    {
+      "id": "orca.o2_triplet_pbe0",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "methodology_warning"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/02_o2_triplet_pbe0/o2.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 56,
+          "sha256": "03e388bee1ae677d8343d3049f534fd14564f6b04ce2640d7207e48e91234035"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/02_o2_triplet_pbe0/o2.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 52030,
+          "sha256": "c8f196b97dbe7c549aa616ec5fc1a0d5fb7d7c9118b79e1700aea7914c41b7f1"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "wavefunction_type": "UHF",
+        "multiplicity": 3,
+        "final_energy_hartree": -150.051687658399,
+        "spin_expectation_s2": 2.007223,
+        "ideal_spin_s2": 2.0
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review unrestricted-wavefunction, spin, and normal-warning interpretation before promotion."
+      },
+      "tags": ["open-shell", "triplet", "pbe0", "spin"]
+    },
+    {
+      "id": "orca.formaldehyde_wb97x_d4",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/03_formaldehyde_wb97x_d4/formaldehyde.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 141,
+          "sha256": "b1c08309d97362367ffa5451f10991d5e994834bac6abe833174b2c2d989a385"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/03_formaldehyde_wb97x_d4/formaldehyde.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 52371,
+          "sha256": "eddd7271759dac3aa284e63c29d587aff7796e2f15a1d0813f74fc252ad51018"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "wavefunction_type": "RHF",
+        "multiplicity": 1,
+        "scf_cycles": 10,
+        "final_energy_hartree": -114.442230839406
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the small-organic range-separated-hybrid parser evidence before promotion."
+      },
+      "tags": ["organic", "wb97x-d4", "range-separated-hybrid", "single-point"]
+    },
+    {
+      "id": "orca.cucl4_doublet_pbe0",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/04_cucl4_doublet_pbe0/cucl4.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 144,
+          "sha256": "715bb0cd975b3c2a4958624d2c4378c262fd003162e6028dad4b5619292036d1"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/04_cucl4_doublet_pbe0/cucl4.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 66848,
+          "sha256": "5d0a12ef66938e80e03fcc123dac37cf2fb3be49938e6b279793178ed350dba2"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "wavefunction_type": "UHF",
+        "multiplicity": 2,
+        "scf_cycles": 15,
+        "final_energy_hartree": -3480.711549601409,
+        "spin_expectation_s2": 0.753458,
+        "ideal_spin_s2": 0.75
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the idealized square-planar geometry, doublet state, basis, SCF, and spin evidence before promotion."
+      },
+      "tags": ["transition-metal", "copper", "open-shell", "doublet", "pbe0", "single-point"]
+    },
+    {
+      "id": "orca.uranyl_singlet_pbe0_zora",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/05_uranyl_singlet_pbe0_zora/uranyl.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 177,
+          "sha256": "969e844dbcef5c64ac5e7e57541d727ed3f690156b1785f2eeadf87f6d7497fc"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/05_uranyl_singlet_pbe0_zora/uranyl.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 67814,
+          "sha256": "c8ddb1d164335a4d75ae48b014fce1b21ab5fa0deb58be6899ee9c729a72fefc"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "wavefunction_type": "RHF",
+        "multiplicity": 1,
+        "number_of_electrons": 106,
+        "number_of_basis_functions": 223,
+        "relativistic_method": "ZORA(MP)",
+        "basis_sets": ["ZORA-def2-TZVP", "SARC-ZORA-TZVP"],
+        "scf_cycles": 23,
+        "final_energy_hartree": -29564.019120058209
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the idealized linear geometry, singlet state, all-electron ZORA treatment, and element-specific basis assignment before promotion."
+      },
+      "tags": ["f-block", "actinide", "uranium", "zora", "element-specific-basis", "single-point"]
+    },
+    {
+      "id": "orca.cucl4_interrupted_moread_restart",
+      "programs": ["orca"],
+      "status": "regression_failure",
+      "purposes": ["parser_contract", "failure_diagnosis", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "interrupted_input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/06_cucl4_scf_interrupted/cucl4_interrupted.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 177,
+          "sha256": "16d1ba4eeb528bfb00e34925e3995290650dc28376876aba328d5dd5a4ea4081"
+        },
+        {
+          "id": "interrupted_output",
+          "roles": ["primary_output", "failure_evidence"],
+          "kind": "orca.output",
+          "path": "orca/06_cucl4_scf_interrupted/cucl4_interrupted.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 34208,
+          "sha256": "38bb269de34c1f38665fc65d4d81c94bc0a132960bc110bc4a0c308319a06208"
+        },
+        {
+          "id": "restart_orbitals",
+          "roles": ["checkpoint", "wavefunction"],
+          "kind": "orca.wavefunction",
+          "path": "orca/06_cucl4_scf_interrupted/cucl4_interrupted.gbw",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1687572,
+          "sha256": "11601d7c9dee41fea230712230bfbd237bdcd5d37cc0fe06fcef79e47802bbff"
+        },
+        {
+          "id": "restart_input",
+          "roles": ["restart_input"],
+          "kind": "orca.input",
+          "path": "orca/06_cucl4_scf_interrupted/cucl4_restarted.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 194,
+          "sha256": "020b6e112e336fd4c074f79c1b882ec58368e366fe6e175b9970a574bfd153df"
+        },
+        {
+          "id": "restart_output",
+          "roles": ["restart_output", "primary_output"],
+          "kind": "orca.output",
+          "path": "orca/06_cucl4_scf_interrupted/cucl4_restarted.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 65905,
+          "sha256": "9ad9b83708b23bbe77deeddc4e32e03d12b350045ea196796e931fb7f12a6a6b"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "driver_return_code": 0,
+        "initial_outcome": "failed",
+        "error_termination_module": "LEANSCF",
+        "scf_not_converged_cycles": 2,
+        "restart_initial_guess": "MOREAD",
+        "restart_normal_termination": true,
+        "restart_scf_cycles": 12,
+        "restart_final_energy_hartree": -3480.711547683096
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm output-based failure detection and explicit MOREAD recovery from the saved partial orbitals."
+      },
+      "tags": ["transition-metal", "controlled-failure", "scf-nonconvergence", "moread", "restart"]
+    },
+    {
+      "id": "orca.fe_macrocycle_scf_algorithms",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "methodology_warning", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "diis_input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/07_fe_macrocycle_sextet_diis/fe_macrocycle_diis.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; geometry and electronic state ported from nwchem/train/failed/hexaaquairon.nw",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1085,
+          "sha256": "bd2b64e1c1f5cfd355e5998c5d04eb38864fc4ec4edb411efbcd2265760dbf2d"
+        },
+        {
+          "id": "diis_output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/07_fe_macrocycle_sextet_diis/fe_macrocycle_diis.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 111212,
+          "sha256": "d62be21e9ca6eab212c9aec0da8618f7c8d93bc2bb0b13a4d548ad596c62eb65"
+        },
+        {
+          "id": "trah_input",
+          "roles": ["comparison_input"],
+          "kind": "orca.input",
+          "path": "orca/08_fe_macrocycle_sextet_trah/fe_macrocycle_trah.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1083,
+          "sha256": "ad6c9ca90cc6047f7f0e629e1454ee88a6d8ded806c48c82ba642db536c7a3a0"
+        },
+        {
+          "id": "trah_output",
+          "roles": ["comparison_output"],
+          "kind": "orca.output",
+          "path": "orca/08_fe_macrocycle_sextet_trah/fe_macrocycle_trah.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 113084,
+          "sha256": "6ec6ae2fc62a30ec6cd9aca89a931170d2db7b700d0e8ffdf22c4c1762581728"
+        },
+        {
+          "id": "staged_bp86_sv_input",
+          "roles": ["comparison_input"],
+          "kind": "orca.input",
+          "path": "orca/09_fe_macrocycle_staged_recovery/fe_macrocycle_bp86_sv.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; geometry and electronic state ported from nwchem/train/failed/hexaaquairon.nw",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1079,
+          "sha256": "aa37051cf2bfc5e9bc94f05c39def06b052605fabcbd38cacdd7cbed750a0ae1"
+        },
+        {
+          "id": "staged_bp86_sv_output",
+          "roles": ["comparison_output"],
+          "kind": "orca.output",
+          "path": "orca/09_fe_macrocycle_staged_recovery/fe_macrocycle_bp86_sv.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 92505,
+          "sha256": "76162b27ce320c7555ec3a9eb84973eb43560883420404cbe7dad6a99be5b326"
+        },
+        {
+          "id": "staged_bp86_def2svp_input",
+          "roles": ["comparison_input"],
+          "kind": "orca.input",
+          "path": "orca/09_fe_macrocycle_staged_recovery/fe_macrocycle_bp86_def2svp.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1134,
+          "sha256": "bc1e1be8818fa141a5b248f34f283c81ad04c7cceb86db4deb40c29126c41dc1"
+        },
+        {
+          "id": "staged_bp86_def2svp_output",
+          "roles": ["comparison_output"],
+          "kind": "orca.output",
+          "path": "orca/09_fe_macrocycle_staged_recovery/fe_macrocycle_bp86_def2svp.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 90271,
+          "sha256": "874d1347d3a73b930098e78f55cbc695e8921572f921d5ed17876a8efb7ff7d2"
+        },
+        {
+          "id": "staged_b3lyp_input",
+          "roles": ["comparison_input"],
+          "kind": "orca.input",
+          "path": "orca/09_fe_macrocycle_staged_recovery/fe_macrocycle_b3lyp_staged.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1132,
+          "sha256": "caf2c083687fed42e9579ff327f9f0832c8bbf89acd6f5b4b6fbfbf616d25168"
+        },
+        {
+          "id": "staged_b3lyp_output",
+          "roles": ["comparison_output"],
+          "kind": "orca.output",
+          "path": "orca/09_fe_macrocycle_staged_recovery/fe_macrocycle_b3lyp_staged.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 106271,
+          "sha256": "e3c61fd14ce96a8065a0d883f093664c9d691446992174f7cd25bb63efabb2ce"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "multiplicity": 6,
+        "number_of_electrons": 155,
+        "number_of_basis_functions": 353,
+        "diis_scf_cycles": 58,
+        "diis_final_energy_hartree": -2092.531209401490,
+        "diis_spin_expectation_s2": 8.992045,
+        "trah_scf_cycles": 89,
+        "trah_final_energy_hartree": -2092.517247358560,
+        "trah_spin_expectation_s2": 10.001358,
+        "trah_minus_diis_energy_hartree": 0.013962042930,
+        "staged_bp86_sv_basis_functions": 211,
+        "staged_bp86_sv_scf_cycles": 91,
+        "staged_bp86_sv_final_energy_hartree": -2093.081865106228,
+        "staged_bp86_sv_spin_expectation_s2": 8.901737,
+        "staged_bp86_def2svp_initial_guess": "MOREAD",
+        "staged_bp86_def2svp_scf_cycles": 68,
+        "staged_bp86_def2svp_final_energy_hartree": -2093.361414317764,
+        "staged_b3lyp_initial_guess": "MOREAD",
+        "staged_b3lyp_scf_cycles": 21,
+        "staged_b3lyp_final_energy_hartree": -2092.531206645561,
+        "staged_b3lyp_spin_expectation_s2": 8.992117,
+        "staged_minus_diis_energy_hartree": 0.000002755929
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the difficult sextet model, distinct fresh-guess solutions, and three-stage BP86-to-B3LYP recovery before turning any path into automated advice."
+      },
+      "tags": ["transition-metal", "iron", "open-shell", "sextet", "difficult-scf", "trah", "moread", "basis-projection", "multiple-solutions"]
+    },
+    {
+      "id": "orca.water_dlpno_ccsdt_tightpno",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/10_water_dlpno_ccsdt_tightpno/water_dlpno_ccsdt.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; geometry from orca.water_r2scan3c_opt_freq and method syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 183,
+          "sha256": "462781692c94ee6d402cd780f4a2c4934bb9c47d29f64635ef7a5b5eb23287c5"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/10_water_dlpno_ccsdt_tightpno/water_dlpno_ccsdt.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 82030,
+          "sha256": "0c5c3cf7a90739d554dcd08570ad11fe7497c4850d9f36debc4278da469a86bb"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "wavefunction_type": "RHF",
+        "number_of_electrons": 10,
+        "number_of_basis_functions": 64,
+        "orbital_basis": "cc-pVTZ",
+        "correlation_fitting_basis": "cc-pVTZ/C",
+        "scf_cycles": 11,
+        "coupled_cluster_converged": true,
+        "t1_diagnostic": 0.006583174,
+        "ccsd_energy_hartree": -76.324684273,
+        "triples_correction_hartree": -0.007429935,
+        "ccsd_t_energy_hartree": -76.332114208,
+        "final_energy_hartree": -76.332114208318
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm the closed-shell TightPNO DLPNO-CCSD(T) parser fields and example recipe before scientific promotion."
+      },
+      "tags": ["water", "closed-shell", "post-hf", "dlpno-ccsd(t)", "tightpno", "auxc"]
+    },
+    {
+      "id": "orca.water_pbe0_rijcosx",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/11_water_pbe0_rijcosx/water_pbe0_rijcosx.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; geometry from orca.water_r2scan3c_opt_freq and RIJCOSX syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 158,
+          "sha256": "4db836c00efe9f541f0e7b188b7c5d22502e6c860e395822fa802cfea32f5e89"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/11_water_pbe0_rijcosx/water_pbe0_rijcosx.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 49973,
+          "sha256": "c7a39472c9a5ba1840c8fe96ef456f332b78040b2262752f3cce19a8a3950fc6"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "wavefunction_type": "RHF",
+        "number_of_electrons": 10,
+        "number_of_basis_functions": 43,
+        "orbital_basis": "def2-TZVP",
+        "coulomb_fitting_basis": "def2/J",
+        "ri_approximation": "RIJCOSX",
+        "scf_cycles": 9,
+        "cosx_final_grid_exchange_change_hartree": 0.000035990,
+        "final_energy_hartree": -76.377445212252
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm explicit RIJCOSX activation, AuxJ evidence, final-grid exchange recomputation, and the closed-shell PBE0 example recipe."
+      },
+      "tags": ["water", "closed-shell", "hybrid-dft", "pbe0", "rijcosx", "auxj"]
+    },
+    {
+      "id": "orca.water_pentamer_qmmm",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/12_water_pentamer_qmmm/water_pentamer_qmmm.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; additive QM/MM syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 649,
+          "sha256": "86aec0a15686ed5beeb9d643ef9c6a63ecd61910a9e41c7d6612fd78b16eec66"
+        },
+        {
+          "id": "coordinates",
+          "roles": ["supporting_input"],
+          "kind": "chemical-structure.xyz",
+          "path": "orca/12_water_pentamer_qmmm/water_pentamer.xyz",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 586,
+          "sha256": "1c6e58be9155baf641c1aebad86ddf60b69d181f61611ff6b346db9cd3ee7cd9"
+        },
+        {
+          "id": "forcefield",
+          "roles": ["supporting_input"],
+          "kind": "orca.forcefield",
+          "path": "orca/12_water_pentamer_qmmm/water_pentamer.ORCAFF.prms",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; fixed-charge water parameters",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 1596,
+          "sha256": "2260c8c79e4b6de9b04895c8717c89950b81990384d56cd569491bb071132f3a"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/12_water_pentamer_qmmm/water_pentamer_qmmm.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 56452,
+          "sha256": "e5ab7dc2bcd6c8047e015a10bbc3c4bc98ed4a58f7eb9407cab62d560d77bc83"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "multiscale_model": "QM/MM",
+        "embedding_scheme": "electrostatic",
+        "system_size_atoms": 15,
+        "qm_atoms": 3,
+        "mm_atoms": 12,
+        "link_atoms": 0,
+        "scf_cycles": 11,
+        "mm_energy_hartree": 0.019670168498,
+        "final_energy_hartree": -76.200270108260
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the illustrative fixed-charge water parameters and additive electrostatic-embedding parser evidence before scientific promotion."
+      },
+      "tags": ["water", "qmmm", "electrostatic-embedding", "fixed-charge", "single-point"]
+    },
+    {
+      "id": "orca.nacl6_ionic_crystal_qmmm",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "crystalprep_input",
+          "roles": ["supporting_input"],
+          "kind": "orca.crystalprep.input",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_crystalprep.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; CrystalPrep syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 261,
+          "sha256": "486937340d79ed1beb4d8d03b84e184a34e6321d8b83cf1d6b7499eb1b90aea2"
+        },
+        {
+          "id": "unit_cell",
+          "roles": ["supporting_input"],
+          "kind": "crystallographic-information-file",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_primitive.cif",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "ORCA 6.1 CrystalPrep manual NaCl example",
+          "attribution": "FACCTs GmbH; Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 419,
+          "sha256": "d7be0a5c361c02823ae6c8590c7e64e4a5640327309d7613feb0c81a7f482b38"
+        },
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_ionic_crystal_qmmm.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; NaCl6 core follows the ORCA 6.1 minimal ionic Crystal-QMMM example",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 402,
+          "sha256": "b4e23e684dfffad35af86191746c7fb4e741679886d7f6c7c0bf949ba23753b0"
+        },
+        {
+          "id": "embedded_coordinates",
+          "roles": ["supporting_input"],
+          "kind": "chemical-structure.pdb",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_primitive.cif_10x10x10.pdb",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local CrystalPrep output",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 209034,
+          "sha256": "f1d84460250df6e7ab276d4bac43548a07ee362baa56b3f1b617cb8955e77764"
+        },
+        {
+          "id": "forcefield",
+          "roles": ["supporting_input"],
+          "kind": "orca.forcefield",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_primitive.cif_10x10x10.ORCAFF.prms",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local CrystalPrep and orca_mm output",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 659347,
+          "sha256": "08961a478d93dad9724a62d5a7d702ab6acd0ddb0367a37d49242d3ddd66a883"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_ionic_crystal_qmmm.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 270111,
+          "sha256": "74a999f907249f91689d487105e1996be6140cfd5999c46548681b1214c52b85"
+        },
+        {
+          "id": "converged_charges",
+          "roles": ["restart_artifact"],
+          "kind": "orca.forcefield",
+          "path": "orca/13_nacl_ionic_crystal_qmmm/nacl_ionic_crystal_qmmm.convCharges.ORCAFF.prms",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local ORCA charge-convergence output",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 659347,
+          "sha256": "1d3318e4d3c2b72f699d0f51a0dad7fc21b0159e5d52e4a58c00f0a18dc08bfc"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "multiscale_model": "Ionic-Crystal-QMMM",
+        "embedding_scheme": "electrostatic",
+        "system_size_atoms": 2645,
+        "qm_atoms": 7,
+        "ecp_layer_atoms": 18,
+        "mm_atoms": 2620,
+        "point_charge_count": 2620,
+        "charge_convergence_cycles": 7,
+        "final_maximum_charge_difference": 0.007,
+        "charge_convergence_threshold": 0.010,
+        "final_energy_hartree": -2926.983813378450
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the NaCl6 core selection, 10x10x10 embedding size, SDD cECP boundary, PBE0 method, and charge-convergence behavior before scientific promotion."
+      },
+      "tags": ["nacl", "ionic-crystal-qmmm", "electrostatic-embedding", "cecp", "charge-convergence", "pbe0"]
+    },
+    {
+      "id": "orca.alpha_glycine_molecular_crystal_qmmm",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "unit_cell",
+          "roles": ["supporting_input"],
+          "kind": "crystallographic-information-file",
+          "path": "orca/14_alpha_glycine_mol_crystal_qmmm/alpha_glycine_cod_2310002.cif",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "Crystallography Open Database entry 2310002; DOI 10.1107/S0108767312029005",
+          "attribution": "Mondal, Prathapa, and van Smaalen; COD",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 9405,
+          "sha256": "a2a2363fbcbc7c53044059aa677d0d2e59a4c9b94550f67434b3e639e08c1401"
+        },
+        {
+          "id": "crystalprep_input",
+          "roles": ["supporting_input"],
+          "kind": "orca.crystalprep.input",
+          "path": "orca/14_alpha_glycine_mol_crystal_qmmm/alpha_glycine_crystalprep.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; CrystalPrep syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 285,
+          "sha256": "7d3f712d6736250493fc5e8b71221382275150bae5308b65a29aad54c034c868"
+        },
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/14_alpha_glycine_mol_crystal_qmmm/alpha_glycine_mol_crystal_qmmm.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; molecular Crystal-QMMM syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 274,
+          "sha256": "89966de683fcee55e21764e3c0e564d93bc3e41b49a80b975efe677ebf017617"
+        },
+        {
+          "id": "embedded_coordinates",
+          "roles": ["supporting_input"],
+          "kind": "chemical-structure.xyz",
+          "path": "orca/14_alpha_glycine_mol_crystal_qmmm/alpha_glycine_5x5x5.xyz",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local CrystalPrep output with the required XYZ comment line added",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 49538,
+          "sha256": "d19947d9184807e01fa4e6bbcc6878393d991c2c65e8b13632d4c416a2d200e4"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/14_alpha_glycine_mol_crystal_qmmm/alpha_glycine_mol_crystal_qmmm.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 159146,
+          "sha256": "94118f9cf5cbd6b82354ecfcf689fc81b3e4ba74a022bb23942cf55113534a93"
+        },
+        {
+          "id": "converged_charges",
+          "roles": ["restart_artifact"],
+          "kind": "orca.forcefield",
+          "path": "orca/14_alpha_glycine_mol_crystal_qmmm/alpha_glycine_mol_crystal_qmmm.convCharges.ORCAFF.prms",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local ORCA charge-convergence output",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 231212,
+          "sha256": "6e1323b3b01e25efd814edb254ef4d16d17e31ff1ebbcbcaf45884d1fa4dabf8"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "multiscale_model": "Molecular-Crystal-QMMM",
+        "embedding_scheme": "electrostatic",
+        "system_size_atoms": 1150,
+        "qm_atoms": 10,
+        "mm_atoms": 1140,
+        "point_charge_count": 1140,
+        "charge_convergence_cycles": 4,
+        "final_maximum_charge_difference": 0.002,
+        "charge_convergence_threshold": 0.010,
+        "mm_energy_hartree": 0.347913570073,
+        "final_energy_hartree": -283.517417817239
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the 5x5x5 alpha-glycine embedding, one-molecule PBEh-3c quantum region, charge convergence, and CrystalPrep output corrections before scientific promotion."
+      },
+      "tags": ["alpha-glycine", "molecular-crystal-qmmm", "electrostatic-embedding", "charge-convergence", "pbeh-3c", "xtb"]
+    },
+    {
+      "id": "orca.n2_stretched_casscf_nevpt2",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/15_n2_stretched_casscf_nevpt2/n2_stretched_casscf_nevpt2.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; CASSCF and NEVPT2 syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 179,
+          "sha256": "cb9ce1fffc39be054408cb2211f255f14b97c4cd9512faddaa748612ccfb8572"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/15_n2_stretched_casscf_nevpt2/n2_stretched_casscf_nevpt2.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 67793,
+          "sha256": "714b566e2182249755fb2161e160250e24a631e3e3174c30eb2044dd1b4dbf2c"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "active_electrons": 6,
+        "active_orbitals": 6,
+        "casscf_energy_hartree": -108.7071276998,
+        "nevpt2_correction_hartree": -0.16407720165333,
+        "nevpt2_total_energy_hartree": -108.87120490147032
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the stretched N2 active space and SC-NEVPT2 setup before scientific promotion."
+      },
+      "tags": ["n2", "casscf", "sc-nevpt2", "multireference", "stretched-bond"]
+    },
+    {
+      "id": "orca.formaldehyde_mrci_excited_states",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/16_formaldehyde_mrci/formaldehyde_mrci.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "ORCA 6.1 MRCI tutorial example",
+          "attribution": "FACCTs GmbH; local run by Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 650,
+          "sha256": "4bd6901ffa6b9215a6fbcbda97a7bc51ce9ec288dc37ed17d5cdbc98119d5094"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/16_formaldehyde_mrci/formaldehyde_mrci.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 89743,
+          "sha256": "c366eac67241cb7e1ac1f6d3a0ae68a9da0fd2d5c3a9060fdca8075bbb1930ba"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "ground_state_energy_hartree": -114.113096218,
+        "triplet_excitation_energy_ev": 3.649,
+        "singlet_excitation_energy_ev": 4.041,
+        "reference_weights": [0.9124, 0.9002, 0.8883]
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the tutorial CAS(2,2) reference blocks, MRCI selection thresholds, and Davidson correction before scientific promotion."
+      },
+      "tags": ["formaldehyde", "mrci", "cas-2-2", "excited-states", "davidson"]
+    },
+    {
+      "id": "orca.formaldehyde_pbe0_tddft",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/17_formaldehyde_pbe0_tddft/formaldehyde_pbe0_tddft.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; TD-DFT syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 236,
+          "sha256": "076b687b664a00f5ee4191c487a95b80f558dce8ffb6271d14a2d61d50d85bff"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/17_formaldehyde_pbe0_tddft/formaldehyde_pbe0_tddft.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 76142,
+          "sha256": "100b417bf07aa25461ad2f8139e6d722e51dd74089aad58e0fc708d4aadeae27"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "singlet_root_count": 6,
+        "triplet_root_count": 6,
+        "lowest_singlet_energy_ev": 3.927,
+        "lowest_triplet_energy_ev": 3.185
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the PBE0/def2-TZVP vertical excitation setup and singlet/triplet state assignments before scientific promotion."
+      },
+      "tags": ["formaldehyde", "tddft", "pbe0", "rijcosx", "nto", "excited-states"]
+    },
+    {
+      "id": "orca.formaldehyde_eom_ccsd",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/18_formaldehyde_eom_ccsd/formaldehyde_eom_ccsd.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "ORCA 6.1 EOM-CCSD tutorial example with four requested roots",
+          "attribution": "FACCTs GmbH; local run by Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 197,
+          "sha256": "9ba5465c5380fcae52677e39cfb2532472f56b82ed9c617621211ef420b41491"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/18_formaldehyde_eom_ccsd/formaldehyde_eom_ccsd.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 72653,
+          "sha256": "69ce366c1ef726cd2586b7303b3942b148349b5671f5c51726d1c8e839a00541"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "ground_state_energy_hartree": -114.208715775,
+        "excitation_energies_ev": [4.023, 8.548, 9.356, 9.910],
+        "singles_character_percent": [92.30, 90.42, 92.05, 87.22]
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the cc-pVDZ tutorial basis, four EOM roots, and state assignments before scientific promotion."
+      },
+      "tags": ["formaldehyde", "eom-ccsd", "cc-pvdz", "excited-states"]
+    },
+    {
+      "id": "orca.n2_excited_casscf_caspt2",
+      "programs": ["orca"],
+      "status": "exploratory",
+      "purposes": ["parser_contract", "workflow_recipe", "methodology_warning", "scientific_regression"],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": ["primary_input"],
+          "kind": "orca.input",
+          "path": "orca/19_n2_excited_casscf_caspt2/n2_excited_casscf_caspt2.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; multiroot CASSCF/CASPT2 syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 180,
+          "sha256": "473efba26d60b0856221248e80e2b99a3d01d3210755a134bf2a7a8f4e0d545b"
+        },
+        {
+          "id": "output",
+          "roles": ["primary_output"],
+          "kind": "orca.output",
+          "path": "orca/19_n2_excited_casscf_caspt2/n2_excited_casscf_caspt2.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {"identifier": null, "terms": null},
+          "permission_evidence": null,
+          "size_bytes": 100620,
+          "sha256": "5ca73eb8699affbed0f11be0c80d6bdf9928efd0c12023cee8cab37b71b65d30"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "active_electrons": 6,
+        "active_orbitals": 6,
+        "casscf_excitation_energies_ev": [10.569, 11.358],
+        "caspt2_excitation_energies_ev": [10.008, 10.519],
+        "caspt2_reference_weights": [0.9527201710, 0.9426592446, 0.9341686828],
+        "minimum_denominators_hartree": [0.803090021, 0.184577601, 0.188948668],
+        "active_orbital_constraint_warning_count": 5
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the state-averaged CASSCF(6,6), zero-shift FIC-CASPT2, active-orbital constraint warnings, reference weights, and denominators before scientific promotion."
+      },
+      "tags": ["n2", "casscf", "caspt2", "multireference", "excited-states", "methodology-warning"]
+    },
+    {
+      "id": "orca.formaldehyde_esd_spectra_and_rates",
+      "programs": [
+        "orca"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "parser_contract",
+        "workflow_recipe",
+        "scientific_regression",
+        "methodology_warning"
+      ],
+      "artifacts": [
+        {
+          "id": "formaldehyde_esd_absorption_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_absorption.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 203,
+          "sha256": "e909f357d6ac228cbc4db35d095ca7983a2960c87e039fc1827da3455fc78f65"
+        },
+        {
+          "id": "formaldehyde_esd_absorption_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_absorption.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 79742,
+          "sha256": "d8ebadc7790a2ed1421c276920bc7fae53a0e44110cb08bed5c44e28d9d9680c"
+        },
+        {
+          "id": "formaldehyde_esd_absorption_spectrum",
+          "roles": [
+            "supporting_output"
+          ],
+          "kind": "orca.spectrum",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_absorption.spectrum",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 291708,
+          "sha256": "9d95a8cf066d1dcde3f7b252ce570e94574826f0e8695020eaf5eea138c897d2"
+        },
+        {
+          "id": "formaldehyde_esd_fluorescence_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_fluorescence.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 216,
+          "sha256": "4d5c71e65cf53188c294ba3ee07b148ccf53fa55605ee0d3df6e982e5b86fb91"
+        },
+        {
+          "id": "formaldehyde_esd_fluorescence_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_fluorescence.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 79492,
+          "sha256": "dc57bbccc93e0b0dca1e35238b5ed96eb588001923f6f076dda3f9bd3a03d5f4"
+        },
+        {
+          "id": "formaldehyde_esd_fluorescence_spectrum",
+          "roles": [
+            "supporting_output"
+          ],
+          "kind": "orca.spectrum",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_fluorescence.spectrum",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 454764,
+          "sha256": "983c7ac8d29868f511c5898b22ed59f954a919975ae01c676f0e373043c6b5cb"
+        },
+        {
+          "id": "formaldehyde_esd_gs_hess",
+          "roles": [
+            "workflow_dependency"
+          ],
+          "kind": "orca.hessian",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_gs.hess",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 9379,
+          "sha256": "a746d61ee0e9c71711ac69bec61925687755722590c27aeb50bb708225738ce8"
+        },
+        {
+          "id": "formaldehyde_esd_gs_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_gs.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 192762,
+          "sha256": "a744a66ef5b4077c5035479b589447f00ff9b1c98fc230a176806350635d4e01"
+        },
+        {
+          "id": "formaldehyde_esd_gs_xyz",
+          "roles": [
+            "workflow_dependency"
+          ],
+          "kind": "chemical/x-xyz",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_gs.xyz",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 368,
+          "sha256": "3fc8dad2cfd932503210526d1290ce9261cf3cfb72b8e59191aa87ffe365122f"
+        },
+        {
+          "id": "formaldehyde_esd_gs_opt_freq_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_gs_opt_freq.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 193,
+          "sha256": "423df93a1c55087dcce8acd84e9c4ca9f2f958e619a8f0aa4acfb703fcdc4646"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root1_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root1.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 295,
+          "sha256": "658a628d418806d02d0fbeac07c1a664450ba30637337a11174535d36c526b8d"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root1_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root1.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 176930,
+          "sha256": "60c75a87c721517668218892e254a9407f4dd951b91151980105ae5aed2b6d3d"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root1_spectrum",
+          "roles": [
+            "supporting_output"
+          ],
+          "kind": "orca.spectrum",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root1.spectrum",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 359788,
+          "sha256": "8d1b208924b78c39114ba5223187e1fbf24673478c5d6180445330ef3681c365"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root2_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root2.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 295,
+          "sha256": "4d7aebd8f04f786c040bff32d7ba91293a62b0e109b15ad408f28f1195160f2d"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root2_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root2.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 176937,
+          "sha256": "b6ac792b3f2aee5b916b09c30074d37a4561c91c8c2bcef09f771c531972cd54"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root2_spectrum",
+          "roles": [
+            "supporting_output"
+          ],
+          "kind": "orca.spectrum",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root2.spectrum",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 365986,
+          "sha256": "a68f52f20d7802315ae9f333369239989ed5929c048938d634a28523ef263d42"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root3_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root3.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 295,
+          "sha256": "482d7ff222f7e4593bcb678434684bc9ac13375e077202ff7957290922c1fd16"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root3_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root3.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 176923,
+          "sha256": "6a4e07d144f14baa356220e8de11cca5275ba248e0c94042567b7f2a6fa4914d"
+        },
+        {
+          "id": "formaldehyde_esd_phosphorescence_root3_spectrum",
+          "roles": [
+            "supporting_output"
+          ],
+          "kind": "orca.spectrum",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_phosphorescence_root3.spectrum",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 366048,
+          "sha256": "f8c64d317e9a7b582f278a3108ac6b7d6d0839f04e6bbee55382aee4ce989961"
+        },
+        {
+          "id": "formaldehyde_esd_resonance_raman_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_resonance_raman.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 208,
+          "sha256": "9ad990edad97ac34d387c8d365587c8ea725746160a5fc77f76267e055554503"
+        },
+        {
+          "id": "formaldehyde_esd_resonance_raman_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_resonance_raman.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 80219,
+          "sha256": "e25d4519085a6f552cb10a95d70bd187b0c25608cf565f1a6b822a5681ab143e"
+        },
+        {
+          "id": "formaldehyde_esd_resonance_raman_spectrum_30845",
+          "roles": [
+            "supporting_output"
+          ],
+          "kind": "orca.spectrum",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_resonance_raman.spectrum.30845",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 1772654,
+          "sha256": "3018fa2b44539a0de31d532ff21b3520bedbfc147517f8567792a1b51401ba54"
+        },
+        {
+          "id": "formaldehyde_esd_t1_hess",
+          "roles": [
+            "workflow_dependency"
+          ],
+          "kind": "orca.hessian",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_t1.hess",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 9379,
+          "sha256": "255781fc5a9f734fe3cf1227b79498c8a1b7ae42cd22ae82b79c6559180f75b1"
+        },
+        {
+          "id": "formaldehyde_esd_t1_xyz",
+          "roles": [
+            "workflow_dependency"
+          ],
+          "kind": "chemical/x-xyz",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_t1.xyz",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 387,
+          "sha256": "955bf3ae8f44a921e31bdb877388448cf245c2ea6392aa2524e80390d60642e3"
+        },
+        {
+          "id": "formaldehyde_esd_t1_displaced_opt_freq_inp",
+          "roles": [
+            "workflow_input"
+          ],
+          "kind": "orca.input",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_t1_displaced_opt_freq.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-experiment; ORCA_ESD syntax from the ORCA 6.1 manual",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 253,
+          "sha256": "bbb54a2a5990d07a3474f18da4a95a1ec2857f289e8a0634774172843ff95c11"
+        },
+        {
+          "id": "formaldehyde_esd_t1_displaced_opt_freq_out",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "orca.output",
+          "path": "orca/20_formaldehyde_esd/formaldehyde_esd_t1_displaced_opt_freq.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "restricted",
+          "source": "local-experiment",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 329545,
+          "sha256": "ba8ffcd2b7e7f069911644acb94e7caf5bc00c613356784e2c98a155cb01f9fe"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "program_version": "6.1.1",
+        "normal_termination": true,
+        "ground_state_energy_hartree": -114.284008969306,
+        "triplet_minimum_energy_hartree": -114.177681338356,
+        "triplet_frequencies_cm1": [
+          769.77,
+          844.21,
+          1247.62,
+          1453.58,
+          2947.98,
+          3062.84
+        ],
+        "adiabatic_triplet_gap_cm1": 23336.22,
+        "absorption_zero_zero_cm1": 30844.79,
+        "absorption_peak_nm": 312.068516,
+        "fluorescence_peak_nm": 337.335615,
+        "fluorescence_rate_s1": 183023.9,
+        "resonance_raman_laser_cm1": 30844.79,
+        "resonance_raman_peak_cm1": 2399.902344,
+        "phosphorescence_zero_zero_cm1": 22615.33,
+        "phosphorescence_sublevel_rates_s1": [
+          1.247343,
+          0.565232,
+          48.10585
+        ],
+        "phosphorescence_total_rate_s1": 49.918425,
+        "dominant_phosphorescence_peak_nm": 442.178949
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Review the PBE0/def2-SVP states, harmonic vertical-gradient treatment, displaced T1 minimum, SOC sublevel assignments, linewidth dependence, and radiative-only rates before scientific promotion."
+      },
+      "tags": [
+        "formaldehyde",
+        "orca-esd",
+        "vibronic-spectrum",
+        "absorption",
+        "fluorescence",
+        "phosphorescence",
+        "resonance-raman",
+        "radiative-rate",
+        "herzberg-teller"
+      ]
+    }
+  ]
+}

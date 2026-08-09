@@ -1,4 +1,4 @@
-"""Legacy process, scheduler, file, and NWChem progress inspection.
+"""Legacy process, scheduler, file, and optional output inspection.
 
 Typed execution owns new launch status. These functions preserve the version 1
 profile behavior used for unowned identifiers and direct Python callers.
@@ -14,9 +14,9 @@ import shlex
 import subprocess
 from typing import Any
 
-from chemtools.core.common import detect_program, read_text
+from chemtools.core.common import read_text
 from chemtools.core.monitoring import watch_run_status
-from chemtools.execution.legacy_profiles import (
+from chemtools.execution.profiles import (
     _format_template,
     _resolve_profile,
     load_runner_profiles,
@@ -35,6 +35,7 @@ def inspect_run_status(
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
+    output_status_reader: Any = None,
     progress_summary_fn: Any = None,
 ) -> dict[str, Any]:
     output_info = _file_info(output_path)
@@ -96,40 +97,21 @@ def inspect_run_status(
     compact_summary = None
     progress_summary = None
     task_preview = None
-    if output_info["exists"]:
+    if output_info["exists"] and output_status_reader is not None:
         try:
             contents = read_text(output_info["path"])
-            if detect_program(contents) == "nwchem":
-                from chemtools.programs.nwchem.strategy.progress import (
-                    build_progress_summary,
-                    compact_program_summary,
-                    load_input_summary,
-                    parse_progress_state,
-                )
-
-                if input_path:
-                    input_summary = load_input_summary(
-                        input_path,
-                        raw_text=input_raw_text,
-                    )
-                parsed_output = parse_progress_state(
-                    contents,
-                    output_info["path"],
-                )
-                build_progress = (
-                    progress_summary_fn
-                    or build_progress_summary
-                )
-                progress_summary = build_progress(
-                    contents,
-                    parsed_output,
-                    input_summary=input_summary,
-                )
-                compact_summary = compact_program_summary(
-                    parsed_output,
-                    progress_summary=progress_summary,
-                )
-                task_preview = parsed_output.get("generic_tasks", [])[:5]
+            output_status = output_status_reader(
+                contents,
+                output_info["path"],
+                input_path=input_path,
+                input_raw_text=input_raw_text,
+                progress_summary_fn=progress_summary_fn,
+            )
+            input_summary = output_status.get("input_summary")
+            parsed_output = output_status.get("parsed_output")
+            progress_summary = output_status.get("progress_summary")
+            compact_summary = output_status.get("compact_summary")
+            task_preview = output_status.get("task_preview")
         except Exception as exc:  # pragma: no cover
             parsed_output = {
                 "error": str(exc),
@@ -205,6 +187,7 @@ def watch_run(
     max_polls: int | None = None,
     history_limit: int = 8,
     stall_timeout_seconds: float | None = None,
+    output_status_reader: Any = None,
     progress_summary_fn: Any = None,
 ) -> dict[str, Any]:
     def read_status() -> dict[str, Any]:
@@ -216,6 +199,7 @@ def watch_run(
             profile=profile,
             job_id=job_id,
             profiles_path=profiles_path,
+            output_status_reader=output_status_reader,
             progress_summary_fn=progress_summary_fn,
         )
 

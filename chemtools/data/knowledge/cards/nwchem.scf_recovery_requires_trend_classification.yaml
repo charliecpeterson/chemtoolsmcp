@@ -1,0 +1,24 @@
+schema_version: chemtools.knowledge-card/1
+id: nwchem.scf_recovery_requires_trend_classification
+programs: [nwchem]
+workflows: [scf_recovery]
+kind: interpretation
+status: draft
+confidence: high
+applies_when:
+  scf_status: failed_or_questionable
+  iteration_history: available
+claim: >-
+  Classify the recent energy and density-error trend before selecting an SCF
+  recovery. A modest maxiter increase fits slow improvement or near
+  convergence, while an oscillatory, stalled, or wrong-state trajectory needs
+  a strategy or state change.
+check:
+  evidence: recent_energy_and_density_error_history
+  expected: trend_classified_before_recovery
+failure:
+  severity: warning
+  action: Do not prescribe more iterations until the trend and state are checked.
+sources:
+  - "notes/chem-agent-package-knowledge-audit.md#scf-recovery"
+tests: []

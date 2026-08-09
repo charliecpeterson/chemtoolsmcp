@@ -9,12 +9,9 @@ from typing import Any
 from chemtools.application.execution import ExecutionService
 from chemtools.application.legacy_execution import apply_legacy_launch_result
 from chemtools.core.execution import RenderedSlurmScript
-from chemtools.core.runner import (
-    archive_paths,
-    load_runner_profiles,
-    render_calculation_run,
-)
-from chemtools.execution.legacy_profiles import resource_request
+from chemtools.execution.legacy_archive import archive_paths
+from chemtools.execution.legacy_runner import render_calculation_run
+from chemtools.execution.profiles import load_runner_profiles, resource_request
 from chemtools.programs.qmcpack.launch import (
     adapt_legacy_qmcpack_profile,
     build_qmcpack_launch_plan,

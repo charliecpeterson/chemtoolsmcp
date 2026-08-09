@@ -2,7 +2,9 @@
 
 `chemtools-science.yml` defines the companion interpreter used by fixed
 Chemtools science operations. It keeps PySCF, RDKit, Open Babel, Basis Set
-Exchange, and HDF5 inspection support out of the MCP server environment.
+Exchange, QMCPACK HDF5 inspection, and Orbitron out of the MCP server
+environment. DIRAC HDF5 reading is a separate in-process feature installed
+with the `dirac` package extra.
 Install Orbitron's Python bridge explicitly after creating the environment so
 its active-development version is deliberate.
 

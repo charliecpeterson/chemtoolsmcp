@@ -1576,7 +1576,12 @@ Progress:
       aliases, and move Molcas, DIRAC, and GRASP scheduler wrappers to the
       program-neutral imports.
 - [x] Split the oversized legacy runner by responsibility. Move version 1
-      profile loading and default merging into `execution/legacy_profiles.py`;
+      profile loading and default merging into `execution/profiles.py`, retain
+      `execution/legacy_profiles.py` as an exact compatibility import path;
+      move compatibility-launch output archival into
+      `execution/legacy_archive.py`;
+      move local and scheduler hardware discovery into
+      `execution/resource_inspection.py`;
       move unowned PID, scheduler, file, tail, cancellation, and optional
       NWChem progress inspection into `execution/legacy_status.py`; and keep
       `core/runner.py` as the direct compatibility import path.
@@ -1987,7 +1992,8 @@ Progress:
       The HCN transition-state reference agrees at 9 modes and one imaginary
       mode. Missing pressure or imaginary-mode displacements are explicit
       uncertainties.
-- [x] Add bounded visualization through `render_with_orbitron`. The MCP
+- [x] Add bounded visualization through `visualize` (formerly
+      `render_with_orbitron`, now a hidden compatibility alias). The MCP
       transport returns JSON provenance followed by a PNG content item under
       the negotiated 2024-11-05 contract. Render at fixed 1024 by 768 pixels
       into an ephemeral sibling directory, validate PNG signature, dimensions,

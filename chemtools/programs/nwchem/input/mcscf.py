@@ -61,8 +61,9 @@ def draft_nwchem_mcscf_input(
     title: str | None = None,
     write_file: bool = False,
 ) -> dict[str, Any]:
-    # Lazy imports — api_strategy is still flat; clean up after Phase 17 split.
-    from chemtools.api_strategy import suggest_nwchem_mcscf_active_space
+    from chemtools.programs.nwchem.strategy.mcscf_active_space import (
+        suggest_nwchem_mcscf_active_space,
+    )
 
     if active_space_mode not in {"minimal", "expanded"}:
         raise ValueError("active_space_mode must be 'minimal' or 'expanded'")
@@ -189,8 +190,9 @@ def draft_nwchem_mcscf_retry_input(
     title: str | None = None,
     write_file: bool = False,
 ) -> dict[str, Any]:
-    # Lazy import — review_nwchem_mcscf_case lives in api_strategy (still flat).
-    from chemtools.api_strategy import review_nwchem_mcscf_case
+    from chemtools.programs.nwchem.strategy.case_review import (
+        review_nwchem_mcscf_case,
+    )
 
     if active_space_mode not in {"auto", "minimal", "expanded"}:
         raise ValueError("active_space_mode must be 'auto', 'minimal', or 'expanded'")

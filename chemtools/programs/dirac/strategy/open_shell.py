@@ -1,14 +1,14 @@
-"""DIRAC open-shell analysis — character verification + quality verdict.
+"""DIRAC open-shell occupation and character analysis.
 
-Builds on the basic ``analyze_dirac_open_shell`` (input AOC vs h5 occupation
-parity) by adding:
+The basic analysis compares input AOC intent with checkpoint occupations. The
+quality analysis adds:
 - MO character classification via VECPOP / Mulliken-per-MO blocks
 - Cross-check observed open-shell j-character against an expected character
   (e.g. ``f 5/2`` + ``f 7/2`` for actinide 5f^n) — flags character mismatches
 - Energy-clustering check (open shell should sit between closed and virtual)
 - Concrete swap suggestions when the open shell holds wrong-character MOs
 
-Used by the MCP tool ``analyze_dirac_open_shell_quality``.
+MCP handlers only translate arguments into these strategy calls.
 """
 
 from __future__ import annotations
@@ -16,6 +16,11 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.core.issues import IssueCollector
+from chemtools.programs.dirac.binary import (
+    H5PY_AVAILABLE,
+    read_orbital_summary,
+)
+from chemtools.programs.dirac.parse import parse_inp
 from chemtools.programs.dirac.parse.vecpop import (
     parse_vecpop,
     classify_mo_character,
@@ -32,6 +37,66 @@ _EXPECTED_CHARACTER: dict[str, list[str]] = {
     "valence_p":  ["p 1/2", "p 3/2"],
     "single_unpaired_s": ["s 1/2"],
 }
+
+
+def analyze_open_shell_occupations(
+    input_file: str,
+    h5_file: str,
+) -> dict[str, Any]:
+    """Compare the requested AOC setup with checkpoint occupations."""
+    parsed_input = parse_inp(input_file)
+    if not H5PY_AVAILABLE:
+        return {
+            "verdict": "h5py_missing",
+            "message": (
+                "h5py is required to cross-check open-shell occupations. "
+                "Install via `pip install chemtools[dirac]`."
+            ),
+            "input_summary": {
+                "has_open_shell": parsed_input.get("has_open_shell"),
+                "has_closed_shell": parsed_input.get("has_closed_shell"),
+            },
+        }
+
+    orbitals = read_orbital_summary(h5_file)
+    open_orbitals = [
+        orbital
+        for orbital in orbitals
+        if orbital["shell_class"] == "open"
+    ]
+    input_has_open_shell = parsed_input.get("has_open_shell", False)
+    checkpoint_has_open_shell = bool(open_orbitals)
+    if input_has_open_shell and checkpoint_has_open_shell:
+        verdict = "consistent"
+    elif input_has_open_shell:
+        verdict = "open_shell_requested_but_converged_to_closed"
+    elif checkpoint_has_open_shell:
+        verdict = "unexpected_fractional_occupation"
+    else:
+        verdict = "no_open_shell"
+
+    by_fermion_symmetry: dict[int, list[dict[str, Any]]] = {}
+    for orbital in open_orbitals:
+        by_fermion_symmetry.setdefault(
+            orbital["fermion_symmetry"],
+            [],
+        ).append({
+            "irrep": orbital["irrep"],
+            "positive_energy_index": orbital["positive_energy_index"],
+            "energy_hartree": orbital["energy_hartree"],
+            "occupation": orbital["occupation"],
+        })
+
+    return {
+        "verdict": verdict,
+        "input_has_open_shell": input_has_open_shell,
+        "h5_has_fractional_occupation": checkpoint_has_open_shell,
+        "open_shell_n_orbitals": len(open_orbitals),
+        "open_shell_total_occupation_kramers": sum(
+            orbital["occupation"] for orbital in open_orbitals
+        ),
+        "open_shell_by_fermion_symmetry": by_fermion_symmetry,
+    }
 
 
 def analyze_open_shell_quality(

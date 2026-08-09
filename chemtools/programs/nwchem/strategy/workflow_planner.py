@@ -30,6 +30,9 @@ from typing import Any
 from chemtools.core.common import read_text
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
 from chemtools.programs.nwchem.strategy.diagnose import summarize_nwchem_output
+from chemtools.programs.nwchem.scf_quality import (
+    find_converged_scf_excursion,
+)
 from chemtools.programs.nwchem.input._utils import _summarize_prepared_artifact
 
 # Drafters used by prepare_nwchem_next_step and plan_nwchem_workflow.
@@ -101,6 +104,10 @@ def prepare_nwchem_next_step(
     selected_workflow = "manual_review"
     stage = diagnosis["stage"]
     trajectory = diagnosis.get("trajectory") or {}
+    converged_excursion = find_converged_scf_excursion(
+        diagnosis.get("scf") or {}
+    )
+    trigger_evidence: dict[str, Any] = {}
 
     if (
         stage == "optimization"
@@ -224,6 +231,83 @@ def prepare_nwchem_next_step(
                 write_file=write_files,
             )
             artifact_order.append("scf_stabilization")
+    elif (
+        failure_class == "no_clear_failure_detected"
+        and converged_excursion is not None
+    ):
+        selected_workflow = "scf_stability_hardening"
+        multi_stage_input = False
+        if input_path:
+            input_summary = inspect_nwchem_input(input_path)
+            multi_stage_input = (
+                len(input_summary.get("task_states") or []) > 1
+                or any(
+                    block.get("fragment_inputs")
+                    for block in input_summary.get("start_blocks") or []
+                )
+            )
+        prepared_status = (
+            "input_required"
+            if not input_path
+            else "manual_edit_required"
+            if multi_stage_input
+            else "prepared"
+        )
+        trigger_evidence = {
+            "scf_instability": converged_excursion,
+            "multi_stage_input": multi_stage_input,
+            "strategy_options": [
+                {
+                    "name": "reuse_converged_vectors_with_damping",
+                    "status": prepared_status,
+                    "rationale": (
+                        "The completed run already produced target-basis "
+                        "orbitals, so reusing them is the shortest controlled "
+                        "repeat when the checkpoint is available."
+                    ),
+                },
+                {
+                    "name": "smaller_basis_projection",
+                    "status": "manual_fallback",
+                    "rationale": (
+                        "Use a reviewed smaller-basis seed when no trustworthy "
+                        "target-basis checkpoint exists. Inspect that seed's "
+                        "own SCF path before projecting it."
+                    ),
+                },
+            ],
+        }
+        notes.extend([
+            "completed_result_does_not_require_automatic_recovery",
+            "current_converged_vectors_preferred_for_controlled_repeat",
+            "smaller_basis_seed_requires_independent_scf_review",
+        ])
+        if not input_path:
+            notes.append("input_file_required_for_scf_stability_hardening")
+        elif multi_stage_input:
+            notes.append(
+                "multi_stage_or_fragment_input_requires_manual_hardening_edit"
+            )
+        else:
+            can_auto_prepare = True
+            stabilize_base_name = base_name or f"{Path(input_path).stem}_stable"
+            hardening = draft_nwchem_scf_stabilization_input(
+                input_path=input_path,
+                reference_output_path=output_path,
+                output_dir=output_dir,
+                base_name=stabilize_base_name,
+                write_file=write_files,
+            )
+            hardening["input_text"] = (
+                "\n".join(
+                    line
+                    for line in hardening["input_text"].splitlines()
+                    if not line.lstrip().startswith("#")
+                ).rstrip()
+                + "\n"
+            )
+            prepared_artifacts["scf_stability_hardening"] = hardening
+            artifact_order.append("scf_stability_hardening")
     elif failure_class == "no_clear_failure_detected":
         selected_workflow = "verification_only"
         notes.append("no_automatic_repair_needed")
@@ -243,6 +327,7 @@ def prepare_nwchem_next_step(
         "prepared_artifact_summaries": {
             name: _summarize_prepared_artifact(name, payload) for name, payload in prepared_artifacts.items()
         },
+        "trigger_evidence": trigger_evidence,
         "notes": notes,
         "summary_text": summary["summary_text"],
         "summary_bullets": summary["summary_bullets"],

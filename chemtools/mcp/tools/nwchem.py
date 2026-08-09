@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
 from chemtools.mcp.tools._nwchem_base import (  # noqa: F401
-    _tool,
     _build_next_actions,
     _nwchem_tool_definitions,
     _resolve_plugin_or_error,
@@ -18,6 +17,7 @@ from chemtools.mcp.tools._nwchem_base import (  # noqa: F401
     basis_library_path,
     tool_definitions,
 )
+from chemtools.mcp.tools._nwchem_registration import _tool  # noqa: F401
 
 
 # ---------------------------------------------------------------------------

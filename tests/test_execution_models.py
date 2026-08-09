@@ -12,7 +12,7 @@ from chemtools.core.execution import (
     ResourceRequest,
 )
 from chemtools.execution import LocalExecutor, SlurmExecutor, WorkRootViolation
-from chemtools.core.runner import (
+from chemtools.execution.legacy_runner import (
     load_runner_profiles,
     render_nwchem_run,
 )
@@ -199,7 +199,7 @@ def test_stampede3_hardware_memory_is_not_a_slurm_memory_request(tmp_path):
     assert "#SBATCH --time=00:05:00\n" in rendered.script_text
     assert rendered.command.argv == (
         "ibrun",
-        "/home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem",
+        "nwchem",
         "water.nw",
     )
 

@@ -128,8 +128,11 @@ def preflight_check(
     """
     import re
     from pathlib import Path
-    from chemtools.api_input import lint_nwchem_input
-    from chemtools.core.runner import load_runner_profiles, _resolve_profile
+    from chemtools.programs.nwchem.input.lint_restart import lint_nwchem_input
+    from chemtools.execution.profiles import (
+        _resolve_profile,
+        load_runner_profiles,
+    )
 
     checks: list[dict[str, Any]] = []
 
@@ -173,7 +176,9 @@ def preflight_check(
         node_mem_mb = None
         cpus_per_node = None
         if launcher.get("kind") == "scheduler" and partition:
-            from chemtools.core.runner import query_partition_specs
+            from chemtools.execution.resource_inspection import (
+                query_partition_specs,
+            )
             hw = query_partition_specs(partition, scheduler_type)
             node_mem_mb = hw.get("node_memory_mb")
             cpus_per_node = hw.get("cpus_per_node")

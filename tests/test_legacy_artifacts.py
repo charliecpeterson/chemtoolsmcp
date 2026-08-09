@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 
 from chemtools.core.artifacts import ArtifactRole, RunArtifacts
-from chemtools.core.legacy_artifacts import (
+from chemtools.application.legacy_artifacts import (
     LEGACY_ARTIFACT_PROJECTION_SCHEMA,
     LegacyParentReference,
     project_legacy_run_artifacts,
     project_registered_run_artifacts,
 )
-from chemtools.core.run_registry import register_run
+from chemtools.persistence.runs import register_run
 from chemtools.mcp.catalog import BUILTIN_BACKENDS, load_backend
 
 

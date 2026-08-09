@@ -1,0 +1,19 @@
+%crystalprep
+DoCIF true
+InputCIF "alpha_glycine_cod_2310002_minimal.cif"
+
+DoSuperCell true
+DoSymetricSC true
+DoSymmetryOperations true
+SCDimension "5x5x5"
+
+DoEmbedding true
+DoLayers true
+CellVolumeFraction 0.125
+QCLayers 1
+DoMolecularFragments true
+
+DoMCQMMMInput true
+QCCharge 0
+QCMult 1
+end

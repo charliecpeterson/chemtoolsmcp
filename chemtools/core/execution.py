@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 from types import MappingProxyType
-from typing import Literal, Mapping
+from typing import Any, Literal, Mapping
 from uuid import UUID
 
 from chemtools.core.artifacts import ExpectedArtifact
@@ -343,6 +343,29 @@ class LaunchPlan:
             or self.timeout_seconds <= 0
         ):
             raise ValueError("timeout_seconds must be a positive number")
+
+
+@dataclass(frozen=True)
+class PreparedLaunch:
+    plan: LaunchPlan
+    target: ExecutionTarget
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.plan, LaunchPlan):
+            raise TypeError("plan must use LaunchPlan")
+        if not isinstance(self.target, ExecutionTarget):
+            raise TypeError("target must use ExecutionTarget")
+        if self.plan.program not in self.target.programs:
+            raise ValueError(
+                f"target {self.target.name!r} does not configure "
+                f"program {self.plan.program!r}"
+            )
+        object.__setattr__(
+            self,
+            "metadata",
+            MappingProxyType(dict(self.metadata)),
+        )
 
 
 @dataclass(frozen=True)
@@ -684,6 +707,7 @@ __all__ = [
     "LocalLaunchResult",
     "LocalStatusResult",
     "LocalSynchronousResult",
+    "PreparedLaunch",
     "ProgramInstallation",
     "RecordedCancellation",
     "RecordedLaunch",

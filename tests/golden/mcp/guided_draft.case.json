@@ -1,0 +1,93 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "generic.guided_draft_nwchem",
+  "program": "generic",
+  "fixture": "fixtures/nwchem_h2.nw",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "generic.guided_draft_nwchem",
+    "method": "tools/call",
+    "params": {
+      "name": "draft_input",
+      "arguments": {
+        "program": "nwchem",
+        "atoms": [
+          {
+            "element": "H",
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          {
+            "element": "H",
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.74
+          }
+        ],
+        "charge": 0,
+        "multiplicity": 1,
+        "method": "HF",
+        "basis": "STO-3G",
+        "task": "energy",
+        "title": "H2"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "schema_version",
+    "program",
+    "assessment",
+    "evidence",
+    "uncertainty",
+    "next_actions"
+  ],
+  "expected_payload": {
+    "schema_version": "chemtools.draft-input/1",
+    "program": {
+      "name": "nwchem"
+    },
+    "assessment": {
+      "verdict": {
+        "label": "draft_ready",
+        "confidence": 0.8,
+        "reasons": [
+          "The input was rendered and the configured linter found no errors or warnings."
+        ]
+      }
+    },
+    "evidence": {
+      "request": {
+        "atom_count": 2,
+        "charge": 0,
+        "multiplicity": 1,
+        "method": "HF",
+        "basis": "STO-3G",
+        "task": "energy",
+        "functional": null,
+        "geometry_units": "angstrom",
+        "program_option_keys": []
+      },
+      "rendered_input": {
+        "size_bytes": 404,
+        "line_count": 25
+      },
+      "lint": {
+        "status": "completed",
+        "summary": {
+          "errors": 0,
+          "warnings": 0,
+          "info": 2
+        }
+      }
+    },
+    "uncertainty": [],
+    "next_actions": [
+      {
+        "action": "save_input",
+        "reason": "Save the rendered text to a new input file after review.",
+        "priority": 1
+      }
+    ]
+  }
+}

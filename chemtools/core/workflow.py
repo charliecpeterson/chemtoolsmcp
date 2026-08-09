@@ -5,15 +5,9 @@ reaction-energy chains) follow a common shape: a step list with
 ``depends_on`` edges, optional dynamic step generators, and per-step
 pre / launch / post action stanzas the agent walks.
 
-The engine itself is generic. The *protocol library* (the set of named
-recipes) and the *tool names* the actions reference are
-program-specific. Both NWChem and Molcas can plug their own dicts into
+The engine itself is generic. Protocol recipes and the tool names referenced
+by actions are program-specific. The NWChem provider passes both into
 ``list_protocols`` and ``plan_calculation``.
-
-Migration note: the NWChem-specific entry points in
-``chemtools/programs/nwchem/protocols.py`` are thin wrappers over these
-two functions — passing ``PROTOCOLS`` and the NWChem tool-name mapping.
-A future Molcas protocol library would do the same.
 """
 
 from __future__ import annotations

@@ -7,32 +7,35 @@ Do not edit counts by hand. Regenerate with:
 .venv/bin/python scripts/generate_tool_inventory.py --write-docs
 ```
 
-The JSON companion contains every tool description and input schema.
+The JSON companion contains every tool description, input schema, and advertised output schema.
 
 ## Summary
 
-- Default protocol version: `2024-11-05`
-- Supported protocol versions: `2024-11-05`
-- Public tool definitions: 331
-- Compatibility aliases: 13
+- Default protocol version: `2025-11-25`
+- Supported protocol versions: `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25`, `2026-07-28`
+- Canonical tool definitions: 329
+- Advertised legacy tool definitions: 9
+- Hidden MCP aliases: 15
+- Total callable MCP names: 353
 
 ### Programs
 
 | Program | Tools |
 | --- | ---: |
-| `generic` | 59 |
+| `generic` | 66 |
 | `nwchem` | 101 |
 | `molcas` | 45 |
 | `dirac` | 39 |
 | `grasp` | 53 |
 | `qe` | 20 |
 | `qmcpack` | 14 |
+| `orca` | 0 |
 
 ### Capabilities
 
 | Capability | Tools |
 | --- | ---: |
-| `none` | 259 |
+| `none` | 266 |
 | `registry` | 18 |
 | `runner_profile` | 4 |
 | `executable_or_scheduler` | 5 |
@@ -43,42 +46,78 @@ The JSON companion contains every tool description and input schema.
 
 | Mode | All programs |
 | --- | ---: |
-| `analysis` | 277 |
-| `local` | 328 |
-| `hpc` | 331 |
+| `analysis` | 284 |
+| `local` | 335 |
+| `hpc` | 338 |
 
 ### Program filters
 
-Counts include the 59 generic tools where the active mode permits them.
+Counts include the 66 generic tools where the active mode permits them.
 
 | Program filter | Analysis | Local | HPC |
 | --- | ---: | ---: | ---: |
-| `nwchem` | 142 | 157 | 160 |
-| `molcas` | 94 | 103 | 104 |
-| `dirac` | 89 | 97 | 98 |
-| `grasp` | 84 | 111 | 112 |
-| `qe` | 72 | 78 | 79 |
-| `qmcpack` | 66 | 72 | 73 |
+| `nwchem` | 149 | 164 | 167 |
+| `molcas` | 101 | 110 | 111 |
+| `dirac` | 96 | 104 | 105 |
+| `grasp` | 91 | 118 | 119 |
+| `qe` | 79 | 85 | 86 |
+| `qmcpack` | 73 | 79 | 80 |
+| `orca` | 61 | 65 | 66 |
 
 ## Compatibility aliases
 
 Aliases remain callable but are omitted from `tools/list`.
 
-| Alias | Canonical tool |
-| --- | --- |
-| `check_nwchem_run_status` | `get_nwchem_run_status` |
-| `diagnose_nwchem_output` | `analyze_nwchem_case` |
-| `prepare_nwchem_run` | `launch_nwchem_run` |
-| `render_nwchem_basis_from_input` | `render_nwchem_basis_block` |
-| `render_nwchem_ecp_from_elements` | `render_nwchem_ecp_block` |
-| `resolve_nwchem_basis_setup` | `render_nwchem_basis_setup` |
-| `resolve_nwchem_ecp` | `render_nwchem_ecp_block` |
-| `review_nwchem_case` | `analyze_nwchem_case` |
-| `review_nwchem_followup_outcome` | `compare_nwchem_runs` |
-| `suggest_nwchem_scf_fix_strategy` | `suggest_nwchem_recovery` |
-| `suggest_nwchem_state_recovery_strategy` | `suggest_nwchem_recovery` |
-| `summarize_cube_file` | `parse_cube_file` |
-| `summarize_nwchem_case` | `analyze_nwchem_case` |
+| Alias | Canonical tool | Program | Capability | Contract | Deprecated since | Remove after |
+| --- | --- | --- | --- | --- | --- | --- |
+| `check_nwchem_run_status` | `get_nwchem_run_status` | `nwchem` | `executable` | `unverified` | `0.1.0` |  |
+| `diagnose_nwchem_output` | `analyze_nwchem_case` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `prepare_nwchem_run` | `launch_nwchem_run` | `nwchem` | `executable` | `unverified` | `0.1.0` |  |
+| `render_nwchem_basis_from_input` | `render_nwchem_basis_block` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `render_nwchem_ecp_from_elements` | `render_nwchem_ecp_block` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `render_with_orbitron` | `visualize` | `generic` | `none` | `unverified` | `0.1.0` |  |
+| `resolve_nwchem_basis_setup` | `render_nwchem_basis_setup` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `resolve_nwchem_ecp` | `render_nwchem_ecp_block` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `review_nwchem_case` | `analyze_nwchem_case` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `review_nwchem_followup_outcome` | `compare_nwchem_runs` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `search_knowledge_cards` | `search_knowledge` | `generic` | `none` | `unverified` | `0.1.0` |  |
+| `suggest_nwchem_scf_fix_strategy` | `suggest_nwchem_recovery` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `suggest_nwchem_state_recovery_strategy` | `suggest_nwchem_recovery` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+| `summarize_cube_file` | `parse_cube_file` | `generic` | `none` | `unverified` | `0.1.0` |  |
+| `summarize_nwchem_case` | `analyze_nwchem_case` | `nwchem` | `none` | `unverified` | `0.1.0` |  |
+
+## Advertised legacy tools
+
+| Legacy tool | Canonical replacement | Deprecated since | Remove after |
+| --- | --- | --- | --- |
+| `register_nwchem_run` | `register_run` | `0.1.0` |  |
+| `update_nwchem_run_status` | `update_run_status` | `0.1.0` |  |
+| `list_nwchem_runs` | `list_runs` | `0.1.0` |  |
+| `get_nwchem_run_summary` | `get_run_summary` | `0.1.0` |  |
+| `create_nwchem_campaign` | `create_campaign` | `0.1.0` |  |
+| `get_nwchem_campaign_status` | `get_campaign_status` | `0.1.0` |  |
+| `get_nwchem_campaign_energies` | `get_campaign_energies` | `0.1.0` |  |
+| `create_nwchem_workflow` | `create_workflow` | `0.1.0` |  |
+| `advance_nwchem_workflow` | `advance_workflow` | `0.1.0` |  |
+
+## Entrypoint aliases
+
+| Entrypoint | Replacement | State | Contract | Deprecated since | Remove after |
+| --- | --- | --- | --- | --- | --- |
+| `chemtools-nwchem` | `chemtools` | `callable_deprecated` | `verified_equivalent` | `0.1.0` |  |
+| `chemtools-nwchem-docs` | `chemtools` | `legacy_distinct_surface` | `not_equivalent` | `0.1.0` |  |
+
+## Python import shims
+
+| Import | Replacement | State | Deprecated since | Remove after |
+| --- | --- | --- | --- | --- |
+| `chemtools` | focused chemtools application, execution, integration, persistence, program, and reference modules | `compatibility_deprecated` | `0.1.0` |  |
+| `chemtools.api` | focused chemtools.core and chemtools.programs modules | `compatibility_deprecated` | `0.1.0` |  |
+| `chemtools.api_input` | chemtools.programs.nwchem.input and strategy.workflow_planner | `compatibility_deprecated` | `0.1.0` |  |
+| `chemtools.api_strategy` | chemtools.programs.nwchem.strategy | `compatibility_deprecated` | `0.1.0` |  |
+| `chemtools.mcp.nwchem` | chemtools.mcp.cli and chemtools.mcp.dispatch | `compatibility_deprecated` | `0.1.0` |  |
+| `chemtools.mcp.tools.nwchem` | chemtools.mcp.tools._nwchem_provider and focused nwchem handler modules | `compatibility_deprecated` | `0.1.0` |  |
+| `chemtools.execution.executors` | chemtools.execution | `compatibility_deprecated` | `0.1.0` |  |
 
 ## Tools
 
@@ -123,6 +162,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `compare_pyscf_reference_calculation` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `compare_qmcpack_tmove_locality_shift` | `qmcpack` | `none` | `analysis`, `local`, `hpc` |
 | `compare_qmcpack_tmove_locality_shift_from_input` | `qmcpack` | `none` | `analysis`, `local`, `hpc` |
+| `compare_runs` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `compute_dirac_core_ip` | `dirac` | `none` | `analysis`, `local`, `hpc` |
 | `compute_molcas_active_space_partition` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `compute_molcas_reaction_energy` | `molcas` | `none` | `analysis`, `local`, `hpc` |
@@ -143,6 +183,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `draft_dirac_mol` | `dirac` | `none` | `analysis`, `local`, `hpc` |
 | `draft_dirac_reorder_block` | `dirac` | `none` | `analysis`, `local`, `hpc` |
 | `draft_initial_geometry` | `generic` | `none` | `analysis`, `local`, `hpc` |
+| `draft_input` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `draft_molcas_input` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `draft_nwchem_atom_input` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `draft_nwchem_cube_input` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
@@ -168,6 +209,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `fetch_nist_atomic_reference` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `find_nwchem_examples` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `find_nwchem_restart_assets` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
+| `find_reference_case` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `generate_nwchem_input_batch` | `nwchem` | `executable_or_scheduler` | `local`, `hpc` |
 | `get_campaign_energies` | `generic` | `registry` | `analysis`, `local`, `hpc` |
 | `get_campaign_status` | `generic` | `registry` | `analysis`, `local`, `hpc` |
@@ -228,6 +270,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `launch_nwchem_run` | `nwchem` | `executable` | `local`, `hpc` |
 | `launch_qe_run` | `qe` | `executable` | `local`, `hpc` |
 | `launch_qmcpack_run` | `qmcpack` | `executable` | `local`, `hpc` |
+| `launch_run` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `lint_molcas_input` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `lint_nwchem_input` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `list_dirac_basis_sets` | `dirac` | `none` | `analysis`, `local`, `hpc` |
@@ -245,6 +288,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `lookup_molcas_module` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `lookup_nwchem_block_syntax` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `merge_grasp_radial_wfns` | `grasp` | `none` | `analysis`, `local`, `hpc` |
+| `monitor_run` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `next_versioned_path` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `parse_cube_file` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `parse_dirac_cosci_energies` | `dirac` | `none` | `analysis`, `local`, `hpc` |
@@ -288,6 +332,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `parse_output` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `parse_thermochem` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `parse_trajectory` | `generic` | `none` | `analysis`, `local`, `hpc` |
+| `plan_calculation` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `plan_fblock_atomic_state` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `plan_grasp_dhf_workflow` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `plan_grasp_hf_bootstrap_workflow` | `grasp` | `none` | `analysis`, `local`, `hpc` |
@@ -296,6 +341,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `plan_nwchem_calculation` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `plan_nwchem_workflow` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `plan_qe_qmcpack_conversion` | `qe` | `none` | `analysis`, `local`, `hpc` |
+| `plan_recovery` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `preflight_check` | `generic` | `runner_profile` | `local`, `hpc` |
 | `preflight_molecule_with_rdkit` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `prepare_dirac_atomic_start` | `dirac` | `none` | `analysis`, `local`, `hpc` |
@@ -334,7 +380,6 @@ Aliases remain callable but are omitted from `tools/list`.
 | `render_nwchem_ecp_block` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `render_qe_launch` | `qe` | `runner_profile` | `local`, `hpc` |
 | `render_qmcpack_launch` | `qmcpack` | `runner_profile` | `local`, `hpc` |
-| `render_with_orbitron` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `review_input` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `review_nwchem_input_request` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `review_nwchem_mcscf_case` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
@@ -362,7 +407,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `run_pyscf_single_point` | `generic` | `executable` | `local`, `hpc` |
 | `search_dirac_docs` | `dirac` | `none` | `analysis`, `local`, `hpc` |
 | `search_grasp_docs` | `grasp` | `none` | `analysis`, `local`, `hpc` |
-| `search_knowledge_cards` | `generic` | `none` | `analysis`, `local`, `hpc` |
+| `search_knowledge` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `search_molcas_docs` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `search_nwchem_docs` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `search_nwchem_forum` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
@@ -410,6 +455,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `validate_grasp_fblock_artifacts` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `validate_molcas_caspt2_setup` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `validate_nwchem_tce_setup` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
+| `visualize` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `watch_dirac_run` | `dirac` | `executable` | `local`, `hpc` |
 | `watch_grasp_run` | `grasp` | `executable` | `local`, `hpc` |
 | `watch_molcas_run` | `molcas` | `executable` | `local`, `hpc` |

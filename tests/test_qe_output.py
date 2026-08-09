@@ -733,6 +733,7 @@ def test_guided_inspection_surfaces_input_geometry_concern(tmp_path):
     }
     assert inspected["next_actions"] == [
         {
+            "action": "parse_trajectory",
             "tool": "parse_trajectory",
             "params": {"output_file": str(path.resolve()), "program": "qe"},
             "reason": (
@@ -743,6 +744,7 @@ def test_guided_inspection_surfaces_input_geometry_concern(tmp_path):
             "priority": 1,
         },
         {
+            "action": "review_input",
             "tool": "review_input",
             "params": {
                 "input_file": str(input_path.resolve()),
@@ -785,6 +787,7 @@ def test_guided_inspection_surfaces_cell_change_as_observation(tmp_path):
         },
     }
     assert inspected["next_actions"] == [{
+        "action": "parse_trajectory",
         "tool": "parse_trajectory",
         "params": {"output_file": str(path.resolve()), "program": "qe"},
         "reason": (

@@ -1,10 +1,8 @@
 """NWChem-specific progress summary + slow-phase detection.
 
-Used by ``chemtools.core.runner.inspect_run_status`` when the detected
-output program is NWChem. Originally lived in ``core/runner.py``;
-relocated here in Phase 6c so ``core/`` has no static imports from
-``programs/`` (the runner now lazy-imports this module only when
-``detect_program(contents) == "nwchem"``).
+Used by the NWChem legacy-status adapter and compatibility runner. Originally
+lived in ``core/runner.py``; the execution layer now accepts this logic as an
+injected output reader.
 
 Public surface:
 
@@ -14,8 +12,7 @@ Public surface:
 - ``parse_progress_state(contents, output_path)`` — run ``parse_tasks``
   and return the parsed-output dict the runner stitches into status.
 - ``build_progress_summary(contents, parsed_output, *, input_summary)``
-  — phase + status_line + per-task progress, matching what was
-  ``_build_nwchem_progress_summary`` before Phase 6c.
+  returns phase, status line, and per-task progress.
 - ``compact_program_summary(parsed_output, *, progress_summary)`` —
   five-field roll-up used in the ``compact_summary`` slot.
 """
@@ -75,6 +72,38 @@ def compact_program_summary(
         payload["current_phase"] = progress_summary.get("current_phase")
         payload["status_line"] = progress_summary.get("status_line")
     return payload
+
+
+def inspect_legacy_status_output(
+    contents: str,
+    output_path: str,
+    *,
+    input_path: str | None = None,
+    input_raw_text: str | None = None,
+    progress_summary_fn: Any = None,
+) -> dict[str, Any]:
+    input_summary = (
+        load_input_summary(input_path, raw_text=input_raw_text)
+        if input_path
+        else None
+    )
+    parsed_output = parse_progress_state(contents, output_path)
+    build_progress = progress_summary_fn or build_progress_summary
+    progress_summary = build_progress(
+        contents,
+        parsed_output,
+        input_summary=input_summary,
+    )
+    return {
+        "input_summary": input_summary,
+        "parsed_output": parsed_output,
+        "progress_summary": progress_summary,
+        "compact_summary": compact_program_summary(
+            parsed_output,
+            progress_summary=progress_summary,
+        ),
+        "task_preview": parsed_output.get("generic_tasks", [])[:5],
+    }
 
 
 def _detect_slow_phase(contents: str, input_summary: dict[str, Any] | None) -> dict[str, Any]:

@@ -205,11 +205,9 @@ def create_nwchem_dft_input_from_request(
     write_file: bool = False,
     inline_blocks: bool = True,
 ) -> dict[str, Any]:
-    # Lazy import — review_nwchem_input_request is still in api_input.py
-    # and depends on this module transitively in some code paths. Will become
-    # a direct top-of-file import once review_nwchem_input_request also moves
-    # out of api_input.py (Phase 5h, general drafters).
-    from chemtools.api_input import review_nwchem_input_request
+    from chemtools.programs.nwchem.input.general import (
+        review_nwchem_input_request,
+    )
     review = review_nwchem_input_request(
         formula=formula,
         geometry_path=geometry_path,

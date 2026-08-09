@@ -1,0 +1,14 @@
+! IONIC-CRYSTAL-QMMM PBE0 def2-SVP def2/J RIJCOSX TightSCF SlowConv NoAutoStart
+%qmmm
+  ORCAFFFilename "nacl_primitive.cif_10x10x10.ORCAFF.prms"
+  QMAtoms {1 6 8 11 12 14 62} end
+  ECPLayers 1
+  ECPLayerECP "SDD"
+  Conv_Charges true
+  Conv_Charges_MaxNCycles 20
+  Conv_Charges_ConvThresh 0.01
+  EnforceTotalCharge true
+  Charge_Total 0
+  PrintLevel 2
+end
+* pdbfile -5 1 nacl_primitive.cif_10x10x10.pdb

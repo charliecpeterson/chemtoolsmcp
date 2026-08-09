@@ -43,7 +43,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from chemtools.execution.legacy_profiles import (
+from chemtools.execution.profiles import (
     declared_program_installation,
     expanded_profile_path,
     program_settings,

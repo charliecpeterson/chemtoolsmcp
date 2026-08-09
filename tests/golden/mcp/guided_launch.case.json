@@ -1,0 +1,95 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "generic.guided_prepare_nwchem_launch",
+  "program": "generic",
+  "fixture": "fixtures/nwchem_h2.nw",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "generic.guided_prepare_nwchem_launch",
+    "method": "tools/call",
+    "params": {
+      "name": "launch_run",
+      "arguments": {
+        "program": "nwchem",
+        "input_file": "$FIXTURE",
+        "profile": "local_mpirun",
+        "resources": {
+          "mpi_ranks": 2
+        }
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "schema_version",
+    "status",
+    "program",
+    "input",
+    "assessment",
+    "evidence",
+    "approval",
+    "uncertainty",
+    "next_actions"
+  ],
+  "expected_payload": {
+    "schema_version": "chemtools.launch-run/1",
+    "status": "awaiting_approval",
+    "program": {
+      "name": "nwchem"
+    },
+    "assessment": {
+      "verdict": {
+        "label": "launch_ready_for_approval",
+        "confidence": 0.9
+      }
+    },
+    "evidence": {
+      "input_review": {
+        "verdict": {
+          "label": "review_required"
+        },
+        "lint": {
+          "errors": 0,
+          "warnings": 1,
+          "info": 2
+        }
+      },
+      "plan": {
+        "target": "local_mpirun",
+        "executor": "local",
+        "job_name": "nwchem_h2",
+        "argv": [
+          "mpirun",
+          "-np",
+          "2",
+          "nwchem",
+          "nwchem_h2.nw"
+        ],
+        "environment_keys": [
+          "OMP_NUM_THREADS"
+        ],
+        "resources": {
+          "nodes": 1,
+          "mpi_ranks": 2,
+          "omp_threads": 1,
+          "memory_mb_per_node": null,
+          "walltime": null,
+          "partition": null,
+          "account": null
+        },
+        "scheduler": null
+      },
+      "conflicts": []
+    },
+    "approval": {
+      "required": true
+    },
+    "uncertainty": [],
+    "next_actions": [
+      {
+        "action": "request_launch_approval",
+        "reason": "Show the displayed plan to the user. Call launch_run again with the token only after explicit approval.",
+        "priority": 1
+      }
+    ]
+  }
+}

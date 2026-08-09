@@ -23,17 +23,18 @@ neighbour modules (``plausibility.py`` for the spin-state tables,
 near their primary consumers when ``api_strategy.py`` was split, and
 we re-import them here.
 
-``suggest_basis_set`` itself was moved to ``chemtools.core.basis_advisor``
-in Phase 6b so future programs can reuse it; the re-export below keeps
-existing callers (and the public API) working unchanged.
+``suggest_basis_set`` is owned by ``chemtools.core.basis_advisor``. The
+re-export below preserves its older NWChem import path.
 """
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 
 from chemtools.core.common import ELEMENT_TO_Z
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS
 from chemtools.programs.nwchem.parse.mos import METAL_CENTERS
+from chemtools.programs.nwchem.input.lint_restart import inspect_input
 
 # Constants currently living in sibling strategy modules — see docstring.
 from chemtools.programs.nwchem.strategy.plausibility import (
@@ -269,13 +270,60 @@ def recommend_multiplicity_scan(
     }
 
 
-# ---------------------------------------------------------------------------
-# Basis set advisor
-# ---------------------------------------------------------------------------
+def suggest_multiplicity_scan_from_source(
+    *,
+    input_file: str | None = None,
+    elements: list[str] | None = None,
+    charge: int | None = None,
+    multiplicity: int | None = None,
+    metal_oxidation_states: dict[str, int] | None = None,
+    output_dir: str | None = None,
+) -> dict[str, Any]:
+    """Infer missing input facts and prepare one multiplicity-scan result."""
+    if input_file and (
+        elements is None or charge is None or multiplicity is None
+    ):
+        summary = inspect_input(input_file)
+        if elements is None:
+            elements = summary.get("all_elements") or summary.get("elements")
+        if charge is None:
+            charge = summary.get("charge")
+        if multiplicity is None:
+            multiplicity = summary.get("multiplicity")
+    if not elements:
+        return {
+            "error": (
+                "Provide input_file (to read elements/charge/multiplicity) "
+                "or an explicit elements list."
+            ),
+        }
 
-# Relocated to chemtools.core.basis_advisor (Phase 6b). Re-exported here
-# so existing callers keep working; new code should import from
-# chemtools.core.basis_advisor directly.
+    result = recommend_multiplicity_scan(
+        elements=elements,
+        charge=charge or 0,
+        current_multiplicity=multiplicity,
+        metal_oxidation_states=metal_oxidation_states,
+    )
+    if result["scan_warranted"] and input_file:
+        result["next_actions"] = [{
+            "priority": 1,
+            "tool": "generate_nwchem_input_batch",
+            "params": {
+                "template_input": input_file,
+                "vary": {"mult": result["recommended_multiplicities"]},
+                "output_dir": output_dir or str(Path(input_file).parent),
+            },
+            "reason": (
+                "Generate one input per candidate multiplicity at the same "
+                "geometry and basis; run them, then take the lowest total "
+                "energy."
+            ),
+            "confidence": 0.9,
+        }]
+    return result
+
+
+# Compatibility re-export for the older NWChem import path.
 from chemtools.core.basis_advisor import suggest_basis_set  # noqa: F401
 
 
@@ -521,6 +569,8 @@ def suggest_relativistic_correction(
 
 
 __all__ = [
+    "recommend_multiplicity_scan",
+    "suggest_multiplicity_scan_from_source",
     "suggest_spin_state",
     "suggest_basis_set",
     "suggest_relativistic_correction",

@@ -5,7 +5,7 @@ Protocol) server that gives Claude (and other MCP clients) structured access to
 quantum chemistry programs — parsing outputs, drafting inputs, managing jobs,
 analyzing active spaces, recovering from failed runs.
 
-The live MCP registry currently covers six chemistry programs. Support is
+The live MCP registry currently covers seven chemistry programs. Support is
 uneven by design: each program exposes the parsing, drafting, diagnosis, and
 execution operations it actually implements.
 
@@ -14,14 +14,15 @@ execution operations it actually implements.
 | **NWChem** | 101 | Input drafting, TCE/MCSCF parsers, frequency restart, full HPC submission, runner-profile auto-resource sizing, 29 bundled docs |
 | **OpenMolcas** | 45 | CASSCF/CASPT2 chain orchestrators, active-space refinement loop, recovery rule engine (11 failure modes), 133 bundled docs |
 | **DIRAC** | 39 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, basis browser (Dyall), 179 bundled docs |
-| **GRASP2018** | 51 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
+| **GRASP2018** | 53 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
 | **Quantum ESPRESSO** | 20 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, local or scheduler launch rendering and execution through a named profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
 | **QMCPACK** | 14 | XML input review, runner-profile launch preview and execution, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
+| **ORCA** | 0 dedicated | Experimental ORCA 6.1.1 input parsing and output auto-detection through the shared tools; serial single points, optimization, frequencies, open-shell spin, scalar relativity, RIJCOSX, DLPNO-CCSD(T), CASSCF, NEVPT2, CASPT2, MRCI, TD-DFT, EOM-CCSD, ORCA_ESD spectra and radiative rates, additive QM/MM, molecular and ionic Crystal-QMMM, explicit SCF failure, MOREAD restart, and difficult-SCF algorithm comparison are pinned against nineteen cases |
 
-Plus 58 program-generic tools (auto-detect supported inputs and outputs)
-and a multi-program eval framework with 15 reference cases.
+Plus 66 program-generic tools (auto-detect supported inputs and outputs)
+and a multi-program eval framework with 33 reference cases.
 
-**Total: 328 MCP tools.** Counts, capability tags, mode visibility, aliases,
+**Total: 338 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
 and input schemas come from the generated
 [MCP tool inventory](docs/tool-inventory.md).
 
@@ -29,23 +30,48 @@ and input schemas come from the generated
 
 ## Quick start
 
+The short wheel-to-MCP path, including runner profiles and troubleshooting, is
+in [Install and connect Chemtools](docs/getting-started.md).
+Existing installations using old commands or broad Python imports should also
+read the [compatibility migration note](docs/compatibility-migration.md).
+
+For a wheel copied from this repository or another trusted machine:
+
 ```bash
-git clone https://github.com/charliecpeterson/chemtoolsmcp.git
-cd chemtoolsmcp
-pip install -e .
+python3 -m venv ~/.venvs/chemtools
+~/.venvs/chemtools/bin/python -m pip install /path/to/chemtools_mcp-0.1.0-py3-none-any.whl
 ```
 
 Verify install:
 
 ```bash
-chemtools --show-mode      # prints active mode + program filter + blocked tools
-chemtools --list-tools     # prints the tool names visible in this mode
+~/.venvs/chemtools/bin/chemtools --show-mode
+~/.venvs/chemtools/bin/chemtools --mode analysis --list-tools
 ```
 
-By default the server runs in **analysis mode** (no NWChem/Molcas executable
-needed) — you can parse outputs, draft inputs, look up docs, and plan
+By default the server runs in **analysis mode** (no chemistry executable
+needed). You can parse outputs, draft inputs, look up docs, and plan
 calculations without anything else installed. To launch real jobs see
 [Runner profiles](#runner-profiles).
+
+Point an MCP client at the `chemtools` command inside that environment. No
+repository checkout or working-directory setting is required for an installed
+wheel.
+
+The base package has three direct runtime dependencies:
+
+| Dependency | Why it is in the base install |
+|---|---|
+| MCP Python SDK 2.0.0 | Protocol negotiation, stdio transport, typed tools, and structured result validation |
+| NumPy | NWChem binary and TCE parsing, cube comparison, and QE geometry analysis |
+| PyYAML | Guided knowledge cards and YAML runner profiles |
+
+Install `chemtools-mcp[dirac]` when the server must read DIRAC HDF5
+checkpoints. DIRAC text parsing and input drafting do not need that extra.
+PySCF, RDKit, Open Babel, Basis Set Exchange, QMCPACK HDF5 inspection, and
+Orbitron stay in the separately configured companion environment described in
+[environments/README.md](environments/README.md); they are not dependencies of
+the MCP process.
 
 ---
 
@@ -65,9 +91,9 @@ Add to your MCP servers config:
 }
 ```
 
-The minimum config exposes all 274 analysis-mode tools. The sections below
-show how to scope the tool list, switch modes, and wire up a runner profile
-for job submission.
+The minimum config exposes the eleven guided tools. The sections below show
+how to switch execution modes, wire up a runner profile for job submission,
+or opt into the complete developer surface.
 
 ### Codex development
 
@@ -83,6 +109,49 @@ python3 -m venv .venv
 The [testing baseline](docs/testing-baseline.md) records the current
 collection, external-test boundaries, and the recovery queue for useful tests
 removed from earlier revisions.
+
+Build and verify the portable wheel without changing the development
+environment:
+
+```bash
+mkdir -p ~/scratch/chemtools-wheel
+.venv/bin/python -m pip wheel ".[dirac]" --wheel-dir ~/scratch/chemtools-wheel
+.venv/bin/python scripts/check_wheel_install.py \
+  ~/scratch/chemtools-wheel/chemtools_mcp-0.1.0-py3-none-any.whl \
+  --wheelhouse ~/scratch/chemtools-wheel \
+  --work-root ~/scratch
+.venv/bin/python scripts/check_wheel_install.py \
+  ~/scratch/chemtools-wheel/chemtools_mcp-0.1.0-py3-none-any.whl \
+  --wheelhouse ~/scratch/chemtools-wheel \
+  --work-root ~/scratch \
+  --extra dirac
+```
+
+The check creates and removes a temporary virtual environment. It verifies
+the eleven guided tools, packaged reference-case manifests, default runner
+profiles, knowledge cards, NWChem docs,
+basis data, examples, an installed-copy `inspect_run` call, a read-only
+`launch_run` preparation, an owned-launch rejection from `monitor_run`, and an
+explicit unavailable result from `visualize` when Orbitron is absent. The
+second invocation also
+creates and reads a small DIRAC HDF5 checkpoint through the installed extra.
+The base invocation fails if h5py has leaked into the required dependency set.
+
+Before transferring a wheel, repeat the check through an isolated user-site
+installation and a representative real output:
+
+```bash
+.venv/bin/python scripts/check_wheel_install.py \
+  ~/scratch/chemtools-wheel/chemtools_mcp-0.1.0-py3-none-any.whl \
+  --wheelhouse ~/scratch/chemtools-wheel \
+  --work-root ~/scratch \
+  --install-layout user \
+  --fixture /path/to/representative.nwchem.out
+```
+
+This mode clears Chemtools and Python path overrides, uses an empty home and
+configuration directory, installs every dependency into a temporary user
+site, and calls `inspect_run` through the installed stdio MCP server.
 
 Then create `.codex/config.toml` with the absolute path to this checkout:
 
@@ -111,15 +180,23 @@ ready to expose local or scheduler-backed launch tools. See the [Codex MCP
 configuration guide](https://developers.openai.com/codex/mcp) for available
 server settings.
 
-For the three-tool guided surface, add this environment value:
+The eleven-tool guided surface is the default. It exposes `review_input`,
+`draft_input`, `inspect_run`, `compare_runs`, `plan_calculation`,
+`plan_recovery`, `launch_run`, `monitor_run`, `visualize`, `search_knowledge`,
+and `find_reference_case`.
+
+Use the full surface only for development or direct testing of lower-level
+tools:
 
 ```toml
-CHEMTOOLS_TOOLSET = "guided"
+CHEMTOOLS_TOOLSET = "developer"
 ```
 
-That preset exposes `review_input`, `inspect_run`, and
-`search_knowledge_cards`. Leave it unset when developing or directly testing
-the lower-level tools.
+Realistic prompt-to-tool choices for the guided intents are pinned in
+[the guided intent contract](docs/guided-intent-contract.yaml).
+
+The active cleanup and packaging work is tracked in the
+[simplification plan](SIMPLIFICATION_PLAN.md).
 
 Representative MCP requests live in [`tests/golden/mcp`](tests/golden/mcp).
 They cover NWChem, Molcas, DIRAC, GRASP, Quantum ESPRESSO, and generic
@@ -128,6 +205,40 @@ auto-detection through the real `tools/call` dispatch path:
 ```bash
 .venv/bin/python -m pytest -q tests/test_mcp_golden.py
 ```
+
+### ORCA experimental support
+
+The shared `inspect_run`, `parse_output`, `extract_geometry`, and frequency
+tools recognize ORCA 6.1.1 output. The initial parser reports version, echoed
+keywords, basis, charge and multiplicity, wavefunction type, SCF cycles, final
+energy, optimization and frequency completion, thermochemistry conditions,
+spin evidence, warnings, generated geometry, and normal termination. It keeps
+successful ORCA warning blocks as warnings rather than converting them into a
+failed run. For additive QM/MM and ionic Crystal-QMMM output it also preserves
+the multiscale model, embedding and coupling schemes, subsystem sizes, point
+charge and cECP counts, charge-convergence history, MM energy when printed,
+and the final combined QM/MM energy.
+
+For multireference and excited-state output, the parser keeps CASSCF active
+spaces and roots, NEVPT2 and CASPT2 corrections and root totals, CASPT2
+convergence evidence and denominators, MRCI state tables and reference weights,
+TD-DFT singlet and triplet roots, and EOM-CCSD right-state roots and singles
+character. ORCA's aggregate or selected final single-point energy remains
+separate from these root-resolved records.
+
+For ORCA_ESD output, the parser keeps the requested photophysical process,
+vibronic model, FC/HT derivative setting, linewidths, temperature, adiabatic
+and 0-0 energies, laser energy, spectrum filename, module completion marker,
+and fluorescence or phosphorescence rate with its printed FC/HT decomposition.
+The formaldehyde suite in `examples/orca/formaldehyde_esd_README.md` records
+the required Hessian workflow and all three phosphorescence SOC sublevels.
+
+The pinned serial cases are under `chemtools/data/reference_cases/` and their
+source inputs are in `examples/orca/`. ORCA launch preparation, input linting,
+recovery advice, and MPI execution are still pending. The tested ORCA download
+uses OpenMPI 4.1.8; do not substitute an unrelated MPI launcher or invoke the
+ORCA driver through `mpirun`. See the
+[ORCA 6.1 parallel-run instructions](https://www.faccts.de/docs/orca/6.1/manual/contents/essentialelements/parallel.html).
 
 ### Quantum ESPRESSO input and output review
 
@@ -619,7 +730,7 @@ only `--version`, `info <source> --json`, and
 forms of `analyze <kind> <source> --json`. The `inspect_with_orbitron`,
 `analyze_geometry_with_orbitron`, `analyze_orbitals_with_orbitron`,
 `analyze_populations_with_orbitron`, `analyze_vibrations_with_orbitron`, and
-`render_with_orbitron` MCP tools each accept one local path. None accepts a
+`visualize` MCP tools each accept one local path. None accepts a
 command, remote target, output path, or arbitrary Orbitron arguments.
 
 Set `CHEMTOOLS_ORBITRON_CLI` before starting the MCP server. Successful calls
@@ -680,13 +791,14 @@ vector. Orbitron 0.4.0 at commit `20e81d225b4c` selects the last complete
 Molcas MCLR frequency block, and the pinned HCN reference agrees at 9 modes
 with one imaginary mode.
 
-`render_with_orbitron` uses the fixed 1024 by 768 headless PNG operation. It
+`visualize` uses the fixed 1024 by 768 headless PNG operation. It
 writes only in an ephemeral sibling directory, never accepts a destination or
 camera setting, validates PNG signature and dimensions, and returns the image
 as a separate MCP image-content item after JSON provenance. A render does not
-change the source artifact.
+change the source artifact. The former `render_with_orbitron` name remains a
+hidden compatibility alias.
 
-Set the local CLI and external reference corpus, then run the pinned eight-case
+Set the local CLI and external reference corpus, then run the pinned ten-case
 contract:
 
 ```bash
@@ -873,10 +985,11 @@ unavailable. Use `--output report.json` to keep the report. See
 fixture, scientific dataset, and external corpus boundaries. The broader
 integration work remains in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 
-### Restricting to one program
+### Restricting the developer surface to one program
 
-Loading all four programs means 274 tool definitions in your agent's
-context. For a session focused on one program, filter:
+The default guided surface already stays at eleven tools. When using
+`CHEMTOOLS_TOOLSET=developer`, all seven programs mean 338 definitions in the
+client's context. For a developer session focused on one program, filter:
 
 ```json
 "chemtools-molcas": {
@@ -885,18 +998,22 @@ context. For a session focused on one program, filter:
 }
 ```
 
-In analysis mode, `CHEMTOOLS_PROGRAMS=molcas` exposes 91 tools: 40 Molcas
-analysis tools and 51 generic analysis tools. The corresponding local and HPC
-counts are 100 and 101. Other choices are `nwchem`, `dirac`, and `grasp`.
-Comma-separate multiple programs (`nwchem,molcas`).
+In developer analysis mode, `CHEMTOOLS_PROGRAMS=molcas` exposes 101 tools:
+40 Molcas analysis tools and 61 generic analysis tools. The corresponding
+local and HPC counts are 110 and 111. Other choices are `nwchem`, `dirac`,
+`grasp`, `qe`, and `qmcpack`. Comma-separate multiple programs
+(`nwchem,molcas`).
 
 ### Server modes
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 274 | Post-hoc parsing, drafting, and planning; no chemistry executable needed |
-| `local` | 325 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
-| `hpc` | 328 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
+| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 284 | Post-hoc parsing, drafting, planning, and owned monitoring; no chemistry executable needed |
+| `local` | 335 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
+| `hpc` | 338 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
+
+These counts describe the complete developer surface. The default guided
+surface remains eleven tools in every mode.
 
 Mode is auto-detected from your runner profile (see below). Override with
 `CHEMTOOLS_MODE=analysis` or the `--mode` flag.
@@ -912,8 +1029,9 @@ The repo includes ready-to-copy examples:
 | Example | What it shows |
 |---|---|
 | `chemtools/runner_profiles.local.example.json` | Minimal local-workstation profile (single direct subprocess) |
-| `chemtools/runner_profiles.example.yaml` | Canonical reference covering local + SLURM/PBS HPC profiles |
-| `examples/tacc_stampede3/runner_profiles.yaml` | Real TACC Stampede3 SLURM config (SKX / ICX / SPR partitions) |
+| `chemtools/runner_profiles.slurm.example.yaml` | Portable Slurm profile using `srun` and a module-provided NWChem |
+| `chemtools/runner_profiles.example.yaml` | Extended reference including site-specific profiles and older scheduler variants |
+| `examples/tacc_stampede3/runner_profiles.yaml` | Site-specific Stampede3 Slurm example with editable installation and allocation fields |
 | `examples/local_workstation/` | Direct-launch workstation profile |
 
 Program installations use the same shape for local and scheduler targets:
@@ -951,8 +1069,9 @@ Copy one, edit the paths to point at your NWChem / OpenMolcas binary, then:
 ```
 
 The server auto-detects the right mode (`local` for direct profiles, `hpc` for
-scheduler profiles), filters the tool surface accordingly, and exposes
-`launch_nwchem_run`, `watch_nwchem_run`, `terminate_nwchem_run`, etc.
+scheduler profiles) and enables approval-gated `launch_run` plus owned
+`monitor_run`. Program-specific launch, watch, and termination tools are part
+of the explicit developer surface.
 
 NWChem MCP launch and termination use a process-owned execution service.
 Dry runs remain read-only. Live direct and SLURM launches record the effective
@@ -1024,20 +1143,25 @@ the profile's hardware specs and recommends optimal nodes / ranks / walltime
 
 ## What you get
 
-The 328 tools cover these areas. Generic tools auto-detect the program where
+The 338 definitions cover these areas. Generic tools auto-detect the program where
 the underlying operation supports it.
 
 | Area | NWChem | Molcas | Generic | Notes |
 |---|---:|---:|---:|---|
 | Guided input review | Parse + lint | Lint | `review_input` | DIRAC parses without lint; GRASP single-file review is unsupported |
-| Guided run inspection | ✓ | ✓ | `inspect_run` | Normalizes evidence, verdict, uncertainty, and next actions across all four current programs |
+| Guided input drafting | ✓ | ✓ | `draft_input` | Renders one common molecular specification without writing a file; specialized recovery drafts remain program-specific |
+| Guided run inspection | ✓ | ✓ | `inspect_run` | Normalizes evidence, verdict, uncertainty, and next actions across all six built-in backends |
+| Guided recovery planning | ✓ | | `plan_recovery` | Returns bounded candidate inputs without writing files; explicit target state prevents multiplicity changes from being treated as orbital swaps, source mismatches block automatic drafts, and completed but unstable SCF paths can return optional hardening plans |
+| Guided calculation planning | ✓ | | `plan_calculation` | Returns ordered stages and unresolved scientific choices without rendering input |
+| Approval-gated launch | ✓ | | `launch_run` | Requires two calls bound to one exact reviewed input and rendered plan |
+| Owned run monitoring | ✓ | | `monitor_run` | Refreshes retained local or Slurm state and recorded artifacts; NWChem adds declared scientific progress |
 | Independent file inspection | | | `inspect_with_orbitron` | Optional fixed-command Orbitron evidence with pinned JSON schema and build provenance |
 | Geometry summary | | | `analyze_geometry_with_orbitron` | Validated Orbitron counts, bond statistics, bounds, and unit-cell evidence |
 | Molecular-orbital summary | | | `analyze_orbitals_with_orbitron` | Validated restricted or alpha/beta frontier orbitals, occupancy policy, and channel-local gaps |
 | Atomic-population summary | | | `analyze_populations_with_orbitron` | Validated per-atom charges, expected system charge provenance, and charge residuals |
 | Vibrational summary | | | `analyze_vibrations_with_orbitron` | Validated raw frequencies, units, scaling policy, displacements, and thermochemistry metadata |
-| Image render | | | `render_with_orbitron` | Fixed 1024 by 768 PNG returned as MCP image content, with no caller-selected destination |
-| Curated knowledge | ✓ | ✓ | `search_knowledge_cards` | Accepted cards are the default; other curation states require an explicit status filter |
+| Image render | | | `visualize` | Fixed 1024 by 768 PNG returned as MCP image content, with no caller-selected destination |
+| Curated knowledge | ✓ | ✓ | `search_knowledge` | Accepted cards are the default; other curation states require an explicit status filter |
 | F-block atomic references | | | | `lookup_grasp_fblock_state` retrieves reviewed states; `plan_fblock_atomic_state` emits recorded ATSP2K and GRASP inputs, validates all 132 external donor aliases against a consumer-scoped review ledger, and preserves unresolved donors as manual requirements |
 | Parse output (basic) | ✓ | ✓ | `parse_output`, `summarize_output` | Auto-detects program |
 | Parse output (deep) | `parse_nwchem_output` | `parse_molcas_output` | | Per-module rich data |
@@ -1077,6 +1201,8 @@ review_input(input_file)                → checks, uncertainty, edit actions
 # run with an approved local or scheduler target
 inspect_run(output_file, artifact_files=[input_file, stderr, checkpoint])
                                         → evidence, verdict, next actions
+plan_recovery(output_file, input_file, expected_multiplicity=...)
+                                        → consistency-gated plan, candidate text
 ```
 
 `checks_passed` means the configured parser and linter found no known problem.
@@ -1238,7 +1364,8 @@ analyze_molcas_case(output_file)        → check verdict before trusting energy
 chemtools --show-mode                          # mode + reason + program filter (JSON)
 chemtools --list-tools                         # tool names visible under current filters
 chemtools --mode analysis                      # force analysis mode (no executable needed)
-chemtools --mode analysis --toolset guided     # review + inspect + knowledge search
+chemtools --mode analysis                      # eleven intent-level workflow tools
+chemtools --mode analysis --toolset developer  # complete low-level analysis surface
 chemtools --programs molcas                    # only Molcas + generic tools
 chemtools --mode local --programs nwchem,molcas
 ```
@@ -1278,12 +1405,16 @@ path remains as a compatibility facade.
 The version 1 profile runner now defines program-neutral
 `run_calculation`, `render_calculation_run`, `inspect_run_status`, and
 `watch_run` entry points. Molcas, DIRAC, and GRASP scheduler wrappers use
-those names. The previous NWChem-named functions remain direct aliases for
-existing Python callers. Profile loading and default merging live in
-`execution/legacy_profiles.py`. Unowned PID and scheduler inspection, file
-status, tailing, cancellation, and optional NWChem progress parsing live in
-`execution/legacy_status.py`. `core/runner.py` remains the compatibility
-import path and contains the legacy render and launch implementation.
+those names. The previous NWChem run and render names remain direct aliases
+for existing Python callers. Profile loading and default merging live in
+`execution/profiles.py`; `execution/legacy_profiles.py` preserves the old
+Python import path. Compatibility-launch output archival lives in
+`execution/legacy_archive.py`. Unowned PID and scheduler inspection, file
+status, tailing, and cancellation live in `execution/legacy_status.py`.
+`programs/nwchem/legacy_status.py` injects the existing NWChem progress reader
+for NWChem callers. The remaining version 1 rendering and launch implementation
+lives in `execution/legacy_runner.py`; `core/runner.py` is now an import-only
+compatibility module.
 
 Local NWChem status checks and explicit watches now poll only the live process
 handle owned by the execution service. The retained handle remains
@@ -1335,15 +1466,29 @@ chemtools/
   core/                          program-agnostic shared infrastructure
     program.py                   backend providers, capabilities, and validation
     registry.py                  plugin registry + program auto-detection
-    runner.py                    legacy profile, submit, render, and status facade
+    runner.py                    exact legacy-runner compatibility imports
     monitoring.py                polling, terminal checks, and watch history
     workflow.py                  DAG engine for multi-step protocols
     basis_advisor.py             basis-set + ECP recommendation
     units.py, thermochem.py,
     geometry.py, issues.py,      shared math + helpers
     recovery.py, case_analysis.py, session.py
-    run_records.py               SQLite run records + execution links
-    run_registry.py              Compatibility facade + campaigns/workflows
+  application/
+    evaluation.py                multi-program case evaluation
+    run_registry.py              campaigns, workflows, and batch generation
+    legacy_artifacts.py          legacy run-column artifact projection
+  persistence/
+    sqlite.py                    shared SQLite schema and connections
+    runs.py                      scientific run records + execution links
+    artifacts.py                 artifact, observation, and provenance records
+    launches.py                  execution launch state + run links
+  execution/
+    profiles.py                  version 1 profile loading + typed conversion
+    resource_inspection.py       local and scheduler hardware discovery
+    legacy_archive.py            compatibility-launch output archival
+    legacy_runner.py             version 1 render and launch implementation
+    legacy_status.py             unowned process, scheduler, and file status
+    launch_registry.py           compatibility imports for persistence.launches
   programs/
     nwchem/                      NWChem plugin
       parse/                     output / input / freq / mos / tasks / tce parsers
@@ -1355,23 +1500,32 @@ chemtools/
     molcas/                      OpenMolcas plugin (mirrors nwchem/)
     dirac/                       DIRAC plugin (4c / X2C / AOC / KPSELE)
     grasp/                       GRASP2018 plugin (multi-exe atomic workflows)
+    orca/                        ORCA parser for the validated serial cases
   mcp/
     decorator.py                 @_tool registration with program / needs tags
+    state.py                     Per-server filters and execution ownership
     modes.py                     mode + program filtering
-    server.py                    JSON-RPC entry point
-    cli.py                       `chemtools` CLI entry point
+    sdk_server.py                Official SDK transport and result translation
+    server.py                    Compatibility envelopes and shared CLI arguments
+    dispatch.py                  State-bound tool filtering and dispatch
+    cli.py                       `chemtools` composition root and entry point
     tools/
-      nwchem.py                  NWChem tool definitions + handlers (101 tools)
+      _nwchem_provider.py        NWChem catalog composition (101 tools)
+      nwchem_{input,parse,analysis,jobs,docs}.py
+                                Focused NWChem handlers
+      nwchem.py                  Legacy NWChem Python compatibility facade
       molcas.py                  Molcas tool definitions + handlers (45 tools)
       dirac.py                   DIRAC tool definitions + handlers (39 tools)
-      grasp.py                   GRASP tool definitions + handlers (51 tools)
+      grasp.py                   GRASP tool definitions + handlers (53 tools)
       qe.py                      Quantum ESPRESSO definitions + handlers (20 tools)
       qmcpack.py                 QMCPACK definitions + handlers (14 tools)
-      generic.py                 Cross-program definitions + handlers (56 tools)
-      guided.py                  Guided cross-program workflow tools
+      orca.py                    Shared-tool-only ORCA catalog provider
+      generic.py                 Cross-program definitions + handlers (65 tools)
+      guided.py                  Contract-bound guided application adapters
+      _guided_definitions.py     Guided public descriptions and input schemas
 ```
 
-Tools are tagged with `program=nwchem|molcas|dirac|grasp|qe|qmcpack|generic` and
+Tools are tagged with `program=nwchem|molcas|dirac|grasp|qe|qmcpack|orca|generic` and
 `needs=none|registry|runner_profile|executable_or_scheduler|executable|scheduler`.
 The active mode + program filter decides which subset is exposed at
 `tools/list` time. Generic tools auto-detect the program at call time via
@@ -1396,15 +1550,19 @@ Each program is a plugin under `chemtools/programs/<name>/`:
    (or pull from `chemtools/data/<name>/` if shared).
 
 The backend contract is documented in `chemtools/core/program.py`. NWChem is
-the complete reference declaration; Molcas, DIRAC, and GRASP show partial
-capability sets.
+the complete reference declaration; Molcas, DIRAC, GRASP, QE, QMCPACK, and
+ORCA show narrower capability sets.
 
 ---
 
 ## Troubleshooting
 
+Start with the installed-package checks in
+[Install and connect Chemtools](docs/getting-started.md#5-troubleshoot-the-connection).
+
 - **"No program registered for path"** — the auto-detection didn't recognize
-  the output. Check that the file is a real NWChem `.out` or OpenMolcas `.log`.
+  the output. Check that the file is a real primary program output rather than
+  an input, sidecar, or post-processing log.
   Or call the per-program tool (`parse_nwchem_output` / `parse_molcas_output`)
   directly.
 - **Tool fails with "not available in mode"** — call `get_server_mode` to

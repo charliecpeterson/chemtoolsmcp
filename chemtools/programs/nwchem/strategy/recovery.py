@@ -62,7 +62,7 @@ def suggest_nwchem_scf_fix_strategy(
                 name="no_scf_fix_needed",
                 priority=1,
                 rationale="The SCF portion is converged and no SCF-specific failure was detected.",
-                tool="review_nwchem_case",
+                tool="analyze_nwchem_case",
                 docs_topics=["scf_open_shell"],
                 when_to_use="Use this when the run completed and the remaining question is about state quality or chemistry, not SCF rescue.",
             )
@@ -84,17 +84,19 @@ def suggest_nwchem_scf_fix_strategy(
                     name="fragment_guess_seed",
                     priority=2,
                     rationale="A different initial guess can move the calculation into a different electronic basin when swap restarts do not redirect the state.",
-                    tool="suggest_nwchem_state_recovery_strategy",
+                    tool="suggest_nwchem_recovery",
                     docs_topics=["fragment_guess", "scf_open_shell"],
                     when_to_use="Use when repeated swap restarts keep returning to the same suspicious state.",
+                    params={"mode": "state"},
                 ),
                 _strategy_entry(
                     name="mcscf_seed_or_validation",
                     priority=3,
                     rationale="If DFT keeps returning to the same basin, a multiconfigurational reference can test whether a metal-centered state exists nearby.",
-                    tool="suggest_nwchem_state_recovery_strategy",
+                    tool="suggest_nwchem_recovery",
                     docs_topics=["mcscf"],
                     when_to_use="Use for transition-metal wrong-state cases where Fe/Co/etc. d-manifold character is important.",
+                    params={"mode": "state"},
                 ),
             ]
         )
@@ -115,9 +117,10 @@ def suggest_nwchem_scf_fix_strategy(
                         name="different_guess_source",
                         priority=2,
                         rationale="Oscillatory open-shell runs often need a different orbital guess, not just stronger DIIS stabilization.",
-                        tool="suggest_nwchem_state_recovery_strategy",
+                        tool="suggest_nwchem_recovery",
                         docs_topics=["fragment_guess", "mcscf"],
                         when_to_use="Use when oscillation persists after one stabilization-style retry.",
+                        params={"mode": "state"},
                     ),
                 ]
             )
@@ -136,9 +139,10 @@ def suggest_nwchem_scf_fix_strategy(
                         name="change_guess_or_state_model",
                         priority=2,
                         rationale="A stalled open-shell run may indicate the current guess or state model is poor, especially for transition-metal chemistry.",
-                        tool="suggest_nwchem_state_recovery_strategy",
+                        tool="suggest_nwchem_recovery",
                         docs_topics=["fragment_guess", "mcscf"],
                         when_to_use="Use when one stabilization retry does not materially change the trend.",
+                        params={"mode": "state"},
                     ),
                 ]
             )
@@ -178,7 +182,7 @@ def suggest_nwchem_scf_fix_strategy(
                         name="review_open_shell_syntax_and_guess",
                         priority=2,
                         rationale="Early or low-information SCF failures can come from state specification or an unsuitable guess rather than ordinary DIIS instability.",
-                        tool="review_nwchem_case",
+                        tool="analyze_nwchem_case",
                         docs_topics=["scf_open_shell", "fragment_guess"],
                         when_to_use="Use when there are too few iterations to trust a trend classification.",
                     ),
@@ -192,7 +196,7 @@ def suggest_nwchem_scf_fix_strategy(
                 name="manual_review",
                 priority=1,
                 rationale="No SCF-specific automatic recovery path matches this case yet.",
-                tool="review_nwchem_case",
+                tool="analyze_nwchem_case",
                 docs_topics=["scf_open_shell"],
                 when_to_use="Use when the task failed outside the SCF loop or the failure is primarily not electronic.",
             )
@@ -252,7 +256,7 @@ def suggest_nwchem_state_recovery_strategy(
                 name="accept_or_verify_state",
                 priority=1,
                 rationale="The current spin/frontier signals are internally consistent with the requested state.",
-                tool="review_nwchem_case",
+                tool="analyze_nwchem_case",
                 docs_topics=["scf_open_shell"],
                 when_to_use="Use when the main remaining question is chemical interpretation, not state rescue.",
             )
@@ -296,17 +300,19 @@ def suggest_nwchem_state_recovery_strategy(
                         name="fragment_guess_validation",
                         priority=1,
                         rationale="A true fragment guess can test whether the high-spin state is merely a bad guess artifact or a robust covalent basin.",
-                        tool="suggest_nwchem_scf_fix_strategy",
+                        tool="suggest_nwchem_recovery",
                         docs_topics=["fragment_guess", "scf_open_shell"],
                         when_to_use="Use when SOMOs are ligand-dominated but most total spin remains on the metal.",
+                        params={"mode": "scf"},
                     ),
                     _strategy_entry(
                         name="mcscf_validation",
                         priority=2,
                         rationale="MCSCF is a strong next step when DFT high-spin solutions look covalent and the metal d-manifold needs explicit validation.",
-                        tool="suggest_nwchem_scf_fix_strategy",
+                        tool="suggest_nwchem_recovery",
                         docs_topics=["mcscf"],
                         when_to_use="Use when you need to determine whether a metal-centered high-spin state exists near the DFT solution.",
+                        params={"mode": "scf"},
                     ),
                     _strategy_entry(
                         name="method_or_multiplicity_scan",
@@ -334,17 +340,19 @@ def suggest_nwchem_state_recovery_strategy(
                         name="fragment_guess_seed",
                         priority=2,
                         rationale="If swap restarts do not redirect the state, a fragment guess gives a stronger initial bias toward the desired basin.",
-                        tool="suggest_nwchem_scf_fix_strategy",
+                        tool="suggest_nwchem_recovery",
                         docs_topics=["fragment_guess"],
                         when_to_use="Use when the state repeatedly reconverges to the same suspicious pattern.",
+                        params={"mode": "scf"},
                     ),
                     _strategy_entry(
                         name="mcscf_seed_or_reference",
                         priority=3,
                         rationale="When DFT is not preserving the desired open-shell character, MCSCF can supply a better state model or at least a diagnostic reference.",
-                        tool="suggest_nwchem_scf_fix_strategy",
+                        tool="suggest_nwchem_recovery",
                         docs_topics=["mcscf"],
                         when_to_use="Use for transition-metal cases where d-orbital character matters more than a single-determinant description.",
+                        params={"mode": "scf"},
                     ),
                     _strategy_entry(
                         name="cube_and_population_validation",
@@ -376,12 +384,48 @@ def suggest_nwchem_state_recovery_strategy(
     }
 
 
+def suggest_nwchem_recovery(
+    output_path: str,
+    input_path: str | None = None,
+    expected_metal_elements: list[str] | None = None,
+    expected_somo_count: int | None = None,
+    mode: str = "auto",
+) -> dict[str, Any]:
+    """Select the SCF, state, or combined legacy recovery assessment."""
+    arguments = {
+        "output_path": output_path,
+        "input_path": input_path,
+        "expected_metal_elements": expected_metal_elements,
+        "expected_somo_count": expected_somo_count,
+    }
+    if mode == "scf":
+        return suggest_nwchem_scf_fix_strategy(**arguments)
+    if mode == "state":
+        return suggest_nwchem_state_recovery_strategy(**arguments)
+
+    combined: dict[str, Any] = {}
+    try:
+        combined["scf_strategies"] = suggest_nwchem_scf_fix_strategy(
+            **arguments
+        )
+    except Exception as error:
+        combined["scf_strategies"] = {"error": str(error)}
+    try:
+        combined["state_strategies"] = (
+            suggest_nwchem_state_recovery_strategy(**arguments)
+        )
+    except Exception as error:
+        combined["state_strategies"] = {"error": str(error)}
+    return combined
+
+
 # ---------------------------------------------------------------------------
 # TCE helpers for summarize_nwchem_case
 # ---------------------------------------------------------------------------
 
 
 __all__ = [
+    "suggest_nwchem_recovery",
     "suggest_nwchem_scf_fix_strategy",
     "suggest_nwchem_state_recovery_strategy",
 ]

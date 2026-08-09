@@ -1,0 +1,58 @@
+{
+  "schema": "chemtools.mcp-golden-case/1",
+  "case_id": "generic.guided_recovery_nwchem",
+  "program": "generic",
+  "fixture": "fixtures/nwchem_scf.out",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "generic.guided_recovery_nwchem",
+    "method": "tools/call",
+    "params": {
+      "name": "plan_recovery",
+      "arguments": {
+        "output_file": "$FIXTURE",
+        "program": "nwchem"
+      }
+    }
+  },
+  "expected_payload_keys": [
+    "schema_version",
+    "program",
+    "source",
+    "target",
+    "assessment",
+    "evidence",
+    "uncertainty",
+    "next_actions"
+  ],
+  "expected_payload": {
+    "schema_version": "chemtools.plan-recovery/1",
+    "program": {
+      "name": "nwchem"
+    },
+    "source": {
+      "input_path": null
+    },
+    "target": {
+      "expected_charge": null,
+      "expected_multiplicity": null,
+      "expected_metal_elements": [],
+      "expected_somo_count": null,
+      "somo_count_source": null
+    },
+    "assessment": {
+      "verdict": {
+        "label": "no_recovery_needed",
+        "confidence": 0.8
+      }
+    },
+    "evidence": {
+      "plan_kind": "verification_only",
+      "can_prepare": false,
+      "prepared_artifacts": [],
+      "files_written": []
+    },
+    "uncertainty": [],
+    "next_actions": []
+  }
+}

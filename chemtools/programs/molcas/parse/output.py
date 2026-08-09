@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from chemtools.core.common import make_metadata
+from chemtools.core.common import make_metadata, read_text
 from chemtools.programs.molcas.parse.scf import parse_scf
 from chemtools.programs.molcas.parse.rasscf import parse_rasscf
 from chemtools.programs.molcas.parse.caspt2 import parse_caspt2, assess_reference_weights
@@ -124,6 +124,58 @@ def parse_tasks(path: str, contents: str) -> dict[str, Any]:
             "task_count": len(tasks),
             "raw": {"tasks": tasks},
         },
+    }
+
+
+def get_orbitals(
+    path: str,
+    task_index: int | None = None,
+) -> dict[str, Any]:
+    """Return the last orbital block from one selected SCF or RASSCF task."""
+    contents = read_text(path)
+    generic_tasks = parse_tasks(path, contents).get("generic_tasks") or []
+    if not generic_tasks:
+        return {"error": "no_tasks", "message": f"No tasks found in {path}"}
+
+    if task_index is None:
+        preferred = None
+        for index, task in enumerate(generic_tasks):
+            if task["extra"]["module"] in {"RASSCF", "SCF"}:
+                preferred = index
+        if preferred is None:
+            return {
+                "error": "no_orbital_task",
+                "message": f"No SCF/RASSCF tasks found in {path}",
+            }
+        task_index = preferred
+
+    if task_index < 0 or task_index >= len(generic_tasks):
+        return {
+            "error": "task_index_out_of_range",
+            "message": (
+                f"task_index={task_index} out of range "
+                f"(have {len(generic_tasks)} tasks)"
+            ),
+        }
+
+    task = generic_tasks[task_index]
+    lines = contents.splitlines()
+    block_text = "\n".join(
+        lines[task["line_start"] - 1 : task["line_end"]]
+    )
+    orbitals = parse_last_mo_block(block_text, parse_coefficients=True)
+    if orbitals is None:
+        return {
+            "error": "no_mo_block",
+            "message": (
+                "No '++ Molecular orbitals:' block in task "
+                f"{task_index} ({task['extra']['module']})"
+            ),
+        }
+    return {
+        "task_index": task_index,
+        "module": task["extra"]["module"],
+        "mo_block": orbitals,
     }
 
 

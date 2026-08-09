@@ -1,6 +1,7 @@
 """Molcas scheduler runner wrappers.
 
-Thin wrappers around the program-neutral engine in ``chemtools/core/runner.py``
+Thin wrappers around the version 1 engine in
+``chemtools/execution/legacy_runner.py``
 that submit, monitor, and cancel Molcas jobs through an HPC scheduler. Mirrors
 the NWChem pattern in ``chemtools/programs/nwchem/runner.py`` — the underlying
 machinery (sbatch invocation, job-id parsing, ``.jobid`` writing, ``squeue``
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from chemtools.core.runner import (
+from chemtools.execution.legacy_runner import (
     cancel_scheduler_job,
     inspect_run_status,
     render_calculation_run,
@@ -40,7 +41,8 @@ def launch_molcas_run(
 ) -> dict[str, Any]:
     """Submit a Molcas job to the scheduler defined in ``profile``.
 
-    Uses the program-neutral engine in ``chemtools/core/runner.py``. The
+    Uses the program-neutral engine in
+    ``chemtools/execution/legacy_runner.py``. The
     profile's ``scheduler.script_template`` is rendered with the standard
     placeholders, including the neutral ``{program_command}``.
 

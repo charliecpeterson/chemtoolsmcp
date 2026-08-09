@@ -6,11 +6,9 @@ Two entry points:
                                       to restart from when an opt run
                                       did not fully converge. Used by
                                       this module's draft_* function, by
-                                      extract_nwchem_geometry, and by
-                                      api_strategy. Exported under its
-                                      original name so existing imports
-                                      from any of those locations
-                                      continue to work.
+                                      extract_nwchem_geometry and workflow
+                                      planning. Exported under its original
+                                      name for compatibility.
   * draft_nwchem_optimization_followup_input
                                       Render a follow-up input that
                                       retries the optimization (with

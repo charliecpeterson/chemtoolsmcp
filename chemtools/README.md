@@ -14,15 +14,14 @@ chemtools/
   core/                          Program-agnostic infrastructure
     registry.py                  QC-program plugin registry (auto-detect from output)
     program.py                   Parser / Drafter / Strategist / BinaryReader protocols
-    runner.py                    Legacy render/run plus compatibility imports
+    runner.py                    Exact imports from execution/legacy_runner.py
     monitoring.py                Shared polling, terminal checks, and watch history
-    run_records.py               SQLite run records + execution links
-    run_registry.py              Compatibility facade + campaigns/workflows
     slurm.py                     Typed Slurm status results and evidence
-    eval.py                      Multi-program case evaluator
+    eval.py                      Compatibility imports for application/evaluation.py
     types.py                     ParsedRun / TaskSummary / GeometryAtom typed dicts
 
   application/                   Permission and workflow coordination
+    evaluation.py                Multi-program case evaluator
     execution_monitoring.py       Shared owned-status projection and polling
     execution_policy.py          Permission decisions and public service errors
     execution.py                 Launch, status, cancellation, and ownership
@@ -30,14 +29,26 @@ chemtools/
     grasp_monitoring.py           Typed GRASP workflow local and Slurm watching
     molcas_monitoring.py          Typed Molcas local and Slurm watching
     nwchem_monitoring.py         Typed NWChem local and Slurm watching
+    run_registry.py              Campaign, workflow, and batch services
+    legacy_artifacts.py          Legacy run-column artifact projection
+
+  persistence/                   SQLite adapters
+    sqlite.py                    Shared schema and connection setup
+    runs.py                      Scientific run records and execution links
+    artifacts.py                 Artifact, observation, and provenance records
+    launches.py                  Persistent launch state and run links
 
   execution/                     Program-neutral execution adapters
     _common.py                   Command rendering, root checks, and staging
     local.py                     Local launch, status, completion, and signals
     slurm.py                     Slurm scripts, status, submission, and cancellation
     executors.py                 Compatibility imports for the split adapters
-    launch_registry.py           Persistent launch state and run links
-    legacy_profiles.py           Version 1 profile loading and typed conversion
+    launch_registry.py           Compatibility imports for persistence/launches.py
+    profiles.py                  Version 1 profile loading and typed conversion
+    resource_inspection.py       Local and scheduler hardware discovery
+    legacy_archive.py            Compatibility-launch output archival
+    legacy_runner.py             Version 1 render and launch implementation
+    legacy_profiles.py           Compatibility imports for execution/profiles.py
     legacy_status.py             Unowned process, scheduler, and file status
 
   programs/<name>/               Per-program plugins
@@ -47,6 +58,7 @@ chemtools/
     grasp/                       51 tools: multi-executable atomic workflows
     qe/                          20 tools: pw.x input/output and QE-to-QMCPACK review
     qmcpack/                     14 tools: input, HDF5 metadata, and QMC analysis
+    orca/                        Shared-tool parser for serial ORCA 6.1.1 output
 
   data/<name>/                   Bundled per-program data
     nwchem/basis_library/        608 basis files
@@ -57,16 +69,17 @@ chemtools/
     grasp/docs/                  15 markdown docs
 
   mcp/                           MCP server
-    cli.py                       Entry point — main() / serve() / arg parsing
+    cli.py                       Entry point, state construction, and arg parsing
     catalog.py                   Built-in program and tool-module membership
-    server.py                    JSON-RPC transport
-    dispatch.py                  tool_definitions() + dispatch_tool + handle_request
+    sdk_server.py                Official SDK stdio server and result translation
+    server.py                    Compatibility envelopes and shared CLI arguments
+    dispatch.py                  Tool aggregation, filtering, and dispatch
     decorator.py                 @_tool decorator + shared registries
     modes.py                     Mode + program-filter logic
     tools/                       Per-program tool definitions + handlers
       generic.py                 58 low-level program-agnostic tools
       guided.py                  Guided cross-program workflow tools
-      nwchem.py / molcas.py / dirac.py / grasp.py / qe.py
+      nwchem.py / molcas.py / dirac.py / grasp.py / qe.py / qmcpack.py / orca.py
 ```
 
 ## Entry points

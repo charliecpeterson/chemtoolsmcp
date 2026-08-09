@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 import chemtools.core.monitoring as core_monitoring
-import chemtools.core.runner as core_runner
+import chemtools.execution.legacy_runner as core_runner
 import chemtools.execution.local as local_execution
 import chemtools.execution.slurm as slurm_execution
 from chemtools.application.dirac_execution import (
@@ -15,9 +15,9 @@ from chemtools.application.dirac_execution import (
     terminate_dirac_with_service,
 )
 from chemtools.application.execution import ExecutionService
-from chemtools.core.runner import load_runner_profiles
+from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor, SlurmExecutor
-from chemtools.execution.launch_registry import load_launch_record
+from chemtools.persistence.launches import load_launch_record
 from chemtools.mcp.decorator import set_active_mode
 from chemtools.mcp.tools.dirac import (
     _handle_get_dirac_run_status,

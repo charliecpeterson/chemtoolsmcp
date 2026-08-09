@@ -1,8 +1,5 @@
-"""NWChem analysis, recovery, and resource strategies.
+"""NWChem analysis, recovery, workflow, and resource strategies.
 
-Modules in this package will eventually be assembled into the Strategist
-sub-protocol on `chemtools.programs.nwchem.NWCHEM`. During the refactor,
-diagnose.py is the largest piece; further splits (recovery.py,
-active_space.py, resources.py, progress.py) will follow as the existing
-api_strategy.py monolith is broken up.
+The public ``api_strategy`` module re-exports these focused owners for Python
+compatibility. Program code imports the focused modules directly.
 """

@@ -1,17 +1,7 @@
 """NWChem-format basis library reader and renderer.
 
-The bundled basis library at chemtools/data/nwchem/basis_library/ is in
-NWChem format, so the parser and renderer are unavoidably NWChem-specific.
-File-discovery helpers (list_basis_sets, _scan_basis_library) and the
-element-handling helpers (PERIODIC_SYMBOLS, normalize_element_symbol) are
-the parts that could lift to core/basis.py once a second program ships
-its own library format reader.
-
-TODO(multi-program): when other programs add their own bundled basis
-libraries, lift the format-neutral parts (list_basis_sets,
-_scan_basis_library, normalize_element_symbol, PERIODIC_SYMBOLS) into
-core/basis.py. PERIODIC_SYMBOLS duplicates ATOMIC_SYMBOLS in
-core/common.py — dedupe at that point.
+The bundled library is NWChem-formatted, so parsing and rendering stay in the
+NWChem package. Element validation uses the shared periodic-symbol table.
 """
 
 from __future__ import annotations
@@ -23,9 +13,8 @@ from typing import Any
 from chemtools.core.common import ATOMIC_SYMBOLS as _ATOMIC_SYMBOLS, normalize_path, read_text
 
 
-# Set of element symbols recognized by the basis library. Sourced from the
-# canonical ATOMIC_SYMBOLS table in core.common to keep them in sync — see
-# the de-duplication TODO that closed in Phase 9c.
+# Element symbols recognized by the basis library come from the canonical
+# shared table.
 PERIODIC_SYMBOLS: set[str] = set(_ATOMIC_SYMBOLS.values())
 
 BLOCK_START_RE = re.compile(r'^\s*basis\s+"([^"]+)"\s+([A-Za-z]+)', re.IGNORECASE)

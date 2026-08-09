@@ -1,25 +1,9 @@
 """NWChem MCP-tool wrappers and run-analysis helpers.
 
-This module sits between the MCP server (chemtools/mcp/nwchem.py) and the
-underlying domain code in chemtools/core/runner.py + chemtools/programs/
-nwchem/. It packages launch/watch/terminate operations, progress headline
-generation, optimization-trajectory analysis (drift, gradient trends,
-fragment displacement), and session-log helpers for agent workflows.
-
-TODO(multi-program): two natural extractions are pending here:
-
-  * MCP-tool wrappers (launch_nwchem_run, prepare_nwchem_run,
-    check_nwchem_run_status, review_nwchem_progress, terminate_nwchem_run,
-    render_job_script, watch_nwchem_run, watch_multiple_nwchem_runs,
-    tail_nwchem_output, compare_nwchem_runs, review_nwchem_followup_outcome,
-    review_nwchem_mcscf_followup_outcome) belong in chemtools/mcp/tools/
-    nwchem.py once that subpackage is split out of the mcp/nwchem.py
-    monolith. They're here for now because mcp/tools/ does not yet exist.
-
-  * Session-log helpers (init_session_log, append_session_log,
-    next_versioned_path) are program-neutral and should lift to a
-    chemtools/core/session.py module. They write a session log file
-    that any program could share.
+This compatibility module combines NWChem launch and status wrappers with
+progress, trajectory, comparison, and follow-up analysis. Shared version 1
+execution lives in ``chemtools/execution/legacy_runner.py``. New MCP paths use
+focused application services; this module remains for the old Python surface.
 
 For now this is a verbatim move from chemtools/api_runner.py; public
 symbols and call signatures are unchanged so the surrounding code keeps
@@ -40,22 +24,25 @@ from chemtools.programs.nwchem.strategy.diagnose import (
     diagnose_nwchem_output,
     parse_scf,
 )
-from chemtools.core.runner import (
+from chemtools.execution.legacy_runner import (
     cancel_scheduler_job,
-    inspect_run_status,
-    load_runner_profiles,
     render_calculation_run,
     run_calculation,
     tail_text_file,
-    watch_run as watch_run_payload,
+)
+from chemtools.execution.profiles import load_runner_profiles
+from chemtools.programs.nwchem.legacy_status import (
+    inspect_nwchem_run_status as inspect_legacy_nwchem_status,
+    watch_nwchem_run_status as watch_run_payload,
 )
 from chemtools.programs.nwchem.parse.freq import parse_trajectory
 from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS, _COVALENT_RADII
 
-# Forward reference - review_nwchem_mcscf_case is in api_strategy.py
-# We import lazily to avoid circular imports
 def _get_review_nwchem_mcscf_case():
-    from .api_strategy import review_nwchem_mcscf_case
+    from chemtools.programs.nwchem.strategy.case_review import (
+        review_nwchem_mcscf_case,
+    )
+
     return review_nwchem_mcscf_case
 
 
@@ -220,7 +207,7 @@ def check_nwchem_run_status(
     job_id: str | None = None,
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
-    return inspect_run_status(
+    return inspect_legacy_nwchem_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
@@ -1259,8 +1246,9 @@ def review_nwchem_followup_outcome(
     output_dir: str | None = None,
     base_name: str | None = None,
 ) -> dict[str, Any]:
-    # Lazy import to break circular dependency with api_input
-    from chemtools.api_input import prepare_nwchem_next_step
+    from chemtools.programs.nwchem.strategy.workflow_planner import (
+        prepare_nwchem_next_step,
+    )
     comparison = compare_nwchem_runs(
         reference_output_path=reference_output_path,
         candidate_output_path=candidate_output_path,
@@ -1351,8 +1339,9 @@ def review_nwchem_mcscf_followup_outcome(
     output_dir: str | None = None,
     base_name: str | None = None,
 ) -> dict[str, Any]:
-    # Lazy import to break circular dependency with api_input
-    from chemtools.api_input import draft_nwchem_mcscf_retry_input
+    from chemtools.programs.nwchem.input.mcscf import (
+        draft_nwchem_mcscf_retry_input,
+    )
     _review_nwchem_mcscf_case = _get_review_nwchem_mcscf_case()
     reference = _review_nwchem_mcscf_case(
         output_path=reference_output_path,
@@ -1504,13 +1493,7 @@ def review_nwchem_mcscf_followup_outcome(
     }
 
 
-# ---------------------------------------------------------------------------
-# Session log helpers + input versioning — relocated to core/session.py
-# (Phase 6b). Re-exported here so existing callers via
-# `from chemtools.programs.nwchem.runner import init_session_log` keep
-# working. New code should import from `chemtools.core.session` directly.
-# ---------------------------------------------------------------------------
-
+# Compatibility re-exports for direct imports from the NWChem runner.
 from chemtools.core.session import (  # noqa: F401, E402
     init_session_log,
     append_session_log,

@@ -17,7 +17,9 @@ from chemtools.core.artifact_classification import (
 )
 from chemtools.core.artifacts import ArtifactRole
 from chemtools.core.common import detect_standalone_output_format
+from chemtools.core.geometry import inspect_geometry
 from chemtools.core.program import ProgramBackend, ProgramCapability
+from chemtools.core.units import ANGSTROM_PER_BOHR
 from chemtools.application.run_consistency import (
     inspect_input_output_consistency,
 )
@@ -62,6 +64,72 @@ class RunInspectionError(ValueError):
         if self.detected_format is not None:
             payload["detected_format"] = self.detected_format
         return payload
+
+
+def inspect_run_geometry(
+    backend: ProgramBackend,
+    output_file: str | Path,
+    *,
+    max_bond_length: float = 2.5,
+    min_safe_distance: float = 0.6,
+    covalent_tolerance: float = 1.20,
+    measurements: dict[str, list[list[int]]] | None = None,
+) -> dict[str, Any]:
+    """Normalize backend geometry and apply the shared molecular checks."""
+    assert backend.parser is not None
+    raw_geometry = backend.parser.get_geometry(str(output_file))
+    if isinstance(raw_geometry, list):
+        raw_atoms = raw_geometry
+        source_units = "angstrom"
+    elif isinstance(raw_geometry, dict):
+        raw_atoms = list(raw_geometry.get("atoms") or [])
+        source_units = (raw_geometry.get("units") or "angstrom").lower()
+    else:
+        return {
+            "error": "no_geometry",
+            "message": (
+                f"Plugin {backend.name} returned no geometry for "
+                f"{output_file}."
+            ),
+        }
+    if not raw_atoms:
+        return {
+            "error": "no_geometry",
+            "message": (
+                f"Plugin {backend.name} returned an empty geometry for "
+                f"{output_file}."
+            ),
+        }
+
+    atoms = [
+        atom
+        if "symbol" in atom
+        else {
+            **atom,
+            "symbol": atom.get("element") or atom.get("Element"),
+        }
+        for atom in raw_atoms
+    ]
+    if source_units == "bohr":
+        atoms = [
+            {
+                **atom,
+                "x": atom["x"] * ANGSTROM_PER_BOHR,
+                "y": atom["y"] * ANGSTROM_PER_BOHR,
+                "z": atom["z"] * ANGSTROM_PER_BOHR,
+            }
+            for atom in atoms
+        ]
+
+    inspected = inspect_geometry(
+        atoms,
+        max_bond_length=max_bond_length,
+        min_safe_distance=min_safe_distance,
+        covalent_tolerance=covalent_tolerance,
+        measurements=measurements,
+        units="angstrom",
+    )
+    return {"program": backend.name, **inspected}
 
 
 def validate_primary_output_format(
@@ -228,6 +296,7 @@ def inspect_run(
                 parsed.get("diagnostics") or [],
                 path,
             ),
+            "diagnosis_anchors": diagnosis.get("anchors", []),
         },
         "uncertainty": uncertainty,
         "next_actions": diagnosis["next_actions"],
@@ -474,18 +543,40 @@ def _canonical_diagnosis(value: Any) -> dict[str, Any] | None:
     next_actions = value.get("next_actions") or []
     if not isinstance(next_actions, (list, tuple)):
         return None
+    anchors = value.get("anchors") or []
+    if not isinstance(anchors, (list, tuple)):
+        return None
     return {
         "verdict": {
             "label": verdict["label"],
             "confidence": confidence,
             "reasons": list(reasons),
         },
-        "next_actions": [
-            dict(action)
-            for action in next_actions
-            if isinstance(action, Mapping)
+        "next_actions": _normalize_next_actions(next_actions),
+        "anchors": [
+            {
+                "kind": anchor.get("kind", "info"),
+                "message": anchor.get("message", ""),
+                "line": anchor.get("line"),
+                "file": anchor.get("file"),
+            }
+            for anchor in anchors
+            if isinstance(anchor, Mapping)
+            and isinstance(anchor.get("message"), str)
         ],
     }
+
+
+def _normalize_next_actions(values: Iterable[Any]) -> list[dict[str, Any]]:
+    normalized = []
+    for value in values:
+        if not isinstance(value, Mapping):
+            continue
+        action = value.get("action") or value.get("tool")
+        if not isinstance(action, str) or not action:
+            continue
+        normalized.append({**value, "action": action})
+    return normalized
 
 
 def _inferred_diagnosis(parsed: Mapping[str, Any]) -> dict[str, Any]:
@@ -627,6 +718,7 @@ def _detect_standalone_output_format(path: Path) -> str | None:
 
 
 __all__ = [
+    "PRIMARY_OUTPUT_LIMIT_BYTES",
     "RELATED_TEXT_LIMIT_BYTES",
     "RELATED_TEXT_TOTAL_LIMIT_BYTES",
     "RUN_INSPECTION_SCHEMA",

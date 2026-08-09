@@ -113,6 +113,8 @@ def test_program_capability_values_are_exact():
         "resources.estimate",
         "progress.inspect",
         "run.consistency",
+        "calculation.plan",
+        "execution.plan",
         "examples.read",
     )
 
@@ -476,8 +478,12 @@ def test_catalog_registers_builtins_in_exact_order():
     )
 
     assert json.loads(completed.stdout) == {
-        "loaded": ["nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"],
-        "registered": ["dirac", "grasp", "molcas", "nwchem", "qe", "qmcpack"],
+        "loaded": [
+            "nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack", "orca",
+        ],
+        "registered": [
+            "dirac", "grasp", "molcas", "nwchem", "orca", "qe", "qmcpack",
+        ],
     }
 
 
@@ -572,7 +578,7 @@ def test_summarize_run_skips_undeclared_diagnosis_provider(monkeypatch):
 
 def test_builtin_catalog_membership_and_providers_are_exact():
     assert builtin_program_names() == (
-        "nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack"
+        "nwchem", "molcas", "dirac", "grasp", "qe", "qmcpack", "orca"
     )
     assert [
         (
@@ -588,7 +594,7 @@ def test_builtin_catalog_membership_and_providers_are_exact():
             "nwchem",
             "chemtools.programs.nwchem",
             "NWCHEM",
-            "chemtools.mcp.tools.nwchem",
+            "chemtools.mcp.tools._nwchem_provider",
             "_nwchem_tool_definitions",
         ),
         (
@@ -626,6 +632,13 @@ def test_builtin_catalog_membership_and_providers_are_exact():
             "chemtools.mcp.tools.qmcpack",
             "qmcpack_tool_definitions",
         ),
+        (
+            "orca",
+            "chemtools.programs.orca",
+            "ORCA",
+            "chemtools.mcp.tools.orca",
+            "orca_tool_definitions",
+        ),
     ]
 
 
@@ -653,6 +666,9 @@ def test_builtin_detectors_require_output_shaped_signatures():
 
     assert backends["molcas"].detector.detect("OpenMolcas\n")
     assert backends["dirac"].detector.detect("Release DIRAC 25.0\n")
+    assert backends["orca"].detector.detect(
+        "* O R C A *\nProgram Version 6.1.1 - RELEASE -\n"
+    )
 
 
 def test_builtin_catalog_rejects_duplicate_names():
@@ -691,6 +707,7 @@ def test_catalog_loads_current_plugins_without_changing_provider_state():
         "grasp": (True, False, False, True, False, False),
         "qe": (True, True, False, False, True, False),
         "qmcpack": (True, True, False, False, True, False),
+        "orca": (True, False, False, False, False, False),
     }
 
 
@@ -740,6 +757,13 @@ def test_builtin_backends_declare_exact_capabilities():
             "output.parse",
             "output.task_index",
             "run.consistency",
+        },
+        "orca": {
+            "input.parse",
+            "output.frequencies",
+            "output.geometry",
+            "output.parse",
+            "output.task_index",
         },
     }
 
@@ -815,6 +839,19 @@ def test_builtin_backends_preserve_legacy_extension_maps():
             "scalar": [".scalar.dat"],
             "dmc": [".dmc.dat"],
         },
+        "orca": {
+            "input": [".inp"],
+            "output": [".out"],
+            "error": [".err"],
+            "wavefunction": [".gbw"],
+            "hessian": [".hess"],
+            "gradient": [".engrad"],
+            "geometry": [".xyz"],
+            "properties": [".property.txt"],
+            "bibliography": [".bibtex"],
+            "densities": [".densities", ".densitiesinfo"],
+            "optimization_state": [".opt"],
+        },
     }
 
 
@@ -881,6 +918,19 @@ def test_builtin_artifact_roles_are_exact():
             "qmcpack.wavefunction_hdf5": ("checkpoint", "wavefunction"),
             "qmcpack.scalar": ("auxiliary_output",),
             "qmcpack.dmc": ("auxiliary_output",),
+        },
+        "orca": {
+            "orca.input": ("primary_input",),
+            "orca.output": ("primary_output",),
+            "orca.error": ("stderr",),
+            "orca.wavefunction": ("checkpoint", "wavefunction"),
+            "orca.hessian": ("auxiliary_output",),
+            "orca.gradient": ("auxiliary_output",),
+            "orca.geometry": ("auxiliary_output",),
+            "orca.properties": ("auxiliary_output",),
+            "orca.bibliography": ("auxiliary_output",),
+            "orca.densities": ("auxiliary_output",),
+            "orca.optimization_state": ("checkpoint",),
         },
     }
 
@@ -949,16 +999,29 @@ def test_builtin_artifact_content_kinds_are_exact():
             "qmcpack.scalar": "text",
             "qmcpack.dmc": "text",
         },
+        "orca": {
+            "orca.input": "text",
+            "orca.output": "text",
+            "orca.error": "text",
+            "orca.wavefunction": "binary",
+            "orca.hessian": "text",
+            "orca.gradient": "text",
+            "orca.geometry": "text",
+            "orca.properties": "text",
+            "orca.bibliography": "text",
+            "orca.densities": "binary",
+            "orca.optimization_state": "binary",
+        },
     }
 
 
 def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     assert len(load_tool_definitions(GENERIC_TOOL_DEFINITIONS)) == 39
-    assert len(load_tool_definitions(GUIDED_TOOL_DEFINITIONS)) == 2
+    assert len(load_tool_definitions(GUIDED_TOOL_DEFINITIONS)) == 8
     assert len(load_tool_definitions(ORBITRON_TOOL_DEFINITIONS)) == 6
     assert len(load_tool_definitions(SCIENCE_RUNTIME_TOOL_DEFINITIONS)) == 10
     assert len(load_tool_definitions(KNOWLEDGE_TOOL_DEFINITIONS)) == 1
-    assert len(load_tool_definitions(REFERENCE_TOOL_DEFINITIONS)) == 5
+    assert len(load_tool_definitions(REFERENCE_TOOL_DEFINITIONS)) == 6
     assert {
         spec.name: len(load_tool_definitions(spec))
         for spec in BUILTIN_BACKENDS
@@ -969,7 +1032,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
         "grasp": 49,
         "qe": 20,
             "qmcpack": 14,
-    }
+            "orca": 0,
+        }
 
     catalog_names = [
         definition["name"] for definition in catalog_tool_definitions()
@@ -977,8 +1041,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     dispatch_names = [
         definition["name"] for definition in dispatch.tool_definitions()
     ]
-    assert len(catalog_names) == 331
-    assert len(set(catalog_names)) == 331
+    assert len(catalog_names) == 338
+    assert len(set(catalog_names)) == 338
     assert catalog_names == dispatch_names
 
 

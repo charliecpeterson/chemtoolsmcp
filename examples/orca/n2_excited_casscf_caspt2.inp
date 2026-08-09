@@ -1,0 +1,12 @@
+! def2-SVP NoFrozenCore TightSCF
+%casscf
+  nel 6
+  norb 6
+  mult 1
+  nroots 3
+  PTMethod FIC_CASPT2
+end
+* xyz 0 1
+N  0.000000  0.000000 -0.550000
+N  0.000000  0.000000  0.550000
+*

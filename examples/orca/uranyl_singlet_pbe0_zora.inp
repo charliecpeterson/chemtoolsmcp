@@ -1,0 +1,9 @@
+! PBE0 RIJCOSX ZORA ZORA-def2-TZVP SARC/J TightSCF PrintBasis
+%basis
+  NewGTO U "SARC-ZORA-TZVP" end
+end
+* XYZ 2 1
+O  0.00  0.00 -1.76
+U  0.00  0.00  0.00
+O  0.00  0.00  1.76
+*

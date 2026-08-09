@@ -1,0 +1,21 @@
+%crystalprep
+DoCIF true
+InputCIF "nacl_primitive.cif"
+
+DoSuperCell true
+SCDimension "10x10x10"
+
+DoEmbedding true
+DoLayers true
+CellVolumeFraction 0.125
+QCLayers 1
+ECPLayers 1
+
+NAtomTypes 2
+Na 0  1.0 0.0
+Cl 1 -1.0 0.0
+
+DoICQMMMInput true
+QCCharge 0
+QCMult 1
+end

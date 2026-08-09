@@ -1,0 +1,7 @@
+! PBE0 def2-SVP def2/J RIJCOSX TightSCF Opt Freq
+%tddft
+  NRoots 5
+  IRootMult Triplet
+  IRoot 1
+end
+* xyzfile 0 1 formaldehyde_esd_gs.xyz

@@ -133,10 +133,7 @@ def compute_derived(
             break
     if final_energy is not None:
         derived["final_energy_hartree"] = final_energy
-        # Phase 5: mirror under `primary_energy_hartree` so generic tools
-        # that consume ParsedRun.derived see the same key name regardless
-        # of program. NWChem's "final" and Molcas's "primary" mean the
-        # same thing at this level — the run's best converged energy.
+        # Generic consumers use the same primary-energy key for every program.
         derived.setdefault("primary_energy_hartree", final_energy)
 
     n_imag = 0

@@ -1,0 +1,171 @@
+# Prompt-to-tool contract for the intended public Chemtools interface.
+# current_tool is what an agent can call now. target_tool is the stable name
+# intended for the completed guided surface.
+
+schema_version: "chemtools.guided-intent-contract/1"
+maximum_public_tools: 12
+
+analysis_result_contract:
+  tools: [review_input, inspect_run, compare_runs, plan_recovery]
+  shared_fields:
+    assessment: >-
+      Contains a verdict with a non-empty label, confidence from zero through
+      one, and explicit reasons.
+    evidence: >-
+      Contains facts and program-specific findings without copying them into
+      a second generic findings list.
+    uncertainty: >-
+      A list whose entries contain code, message, and impact.
+    next_actions: >-
+      A list whose entries contain action, reason, and integer priority.
+      Inspection actions may retain tool and params as provider-specific call
+      metadata during the compatibility window.
+  finding_locations:
+    review_input: [evidence.lint.issues]
+    inspect_run: [evidence.diagnostics, evidence.diagnosis_anchors]
+    compare_runs: [evidence.comparability_checks, evidence.energy]
+    plan_recovery: [evidence.plan_kind, evidence.prepared_artifacts]
+
+intents:
+  - id: review_input
+    prompt: >-
+      Review /work/feo/triplet.nw before I submit it. Check the charge,
+      multiplicity, basis and ECP setup, and task sequence. Do not rewrite or
+      run it.
+    target_tool: review_input
+    current_tool: review_input
+    implementation: guided
+    selection_rule: >-
+      Choose this for a pre-run assessment of an existing input file.
+    do_not_choose: [draft_input, inspect_run]
+
+  - id: inspect_run
+    prompt: >-
+      /work/feo/triplet.out finished overnight. Is the calculation usable, and
+      what evidence in the output supports that conclusion?
+    target_tool: inspect_run
+    current_tool: inspect_run
+    implementation: guided
+    selection_rule: >-
+      Choose this when the primary object is a completed, failed, or partial
+      program output and the user wants a scientific verdict.
+    do_not_choose: [review_input, plan_recovery]
+
+  - id: retrieve_knowledge
+    prompt: >-
+      We keep getting different SCF states from runs that all started from
+      atomic guesses. Search the accepted chemistry rules for what counts as
+      an independent starting-state check.
+    target_tool: search_knowledge
+    current_tool: search_knowledge
+    implementation: guided
+    selection_rule: >-
+      Choose this for a curated rule or known trap rather than evidence from a
+      caller-supplied calculation.
+    do_not_choose: [inspect_run, find_reference_case]
+
+  - id: plan_calculation
+    prompt: >-
+      Plan a neutral UO2 triplet NWChem geometry optimization followed by
+      frequencies. Give me the stages, required decisions, and unresolved
+      assumptions before any input is written.
+    target_tool: plan_calculation
+    current_tool: plan_calculation
+    implementation: guided
+    selection_rule: >-
+      Choose this for a calculation strategy whose stages and assumptions must
+      be settled before rendering program syntax.
+    do_not_choose: [draft_input, launch_run]
+
+  - id: draft_input
+    prompt: >-
+      Draft an NWChem B3LYP/def2-SVP singlet water energy input from O 0.000
+      0.000 0.118, H 0.000 0.758 -0.472, and H 0.000 -0.758 -0.472 in
+      angstrom. Return the text without writing a file.
+    target_tool: draft_input
+    current_tool: draft_input
+    implementation: guided
+    selection_rule: >-
+      Choose this when the user has supplied a complete calculation
+      specification and wants program input text.
+    do_not_choose: [plan_calculation, launch_run]
+
+  - id: plan_recovery
+    prompt: >-
+      /work/ferrocene/atomic.out converged after a large SCF excursion. Use
+      /work/ferrocene/atomic.nw and plan a safer repeat without changing charge
+      or multiplicity. Do not write any files.
+    target_tool: plan_recovery
+    current_tool: plan_recovery
+    implementation: guided
+    selection_rule: >-
+      Choose this after a run has supplied concrete failure or instability
+      evidence and the user wants a bounded, read-only recovery plan. A
+      confirmed mismatch between the supplied input and output blocks
+      automatic candidate text until provenance is resolved.
+    do_not_choose: [draft_input, launch_run]
+
+  - id: compare_runs
+    prompt: >-
+      Compare /work/feo/triplet.out with /work/feo/quintet.out. Tell me whether
+      the energy ordering is justified by their inputs and outputs; do not
+      assume the calculations are comparable.
+    target_tool: compare_runs
+    current_tool: compare_runs
+    implementation: guided
+    selection_rule: >-
+      Choose this when the question depends on differences or ordering between
+      two calculations rather than either run in isolation.
+    do_not_choose: [inspect_run, search_knowledge]
+
+  - id: launch_run
+    prompt: >-
+      /work/uo2/opt.nw has been reviewed. Prepare a launch with the configured
+      slurm target and 32 MPI ranks, but show the final plan for approval before
+      submitting anything.
+    target_tool: launch_run
+    current_tool: launch_run
+    implementation: guided
+    selection_rule: >-
+      Choose this only for an approved input, a configured execution target,
+      and an explicit request to start a calculation.
+    do_not_choose: [draft_input, plan_calculation]
+
+  - id: monitor_run
+    prompt: >-
+      Check Chemtools launch 7c9a2d1e. Report the process or scheduler state and
+      whether its output has reached scientific completion. Do not submit,
+      restart, or cancel anything.
+    target_tool: monitor_run
+    current_tool: monitor_run
+    implementation: guided
+    selection_rule: >-
+      Choose this for a run already owned by Chemtools when both execution
+      state and scientific progress matter.
+    do_not_choose: [inspect_run, launch_run]
+
+  - id: visualize
+    prompt: >-
+      Render /work/uo2/optimized.xyz and return the image. Do not modify the
+      coordinates or select a different structure.
+    target_tool: visualize
+    current_tool: visualize
+    implementation: guided
+    selection_rule: >-
+      Choose this for bounded inspection or rendering of one caller-supplied
+      structure path.
+    do_not_choose: [inspect_run, draft_input]
+
+  - id: find_reference_case
+    prompt: >-
+      Find a validated NWChem case involving open-shell transition-metal SCF
+      recovery that I can compare with /work/feo/triplet.out. Return only cases
+      whose required artifacts are pinned.
+    target_tool: find_reference_case
+    current_tool: find_reference_case
+    implementation: guided
+    selection_rule: >-
+      Choose this when the user needs a calculation case with pinned artifacts
+      and an explicit scientific-review status rather than a general chemistry
+      rule. A validated-only search may return no cases.
+    do_not_choose: [search_knowledge, compare_runs]

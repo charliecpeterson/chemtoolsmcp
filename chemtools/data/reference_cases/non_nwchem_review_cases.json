@@ -1,0 +1,889 @@
+{
+  "schema": "chemtools.reference-corpus/1",
+  "description": "Pinned non-NWChem candidates awaiting scientific and provenance review before use as validated references.",
+  "cases": [
+    {
+      "id": "molcas.nactel_parity_failure",
+      "programs": [
+        "molcas"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "failure_diagnosis",
+        "scientific_regression"
+      ],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "molcas.input",
+          "path": "molcas/recovery_nactel_parity/h2o_bad_nactel.input",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 422,
+          "sha256": "81481484c0fc8f92e0e436176839ade5bfaecfeff9f373fd2cf635292376bfb4"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "molcas.output",
+          "path": "molcas/recovery_nactel_parity/h2o_bad_nactel.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 21560,
+          "sha256": "51015953bad441cfaf107d0b05451ed224bb68851fc2977885bac1e5ea6a4a11"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "failed"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm the deliberate active-electron/spin parity failure, its diagnostic class, and the bounded recovery advice before promotion."
+      },
+      "tags": [
+        "active-space",
+        "nactel-parity",
+        "recovery"
+      ]
+    },
+    {
+      "id": "molcas.hcn_transition_state_frequency",
+      "programs": [
+        "molcas"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe"
+      ],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "molcas.input",
+          "path": "molcas/ts_irc_hcn/hcn_ts_freq.input",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 331,
+          "sha256": "4d331ec91776df44f4169a416152d11bd517073379fb489c79041ce4e757cf2a"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "molcas.output",
+          "path": "molcas/ts_irc_hcn/hcn_ts_freq.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 68952,
+          "sha256": "9488b0e42c3926fe3530172100b49d10c37a13d30e609b9f017f25b046f913ee"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "completed"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm transition-state provenance, raw frequency expectations, imaginary-mode interpretation, and thermochemistry fields before promotion."
+      },
+      "tags": [
+        "frequency",
+        "transition-state",
+        "imaginary-mode"
+      ]
+    },
+    {
+      "id": "dirac.h2o_x2c_4c_comparison",
+      "programs": [
+        "dirac"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "methodology_warning"
+      ],
+      "artifacts": [
+        {
+          "id": "molecule",
+          "roles": [
+            "structure"
+          ],
+          "kind": "dirac.molecule",
+          "path": "dirac/x2c_vs_4c/h2o.mol",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 275,
+          "sha256": "2d31f334a20ee064bf7954af764909a52501d9b3f16477237b47bc255eafdd0c"
+        },
+        {
+          "id": "four_component_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "dirac.input",
+          "path": "dirac/x2c_vs_4c/h2o_4c.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 254,
+          "sha256": "3ecfebe80b05fe7cb602f91ce72e6362545b69dd9cab957b33d83481869c42ab"
+        },
+        {
+          "id": "four_component_output",
+          "roles": [
+            "primary_output",
+            "comparison_member"
+          ],
+          "kind": "dirac.output",
+          "path": "dirac/x2c_vs_4c/h2o_4c_h2o.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 55528,
+          "sha256": "ef694cf79eca4d146b47320b34d2f4fb737af4b37314085b55b134e43d794fbf"
+        },
+        {
+          "id": "x2c_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "dirac.input",
+          "path": "dirac/x2c_vs_4c/h2o_x2c.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 327,
+          "sha256": "ad64089ffc3a8af3de7d072a2fa88eec19c2f4312644d7b448fb46f6858132df"
+        },
+        {
+          "id": "x2c_output",
+          "roles": [
+            "primary_output",
+            "comparison_member"
+          ],
+          "kind": "dirac.output",
+          "path": "dirac/x2c_vs_4c/h2o_x2c_h2o.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 66225,
+          "sha256": "e955b0a9d00e8d9c7f99ef6b63ee08f03883f65f8ccbe120a2c47e6379a23aa4"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "converged"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm that the geometry, basis, charge, electron count, and requested Hamiltonians make the two energies comparable before pinning a difference."
+      },
+      "tags": [
+        "x2c",
+        "four-component",
+        "method-comparison"
+      ]
+    },
+    {
+      "id": "dirac.uranium_open_shell",
+      "programs": [
+        "dirac"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe"
+      ],
+      "artifacts": [
+        {
+          "id": "molecule",
+          "roles": [
+            "structure"
+          ],
+          "kind": "dirac.molecule",
+          "path": "dirac/Utest/U-vdz.mol",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 102,
+          "sha256": "2ae5b1ab6ffc8650b4de48e60d9e8abb3bf83f45da3e38816ee1a99c96a2040d"
+        },
+        {
+          "id": "input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "dirac.input",
+          "path": "dirac/Utest/U-test.inp",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 207,
+          "sha256": "ae43c939aedfaf44cb7aaa6e5320826a91272a2d0b7f93a58243341de2354531"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "dirac.output",
+          "path": "dirac/Utest/U-test_U-vdz.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 411110,
+          "sha256": "c7895c424310bbad6157ad9d82f188390f9c47a49bdd976231d7cb3facdbc717"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "converged"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm the uranium configuration, open-shell occupation, relativistic method, basis identity, and expected energy fields before promotion."
+      },
+      "tags": [
+        "actinide",
+        "open-shell",
+        "uranium"
+      ]
+    },
+    {
+      "id": "grasp.thorium_relativistic_limit",
+      "programs": [
+        "grasp"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe",
+        "methodology_warning"
+      ],
+      "artifacts": [
+        {
+          "id": "relativistic_script",
+          "roles": [
+            "primary_input",
+            "workflow_script"
+          ],
+          "kind": "grasp.script",
+          "path": "grasp/Th/run_Th.sh",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 1757,
+          "sha256": "25a58736bd2ad7380ba919c3f619d876b6fe6d4a8ba019a21ef322261faf5137"
+        },
+        {
+          "id": "relativistic_output",
+          "roles": [
+            "primary_output",
+            "comparison_member"
+          ],
+          "kind": "grasp.output",
+          "path": "grasp/Th/run_Th.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 54585,
+          "sha256": "e9726132860e4f1248c57bd3f79c8ecdaa09e9d6fdc04dcbe034d183b71a9679"
+        },
+        {
+          "id": "nonrelativistic_script",
+          "roles": [
+            "primary_input",
+            "workflow_script"
+          ],
+          "kind": "grasp.script",
+          "path": "grasp/Th_NR/run_Th_NR.sh",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 1828,
+          "sha256": "358632d4bfb5753ce91ed6f93d4f984e3f904c8c3f200a5c4ae8843a5f8766a0"
+        },
+        {
+          "id": "nonrelativistic_output",
+          "roles": [
+            "primary_output",
+            "comparison_member"
+          ],
+          "kind": "grasp.output",
+          "path": "grasp/Th_NR/run_Th_NR.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 60161,
+          "sha256": "efc33c1c797d953797b556c6a9d5cbe7d194faad01e9458e59c55fbb27f0dfd0"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "completed"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm run provenance, the altered speed-of-light limit, matching state content, and which level files are required for a valid comparison."
+      },
+      "tags": [
+        "thorium",
+        "nonrelativistic-limit",
+        "level-comparison"
+      ]
+    },
+    {
+      "id": "grasp.lithium_e1_transition",
+      "programs": [
+        "grasp"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe"
+      ],
+      "artifacts": [
+        {
+          "id": "script",
+          "roles": [
+            "primary_input",
+            "workflow_script"
+          ],
+          "kind": "grasp.script",
+          "path": "grasp/Li_E1/run_Li_E1.sh",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 996,
+          "sha256": "1b61bca3d0ac8546f0015d32e43f76bac5a2a6d7e83ba881d0e3901be9ddfaaf"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "grasp.output",
+          "path": "grasp/Li_E1/run_Li_E1.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 40565,
+          "sha256": "84924e3a2a379104f1bdb3dfe1229f4391dd9bc7c679df339a040d32cbfd52b6"
+        },
+        {
+          "id": "transition_table",
+          "roles": [
+            "scientific_data"
+          ],
+          "kind": "grasp.transition",
+          "path": "grasp/Li_E1/Li2s.Li2p.t.lsj",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 585,
+          "sha256": "192026a7933fdd53337ba5938c2f85d6e5d214322ff68084bf69ef20c0006c9c"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "completed"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm state identities, biorthogonal transformation provenance, transition units, and the expected E1 rate fields before promotion."
+      },
+      "tags": [
+        "lithium",
+        "e1-transition",
+        "biorthogonal"
+      ]
+    },
+    {
+      "id": "qe.feo_vc_relaxation",
+      "programs": [
+        "qe"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe"
+      ],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "qe.input",
+          "path": "qe/FeO/feo.vc-relax.in",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 878,
+          "sha256": "92dddf7bc41f964fba9f6b8ec463ce480c2a86460ef699909cf6ade6691caf66"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "qe.output",
+          "path": "qe/FeO/feo.vc-relax.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 1386007,
+          "sha256": "bd35e75b709d3e19278b06b0e88b7e0430429b1da639d8b748eb623de40e8a9e"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "relaxation_converged"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm pseudopotential identities, magnetic state, trajectory and cell-change expectations, and final-geometry provenance before promotion."
+      },
+      "tags": [
+        "feo",
+        "spin-polarized",
+        "vc-relax",
+        "trajectory"
+      ]
+    },
+    {
+      "id": "qe.iron_spin_scf",
+      "programs": [
+        "qe"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe"
+      ],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "qe.input",
+          "path": "qe/fe-bcc-spin/pw.scf.in",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 1194,
+          "sha256": "a4bb5f1ae2a4b0076719cffd050a37fac8041634374ad0d799bfdb74856bf0ec"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "qe.output",
+          "path": "qe/fe-bcc-spin/pw.scf.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 221946,
+          "sha256": "05472bc587196a1a4417a95a4ce16f4319d57a0f017497690e5f15c3ab2f941b"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "scf_converged"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm pseudopotential identity, smearing and k-point setup, magnetic moment, charge accounting, and expected energy before promotion."
+      },
+      "tags": [
+        "iron",
+        "spin-polarized",
+        "metallic-scf"
+      ]
+    },
+    {
+      "id": "qmcpack.hydrogen_vmc_statistics",
+      "programs": [
+        "qmcpack"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "parser_contract",
+        "scientific_regression",
+        "methodology_warning"
+      ],
+      "artifacts": [
+        {
+          "id": "input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "qmcpack.input",
+          "path": "qmcpack/lab1_qmc_statistics/atom/H.xml",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 2347,
+          "sha256": "cfd7a40fc95cae4c636516252d0d7e00f26f37c79f6956c1991f7a3d2d6b162d"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "qmcpack.output",
+          "path": "qmcpack/lab1_qmc_statistics/atom/H.output",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 15028,
+          "sha256": "db4ab604964bc0fc859f321ee41dce32dc83d46024333825ac44015198ef0b3f"
+        },
+        {
+          "id": "scalar",
+          "roles": [
+            "scientific_data"
+          ],
+          "kind": "qmcpack.scalar",
+          "path": "qmcpack/lab1_qmc_statistics/atom/H.s000.scalar.dat",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 85674,
+          "sha256": "9b0191b3d8fa30c0fdc97bde18ad7789cbd49c89a60e10a6afac9e9f99640139"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "incomplete"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm tutorial provenance and redistribution terms, why the log is currently classified incomplete, and the expected scalar statistics before promotion."
+      },
+      "tags": [
+        "hydrogen",
+        "vmc",
+        "statistics",
+        "incomplete-log"
+      ]
+    },
+    {
+      "id": "qmcpack.oxygen_dmc_autocorrection",
+      "programs": [
+        "qmcpack"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "parser_contract",
+        "scientific_regression",
+        "methodology_warning"
+      ],
+      "artifacts": [
+        {
+          "id": "input_template",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "qmcpack.input",
+          "path": "qmcpack/lab2_qmc_basics/oxygen_atom/O.q0.dmc.in.xml",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 1977,
+          "sha256": "dfea8d27b93f50928f1ef967296c1944297f80c65a5e4d8aa5749791d1c0f994"
+        },
+        {
+          "id": "output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "qmcpack.output",
+          "path": "qmcpack/lab2_qmc_basics/oxygen_atom/O.q0.dmc.out",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 26786,
+          "sha256": "9dc2c97f86d71db37fac46f735c25b50d4170fef8e06deb5a67710d05e7dcb51"
+        },
+        {
+          "id": "vmc_scalar",
+          "roles": [
+            "scientific_data"
+          ],
+          "kind": "qmcpack.scalar",
+          "path": "qmcpack/lab2_qmc_basics/oxygen_atom/O.q0.dmc.s000.scalar.dat",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 465,
+          "sha256": "f117ec17068bdbef1bc6a9cf1985f3a40bc4a905f8c9b245d15fa3b3759635f8"
+        },
+        {
+          "id": "dmc_scalar",
+          "roles": [
+            "scientific_data"
+          ],
+          "kind": "qmcpack.scalar",
+          "path": "qmcpack/lab2_qmc_basics/oxygen_atom/O.q0.dmc.s001.scalar.dat",
+          "storage_tier": "external_reference",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null,
+          "size_bytes": 465,
+          "sha256": "49ec384d7af9334c00d1f0e64be798e18635b003bd4f3871dfe3f107dbb37ef9"
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "current_inspection_verdict": "input_parameter_auto_corrected"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Confirm the generated input corresponding to the run, parameter autocorrection semantics, VMC/DMC series roles, pseudopotential dependency, and tutorial redistribution terms before promotion."
+      },
+      "tags": [
+        "oxygen",
+        "dmc",
+        "autocorrection",
+        "tutorial-provenance"
+      ]
+    }
+  ]
+}

@@ -1,13 +1,10 @@
-"""NWChem MCP handlers — jobs.
+"""NWChem MCP handlers for execution, monitoring, and run records."""
 
-Split from mcp/tools/nwchem.py by category. Shared imports/helpers live in
-_nwchem_base (pulled in below); nwchem.py imports this module so its @_tool
-handlers register.
-"""
 from __future__ import annotations
 
-from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
-from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from typing import Any
+
+from chemtools.application.execution import LaunchStatusError
 from chemtools.application.nwchem_execution import (
     launch_nwchem_with_service,
     register_nwchem_launch_with_service,
@@ -17,8 +14,47 @@ from chemtools.application.nwchem_monitoring import (
     inspect_nwchem_status_with_service,
     watch_nwchem_status_with_service,
 )
-from chemtools.application.execution import LaunchStatusError
+from chemtools.persistence.runs import (
+    get_run_summary,
+    list_runs,
+    register_run,
+    update_run_status,
+)
+from chemtools.application.run_registry import (
+    advance_workflow,
+    create_campaign,
+    create_workflow,
+    generate_input_batch,
+    get_campaign_energies,
+    get_campaign_status,
+)
 from chemtools.mcp.decorator import get_execution_service
+from chemtools.programs.nwchem.strategy.legacy_next_actions import (
+    build_legacy_next_actions as _build_next_actions,
+)
+from chemtools.mcp.tools._nwchem_registration import _tool
+from chemtools.programs.nwchem.input.lint_restart import find_restart_assets
+from chemtools.programs.nwchem.protocols import plan_calculation, list_protocols
+from chemtools.programs.nwchem.runner import (
+    review_nwchem_progress,
+    tail_nwchem_output,
+    watch_nwchem_run,
+)
+from chemtools.programs.nwchem.strategy.hpc_resources import (
+    detect_hpc_accounts,
+    suggest_hpc_resources,
+    suggest_partition,
+)
+from chemtools.programs.nwchem.strategy.resources import (
+    check_memory_fit,
+    estimate_freq_walltime,
+)
+from chemtools.programs.nwchem.strategy.workflow_planner import (
+    plan_nwchem_workflow,
+)
+from chemtools.programs.nwchem.strategy.workflow_state import (
+    get_nwchem_workflow_state,
+)
 
 
 @_tool("plan_nwchem_workflow")
@@ -446,7 +482,10 @@ def _handle_generate_input_batch(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_check_memory_fit(arguments: dict[str, Any]) -> dict[str, Any]:
     profile_resources = None
     if arguments.get("profile"):
-        from chemtools.core.runner import load_runner_profiles, _resolve_profile
+        from chemtools.execution.profiles import (
+            _resolve_profile,
+            load_runner_profiles,
+        )
         profiles_path = arguments.get("profiles_path")
         loaded = load_runner_profiles(profiles_path)
         resolved = _resolve_profile(loaded, arguments["profile"])

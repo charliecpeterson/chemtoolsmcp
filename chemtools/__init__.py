@@ -109,7 +109,7 @@ from .api import (
 )
 from chemtools.core.pyscf_comparison import compare_pyscf_reference_calculation
 from chemtools.programs.nwchem.pyscf_reference import draft_nwchem_pyscf_reference
-from chemtools.core.run_registry import (
+from chemtools.application.run_registry import (
     register_run,
     update_run_status,
     list_runs,
@@ -121,7 +121,7 @@ from chemtools.core.run_registry import (
     advance_workflow,
     generate_input_batch,
 )
-from chemtools.core.eval import evaluate_case, evaluate_cases
+from chemtools.application.evaluation import evaluate_case, evaluate_cases
 
 __all__ = [
     "render_job_script",

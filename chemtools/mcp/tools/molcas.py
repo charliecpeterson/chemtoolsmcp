@@ -65,18 +65,20 @@ def _tool(name: str, *, needs: str = "none", program: str = "molcas"):
     on the decorator call to register a cross-program tool here."""
     return _raw_tool(name, needs=needs, program=program)
 from chemtools.programs.molcas.parse.output import (
+    get_orbitals as _get_orbitals,
     parse_tasks as _parse_tasks,
     parse_output_full as _parse_output_full,
 )
-from chemtools.programs.molcas.parse.mos import parse_last_mo_block as _parse_last_mo_block
 from chemtools.programs.molcas.parse.freq import parse_last_freq_block as _parse_last_freq_block
 from chemtools.programs.molcas.parse.thermochem import parse_thermochem_block as _parse_thermochem_block
 from chemtools.programs.molcas.parse.geometry import (
-    parse_cartesian_blocks as _parse_cartesian_blocks,
-    parse_final_geometry as _parse_final_geometry,
+    GeometryBlockIndexError as _GeometryBlockIndexError,
+    select_geometry as _select_geometry,
     parse_trajectory as _parse_trajectory,
 )
-from chemtools.programs.molcas.parse.rassi import parse_rassi as _parse_rassi
+from chemtools.programs.molcas.parse.rassi import (
+    parse_rassi_module as _parse_rassi_module,
+)
 from chemtools.programs.molcas.binary.orbitals import (
     parse_inporb as _parse_inporb,
     swap_orbitals_in_inporb as _swap_orbitals_in_inporb,
@@ -86,9 +88,9 @@ from chemtools.programs.molcas.scheduler import (
     watch_molcas_run as _watch_molcas_run,
 )
 from chemtools.programs.molcas.strategy.active_space import (
-    analyze_active_space as _analyze_active_space,
-    validate_caspt2_setup as _validate_caspt2_setup,
-    suggest_orbital_swaps_by_character as _suggest_swaps_by_character,
+    analyze_active_space_source as _analyze_active_space_source,
+    suggest_orbital_swaps_from_output as _suggest_orbital_swaps_from_output,
+    validate_caspt2_output as _validate_caspt2_output,
 )
 from chemtools.programs.molcas.strategy.orchestrators import (
     refine_active_space as _refine_active_space,
@@ -1736,37 +1738,10 @@ def _handle_parse_molcas_tasks(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("get_molcas_orbitals")
 def _handle_get_molcas_orbitals(arguments: dict[str, Any]) -> dict[str, Any]:
-    path = arguments["output_file"]
-    contents = read_text(path)
-    tasks_result = _parse_tasks(path, contents)
-    generic_tasks = tasks_result.get("generic_tasks") or []
-    if not generic_tasks:
-        return {"error": "no_tasks", "message": f"No tasks found in {path}"}
-    task_index = arguments.get("task_index")
-    if task_index is None:
-        preferred = None
-        for i, t in enumerate(generic_tasks):
-            if t["extra"]["module"] in {"RASSCF", "SCF"}:
-                preferred = i
-        if preferred is None:
-            return {"error": "no_orbital_task", "message": f"No SCF/RASSCF tasks found in {path}"}
-        task_index = preferred
-    if task_index < 0 or task_index >= len(generic_tasks):
-        return {"error": "task_index_out_of_range", "message": f"task_index={task_index} out of range (have {len(generic_tasks)} tasks)"}
-    task = generic_tasks[task_index]
-    lines = contents.splitlines()
-    block_text = "\n".join(lines[task["line_start"] - 1 : task["line_end"]])
-    mo = _parse_last_mo_block(block_text, parse_coefficients=True)
-    if mo is None:
-        return {
-            "error": "no_mo_block",
-            "message": f"No '++ Molecular orbitals:' block in task {task_index} ({task['extra']['module']})",
-        }
-    return {
-        "task_index": task_index,
-        "module": task["extra"]["module"],
-        "mo_block": mo,
-    }
+    return _get_orbitals(
+        arguments["output_file"],
+        arguments.get("task_index"),
+    )
 
 
 @_tool("parse_molcas_frequencies")
@@ -1797,20 +1772,30 @@ def _handle_parse_molcas_thermochem(arguments: dict[str, Any]) -> dict[str, Any]
 def _handle_extract_molcas_geometry(arguments: dict[str, Any]) -> dict[str, Any]:
     contents = read_text(arguments["output_file"])
     block_index = arguments.get("block_index")
-    if block_index is not None:
-        blocks = _parse_cartesian_blocks(contents)
-        if not blocks:
-            return {"error": "no_geometry", "message": f"No 'Cartesian coordinates' blocks in {arguments['output_file']}"}
-        if block_index < 0 or block_index >= len(blocks):
+    try:
+        geometry = _select_geometry(contents, block_index)
+    except _GeometryBlockIndexError as error:
+        return {
+            "error": "block_index_out_of_range",
+            "message": (
+                f"block_index={block_index} out of range; have "
+                f"{error.block_count} blocks"
+            ),
+        }
+    if geometry is None:
+        if block_index is not None:
             return {
-                "error": "block_index_out_of_range",
-                "message": f"block_index={block_index} out of range; have {len(blocks)} blocks",
+                "error": "no_geometry",
+                "message": (
+                    "No 'Cartesian coordinates' blocks in "
+                    f"{arguments['output_file']}"
+                ),
             }
-        return blocks[block_index]
-    final = _parse_final_geometry(contents)
-    if final is None:
-        return {"error": "no_geometry", "message": f"No geometry found in {arguments['output_file']}"}
-    return final
+        return {
+            "error": "no_geometry",
+            "message": f"No geometry found in {arguments['output_file']}",
+        }
+    return geometry
 
 
 @_tool("inspect_molcas_geometry")
@@ -1846,16 +1831,13 @@ def _handle_swap_molcas_inporb_orbitals(arguments: dict[str, Any]) -> dict[str, 
 @_tool("parse_molcas_rassi")
 def _handle_parse_molcas_rassi(arguments: dict[str, Any]) -> dict[str, Any]:
     contents = read_text(arguments["output_file"])
-    start = contents.find("--- Start Module: rassi")
-    if start == -1:
+    parsed = _parse_rassi_module(contents)
+    if parsed is None:
         return {
             "error": "no_rassi_module",
             "message": f"No '--- Start Module: rassi' marker found in {arguments['output_file']}",
         }
-    end = contents.find("--- Stop Module: rassi", start)
-    if end == -1:
-        end = len(contents)
-    return _parse_rassi(contents[start:end])
+    return parsed
 
 
 @_tool("prepare_molcas_launch")
@@ -1880,76 +1862,24 @@ def _handle_parse_molcas_inporb(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("analyze_molcas_active_space")
 def _handle_analyze_molcas_active_space(arguments: dict[str, Any]) -> dict[str, Any]:
-    output_file = arguments.get("output_file")
-    orbital_file = arguments.get("orbital_file")
-    if not output_file and not orbital_file:
-        return {
-            "error": "missing_input",
-            "message": "Provide either output_file or orbital_file.",
-        }
-    if output_file:
-        contents = read_text(output_file)
-        full = _parse_output_full(output_file, contents)
-        rasscf_payload = next(
-            (p["details"] for p in full["task_payloads"] if p["module"] == "RASSCF"),
-            None,
-        )
-        if not rasscf_payload:
-            return {
-                "error": "no_rasscf_task",
-                "message": f"No RASSCF task found in {output_file}; supply orbital_file instead.",
-            }
-        return _analyze_active_space(rasscf_payload)
-    return _analyze_active_space(_parse_inporb(orbital_file, parse_coefficients=False))
+    return _analyze_active_space_source(
+        output_file=arguments.get("output_file"),
+        orbital_file=arguments.get("orbital_file"),
+    )
 
 
 @_tool("validate_molcas_caspt2_setup")
 def _handle_validate_molcas_caspt2_setup(arguments: dict[str, Any]) -> dict[str, Any]:
-    contents = read_text(arguments["output_file"])
-    full = _parse_output_full(arguments["output_file"], contents)
-    caspt2_payload = next(
-        (p["details"] for p in full["task_payloads"] if p["module"] == "CASPT2"),
-        None,
-    )
-    if not caspt2_payload:
-        return {
-            "error": "no_caspt2_task",
-            "message": f"No CASPT2 task found in {arguments['output_file']}",
-        }
-    return _validate_caspt2_setup(caspt2_payload)
+    return _validate_caspt2_output(arguments["output_file"])
 
 
 @_tool("suggest_molcas_orbital_swaps")
 def _handle_suggest_molcas_orbital_swaps(arguments: dict[str, Any]) -> dict[str, Any]:
-    output_file = arguments["output_file"]
-    contents = read_text(output_file)
-    full = _parse_output_full(output_file, contents)
-    rasscf_payload = next(
-        (p["details"] for p in full["task_payloads"] if p["module"] == "RASSCF"),
-        None,
-    )
-    if not rasscf_payload:
-        return {"error": "no_rasscf_task", "message": f"No RASSCF task in {output_file}"}
-
-    # Slice the RASSCF block and pull the LAST MO block (which has dominant_aos)
-    sym = int(arguments.get("symmetry", 1))
-    rasscf_task = next(
-        (p for p in full["task_payloads"] if p["module"] == "RASSCF"),
-        None,
-    )
-    line_start, line_end = rasscf_task["line_range"]
-    lines = contents.splitlines()
-    block_text = "\n".join(lines[line_start - 1: line_end])
-    mo_block = _parse_last_mo_block(block_text, parse_coefficients=True)
-    if mo_block is None:
-        return {"error": "no_mo_block", "message": f"No MO block in RASSCF task"}
-
-    return _suggest_swaps_by_character(
-        mo_block=mo_block,
-        rasscf_orbital_specs=rasscf_payload.get("orbital_specs", {}),
+    return _suggest_orbital_swaps_from_output(
+        arguments["output_file"],
         target_atom_pattern=arguments["target_atom_pattern"],
         target_ao_pattern=arguments["target_ao_pattern"],
-        symmetry=sym,
+        symmetry=int(arguments.get("symmetry", 1)),
         top_dominant_aos=int(arguments.get("top_dominant_aos", 1)),
     )
 

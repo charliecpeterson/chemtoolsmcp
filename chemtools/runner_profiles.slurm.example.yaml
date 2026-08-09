@@ -1,0 +1,60 @@
+# Portable NWChem profile for a generic Slurm cluster.
+# Copy this file, then set the partition, account, module, and command to match
+# the target cluster. No checkout or user-specific path is assumed.
+
+schema_version: "1.0"
+
+profiles:
+  slurm:
+    description: "Generic Slurm launch using srun and a module-provided NWChem."
+    launcher:
+      kind: "scheduler"
+      submit_command: "sbatch"
+      scheduler_type: "slurm"
+      job_id_regex: "Submitted batch job (\\d+)"
+      status_command: "squeue -j {job_id} -h -o %T"
+      cancel_command: "scancel {job_id}"
+    scheduler:
+      system: "slurm"
+      script_template: |
+        #!/bin/bash
+        #SBATCH --job-name={job_name}
+        #SBATCH --output={output_file}
+        #SBATCH --error={error_file}
+        #SBATCH --nodes={nodes}
+        #SBATCH --ntasks={mpi_ranks}
+        #SBATCH --cpus-per-task={omp_threads}
+        #SBATCH --time={walltime}
+        #SBATCH --partition={partition}
+        {account_line}
+        {module_block}
+        cd {job_dir}
+        export OMP_NUM_THREADS={omp_threads}
+        {pre_run_block}
+        {program_command} {input_file}
+      submit_script_name: "{job_name}.job"
+    programs:
+      nwchem:
+        launcher_argv: ["srun"]
+        executable_argv: ["nwchem"]
+    execution:
+      shell: "/bin/bash"
+    resources:
+      nodes: 1
+      mpi_ranks: 16
+      omp_threads: 1
+      walltime: "24:00:00"
+      partition: "compute"
+      account: null
+    modules:
+      purge_first: true
+      load: ["nwchem"]
+    env:
+      OMP_NUM_THREADS: "{omp_threads}"
+    hooks:
+      pre_run: []
+      post_run: []
+    file_rules:
+      output_file: "{job_name}.out"
+      error_file: "{job_name}.err"
+      restart_prefix: "{job_name}"

@@ -1,9 +1,5 @@
-"""NWChem input file drafters and renderers.
+"""NWChem input parsing, review, drafting, and recovery modules.
 
-Will hold the family-split drafter modules (scf.py, dft.py, tce.py, mcscf.py,
-freq.py, property.py, ...) once api_input.py is broken up. For now contains
-basis.py (basis/ECP block renderers, lifted from the legacy api_basis.py).
-
-The eventual Drafter sub-protocol on chemtools.programs.nwchem.NWCHEM will be
-assembled from these modules.
+The public ``api_input`` module re-exports these focused owners for Python
+compatibility. The NWChem backend assembles its drafter from this package.
 """

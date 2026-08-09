@@ -258,8 +258,9 @@ def prepare_nwchem_mcscf_setup(
       diagnosis             — Diagnosis envelope routing the agent to draft_input,
                               parse_mos for deeper inspection, or vectors_swap_input
     """
-    # Lazy import — api_strategy is still flat; will clean up after Phase 14.
-    from chemtools.api_strategy import suggest_nwchem_mcscf_active_space
+    from chemtools.programs.nwchem.strategy.mcscf_active_space import (
+        suggest_nwchem_mcscf_active_space,
+    )
 
     rec = suggest_nwchem_mcscf_active_space(
         output_path=scf_output_path,

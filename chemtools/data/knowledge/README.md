@@ -27,6 +27,11 @@ single-point runner. They distinguish normal process completion from SCF
 convergence and an electron-count/spin runtime refusal from both invalid
 request syntax and an unconverged SCF. They do not endorse a chemical model or
 electronic-state assignment.
-The `search_knowledge_cards` MCP tool defaults to `accepted`. Other curation
+Three NWChem policies migrated from the stale `chem-agent-package/` skill
+prose remain drafts. They cover SCF trend classification, scoped imaginary-mode
+interpretation, and explicit element-by-element basis coverage. Existing code
+and tests support narrower pieces of these claims, but not their complete
+scope, so they are excluded from default recommendations.
+The `search_knowledge` MCP tool defaults to `accepted`. Other curation
 states require an explicit status, and every result repeats its status, scope,
 sources, checks, tests, and recommendation eligibility.

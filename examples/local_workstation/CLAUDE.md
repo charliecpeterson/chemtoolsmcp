@@ -1,72 +1,51 @@
-# Local Workstation — All 4 QC Programs
+# Chemtools on a local workstation
 
-This project runs quantum chemistry calculations on a local workstation
-using the chemtools agent toolkit. Jobs run as foreground processes (or
-inside an apptainer container) and are monitored by PID.
+This project uses the default Chemtools guided MCP surface. Calculations run
+as tracked local subprocesses through a configured runner profile. The bundled
+example profiles cover NWChem; add a program entry only when that executable
+is actually installed and tested on this machine.
 
-## Computing environment
+## Setup
 
-| Program | Local execution |
-|---|---|
-| NWChem | `programs.nwchem` command arrays in `runner_profiles.yaml` |
-| Molcas | Apptainer container at `~/mycontainers/openmolcas-26.02.sif` (or override via `CHEMTOOLS_MOLCAS_CONTAINER`) |
-| DIRAC  | Apptainer container at `~/mycontainers/dirac-25.0.sif` (or override via `CHEMTOOLS_DIRAC_CONTAINER`) |
-| GRASP  | Apptainer container at `~/mycontainers/grasp2018.sif` (or override via `CHEMTOOLS_GRASP_CONTAINER`) |
+Copy `runner_profiles.yaml` outside the repository and edit the selected
+profile's command and rank count:
 
-The read-only GRASP, Molcas, and DIRAC command builders can use their
-`CHEMTOOLS_*_CONTAINER` environment variables. Live typed launch tools require
-a runner profile so the execution target, allowed working directory,
-resources, and program installation are explicit.
-
-## Runner profiles
-
-NWChem-only profiles (in `runner_profiles.yaml`):
-
-| Profile | Description |
-|---|---|
-| `local` | Single-process NWChem (no MPI). Good for small test jobs. |
-| `local_mpirun` | MPI-parallel NWChem via `mpirun`. Set `mpi_ranks` to your core count. |
-| `local_apptainer` | NWChem inside apptainer container with `mpirun -np N`. |
-
-Molcas and DIRAC live launches also require profile entries. Their read-only
-prepare tools can still use the corresponding `CHEMTOOLS_*_CONTAINER`
-environment variable.
-
-## Standard workflow
-
-```
-init_session_log(log_path="session.md",
-                 session_title="...",
-                 working_dir=".")                → start running log
-lint_nwchem_input(input_file=...)                → catch errors before running
-launch_nwchem_run(input_file=...,
-                  profile="local_mpirun",
-                  auto_watch=true)               → run + block until done
-analyze_nwchem_case(output_file=...,
-                    input_file=...)              → diagnosis after completion
-append_session_log(entry_type="summary", ...)    → final summary
+```bash
+mkdir -p ~/.config/chemtools
+cp runner_profiles.yaml ~/.config/chemtools/runner_profiles.yaml
+export CHEMTOOLS_RUNNER_PROFILES="$HOME/.config/chemtools/runner_profiles.yaml"
+chemtools --show-mode
+chemtools --list-tools
 ```
 
-## Key differences from HPC
+The resolved mode should be `local`, and the default tool list should contain
+the eleven guided names documented in `docs/getting-started.md`.
 
-- Jobs run in the **foreground** — `launch_nwchem_run` with `auto_watch=true`
-  blocks until the process exits.
-- No job scheduler — no `.jobid` file, no queue waiting.
-- Process is monitored by PID, not scheduler status.
-- `terminate_nwchem_run` sends SIGTERM to the process.
-- Memory is limited by your workstation's RAM — use `check_nwchem_memory_fit`
-  with `node_memory_mb` set in your profile to avoid OOM.
+## Working rules
 
-## Input versioning
+- Review an existing input with `review_input` before launch.
+- Use `draft_input` when starting from molecular geometry. It returns text and
+  does not write a file.
+- Call `launch_run` once to prepare the exact command and approval token.
+- Start the calculation only after the user approves that plan and the second
+  `launch_run` call supplies the matching token.
+- Monitor only the returned `launch_id` with `monitor_run` while the same MCP
+  server process remains active.
+- Inspect the completed primary output with `inspect_run`; supply the input and
+  stderr paths as explicit artifacts when they matter.
+- Use `plan_recovery` only when the inspection evidence supports a retry.
+- Never overwrite an existing input, output, error, or scheduler artifact.
 
-NEVER overwrite an existing `.nw` file. Always call `next_versioned_path` first.
+Analysis and drafting remain available when no executable is installed. Live
+launching requires a readable profile, an allowed working directory, and an
+executable command that resolves on this machine.
 
-## Files after a run
+## Expected NWChem artifacts
 
-```
-{job_name}.nw      NWChem input
-{job_name}.out     NWChem output
-{job_name}.err     stderr messages
-{job_name}.movecs  SCF/DFT MO vectors (restart asset)
-{job_name}.db      NWChem runtime database
+```text
+{job_name}.nw      input
+{job_name}.out     primary output
+{job_name}.err     standard error
+{job_name}.movecs  orbital restart data when produced
+{job_name}.db      runtime database when produced
 ```

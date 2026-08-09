@@ -1,0 +1,25 @@
+schema_version: chemtools.knowledge-card/1
+id: nwchem.imaginary_modes_require_scoped_interpretation
+programs: [nwchem]
+workflows: [frequency_analysis]
+kind: interpretation
+status: draft
+confidence: high
+applies_when:
+  imaginary_frequency: present
+  target_stationary_point: declared
+claim: >-
+  Interpret an imaginary frequency against the intended stationary point and
+  mode character. Distinguish a transition-state mode, a small floppy or
+  torsional mode, and a chemically meaningful instability of an intended
+  minimum before choosing a displaced-geometry follow-up.
+check:
+  evidence: frequency_magnitude_and_mode_character
+  expected: interpretation_scoped_to_target
+failure:
+  severity: warning
+  action: Inspect the mode and confirm it with an appropriate displaced-geometry test.
+sources:
+  - "notes/chem-agent-package-knowledge-audit.md#imaginary-mode-interpretation"
+tests:
+  - "tests/test_nwchem_behavior_lock.py::test_crco6_lock_distinguishes_saddle_from_minimum"

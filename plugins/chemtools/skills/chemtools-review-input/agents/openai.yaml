@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Chemistry Input"
+  short_description: "Review chemistry inputs before execution"
+  default_prompt: "Use $chemtools-review-input to review this chemistry input before I run it."

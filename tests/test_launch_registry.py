@@ -12,13 +12,13 @@ from chemtools.core.execution import (
     ResourceRequest,
     StagedFile,
 )
-from chemtools.core.registry_db import connect_registry
-from chemtools.core.run_registry import (
+from chemtools.persistence.sqlite import connect_registry
+from chemtools.persistence.runs import (
     get_run_summary,
     list_runs,
     register_run,
 )
-from chemtools.execution.launch_registry import (
+from chemtools.persistence.launches import (
     LaunchRecordConflict,
     create_launch_record,
     load_execution_run_link,

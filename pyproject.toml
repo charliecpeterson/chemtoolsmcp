@@ -8,17 +8,20 @@ version = "0.1.0"
 description = "AI agent toolkit for computational chemistry — MCP server for NWChem, Molcas (and more), with per-program tool filtering"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
+    # Pin the protocol implementation so MCP behavior changes are deliberate.
+    "mcp==2.0.0",
+    # Required by installed analysis modules, including NWChem binary/TCE
+    # parsing and QE geometry handling.
     "numpy",
-    # Runner profiles and example configs ship as YAML; loading a .yaml
-    # profile (or the bundled examples) needs a YAML parser. JSON profiles
-    # work without it, but the default examples include .yaml.
+    # Guided knowledge cards are YAML. Runner profiles also accept YAML.
     "pyyaml",
 ]
 
 [project.optional-dependencies]
-# DIRAC support: reading .h5 checkpoints requires h5py.
+# Text parsing and input drafting remain available without this extra.
+# Reading DIRAC .h5 checkpoints in the MCP process requires h5py.
 dirac = ["h5py>=3.0"]
 dev = ["pytest"]
 
@@ -39,6 +42,12 @@ include = ["chemtools*"]
 # Bundle per-program data (basis libraries, docs) and the bundled
 # per-program example corpora.
 chemtools = [
+    "case_schema.json",
+    "case_template.json",
+    "runner_profiles.example.json",
+    "runner_profiles.example.yaml",
+    "runner_profiles.local.example.json",
+    "runner_profiles.slurm.example.yaml",
     "data/**/*",
     "programs/*/data/**/*",
     "programs/*/examples/*.nw",

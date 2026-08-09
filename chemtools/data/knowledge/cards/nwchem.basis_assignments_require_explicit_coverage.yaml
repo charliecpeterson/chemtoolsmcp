@@ -1,0 +1,23 @@
+schema_version: chemtools.knowledge-card/1
+id: nwchem.basis_assignments_require_explicit_coverage
+programs: [nwchem]
+workflows: [input_drafting]
+kind: safety
+status: draft
+confidence: high
+applies_when:
+  input_operation: new_or_revised
+  basis_assignment: requested
+claim: >-
+  Check basis coverage for every element before emitting an NWChem basis
+  block. Do not invent basis, ECP, cd basis, xc basis, or auxiliary-basis
+  choices, and preserve an intentional basis-stepping or projection workflow.
+check:
+  evidence: unique_elements_and_configured_basis_library
+  expected: every_element_resolves_explicitly
+failure:
+  severity: blocking
+  action: Leave the unsupported choice unresolved for the user instead of guessing.
+sources:
+  - "notes/chem-agent-package-knowledge-audit.md#basis-coverage"
+tests: []

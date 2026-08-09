@@ -1,15 +1,63 @@
-"""NWChem MCP handlers — analysis.
+"""NWChem MCP handlers for scientific analysis and recovery advice."""
 
-Split from mcp/tools/nwchem.py by category. Shared imports/helpers live in
-_nwchem_base (pulled in below); nwchem.py imports this module so its @_tool
-handlers register.
-"""
 from __future__ import annotations
 
-from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
-from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from typing import Any
+
 from chemtools.application.nwchem_pyscf import run_nwchem_pyscf_matched_reference
 from chemtools.mcp.decorator import get_execution_service
+from chemtools.programs.nwchem.strategy.legacy_next_actions import (
+    build_legacy_next_actions as _build_next_actions,
+)
+from chemtools.mcp.tools._nwchem_paths import basis_library_path
+from chemtools.mcp.tools._nwchem_registration import _tool
+from chemtools.programs.nwchem.binary.movecs import swap_nwchem_movecs
+from chemtools.programs.nwchem.input.imaginary_modes import (
+    analyze_imaginary_modes,
+    displace_geometry_along_mode,
+)
+from chemtools.programs.nwchem.input.tce import validate_nwchem_tce_setup
+from chemtools.programs.nwchem.output import (
+    analyze_frontier_orbitals,
+    suggest_vectors_swaps,
+)
+from chemtools.programs.nwchem.parse.tce import suggest_tce_freeze_count
+from chemtools.programs.nwchem.pyscf_reference import (
+    draft_nwchem_pyscf_reference,
+)
+from chemtools.programs.nwchem.runner import (
+    compare_nwchem_runs,
+    review_nwchem_followup_outcome,
+    review_nwchem_mcscf_followup_outcome,
+    review_nwchem_progress,
+)
+from chemtools.programs.nwchem.strategy.case_review import (
+    check_spin_charge_state,
+    review_nwchem_mcscf_case,
+    summarize_nwchem_case,
+)
+from chemtools.programs.nwchem.strategy.diagnose import (
+    track_spin_state_across_optimization,
+)
+from chemtools.programs.nwchem.strategy.input_advisors import (
+    suggest_multiplicity_scan_from_source,
+)
+from chemtools.programs.nwchem.strategy.mcscf_active_space import (
+    suggest_nwchem_mcscf_active_space,
+)
+from chemtools.programs.nwchem.strategy.plausibility import (
+    check_nwchem_freq_plausibility,
+    check_nwchem_geometry_plausibility,
+)
+from chemtools.programs.nwchem.strategy.recovery import (
+    suggest_nwchem_recovery,
+)
+from chemtools.programs.nwchem.strategy.workflow_planner import (
+    prepare_nwchem_next_step,
+)
+from chemtools.programs.nwchem.strategy.workflow_state import (
+    prepare_freq_restart,
+)
 
 
 @_tool("draft_nwchem_pyscf_reference")
@@ -192,28 +240,13 @@ def _handle_analyze_nwchem_case(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("suggest_nwchem_recovery")
 def _handle_suggest_nwchem_recovery(arguments: dict[str, Any]) -> dict[str, Any]:
-    mode = arguments.get("mode", "auto")
-    kwargs = dict(
+    return suggest_nwchem_recovery(
         output_path=arguments["output_file"],
         input_path=arguments.get("input_file"),
         expected_metal_elements=arguments.get("expected_metals"),
         expected_somo_count=arguments.get("expected_somos"),
+        mode=arguments.get("mode", "auto"),
     )
-    if mode == "scf":
-        return suggest_nwchem_scf_fix_strategy(**kwargs)
-    if mode == "state":
-        return suggest_nwchem_state_recovery_strategy(**kwargs)
-    # auto: return both
-    result: dict[str, Any] = {}
-    try:
-        result["scf_strategies"] = suggest_nwchem_scf_fix_strategy(**kwargs)
-    except Exception as exc:
-        result["scf_strategies"] = {"error": str(exc)}
-    try:
-        result["state_strategies"] = suggest_nwchem_state_recovery_strategy(**kwargs)
-    except Exception as exc:
-        result["state_strategies"] = {"error": str(exc)}
-    return result
 
 
 # ---------------------------------------------------------------------------
@@ -371,44 +404,14 @@ def _handle_check_spin_charge_state(arguments: dict[str, Any]) -> dict[str, Any]
 
 @_tool("suggest_nwchem_multiplicity_scan")
 def _handle_suggest_multiplicity_scan(arguments: dict[str, Any]) -> dict[str, Any]:
-    elements = arguments.get("elements")
-    charge = arguments.get("charge")
-    multiplicity = arguments.get("multiplicity")
-    input_file = arguments.get("input_file")
-    if input_file and (elements is None or charge is None or multiplicity is None):
-        summary = inspect_input(input_file)
-        if elements is None:
-            # Full atom multiset, not unique elements — the electron-count parity
-            # that fixes the scan's multiplicities depends on every atom.
-            elements = summary.get("all_elements") or summary.get("elements")
-        if charge is None:
-            charge = summary.get("charge")
-        if multiplicity is None:
-            multiplicity = summary.get("multiplicity")
-    if not elements:
-        return {
-            "error": "Provide input_file (to read elements/charge/multiplicity) or an explicit elements list.",
-        }
-    result = recommend_multiplicity_scan(
-        elements=elements,
-        charge=charge or 0,
-        current_multiplicity=multiplicity,
+    return suggest_multiplicity_scan_from_source(
+        input_file=arguments.get("input_file"),
+        elements=arguments.get("elements"),
+        charge=arguments.get("charge"),
+        multiplicity=arguments.get("multiplicity"),
         metal_oxidation_states=arguments.get("metal_oxidation_states"),
+        output_dir=arguments.get("output_dir"),
     )
-    if result["scan_warranted"] and input_file:
-        result["next_actions"] = [{
-            "priority": 1,
-            "tool": "generate_nwchem_input_batch",
-            "params": {
-                "template_input": input_file,
-                "vary": {"mult": result["recommended_multiplicities"]},
-                "output_dir": arguments.get("output_dir") or str(Path(input_file).parent),
-            },
-            "reason": "Generate one input per candidate multiplicity at the same geometry "
-                      "and basis; run them, then take the lowest total energy.",
-            "confidence": 0.9,
-        }]
-    return result
 
 
 @_tool("review_nwchem_progress")

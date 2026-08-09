@@ -95,6 +95,7 @@ from chemtools.programs.dirac.parse import (  # noqa: E402
     parse_symmetry as _parse_symmetry,
 )
 from chemtools.programs.dirac.parse.output import (  # noqa: E402
+    filter_spinor_spectrum as _filter_spinor_spectrum,
     parse_spinor_spectrum as _parse_spinor_spectrum,
     parse_cosci_energies as _parse_cosci_energies,
 )
@@ -107,7 +108,6 @@ from chemtools.programs.dirac.binary import (  # noqa: E402
     read_geometry as _h5_geometry,
     read_orbital_summary as _h5_orbitals,
     read_mo_coefficients as _h5_mo_coeffs,
-    H5PY_AVAILABLE as _H5PY_AVAILABLE,
 )
 from chemtools.programs.dirac.docs import (  # noqa: E402
     list_docs as _list_docs,
@@ -120,8 +120,13 @@ from chemtools.programs.dirac.parse.vecpop import (  # noqa: E402
     parse_vecpop as _parse_vecpop,
 )
 from chemtools.programs.dirac.strategy.open_shell import (  # noqa: E402
+    analyze_open_shell_occupations as _analyze_open_shell_occupations,
     analyze_open_shell_quality as _analyze_open_shell_quality,
     suggest_orbital_swaps as _suggest_orbital_swaps,
+)
+from chemtools.programs.dirac.strategy.triage import (  # noqa: E402
+    summarize_dirac_run as _summarize_dirac_run,
+    summarize_dirac_outputs as _summarize_dirac_outputs,
 )
 from chemtools.programs.dirac.strategy.reorder import (  # noqa: E402
     draft_reorder_block as _draft_reorder_block,
@@ -1158,61 +1163,18 @@ def _handle_read_dirac_mo_coefficients(arguments: dict[str, Any]) -> dict[str, A
 
 @_tool("analyze_dirac_open_shell")
 def _handle_analyze_dirac_open_shell(arguments: dict[str, Any]) -> dict[str, Any]:
-    inp = _parse_inp(arguments["input_file"])
-    if not _H5PY_AVAILABLE:
-        return {
-            "verdict": "h5py_missing",
-            "message": (
-                "h5py is required to cross-check open-shell occupations. "
-                "Install via `pip install chemtools[dirac]`."
-            ),
-            "input_summary": {
-                "has_open_shell": inp.get("has_open_shell"),
-                "has_closed_shell": inp.get("has_closed_shell"),
-            },
-        }
-    orbs = _h5_orbitals(arguments["h5_file"])
-    open_obs = [o for o in orbs if o["shell_class"] == "open"]
-
-    has_open_inp = inp.get("has_open_shell", False)
-    has_open_h5 = bool(open_obs)
-    if has_open_inp and has_open_h5:
-        verdict = "consistent"
-    elif has_open_inp and not has_open_h5:
-        verdict = "open_shell_requested_but_converged_to_closed"
-    elif not has_open_inp and has_open_h5:
-        verdict = "unexpected_fractional_occupation"
-    else:
-        verdict = "no_open_shell"
-
-    # Per-fsym + per-irrep breakdown of the observed open shell
-    by_fsym: dict[int, list[dict[str, Any]]] = {}
-    for o in open_obs:
-        by_fsym.setdefault(o["fermion_symmetry"], []).append({
-            "irrep": o["irrep"],
-            "positive_energy_index": o["positive_energy_index"],
-            "energy_hartree": o["energy_hartree"],
-            "occupation": o["occupation"],
-        })
-
-    total_open_occ = sum(o["occupation"] for o in open_obs)
-    return {
-        "verdict": verdict,
-        "input_has_open_shell": has_open_inp,
-        "h5_has_fractional_occupation": has_open_h5,
-        "open_shell_n_orbitals": len(open_obs),
-        "open_shell_total_occupation_kramers": total_open_occ,
-        "open_shell_by_fermion_symmetry": by_fsym,
-    }
+    return _analyze_open_shell_occupations(
+        arguments["input_file"],
+        arguments["h5_file"],
+    )
 
 
 @_tool("summarize_dirac_outputs")
 def _handle_summarize_dirac_outputs(arguments: dict[str, Any]) -> dict[str, Any]:
-    from chemtools.programs.dirac.strategy.triage import summarize_dirac_outputs
     target = arguments.get("paths") or arguments.get("path")
     if not target:
         return {"error": "Provide 'path' (a directory, glob, or file) or 'paths' (a list)."}
-    return summarize_dirac_outputs(
+    return _summarize_dirac_outputs(
         paths=target,
         pattern=arguments.get("pattern", "*.out"),
         recursive=arguments.get("recursive", False),
@@ -1222,90 +1184,10 @@ def _handle_summarize_dirac_outputs(arguments: dict[str, Any]) -> dict[str, Any]
 
 @_tool("summarize_dirac_run")
 def _handle_summarize_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    out_path = arguments["output_file"]
-    h5_path = arguments.get("h5_file")
-
-    text_parse = _parse_output(out_path)
-    summary: dict[str, Any] = {
-        "program": "dirac",
-        "output_file": out_path,
-        "program_version": text_parse.get("program_version"),
-        "tasks_detected": text_parse.get("tasks_detected"),
-        "total_energy_hartree": text_parse.get("total_energy_hartree"),
-        "scf_converged": text_parse.get("scf_converged"),
-        "scf_n_iterations": text_parse.get("scf_n_iterations"),
-        "symmetry": text_parse.get("symmetry"),
-        "open_shell_setup": text_parse.get("open_shell_setup"),
-        "homo_lumo_blocks_count": len(text_parse.get("homo_lumo_per_symmetry") or []),
-    }
-
-    excitations = text_parse.get("excitations") or {}
-    if excitations.get("available"):
-        summary["excited_states"] = {
-            "n_excitations": excitations["n_excitations"],
-            "lowest_excitation_ev": excitations.get("lowest_excitation_ev"),
-            "sum_oscillator_strength": excitations.get("sum_oscillator_strength"),
-            "excitations": excitations["excitations"],
-        }
-
-    relccsd = text_parse.get("relccsd") or {}
-    if relccsd.get("available"):
-        summary["correlation"] = {
-            "mp2_total_hartree": relccsd.get("mp2_total_hartree"),
-            "ccsd_total_hartree": relccsd.get("ccsd_total_hartree"),
-            "ccsd_t_total_hartree": relccsd.get("ccsd_t_total_hartree"),
-            "mp2_correlation_hartree": relccsd.get("mp2_correlation_hartree"),
-            "ccsd_correlation_hartree": relccsd.get("ccsd_correlation_hartree"),
-        }
-
-    cosci = text_parse.get("cosci") or {}
-    if cosci.get("n_states"):
-        states = cosci["states"]
-        summary["open_shell_states"] = {
-            "n_states": cosci["n_states"],
-            "highest_excitation_cm1": max((s["energy_cm1"] for s in states), default=None),
-            "states": states,
-        }
-
-    if h5_path:
-        if not _H5PY_AVAILABLE:
-            summary["h5_status"] = "h5py_missing"
-        else:
-            try:
-                meta = _h5_metadata(h5_path)
-                summary["h5_status"] = "loaded"
-                summary["h5_version"] = meta.get("version")
-                summary["h5_scf_energy_hartree"] = meta.get("scf_energy_hartree")
-                summary["n_fermion_symmetries"] = meta.get("n_fermion_symmetries")
-                summary["n_mo_per_fsym"] = meta.get("n_mo_per_fsym")
-                summary["n_pos_energy_per_fsym"] = meta.get("n_pos_energy_per_fsym")
-                # Cheap occupation-class rollup
-                orbs = _h5_orbitals(h5_path)
-                by_class: dict[str, int] = {}
-                for o in orbs:
-                    by_class[o["shell_class"]] = by_class.get(o["shell_class"], 0) + 1
-                summary["shell_class_counts"] = by_class
-                # Cross-check energy between text and h5
-                if (summary["total_energy_hartree"] is not None
-                    and summary.get("h5_scf_energy_hartree") is not None):
-                    diff = abs(
-                        summary["total_energy_hartree"]
-                        - summary["h5_scf_energy_hartree"]
-                    )
-                    summary["text_vs_h5_energy_consistent"] = diff < 1e-6
-            except Exception as e:
-                summary["h5_status"] = f"error: {e}"
-
-    # Verdict line
-    if summary.get("scf_converged"):
-        verdict = "scf_converged"
-    elif summary.get("scf_n_iterations"):
-        verdict = "scf_did_not_converge"
-    else:
-        verdict = "no_scf_detected"
-    summary["verdict"] = verdict
-
-    return summary
+    return _summarize_dirac_run(
+        arguments["output_file"],
+        arguments.get("h5_file"),
+    )
 
 
 @_tool("parse_dirac_vecpop")
@@ -1319,14 +1201,11 @@ def _handle_parse_dirac_vecpop(arguments: dict[str, Any]) -> dict[str, Any]:
 def _handle_parse_dirac_spinor_spectrum(arguments: dict[str, Any]) -> dict[str, Any]:
     with open(arguments["output_file"], encoding="utf-8", errors="replace") as f:
         text = f.read()
-    spectrum = _parse_spinor_spectrum(text)
-    if arguments.get("occupied_only"):
-        spectrum = [s for s in spectrum if (s.get("occupation") or 0) > 0.5]
-    erange = arguments.get("energy_range")
-    if erange and len(erange) == 2:
-        lo, hi = float(erange[0]), float(erange[1])
-        spectrum = [s for s in spectrum if s.get("energy_hartree") is not None
-                    and lo <= s["energy_hartree"] <= hi]
+    spectrum = _filter_spinor_spectrum(
+        _parse_spinor_spectrum(text),
+        occupied_only=bool(arguments.get("occupied_only")),
+        energy_range=arguments.get("energy_range"),
+    )
     return {"spinor_spectrum": spectrum, "n_spinors": len(spectrum)}
 
 

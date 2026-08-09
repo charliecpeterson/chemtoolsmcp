@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict, deque
+from collections import defaultdict
 import re
 from typing import Any
 
@@ -502,51 +502,30 @@ def _classify_orbital_occupation(
 
 
 def _relabel_unrestricted_somos(orbitals: list[dict[str, Any]]) -> None:
-    """Re-tag SOMOs for unrestricted runs by pairing alpha/beta occupied
-    orbitals on character + energy instead of vector index.
+    """Label the majority-spin frontier excess as the unrestricted SOMOs.
 
-    NWChem numbers the alpha and beta manifolds independently, and for an open
-    d/f shell they reorder relative to each other — an actinide's 5f block can
-    sit below the ligand orbitals in only one spin channel. Matching by vector
-    number (the per-orbital classifier) then tags the metal SOMOs as paired and
-    promotes ligand orbitals to singly occupied. Here each occupied beta orbital
-    is matched to its closest occupied alpha orbital of the same dominant
-    element+shell; the (N_alpha - N_beta) unmatched alpha orbitals are the real
-    SOMOs. No-op for restricted runs (handled by the per-orbital classifier).
+    Alpha and beta canonical orbitals are independent, so vector numbers and
+    approximate printed character do not define reliable cross-spin pairs.
+    The bounded output parser instead uses the occupied-count difference and
+    selects that many highest-energy occupied orbitals in the majority channel.
     """
     alpha = [o for o in orbitals if o.get("spin") == "alpha" and o["occupancy"] > 0.1]
     beta = [o for o in orbitals if o.get("spin") == "beta" and o["occupancy"] > 0.1]
     if not alpha or not beta:
         return
-
-    def char_key(orbital: dict[str, Any]) -> tuple[str | None, str | None]:
-        atoms = orbital.get("top_atom_contributions") or []
-        shells = orbital.get("ao_shell_contributions") or []
-        return (
-            atoms[0]["element"] if atoms else None,
-            shells[0]["ao_shell"] if shells else None,
-        )
-
-    paired: set[int] = set()
-    for beta_orbital in sorted(beta, key=lambda o: o["energy_hartree"] or 0.0):
-        beta_key = char_key(beta_orbital)
-        beta_energy = beta_orbital["energy_hartree"] or 0.0
-        best: dict[str, Any] | None = None
-        best_cost: float | None = None
-        for alpha_orbital in alpha:
-            if id(alpha_orbital) in paired:
-                continue
-            mismatch = 0.0 if char_key(alpha_orbital) == beta_key else 1.0e3
-            cost = abs((alpha_orbital["energy_hartree"] or 0.0) - beta_energy) + mismatch
-            if best_cost is None or cost < best_cost:
-                best_cost, best = cost, alpha_orbital
-        if best is not None:
-            paired.add(id(best))
-
-    for orbital in alpha:
-        orbital["occupation_label"] = "occupied" if id(orbital) in paired else "singly_occupied"
-    for orbital in beta:
+    for orbital in alpha + beta:
         orbital["occupation_label"] = "occupied"
+    if len(alpha) == len(beta):
+        return
+    majority = alpha if len(alpha) > len(beta) else beta
+    excess_count = abs(len(alpha) - len(beta))
+    frontier_excess = sorted(
+        majority,
+        key=lambda orbital: orbital["energy_hartree"],
+        reverse=True,
+    )[:excess_count]
+    for orbital in frontier_excess:
+        orbital["occupation_label"] = "singly_occupied"
 
 
 def _summarize_orbital_character(coefficients: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
@@ -959,4 +938,3 @@ def _coerce_float(value: Any) -> float | None:
     if isinstance(value, int):
         return float(value)
     return parse_scientific_float(str(value))
-

@@ -78,6 +78,21 @@ def test_bundled_cards_are_valid_and_traceable():
             ("grasp",),
         ),
         (
+            "nwchem.basis_assignments_require_explicit_coverage",
+            "draft",
+            ("nwchem",),
+        ),
+        (
+            "nwchem.imaginary_modes_require_scoped_interpretation",
+            "draft",
+            ("nwchem",),
+        ),
+        (
+            "nwchem.scf_recovery_requires_trend_classification",
+            "draft",
+            ("nwchem",),
+        ),
+        (
             "pyscf.electron_spin_consistency_is_runtime_required",
             "accepted",
             ("pyscf",),

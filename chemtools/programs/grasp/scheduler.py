@@ -8,14 +8,14 @@ that shell script inside the apptainer container.
 
 Otherwise the submit / status / watch / cancel pattern is identical to
 the other programs and delegates to the program-neutral engine in
-``chemtools/core/runner.py``.
+``chemtools/execution/legacy_runner.py``.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from chemtools.core.runner import (
+from chemtools.execution.legacy_runner import (
     cancel_scheduler_job,
     inspect_run_status,
     render_calculation_run,

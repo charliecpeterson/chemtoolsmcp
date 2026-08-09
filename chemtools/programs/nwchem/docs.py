@@ -5,10 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import chemtools as _chemtools_pkg
-
-
-_DATA_DIR = Path(_chemtools_pkg.__file__).resolve().parent / "data" / "nwchem"
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nwchem"
 DOCS_ROOT = _DATA_DIR / "docs"
 
 

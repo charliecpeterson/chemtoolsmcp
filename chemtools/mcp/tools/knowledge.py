@@ -6,11 +6,20 @@ from typing import Any, get_args
 
 from chemtools.knowledge.cards import CardConfidence, CardKind, CardStatus
 from chemtools.knowledge.search import (
+    KNOWLEDGE_SEARCH_SCHEMA,
     MAX_QUERY_CHARS,
     MAX_SEARCH_RESULTS,
     search_knowledge_cards,
 )
 from chemtools.mcp.decorator import _tool
+from chemtools.mcp.tools._output_schemas import (
+    ARRAY,
+    BOOLEAN,
+    INTEGER,
+    OBJECT,
+    STRING,
+    versioned_output_schema,
+)
 
 
 _SEARCH_ARGUMENTS = frozenset({
@@ -24,8 +33,8 @@ _SEARCH_ARGUMENTS = frozenset({
 })
 
 
-@_tool("search_knowledge_cards", program="generic")
-def _handle_search_knowledge_cards(
+@_tool("search_knowledge", program="generic")
+def _handle_search_knowledge(
     arguments: dict[str, Any],
 ) -> dict[str, object]:
     unknown = sorted(set(arguments) - _SEARCH_ARGUMENTS)
@@ -45,7 +54,25 @@ def _handle_search_knowledge_cards(
 def knowledge_tool_definitions() -> list[dict[str, Any]]:
     return [
         {
-            "name": "search_knowledge_cards",
+            "name": "search_knowledge",
+            "annotations": {
+                "title": "Search chemistry knowledge",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "outputSchema": versioned_output_schema(
+                KNOWLEDGE_SEARCH_SCHEMA,
+                {
+                    "filters": OBJECT,
+                    "total_matches": INTEGER,
+                    "returned_count": INTEGER,
+                    "truncated": BOOLEAN,
+                    "curation_notice": STRING,
+                    "cards": ARRAY,
+                },
+            ),
             "description": (
                 "Search validated Chemtools knowledge cards by text, program, "
                 "workflow, claim kind, curation status, and confidence. "

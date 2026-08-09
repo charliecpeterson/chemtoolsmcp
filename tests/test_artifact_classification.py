@@ -205,7 +205,7 @@ def test_unmatched_path_does_not_invent_a_kind():
 
 @pytest.mark.parametrize(
     "program",
-    ("nwchem", "molcas", "dirac", "grasp", "qe"),
+    ("nwchem", "molcas", "dirac", "grasp", "qe", "orca"),
 )
 def test_stderr_artifacts_have_one_backend_declared_role(program):
     classification = classify_artifact(

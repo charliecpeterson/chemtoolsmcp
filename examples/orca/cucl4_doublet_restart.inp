@@ -1,0 +1,9 @@
+! PBE0 DEF2-TZVP TightSCF MORead NoAutoStart
+%moinp "cucl4_interrupted.gbw"
+* XYZ -2 2
+Cu  0.00  0.00  0.00
+Cl  2.25  0.00  0.00
+Cl -2.25  0.00  0.00
+Cl  0.00  2.25  0.00
+Cl  0.00 -2.25  0.00
+*

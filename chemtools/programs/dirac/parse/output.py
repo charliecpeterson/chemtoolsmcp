@@ -296,6 +296,31 @@ def parse_spinor_spectrum(text: str) -> list[dict]:
     return out
 
 
+def filter_spinor_spectrum(
+    spectrum: list[dict],
+    *,
+    occupied_only: bool = False,
+    energy_range: list[float] | tuple[float, float] | None = None,
+) -> list[dict]:
+    """Apply the public occupation and energy-window selection rules."""
+    selected = spectrum
+    if occupied_only:
+        selected = [
+            spinor
+            for spinor in selected
+            if (spinor.get("occupation") or 0) > 0.5
+        ]
+    if energy_range and len(energy_range) == 2:
+        lower, upper = float(energy_range[0]), float(energy_range[1])
+        selected = [
+            spinor
+            for spinor in selected
+            if spinor.get("energy_hartree") is not None
+            and lower <= spinor["energy_hartree"] <= upper
+        ]
+    return selected
+
+
 def parse_mulliken_detail(text: str) -> list[dict]:
     """Parse per-spinor MULPOP gross-population blocks.
 

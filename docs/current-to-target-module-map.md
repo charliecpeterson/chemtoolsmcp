@@ -6,10 +6,10 @@ application orchestration and execution are spread across MCP handlers, the
 NWChem-heavy public facade, `core`, and per-program scheduler wrappers.
 
 This map assigns current modules to the owners defined by ADRs 001 through
-005. It describes migration seams. It does not require an immediate directory
-reorganization, and it does not authorize behavior changes during Phase 0.
+005 and records the compatibility seams that remain after the ownership
+migration.
 
-Snapshot date: 2026-07-30
+Snapshot date: 2026-08-07
 
 Governing decisions:
 
@@ -68,7 +68,7 @@ real consumer.
 
 | Owner | Responsibility |
 | --- | --- |
-| MCP transport | JSON-RPC framing, MCP initialization, request and response envelopes |
+| MCP transport | Official SDK connection handling, initialization, and protocol envelopes |
 | MCP adapter | Request validation, public tool metadata, stable result translation |
 | Composition root | Load configuration and concrete adapters, then construct the server |
 | Application service | Coordinate several domain ports for one user intent |
@@ -84,30 +84,52 @@ real consumer.
 
 ### Composition and public Python API
 
-| Current module | Current responsibility | Target owner | Migration |
+| Current module | Current responsibility | Target owner | Disposition |
 | --- | --- | --- | --- |
-| `chemtools/mcp/cli.py` | Parses CLI options, selects modes and programs, starts the server loop | Composition root | Keep as the composition root. In Phase 1, own the built-in backend catalog here or in an adjacent composition module. Load backend objects into core separately from MCP tool metadata. In Phase 3, load the execution gate and named targets here. |
+| `chemtools/mcp/cli.py` | Parses CLI options, creates one server state, and starts the SDK stdio server | Composition root | Keep as the composition root. It binds mode, program and tool filters, and one execution service into the state passed through tool dispatch. Load named targets here when ADR 002 replaces behavior modes. |
 | `chemtools/__init__.py` | Re-exports a large NWChem-oriented API plus registry and evaluation functions | Compatibility facade | Keep public imports working. Stop using this facade inside MCP, core, and backend implementations. Add new public entry points from application services, then retire old exports under ADR 004. |
 | `chemtools/api.py` | Aggregates NWChem parsing, drafting, strategy, execution, registry, and workflow functions | Compatibility facade | Preserve behavior while callers move to direct owners. Do not add QE or QMCPACK to this file. |
 | `chemtools/api_input.py` | NWChem input and follow-up orchestration | NWChem backend and application services | Leave program syntax in the NWChem backend. Move only operations that coordinate parsing, review, file creation, and later execution into an application service. |
 | `chemtools/api_strategy.py` | NWChem diagnosis and resource-advice facade | NWChem backend and application services | Keep deterministic NWChem rules in `programs/nwchem/strategy`. Replace this file with compatibility exports after callers use the backend catalog. |
 
-The top-level facade is useful for existing Python callers, but it is a poor
-internal dependency. `chemtools/mcp/tools/generic.py` currently imports it,
-which makes generic MCP startup load NWChem-specific code. `core/eval.py`
-imports the same facade back into `core`, creating an inward dependency on a
-public compatibility layer.
+The top-level facade remains only for compatibility with existing Python
+callers. Supported direct Python use goes through the module that owns each
+operation.
+`application/evaluation.py` and `chemtools/mcp/tools/generic.py` now import
+those owners directly, and the
+generic MCP module no longer changes `sys.path` to prefer a source checkout.
+The NWChem and Molcas documentation accessors and the Molcas basis accessor
+also resolve data relative to their owning modules instead of importing the
+top-level package for its path. An AST contract test prevents these migrated
+areas from returning to the public facades. All remaining NWChem program
+callers now import their focused input or strategy owner, including lazy
+imports retained to avoid module cycles. The public `chemtools`, `api_input`,
+and `api_strategy` exports remain exact aliases of those owners. The broad
+`_nwchem_base.py` MCP facade remains only for old Python imports through
+`chemtools.mcp.tools.nwchem`. All five handler families import their focused
+owners directly and load without `_nwchem_base.py`. The built-in catalog uses
+`_nwchem_provider.py` to compose those families and their schemas, so normal
+server startup also bypasses the legacy aggregator. NWChem-specific decorator
+registration and basis-data path resolution are small shared modules rather
+than responsibilities of the compatibility facade.
 
 ### MCP transport, dispatch, and tool registration
 
 | Current module | Current responsibility | Target owner | Migration |
 | --- | --- | --- | --- |
-| `chemtools/mcp/server.py` | Content-Length and JSON-lines framing, JSON-RPC envelopes, common CLI arguments | MCP transport | Keep framing and envelope code here. Move mode-specific arguments out when ADR 002 replaces behavior modes. |
-| `chemtools/mcp/dispatch.py` | Eager tool imports, manual definition concatenation, aliases, request dispatch, initialization | MCP transport and MCP adapter | In Phase 1, derive program tool imports and definitions from the built-in catalog. In Phase 4, move aliases to the compatibility registry from ADR 004. Keep protocol negotiation in the transport boundary. |
-| `chemtools/mcp/decorator.py` | Mutable handler registries, program tags, mode tags, server identity, logging, active global filters, and the process-owned execution service | MCP adapter and composition state | Keep the decorator during compatibility work. It now creates one default-off service for analysis mode and one enabled service for local or HPC mode so launch ownership survives across MCP calls. Move this construction into a dedicated composition object when behavior modes are retired. Do not let backend code import it. |
-| `chemtools/mcp/modes.py` | Hard-coded program names, tool filtering, runner-profile inspection, execution-mode selection | Legacy compatibility facade | Phase 1 derives program names from the catalog. Phase 3 replaces mode and `needs` logic with `requires_target` and `changes_execution_state`. Retain a legacy adapter through the ADR 002 window. |
+| `chemtools/mcp/sdk_server.py` | Low-level official SDK server, stdio connection, typed tool definitions, and result translation | MCP transport and MCP adapter | Keep protocol behavior in the SDK. Preserve serialized text alongside structured results until clients no longer require the compatibility representation. |
+| `chemtools/mcp/server.py` | Validated image result type, compatibility JSON-RPC envelopes, and common CLI arguments | Compatibility facade and MCP adapter | Keep the image boundary and shared arguments. Remove dictionary response helpers after direct callers of `handle_request` are retired. |
+| `chemtools/mcp/dispatch.py` | Catalog startup, validated alias resolution, state-bound tool filtering, and handler dispatch | MCP adapter | Keep transport-independent filtering and handler invocation here. The dictionary-based `handle_request` remains only for direct Python compatibility callers. |
+| `chemtools/mcp/compatibility.py` | Hidden alias metadata, pure argument adapters, and registration validation | Compatibility registry | Keep aliases out of canonical tool discovery. Recover historical schemas and effects before marking contracts verified or hiding advertised legacy definitions. |
+| `chemtools/mcp/state.py` | Immutable mode, program filter, tool filter, and process-owned execution service for one server | Composition state | Keep this object transport-neutral. The CLI creates it once and dispatch binds it while a registered handler runs. |
+| `chemtools/mcp/decorator.py` | Mutable handler registries, program tags, mode tags, server identity, logging, and request-state binding | MCP adapter | Keep the decorator during compatibility work. Old direct Python setters replace one fallback state object; CLI servers do not use those setters or separate module globals. Do not let backend code import it. |
+| `chemtools/mcp/modes.py` | Hard-coded program names, tool filtering, runner-profile inspection, execution-mode selection | Legacy compatibility facade | The catalog owns built-in program membership, while this adapter retains old mode and `needs` behavior through the ADR 002 window. |
 | `chemtools/mcp/inventory.py` | Reads the live registries and emits contract metadata | MCP adapter | Keep it as the machine-readable contract ledger. Change its source to the catalog and compatibility registry as those become authoritative. |
-| `chemtools/mcp/tools/*.py` | Schemas and handlers for 274 advertised tools | MCP adapter | Preserve names, schemas, and results. Handlers should gradually call application services or backend capabilities instead of importing concrete implementation functions. |
+| `chemtools/mcp/tools/guided.py` | Eight contract-bound guided MCP adapters calling application services | MCP adapter | Keep argument and protocol translation here. Each `_handle_<tool name>` function now derives its registration name from the matching declarative contract. Scientific interpretation belongs in application services and declared backend providers. |
+| `chemtools/mcp/tools/_guided_definitions.py` | Public descriptions, input schemas, output schemas, and annotations for eight guided adapters | MCP contract metadata | Keep declarative contracts separate from runtime adapters. The catalog receives them only after `guided.py` verifies one exact handler per definition. |
+| `chemtools/mcp/tools/_nwchem_provider.py` | Imports five focused NWChem handler families and exposes their schemas to the built-in catalog | MCP composition provider | Keep regular startup independent from the legacy NWChem Python facade. |
+| `chemtools/mcp/tools/nwchem.py` and `_nwchem_base.py` | Re-export old handler and implementation names through a wildcard and dynamic lookup | Compatibility facade | Keep outside normal catalog composition. Remove after the legacy import inventory and migration window. |
+| Other `chemtools/mcp/tools/*.py` modules | Schemas and handlers for program-specific and generic tools | MCP adapter | Preserve names, schemas, and results. Handlers should gradually call application services or backend capabilities instead of importing concrete implementation functions. |
 | `chemtools/mcp/nwchem.py` | Legacy NWChem MCP entry point | Compatibility facade | Keep until the CLI deprecation ledger permits removal. |
 | `chemtools/mcp/nwchem_docs.py` | Standalone NWChem documentation CLI | Compatibility facade or NWChem backend CLI | Keep independently from MCP alias decisions. |
 
@@ -116,18 +138,46 @@ all tool modules explicitly, and the tool modules import program
 implementations directly. This is acceptable as a compatibility path, but it
 must not become the route used to add QE and QMCPACK.
 
-The NWChem MCP surface has a second temporary facade:
-`chemtools/mcp/tools/_nwchem_base.py` imports most of `chemtools` and exposes
-that namespace through wildcard imports. The split category modules are
-smaller, but their dependency surface still comes from one broad file.
-Phase 4 should move one handler family at a time to explicit application or
-backend calls. A wholesale rewrite would make compatibility review difficult.
+The NWChem handler families no longer use the temporary `_nwchem_base.py`
+facade. It still imports most of `chemtools` because `nwchem.py` preserves old
+Python-level re-exports and dynamic handler lookup. This cost is now limited to
+callers that explicitly import the legacy module; catalog-driven MCP startup
+uses the focused provider.
+
+Inventory schema version 3 reports canonical definitions, advertised
+legacy definitions, hidden MCP aliases, executable aliases, and Python import
+shims separately, plus every advertised input schema and stable guided output
+schema. Hidden aliases are owned by a validated ADR 004 registry
+that rejects missing targets, collisions, chains, and broader availability.
+Their historical schemas and effects remain explicitly unverified, and no
+versioned removal metadata is set without a tagged release boundary.
+
+The CLI now creates one immutable `ServerState` after resolving its arguments.
+That state travels through `serve`, `handle_request`, and `dispatch_tool`, so a
+handler sees the same filters and execution-service instance that gated its
+request. A context-local binding preserves the existing zero-argument handler
+shape. The former setters remain only for direct Python compatibility calls;
+they replace one fallback state and are not used by the CLI. Tests pin filter
+isolation and distinct execution ownership for two server states in one
+process.
+
+The eight contracts separated into `_guided_definitions.py` are indexed once
+when `guided.py` loads. Its decorator derives each tool name from the existing
+`_handle_<tool name>` function, rejects a handler without a definition or a
+second handler for the same definition, and refuses to return the definition
+list if any handler is missing. This removes the second hand-written tool name
+from every guided adapter. `visualize` and `search_knowledge`, the other two
+members of the guided preset, already keep their definitions beside their
+handlers in their owning modules. `find_reference_case`, the eleventh member,
+keeps its MCP contract in `tools/reference.py` and calls the bounded
+`application/reference_case_search.py` service. Its two searchable manifests
+live under packaged data so the same lookup works from a wheel.
 
 ### Program model and registration
 
-| Current module | Current responsibility | Target owner | Migration |
+| Current module | Current responsibility | Target owner | Disposition |
 | --- | --- | --- | --- |
-| `chemtools/core/program.py` | Broad parser, drafter, strategist, binary, and example protocols | Core domain | Phase 1 adds operation-level capabilities and optional providers from ADR 001. Remove the broad protocol only after every generic caller uses capability checks. |
+| `chemtools/core/program.py` | Broad parser, drafter, strategist, binary, and example protocols | Core domain | Operation-level capabilities and optional providers are present. Remove the broad compatibility protocol only after every generic caller uses capability checks. |
 | `chemtools/core/registry.py` | Validated, unique runtime program registry and file detection | Core domain service | Keep runtime lookup and detection here without importing the catalog or MCP metadata. |
 | `chemtools/programs/<name>/__init__.py` | Exposes a validated backend without registry side effects | Program backend | Keep backend construction here. Built-in membership and registration belong to the composition catalog. |
 | `chemtools/programs/_adapter_helpers.py` | Cross-program conversion helpers for current parser adapters | Core domain or local adapter helper | Keep while two or more backends use the same result conversion. Move only genuinely program-neutral result logic into core. |
@@ -148,7 +198,7 @@ packages.
 | Current package | Keep | Change |
 | --- | --- | --- |
 | `chemtools/programs/nwchem` | Declared backend, parsers, input rendering, binary readers, diagnosis, resource models, docs, examples | Keep the validated declaration. Reassign runtime and cross-run orchestration as described below. |
-| `chemtools/programs/molcas` | Declared partial backend, parsers, input modules, orbital handling, active-space rules, recovery, docs | Keep the tested capability set. Convert `runtime.py` into a launch-plan provider in Phase 3. |
+| `chemtools/programs/molcas` | Declared partial backend, parsers, input modules, orbital handling, active-space rules, recovery, docs | Keep the tested capability set. `launch.py` owns typed launch plans, while `runtime.py` remains a direct Python compatibility path. |
 | `chemtools/programs/dirac` | Declared partial backend, parsers, HDF5 reader, basis data, atomic and core-ionization input builders | Keep the tested capability set. Preserve `.inp` and `.mol` staging rules in its launch-plan provider. |
 | `chemtools/programs/grasp` | Declared parser backend, multi-artifact parsers, bounded radial-wavefunction and paired mixing/CSF inspection, explicit orbital merging, heredoc builders, workflow knowledge, diagnosis | Keep binary inspection, CSF interpretation, and first-donor-wins merging with the GRASP backend. Keep binary writes limited to the atomic, no-clobber merge contract. Model the working directory as an artifact collection. Convert direct executable calls into launch plans before exposing them through the common launch service. |
 | `chemtools/programs/qe` | Declared periodic backend with input review, UPF inspection, output diagnosis, consistency checks, normalized geometry, and trajectory parsing | Keep program syntax and scientific interpretation here. `_elements.py` owns species-label normalization. `_coordinates.py` owns shared PWSCF output-card parsing and unit conversion; `input_geometry.py` normalizes the supported input coordinate forms; `geometry.py` selects one usable output snapshot; `trajectory.py` assembles optimization history; `trajectory_analysis.py` owns bounded periodic metrics and molecular structural checks shared by input and output review. |
@@ -156,14 +206,24 @@ packages.
 Program packages may import core models and utilities. They must not import
 MCP transport, public tool names, or scheduler implementations.
 
-One current cross-program exception needs removal during Phase 1:
+The scientific-ownership audit moved the legacy NWChem action table, recovery-mode
+aggregation, multiplicity inference, and SCF syntax; DIRAC occupation,
+summary, and spinor-filter rules; QE-to-QMCPACK readiness precedence; and
+Molcas task, geometry, and RASSI selection below MCP. Generic geometry
+normalization and recovery source agreement now belong to application
+services. Compatibility imports remain where direct Python callers still need
+them, but the normal MCP path imports the program owner directly. The final
+branch disposition is recorded in
+`notes/mcp-scientific-ownership-audit.md`.
+
+One cross-program exception remains for direct Python compatibility:
 `chemtools/programs/nwchem/output.py` imports the Molcas output parser and
-dispatches `parse_tasks` itself. The backend registry should own that
-selection. NWChem output code should parse NWChem only.
+dispatches `parse_tasks` itself. New composition uses backend capabilities;
+the old dispatcher can leave with its compatibility callers.
 
 ### Execution and scheduling
 
-| Current module | Current responsibility | Target owner | Migration |
+| Current module | Current responsibility | Target owner | Disposition |
 | --- | --- | --- | --- |
 | `chemtools/application/execution_policy.py` | Immutable execution decisions plus disabled, status, and cancellation errors | Application policy | Keep policy result shapes independent of process, scheduler, and persistence adapters. The old `application.execution` imports remain compatible. |
 | `chemtools/application/execution.py` | Default-off permission checks, read-only rendering, asynchronous and synchronous launch, read-only ownership resolution, owned local and Slurm status, terminal-state recording, and registry-bound cancellation | Application service | Status polling requires ownership but no second execution permission decision. Resolve configured targets at composition time before removing compatibility target adapters. |
@@ -177,6 +237,7 @@ selection. NWChem output code should parse NWChem only.
 | `chemtools/application/molcas_monitoring.py` | Combines owned local or Slurm execution status with legacy Molcas file inspection | Molcas monitoring application adapter | Keep process and scheduler ownership in the execution service. Molcas scientific-run linking and artifact observations remain separate work. |
 | `chemtools/application/nwchem_execution.py` | Converts version 1 NWChem profiles and legacy responses to typed calls; verifies and registers owned launches; synchronizes local or Slurm completion with linked runs and output observations | NWChem compatibility application adapter | Keep MCP response translation, launch/run registration checks, and NWChem artifact kinds here while the public tools remain aliases. Move the completion pattern to a program-neutral service only after another backend needs it. |
 | `chemtools/application/nwchem_monitoring.py` | Combines owned execution status with NWChem output inspection and runs typed local or Slurm watch requests | NWChem monitoring application adapter | Keep chemistry progress, linked-run synchronization, and artifact observations in the NWChem path. Use the shared application helper only for execution response fields and polling. |
+| `chemtools/application/run_monitoring.py` | Refreshes one process-owned launch ID and normalizes execution, recorded artifact, and declared backend progress evidence for the guided tool | Guided monitoring application service | Keep arbitrary PIDs, scheduler IDs, and paths out. Reuse typed executor status and backend progress providers; do not add cancellation or restart effects. |
 | `chemtools/core/execution.py` | Immutable launch plans, target-owned entrypoints, stdin and timeout intent, rendered commands, launch records, launch/run links, and asynchronous, status, or synchronous result models | Core domain | Keep this module free of process, scheduler, and SQLite calls. Store stdin digest and size in launch records, never stdin content. |
 | `chemtools/core/monitoring.py` | Polling, adaptive intervals, compact history, timeouts, and terminal detection for calculation-status readers | Core service | Keep scheduler commands, persistence, and program parsing out. Typed `not_found` results must never imply completion. |
 | `chemtools/core/slurm.py` | Typed Slurm status states, query evidence, job exit code, signal, and elapsed time | Core domain | Keep scheduler subprocess calls and state persistence out. Preserve raw scheduler state beside normalized status. |
@@ -184,12 +245,19 @@ selection. NWChem output code should parse NWChem only.
 | `chemtools/execution/local.py` | Captured synchronous execution, asynchronous launch, live-handle status, and live-handle cancellation | Local execution adapter | Status and cancellation must use retained process handles rather than arbitrary operating-system PIDs. |
 | `chemtools/execution/slurm.py` | Slurm script rendering, submission, job-ID parsing, queue and accounting status, and target-command cancellation | Slurm execution adapter | Keep scheduler commands and script policy target-owned. Empty queue and accounting results must remain unknown rather than imply completion. |
 | `chemtools/execution/executors.py` | Re-exports the local executor, Slurm executor, and work-root error | Compatibility facade | Preserve existing Python imports while callers move to `chemtools.execution` or the focused modules. |
-| `chemtools/execution/legacy_profiles.py` | Loads version 1 profile files, merges defaults, and converts shared resource, hardware, module, program-installation, direct-command, and Slurm fields | Legacy target compatibility adapter | Keep program argument syntax and chemistry rules out. The standard `programs.<name>` installation block wins over old field locations. Remove this module with the version 1 profile format. |
-| `chemtools/execution/legacy_status.py` | Inspects unowned PIDs, legacy Slurm, PBS, and LSF jobs, files, output tails, scheduler cancellation, and optional NWChem progress | Legacy status compatibility adapter | Keep typed owned execution out. Retain this path for unowned identifiers and direct Python callers until compatibility removal. |
-| `chemtools/execution/launch_registry.py` | SQLite persistence and state-transition checks for execution launch records, including staging manifests, terminal metadata, and launch/run link lookup | Persistence adapter | Keep command and staging intent separate from artifact bytes. Local and Slurm NWChem completion use the link to synchronize the run; other programs still need the same integration. |
-| `chemtools/core/runner.py` | Legacy resource inspection, script rendering, launch behavior, and direct compatibility imports for split profile and status modules | Compatibility facade plus legacy render and launch adapter | Keep neutral and NWChem-named Python imports stable during the compatibility window. Move the remaining render and launch implementation only when version 1 profiles are retired or need independent maintenance. |
+| `chemtools/execution/profiles.py` | Loads version 1 profile files, merges defaults, and converts shared resource, hardware, module, program-installation, direct-command, and Slurm fields | Target configuration adapter | Keep program argument syntax and chemistry rules out. The standard `programs.<name>` installation block wins over old field locations. |
+| `chemtools/execution/legacy_profiles.py` | Exact imports from `execution/profiles.py` | Compatibility facade | Preserve the old Python path through the final compatibility release. No first-party runtime module imports it. |
+| `chemtools/execution/legacy_archive.py` | Timestamped, collision-safe archival of existing compatibility-launch outputs | Legacy output policy | Application adapters import this focused owner. Preserve exact imports from `legacy_runner.py` until its direct Python surface is removed. |
+| `chemtools/execution/resource_inspection.py` | Local CPU and memory budgeting plus Slurm and PBS partition discovery | Target resource inspection | Keep scheduler discovery separate from chemistry advice and version 1 launch rendering. Replace dictionary results only when a typed target inventory has a real caller. |
+| `chemtools/execution/legacy_runner.py` | Version 1 script rendering, launch behavior, and neutral compatibility imports | Legacy render and launch adapter | Keep implementation out of core. Remove it with version 1 profiles after named targets cover the retained workflows. |
+| `chemtools/execution/legacy_status.py` | Inspects unowned PIDs, legacy Slurm, PBS, and LSF jobs, files, output tails, and scheduler cancellation; accepts an optional output-status reader | Legacy status compatibility adapter | Keep typed owned execution and program imports out. Retain this path for unowned identifiers and direct Python callers until compatibility removal. |
+| `chemtools/programs/nwchem/legacy_status.py` | Injects the NWChem progress reader into generic legacy status and watch operations | NWChem compatibility adapter | Preserve the old NWChem status payload while keeping execution program-neutral. Remove with the version 1 status surface. |
+| `chemtools/persistence/launches.py` | SQLite persistence and state-transition checks for execution launch records, including staging manifests, terminal metadata, and launch/run link lookup | Persistence adapter | Keep command and staging intent separate from artifact bytes. Local and Slurm NWChem completion use the link to synchronize the run; other programs still need the same integration. |
+| `chemtools/execution/launch_registry.py` | Exact imports from `persistence/launches.py` | Compatibility facade | Preserve direct Python imports through the final compatibility release. No persistence implementation belongs here. |
+| `chemtools/core/runner.py` | Exact imports from the neutral execution owner and NWChem status adapter | Compatibility facade | Keep old Python imports stable through the final compatibility release. No implementation belongs here. |
 | `chemtools/programs/nwchem/runner.py` | NWChem launch wrappers, progress chemistry, intervention advice, structure-drift analysis, comparison, and follow-up review | NWChem backend plus application services | Keep NWChem progress and chemistry assessment in the backend. Move launch coordination and cross-run comparison behind application services. |
 | `chemtools/programs/nwchem/launch.py` | Builds NWChem launch plans and adapts version 1 NWChem profiles into typed targets | NWChem launch-plan provider and compatibility adapter | Keep NWChem arguments, filenames, and artifact expectations here. Remove the profile adapter after the version 1 compatibility window. |
+| `chemtools/programs/nwchem/_plugin_launcher.py` | Merges guided resource overrides, expands retained profile context, and returns a typed prepared launch | NWChem guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Replace the version 1 profile adapter only after named target configuration is ready. |
 | `chemtools/programs/molcas/runtime.py` | Builds the read-only legacy command preview and owns the shared CASPT2 detection and rank guard | Molcas compatibility facade and runtime rules | Keep `prepare_molcas_launch` stable while typed calls use the same guard through the launch-plan provider. |
 | `chemtools/programs/molcas/launch.py` | Builds typed Molcas plans and adapts direct or Slurm version 1 profiles into targets | Molcas launch-plan provider and compatibility adapter | Keep pymolcas arguments, protected Molcas environment values, CASPT2 allocation changes, output rules, and dynamic Slurm project identity here. |
 | `chemtools/programs/dirac/runtime.py` | Builds the read-only advanced `pam-dirac` preview and owns shared argument construction | DIRAC compatibility facade and runtime rules | Keep `prepare_dirac_launch` stable for `--copy`, `--put`, `--get`, and `--outcmo` previews while typed launch plans use the same argument builder. |
@@ -200,14 +268,19 @@ selection. NWChem output code should parse NWChem only.
 | `chemtools/programs/{molcas,dirac,grasp}/scheduler.py` | Thin public wrappers around program-neutral legacy-profile runner functions | Compatibility facade | MCP status and watch calls use typed monitoring for owned launches. Retain these Python entry points for unowned identifiers and direct Python callers during the compatibility window. |
 | `chemtools/programs/nwchem/strategy/hpc_resources.py` | Scheduler discovery mixed with NWChem resource advice | NWChem resource provider plus target inspection | Keep basis and method sizing in NWChem. Move account, partition, and hardware queries to target inspection. |
 
-`core/runner.py` continues to export `run_calculation`,
-`render_calculation_run`, `inspect_run_status`, and `watch_run`. Profile
-loading now lives in `execution/legacy_profiles.py`, while status and watch
+`execution/legacy_runner.py` owns `run_calculation` and
+`render_calculation_run`, and retains compatibility exports for status and
+watch. Profile loading lives in `execution/profiles.py`, while status and watch
 implementations live in `execution/legacy_status.py`. Molcas, DIRAC, and
-GRASP scheduler modules import the neutral names. The old NWChem names are
-direct aliases for Python compatibility. NWChem progress parsing remains an
-optional legacy behavior; non-NWChem wrappers currently use file, process,
-and scheduler evidence only.
+GRASP scheduler modules import the neutral names. The old NWChem run and render
+names remain direct aliases. `programs/nwchem/legacy_status.py` injects the
+NWChem progress reader, and `core/runner.py` re-exports the neutral and NWChem
+owners for old direct imports. Execution has no program-package imports.
+
+Guided NWChem preparation no longer calls the legacy renderer. It reads the
+resolved profile through `execution/profiles.py`, builds the program-owned
+typed plan, and lets the selected executor render the exact command or Slurm
+script used for approval.
 
 Version 1 profiles now use one program installation shape:
 `programs.<name>.launcher_argv` plus `executable_argv`. Molcas CASPT2
@@ -216,7 +289,7 @@ four adapters still accept their previous field locations at lower
 precedence, and the legacy renderer exposes `{program_command}` for templates
 that use the standard block.
 
-Phase 3 should separate three operations:
+The typed execution path separates three operations:
 
 1. A program backend builds a `LaunchPlan` containing program arguments.
 2. An executor combines target-owned launcher and executable arrays with
@@ -250,7 +323,7 @@ and alternate working directories still need target or adapter support.
 
 ### Workflow and application coordination
 
-| Current module | Current responsibility | Target owner | Migration |
+| Current module | Current responsibility | Target owner | Disposition |
 | --- | --- | --- | --- |
 | `chemtools/core/workflow.py` | Builds workflow dictionaries containing MCP tool names and parameters | Application workflow service | Keep DAG planning logic. Replace MCP tool names with typed actions or backend operations. MCP translates those actions to public names. |
 | `chemtools/programs/nwchem/protocols.py` | NWChem protocol library, dynamic step generation, NWChem tool-name mapping | NWChem workflow provider | Keep calculation recipes and program steps. Remove public MCP names from the provider after typed actions exist. |
@@ -271,39 +344,39 @@ returns operations such as `output.frequencies`, `input.patch`, and
 | --- | --- | --- | --- |
 | `chemtools/core/artifacts.py` | Immutable artifact identity, observations, expectations, provenance snapshots, freshness evidence, and versioned JSON conversion | Core domain | Keep filesystem observation, classification, and SQLite persistence outside this module. |
 | `chemtools/core/artifact_classification.py` | Classifies caller-supplied paths from exact launch expectations and the selected backend's filename declarations | Core domain service | Keep the operation bounded and free of filesystem access. Content inspection and directory discovery belong in explicit application or backend operations. |
-| `chemtools/core/artifact_registry.py` | Stores and loads normalized artifact collections, observations, expectations, and provenance metadata | Persistence adapter | Keep artifact bytes outside SQLite. Preserve global artifact identity, exact metadata conflicts, and append-only run membership. |
-| `chemtools/core/legacy_artifacts.py` | Projects legacy input, output, and parent-run columns into backend-aware artifact candidates | Compatibility facade | Create artifact identities only for unambiguous kinds. Keep recorded paths out of observations and parent IDs out of provenance until exact snapshots exist. |
-| `chemtools/core/registry_db.py` | Owns the shared SQLite connection and schemas for runs, artifacts, provenance, execution launches, and launch/run links | Persistence adapter | Keep schema changes here so all persistence callers use one migration path. |
+| `chemtools/persistence/artifacts.py` | Stores and loads normalized artifact collections, observations, expectations, and provenance metadata | Persistence adapter | Keep artifact bytes outside SQLite. Preserve global artifact identity, exact metadata conflicts, and append-only run membership. |
+| `chemtools/application/legacy_artifacts.py` | Projects legacy input, output, and parent-run columns into backend-aware artifact candidates | Compatibility application service | Create artifact identities only for unambiguous kinds. Keep recorded paths out of observations and parent IDs out of provenance until exact snapshots exist. |
+| `chemtools/persistence/sqlite.py` | Owns the shared SQLite connection and schemas for runs, artifacts, provenance, execution launches, and launch/run links | Persistence adapter | Keep schema changes here so all persistence callers use one migration path. |
 | `chemtools/core/systems.py` | Immutable molecular and periodic system identity, geometry, lattice, k-points, pseudopotentials, charge, and spin | Core domain | Keep method, cutoff, smearing, executable, and scheduler choices in calculation or execution models. |
-| `chemtools/core/run_records.py` | Run CRUD, portable IDs, status fields, restart-chain lookup, and atomic execution-launch linking | Persistence adapter | Keep this module limited to scientific run rows and their execution links. Application code should import it directly; the old facade remains for compatibility. |
-| `chemtools/core/run_registry.py` | Re-exports run-record functions and still owns campaigns, workflow state, input-batch generation, and an NWChem patch fallback | Compatibility facade plus application services | The file is below the size ceiling after the first split. Move campaigns, workflow coordination, and batch generation along separate seams without wrapping the re-exported run functions. |
+| `chemtools/persistence/runs.py` | Run CRUD, portable IDs, status fields, restart-chain lookup, and atomic execution-launch linking | Persistence adapter | Keep this module limited to scientific run rows and their execution links. |
+| `chemtools/application/run_registry.py` | Re-exports run-record functions and owns campaigns, workflow state, input-batch generation, and an NWChem patch fallback | Compatibility application service | Move campaigns, workflow coordination, and batch generation along separate seams when another concrete need justifies the split. |
+| `chemtools/core/{artifact_registry,registry_db,run_records,run_registry,legacy_artifacts}.py` | Exact imports from the new persistence or application owners | Compatibility facades | Preserve direct Python imports through the final compatibility release. No implementation belongs in these files. |
 | `chemtools/core/session.py` | Markdown session-log writes and versioned output paths | Application support and artifact provenance | Keep compatibility functions. Later record written logs and renamed paths as artifacts and provenance events. |
 | `chemtools/core/types.py` | Shared `TypedDict` result shapes | Core domain | Keep as the current interchange boundary. Add frozen, versioned models beside it and adapt old dictionaries during migration. |
 | `chemtools/core/cube.py` | Program-neutral cube parsing | Core artifact parser | Keep if QE and other backends can consume the same contract. Do not attach program ownership without a format-specific reason. |
 
-`run_records.py` is now the narrow storage module for scientific runs.
-`run_registry.py` remains a compatibility facade and still contains
+`persistence/runs.py` is the narrow storage module for scientific runs.
+`application/run_registry.py` still contains
 `generate_input_batch`, which reads and writes inputs, resolves the NWChem
 backend, applies a fallback patcher, and registers runs. Batch generation
 belongs in an application service backed by the catalog, an input adapter,
-and run-record persistence.
+and run-record persistence. The former core paths are exact import facades.
 
 ### Evaluation and reference corpus
 
 | Current module | Current responsibility | Target owner | Migration |
 | --- | --- | --- | --- |
-| `chemtools/core/eval.py` | Discovers case files and contains separate NWChem, Molcas, DIRAC, and GRASP evaluators | Reference evaluation service | Move out of core after the ADR 005 manifest model exists. Resolve backends through the catalog and keep program-specific checks with their owners. |
-| `references/orbitron_contract_cases.json` | Eight external Orbitron cases with pinned hashes | Reference data | Keep the Phase 0 compatibility cases, resolved Molcas vibration case, QE geometry comparisons, and failed-relaxation provenance case. Migrate through ADR 005 without changing the current checker first. |
+| `chemtools/application/evaluation.py` | Discovers case files and contains separate NWChem, Molcas, DIRAC, and GRASP evaluators | Reference evaluation service | Keep case orchestration outside core. Program-specific checks still need provider ownership if this legacy evaluator survives compatibility cleanup. |
+| `chemtools/core/eval.py` | Exact imports from `application/evaluation.py` | Compatibility facade | Remove after the final compatibility release if no direct caller remains. |
+| `references/orbitron_contract_cases.json` | Eight external Orbitron cases with pinned hashes | Reference data | Keep the pinned compatibility cases, resolved Molcas vibration case, QE geometry comparisons, and failed-relaxation provenance case. |
 | `chemtools/integrations/orbitron_contract.py` | Manifest loading, external-file verification, raw reference parsing, Orbitron comparison, reporting, and CLI behavior | Reference evaluation plus Orbitron integration | Move general manifest and bounded-access logic to the reference owner. Keep Orbitron invocation and field comparison in the integration contract. |
 | `chemtools/integrations/orbitron.py` | Fixed-argument, versioned, read-only Orbitron subprocess boundary | Integration adapter | Keep this boundary. Application services consume it as optional evidence. |
-| `chemtools/data/fblock` | Versioned GRASP, ATSP2K, and DIRAC scientific data | Committed scientific dataset | Phase 5 moved the single canonical copy into package data, added versioned metadata and typed validation, and removed the old notes-tree copy. |
+| `chemtools/data/fblock` | Versioned GRASP, ATSP2K, and DIRAC scientific data | Committed scientific dataset | This is the canonical package-data copy with versioned metadata and typed validation. |
 | `chemtools/reference/fblock_lookup.py`, `fblock_plan.py`, and `fblock_donors.py` | Exact state retrieval, ATSP2K recipe validation, donor dependency planning, consumer-scoped alias validation, and GRASP reference inputs | Reference application boundary | Keep lookup and planning read-only. Resolve only catalog state slugs; preserve external donor aliases until a reviewed mapping exists. |
 | Other `notes/` material | Working scientific notes and lessons | Curation source | Keep outside runtime logic until a lesson has scope, status, evidence, and tests. |
 
-`core/eval.py` currently imports `chemtools.api`, which imports NWChem modules
-and the NWChem runner. This is the clearest dependency inversion in `core`.
-The evaluation code is useful, but its owner is reference testing rather than
-the domain foundation.
+Case evaluation now lives in `application/evaluation.py`. First-party callers
+use that owner directly; `core/eval.py` keeps only exact compatibility imports.
 
 ### Shared scientific utilities
 
@@ -319,96 +392,30 @@ These modules already sit close to their intended owner:
 
 `core/common.detect_program` recognizes only NWChem and Molcas, while
 `core.registry` can detect all four registered programs. NWChem modules still
-call the smaller detector. Phase 1 should make registry detection the single
-path and remove program selection from `core/common.py`.
+call the smaller detector. Remove it after those compatibility callers use
+registry detection.
 
-## Boundary violations to fix in migration order
+## Remaining compatibility seams
 
-1. Program membership has several authorities. The built-in catalog from ADR
-   001 fixes this first.
-2. Generic MCP code imports the NWChem-heavy `chemtools` facade. Generic
-   handlers should call catalog-backed operations or application services.
-3. Shared execution uses NWChem names and contains one NWChem-only progress
-   path. ADR 002 separates launch plans, executors, and monitoring.
-4. Program detection exists in both `core/common.py` and `core/registry.py`.
-   The smaller detector has incomplete program coverage.
-5. `core/eval.py` imports the public API, pulling program and execution code
-   into core.
-6. `core/workflow.py` emits MCP tool names instead of program-neutral
-   operations.
-7. `core/run_registry.py` still combines campaign persistence, input
-   generation, and workflow coordination behind its compatibility facade.
-8. `programs/nwchem/output.py` imports Molcas parsing instead of using the
-   backend registry.
-9. Per-program scheduler modules repeat one shared wrapper pattern.
-10. The Orbitron contract combines general corpus access with
-    integration-specific comparisons.
+- `core/common.detect_program` still covers fewer programs than the backend
+  catalog, and several NWChem compatibility functions call it directly.
+- `core/workflow.py` returns low-level MCP action names. It is retained for
+  the older protocol API; guided calculation planning uses backend-owned
+  stage descriptions instead.
+- `application/run_registry.py` still combines campaign operations, legacy
+  workflow coordination, and NWChem batch generation. Its focused persistence
+  owner is `persistence/runs.py`.
+- `programs/nwchem/output.py` still routes one compatibility parser call to
+  Molcas. New parser composition uses backend capabilities.
+- Molcas, DIRAC, and GRASP scheduler modules repeat thin wrappers over the
+  legacy execution engine. Owned guided launches use typed targets and
+  execution services.
+- Low-level Orbitron analysis tools remain integration-specific. The guided
+  surface exposes only the bounded `visualize` operation.
 
-These are migration targets, not a request for one large refactor. The first
-five ADRs deliberately place the work in separate phases.
-
-## Phase ownership
-
-### Phase 1: backend catalog
-
-- Add the backend and capability models beside the current protocol.
-- Add one explicit built-in catalog at the composition boundary.
-- Derive CLI program choices, program loading, tool-module loading, and
-  inventory ordering from that catalog.
-- Convert generic parser handlers to capability checks.
-- Remove import-time program registration only after catalog tests pass.
-- Remove the NWChem-to-Molcas parser dispatch from
-  `programs/nwchem/output.py`.
-
-Do not move parser files or rename MCP tools in this phase.
-
-### Phase 2: run and artifact models
-
-- Add run, step, artifact, observation, and provenance models.
-- Extend SQLite through additive migrations.
-- Move input-batch generation and workflow advancement behind application
-  services as those services adopt the new models.
-- Record exact artifact observations for parser and comparison results, and
-  use snapshot references for both provenance inputs and outputs.
-
-Do not copy artifact bytes into the registry.
-
-### Phase 3: execution targets
-
-- Adapt legacy profiles into named targets.
-- Convert one NWChem local path and one Slurm path to typed launch plans.
-- Put generic process behavior behind local and Slurm executors.
-- Convert Molcas, DIRAC, and GRASP runtime rules into launch-plan providers.
-- Enforce execution permission, resolved-root containment, and registry-bound
-  cancellation in the application service.
-- Keep the NWChem-named runner functions and per-program scheduler functions
-  as compatibility wrappers.
-- Replace mode tags only after golden tool and execution contract tests pass.
-
-### Phase 4: MCP application boundary
-
-- Add guided application services one intent at a time.
-- Make MCP handlers validate, call one service, and translate the result.
-- Move aliases into the compatibility registry.
-- Preserve each alias's old program and availability scope, and apply
-  protocol-specific error and metadata rules.
-- Reduce `_nwchem_base.py` by handler family rather than replacing it at once.
-- Keep public result shapes stable until their declared migration boundary.
-
-### Phase 5: knowledge and references
-
-- Add the general reference manifest loader from ADR 005.
-- Keep the canonical f-block dataset in package data with typed access, exact
-  lookup, and provenance-aware ATSP2K/GRASP planning.
-- Move reference discovery and evaluation out of `core/eval.py`.
-- Keep exploratory and shelved cases out of default recommendations.
-
-### Phase 6 and later
-
-- Use Orbitron through the existing integration adapter.
-- Move parser ownership only after differential evidence supports the move.
-- Add QE and QMCPACK through the catalog, artifact model, and reference
-  corpus. Do not copy the current NWChem execution shape into either backend.
+Resolved migration tasks were removed from this section. The remaining seams
+have active compatibility callers or explicit removal gates in
+`SIMPLIFICATION_PLAN.md`.
 
 ## Refactor guardrails
 
@@ -425,18 +432,3 @@ Do not copy artifact bytes into the registry.
 - Keep program-specific scientific judgment in the program backend even when
   an application service coordinates the workflow.
 - Keep external corpus access read-only and manifest-selected.
-
-## Phase 0 completion check
-
-This map is complete enough for the Phase 0 gate when review agrees that:
-
-- The target dependency direction is correct.
-- Existing program parser, input, strategy, and binary directories remain in
-  place.
-- The built-in catalog is the first structural migration.
-- Execution splits into launch planning, executors, and coordination.
-- MCP handlers become adapters without a single large rewrite.
-- SQLite is a persistence adapter rather than a workflow engine.
-- Reference evaluation does not remain a dependency of core.
-- QE and QMCPACK enter through the new boundaries instead of extending the
-  NWChem facade.

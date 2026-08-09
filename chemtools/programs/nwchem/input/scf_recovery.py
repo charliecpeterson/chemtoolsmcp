@@ -169,9 +169,9 @@ def draft_nwchem_property_check_input(
     title: str | None = None,
     write_file: bool = False,
 ) -> dict[str, Any]:
-    # check_spin_charge_state lives in api_strategy (will move when strategy
-    # is split). Lazy import avoids a circular dependency.
-    from chemtools.api_strategy import check_spin_charge_state
+    from chemtools.programs.nwchem.strategy.case_review import (
+        check_spin_charge_state,
+    )
 
     input_summary = inspect_nwchem_input(input_path)
     module_name = module or _select_primary_task_module(input_summary)

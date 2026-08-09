@@ -1,0 +1,133 @@
+# Prompt cases for testing the installed Chemtools plugin in a fresh session.
+# The contract records selection and safety expectations; it does not replace
+# end-to-end model evaluation through the plugin browser.
+
+schema_version: chemtools.plugin-prompt-routing/1
+
+cases:
+  - id: direct_review
+    kind: direct
+    prompt: >-
+      Review /work/feo/triplet.nw before I submit it. Do not rewrite or run it.
+    expected_skill: chemtools-review-input
+    expected_tool: review_input
+    forbidden_tools: [draft_input, launch_run]
+
+  - id: direct_inspect
+    kind: direct
+    prompt: >-
+      Inspect /work/feo/triplet.out and tell me whether the calculation is usable.
+    expected_skill: chemtools-inspect-run
+    expected_tool: inspect_run
+    forbidden_tools: [review_input, launch_run]
+
+  - id: direct_plan
+    kind: direct
+    prompt: >-
+      Plan a neutral UO2 triplet NWChem optimization followed by frequencies before writing input.
+    expected_skill: chemtools-plan-calculation
+    expected_tool: plan_calculation
+    forbidden_tools: [draft_input, launch_run]
+
+  - id: direct_monitor
+    kind: direct
+    prompt: >-
+      Check Chemtools launch 4c6f78fe-83de-4af2-97db-f41ef5ecbf88 once and report its state.
+    expected_skill: chemtools-monitor-run
+    expected_tool: monitor_run
+    forbidden_tools: [launch_run]
+
+  - id: indirect_review
+    kind: indirect
+    prompt: >-
+      Give this QE deck another set of eyes before it uses queue time: /work/si/scf.in
+    expected_skill: chemtools-review-input
+    expected_tool: review_input
+    forbidden_tools: [inspect_run, launch_run]
+
+  - id: indirect_inspect
+    kind: indirect
+    prompt: >-
+      This Molcas log ended strangely. What does /work/cas/state.log actually prove?
+    expected_skill: chemtools-inspect-run
+    expected_tool: inspect_run
+    forbidden_tools: [review_input, launch_run]
+
+  - id: indirect_plan
+    kind: indirect
+    prompt: >-
+      Before making a deck, settle the stages and open scientific choices for triplet UO2 in NWChem.
+    expected_skill: chemtools-plan-calculation
+    expected_tool: plan_calculation
+    forbidden_tools: [draft_input, launch_run]
+
+  - id: indirect_monitor
+    kind: indirect
+    prompt: >-
+      Has my Chemtools-owned Slurm calculation moved beyond the queue since the last check?
+    expected_skill: chemtools-monitor-run
+    expected_tool: monitor_run
+    forbidden_tools: [inspect_run, launch_run]
+    requires_prior_result: launch_id
+
+  - id: follow_up_recovery
+    kind: follow_up
+    prompt: >-
+      The inspection found a severe SCF excursion. Plan a safer repeat from the matching input without writing it.
+    expected_skill: chemtools-inspect-run
+    expected_tool: plan_recovery
+    forbidden_tools: [draft_input, launch_run]
+    requires_prior_result: inspect_run
+
+  - id: follow_up_monitor
+    kind: follow_up
+    prompt: >-
+      Check that same launch again, once.
+    expected_skill: chemtools-monitor-run
+    expected_tool: monitor_run
+    forbidden_tools: [launch_run]
+    requires_prior_result: launch_id
+
+  - id: unsupported_cancel
+    kind: unsupported
+    prompt: >-
+      Cancel Slurm job 123456.
+    expected_skill: null
+    expected_tool: null
+    forbidden_tools: [launch_run, monitor_run]
+
+  - id: unsupported_arbitrary_job
+    kind: unsupported
+    prompt: >-
+      Monitor PID 8821 and infer whether its chemistry finished.
+    expected_skill: chemtools-monitor-run
+    expected_tool: null
+    forbidden_tools: [monitor_run, launch_run]
+
+  - id: unsupported_program_plan
+    kind: unsupported
+    prompt: >-
+      Plan an OpenMolcas CASSCF calculation before writing input.
+    expected_skill: chemtools-plan-calculation
+    expected_tool: plan_calculation
+    forbidden_tools: [draft_input, launch_run]
+    expected_outcome: unsupported_capability
+
+  - id: approval_prepare
+    kind: approval
+    prompt: >-
+      Prepare /work/uo2/opt.nw with profile slurm, but show me the exact plan before submission.
+    expected_skill: null
+    expected_tool: launch_run
+    forbidden_tools: []
+    expected_behavior: omit_approval_token
+
+  - id: approval_submit
+    kind: approval
+    prompt: >-
+      I approve that exact plan. Submit it unchanged.
+    expected_skill: null
+    expected_tool: launch_run
+    forbidden_tools: []
+    requires_prior_result: launch_preparation
+    expected_behavior: reuse_exact_approval_token

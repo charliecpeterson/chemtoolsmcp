@@ -46,7 +46,7 @@ def plan_qe_qmcpack_conversion(
         "schema_version": "chemtools.qe-qmcpack-conversion-plan/1",
         "qe_input": str(input_path),
         "pwscf_h5": str(h5_path),
-        "readiness": _conversion_readiness(preflight),
+        "readiness": conversion_readiness(preflight),
         "preflight": preflight,
         "steps": [
             {
@@ -320,7 +320,33 @@ def inspect_conversion_isolation(parsed_input: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def _conversion_readiness(checks: list[dict[str, Any]]) -> str:
+def inspect_conversion_readiness(
+    qe_input: str | Path,
+    parsed_input: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize the bounded QE input checks required before conversion."""
+    input_path = Path(qe_input).expanduser().resolve()
+    checks = [
+        inspect_conversion_calculation(parsed_input),
+        inspect_conversion_disk_io(parsed_input),
+        inspect_conversion_k_points(parsed_input),
+        inspect_conversion_isolation(parsed_input),
+    ]
+    return {
+        "schema_version": "chemtools.qe-qmcpack-conversion-readiness/1",
+        "qe_input": str(input_path),
+        "readiness": conversion_readiness(checks),
+        "checks": checks,
+        "scope_limit": (
+            "This checks the QE input conditions for pw2qmcpack conversion. "
+            "It does not prove that the SCF completed, that orbitals were "
+            "written, or that a QMCPACK energy comparison is valid."
+        ),
+    }
+
+
+def conversion_readiness(checks: list[dict[str, Any]]) -> str:
+    """Reduce conversion check statuses using the public severity order."""
     statuses = {check["status"] for check in checks}
     return (
         "not_ready"

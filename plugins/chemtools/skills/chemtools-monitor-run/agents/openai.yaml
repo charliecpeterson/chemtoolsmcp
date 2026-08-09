@@ -1,0 +1,4 @@
+interface:
+  display_name: "Monitor Chemistry Run"
+  short_description: "Monitor a Chemtools-owned local or Slurm run"
+  default_prompt: "Use $chemtools-monitor-run to check this Chemtools launch and summarize its state."

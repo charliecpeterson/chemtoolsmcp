@@ -26,6 +26,8 @@ from chemtools.programs._adapter_helpers import (
 from chemtools.programs.nwchem.parse.tasks import parse_tasks as _parse_tasks
 from chemtools.programs.nwchem.parse.mos import parse_mos as _parse_mos
 from chemtools.programs.nwchem.parse.freq import (
+    NEAR_ZERO_FREQUENCY_THRESHOLD_CM1,
+    SIGNIFICANT_IMAGINARY_FREQUENCY_THRESHOLD_CM1,
     parse_freq as _parse_freq,
     parse_trajectory as _parse_trajectory,
 )
@@ -52,6 +54,26 @@ class _NwchemParser:
 
         primary_idx = _pick_primary(summaries)
         derived = _compute_derived(summaries, raw_tasks)
+        frequency_values = [
+            mode["frequency_cm1"]
+            for task in raw_tasks
+            for mode in task.get("frequency_modes") or []
+            if isinstance(mode.get("frequency_cm1"), (int, float))
+        ]
+        if frequency_values:
+            significant_imaginary = [
+                value
+                for value in frequency_values
+                if value <= SIGNIFICANT_IMAGINARY_FREQUENCY_THRESHOLD_CM1
+            ]
+            derived["n_imaginary_modes"] = len(significant_imaginary)
+            derived["significant_imaginary_frequencies_cm1"] = (
+                significant_imaginary
+            )
+            derived["n_near_zero_modes"] = sum(
+                abs(value) < NEAR_ZERO_FREQUENCY_THRESHOLD_CM1
+                for value in frequency_values
+            )
         diagnostics = [
             {
                 "kind": d.get("kind", "info"),
@@ -69,14 +91,14 @@ class _NwchemParser:
 
         return {
             "program": "nwchem",
-            "program_version": None,  # TODO: extract NWChem version from banner
+            "program_version": None,
             "file": path,
             "file_size_bytes": file_size,
             "tasks": summaries,
             "primary_task_index": primary_idx,
             "derived": derived,
             "diagnostics": diagnostics,
-            "diagnosis": {},  # TODO: integrate diagnose_nwchem_output verdict
+            "diagnosis": {},
         }
 
     def task_index(self, path: str) -> list[TaskSummary]:
@@ -98,8 +120,7 @@ class _NwchemParser:
         return inspect_nwchem_input(path)
 
     def get_orbitals(self, path: str, task_index: int | None = None) -> dict[str, Any]:
-        # task_index is currently ignored — NWChem outputs typically have one MO section.
-        # TODO: support per-task MO retrieval when multi-task outputs have multiple sections.
+        # MO parsing currently treats the file as one aggregate section.
         contents = read_text(path)
         return _parse_mos(path, contents, top_n=10, include_coefficients=False)
 
@@ -117,8 +138,9 @@ class _NwchemParser:
         return parse_nwchem_thermochem(path)
 
     def get_geometry(self, path: str, task_index: int | None = None) -> list[GeometryAtom]:
-        # Lazy import — api_input is still flat and gets reorganized in a later phase.
-        from chemtools.api_input import extract_nwchem_geometry
+        from chemtools.programs.nwchem.input.geometry import (
+            extract_nwchem_geometry,
+        )
         result = extract_nwchem_geometry(path)
         atoms = result.get("atoms") or []
         out: list[GeometryAtom] = []

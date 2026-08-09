@@ -1,7 +1,7 @@
 # NWChem Calculations on TACC Stampede3
 
 This project runs NWChem quantum chemistry calculations on TACC Stampede3
-using the chemtools-nwchem agent toolkit. Jobs are submitted through SLURM;
+using the chemtools agent toolkit. Jobs are submitted through SLURM;
 you are on a login node.
 
 ## Computing environment

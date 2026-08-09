@@ -151,7 +151,7 @@ def test_mcp_returns_orbitron_render_as_png_content(tmp_path, monkeypatch):
         "id": 1,
         "method": "tools/call",
         "params": {
-            "name": "render_with_orbitron",
+            "name": "visualize",
             "arguments": {"path": str(source)},
         },
     })
@@ -483,7 +483,7 @@ def test_mcp_reports_orbitron_render_refusal(monkeypatch):
 
     monkeypatch.setattr(orbitron_tools, "OrbitronClient", Client)
 
-    rendered = dispatch_tool("render_with_orbitron", {"path": "molecule.xyz"})
+    rendered = dispatch_tool("visualize", {"path": "molecule.xyz"})
 
     assert rendered == {
         "schema_version": "chemtools.orbitron-render/1",
@@ -520,14 +520,14 @@ def test_mcp_definition_exposes_no_command_or_remote_arguments():
     }
 
 
-def test_mcp_render_definition_exposes_only_a_source_path():
+def test_mcp_visualize_definition_exposes_only_a_source_path():
     definition = next(
         item
         for item in tool_definitions()
-        if item["name"] == "render_with_orbitron"
+        if item["name"] == "visualize"
     )
 
-    assert _TOOL_PROGRAMS["render_with_orbitron"] == "generic"
+    assert _TOOL_PROGRAMS["visualize"] == "generic"
     assert definition["inputSchema"] == {
         "type": "object",
         "properties": {
@@ -543,4 +543,32 @@ def test_mcp_render_definition_exposes_only_a_source_path():
         },
         "required": ["path"],
         "additionalProperties": False,
+    }
+    assert definition["annotations"] == {
+        "title": "Render a chemistry structure",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+
+
+def test_old_orbitron_render_name_is_a_hidden_compatibility_alias(monkeypatch):
+    error = OrbitronUnavailableError("Orbitron is not configured")
+
+    class Client:
+        def __init__(self):
+            raise error
+
+    monkeypatch.setattr(orbitron_tools, "OrbitronClient", Client)
+
+    canonical = dispatch_tool("visualize", {"path": "molecule.xyz"})
+    aliased = dispatch_tool(
+        "render_with_orbitron",
+        {"path": "molecule.xyz"},
+    )
+
+    assert aliased == canonical
+    assert "render_with_orbitron" not in {
+        definition["name"] for definition in tool_definitions()
     }

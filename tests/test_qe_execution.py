@@ -3,7 +3,7 @@
 import json
 
 from chemtools.application.qe_execution import render_qe_launch
-from chemtools.core.runner import load_runner_profiles
+from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor
 from chemtools.programs.qe.launch import (
     adapt_legacy_qe_profile,

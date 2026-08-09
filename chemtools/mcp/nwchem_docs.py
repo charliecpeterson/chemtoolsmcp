@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Standalone NWChem docs MCP server (backward-compat entry point).
 
-The docs tools are now bundled into the main chemtools-nwchem server.
+The docs tools are now bundled into the main chemtools server.
 This module is kept so the `chemtools-nwchem-docs` entry point still works,
-but the preferred setup is a single `chemtools-nwchem` server.
+but the preferred setup is a single `chemtools` server.
 """
 from __future__ import annotations
 
@@ -14,11 +14,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if not any("chemtools" in p for p in sys.path):
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from chemtools.programs.nwchem.docs import (  # noqa: E402
+from chemtools.mcp.decorator import SERVER_VERSION
+from chemtools.programs.nwchem.docs import (
     find_examples,
     get_topic_guide,
     list_docs,
@@ -26,14 +23,13 @@ from chemtools.programs.nwchem.docs import (  # noqa: E402
     read_doc_excerpt,
     search_docs,
 )
-from chemtools.mcp.server import (  # noqa: E402
+from chemtools.mcp.server import (
     DEFAULT_PROTOCOL_VERSION,
     negotiate_protocol_version,
 )
 
 
 SERVER_NAME = "nwchem-docs-mcp"
-SERVER_VERSION = "0.2.0"
 LOG_PATH = os.environ.get("NWCHEM_DOCS_MCP_LOG")
 
 

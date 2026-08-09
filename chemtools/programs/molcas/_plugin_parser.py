@@ -11,15 +11,17 @@ from chemtools.programs._adapter_helpers import (
     pick_primary,
     compute_derived,
 )
-from chemtools.programs.molcas.parse.output import parse_tasks as _parse_tasks
-from chemtools.programs.molcas.parse.output import parse_output_full as _parse_output_full
-from chemtools.programs.molcas.parse.mos import parse_last_mo_block as _parse_last_mo_block
+from chemtools.programs.molcas.parse.output import (
+    get_orbitals as _get_orbitals,
+    parse_tasks as _parse_tasks,
+    parse_output_full as _parse_output_full,
+)
 from chemtools.programs.molcas.parse.freq import parse_last_freq_block as _parse_last_freq_block
 from chemtools.programs.molcas.parse.thermochem import parse_thermochem_block as _parse_thermochem_block
 from chemtools.programs.molcas.parse.geometry import (
-    parse_final_geometry as _parse_final_geometry,
+    GeometryBlockIndexError as _GeometryBlockIndexError,
     parse_trajectory as _parse_trajectory,
-    parse_cartesian_blocks as _parse_cartesian_blocks,
+    select_geometry as _select_geometry,
 )
 
 
@@ -68,11 +70,8 @@ class _MolcasParser:
 
         primary_idx = pick_primary(merged_tasks)
         derived = compute_derived(merged_tasks, [])
-        # Hoist the cross-task energy summary so downstream consumers get the
-        # canonical "primary_energy" pick (MS-CASPT2 > CASPT2 > RASSCF > SCF).
-        # Also expose under `final_energy_hartree` (Phase 5 standardization)
-        # so generic tools that consume ParsedRun see the same key name as
-        # NWChem's derived dict.
+        # Generic consumers need one energy key across Molcas and NWChem.
+        # Molcas still records which method supplied its primary energy.
         if (es := full.get("energy_summary")) and es.get("primary_energy_hartree") is not None:
             derived["primary_energy_hartree"] = es["primary_energy_hartree"]
             derived["primary_energy_label"] = es.get("primary_label")
@@ -113,35 +112,13 @@ class _MolcasParser:
         occupations and dominant AO contributions per orbital); for SCF tasks
         it returns the canonical SCF MOs.
         """
-        contents = read_text(path)
-        tasks_result = _parse_tasks(path, contents)
-        generic_tasks = tasks_result.get("generic_tasks") or []
-        if not generic_tasks:
-            raise ValueError(f"No tasks found in {path}")
-        if task_index is None:
-            # Prefer last RASSCF, else last SCF
-            preferred = None
-            for i, t in enumerate(generic_tasks):
-                if t["extra"]["module"] in {"RASSCF", "SCF"}:
-                    preferred = i
-            if preferred is None:
-                raise ValueError(f"No SCF/RASSCF tasks found in {path}")
-            task_index = preferred
-        if task_index < 0 or task_index >= len(generic_tasks):
-            raise IndexError(f"task_index={task_index} out of range; have {len(generic_tasks)} tasks")
-        task = generic_tasks[task_index]
-        lines = contents.splitlines()
-        block_text = "\n".join(lines[task["line_start"] - 1 : task["line_end"]])
-        mo = _parse_last_mo_block(block_text, parse_coefficients=True)
-        if mo is None:
-            raise ValueError(
-                f"No '++ Molecular orbitals:' block in task {task_index} ({task['extra']['module']})"
-            )
-        return {
-            "task_index": task_index,
-            "module": task["extra"]["module"],
-            "mo_block": mo,
-        }
+        orbitals = _get_orbitals(path, task_index)
+        error = orbitals.get("error")
+        if error == "task_index_out_of_range":
+            raise IndexError(orbitals["message"])
+        if error:
+            raise ValueError(orbitals["message"])
+        return orbitals
 
     def get_frequency(self, path: str, task_index: int | None = None) -> dict[str, Any]:
         """Return the LAST `Harmonic frequencies` block (typically MCLR-emitted)."""
@@ -168,26 +145,25 @@ class _MolcasParser:
         """Return the converged geometry, ALWAYS in Angstrom.
 
         SLAPAF's "Nuclear coordinates for the next iteration" section is in
-        bohr; this method normalizes to Å so generic callers (the Phase 4
-        ``inspect_geometry`` MCP tool, etc.) can rely on a single unit
-        regardless of where the geometry came from in the .out.
+        bohr; this method normalizes to angstrom so generic callers receive one
+        unit regardless of where the geometry came from in the output.
         """
         from chemtools.core.units import ANGSTROM_PER_BOHR
 
         contents = read_text(path)
-        if task_index is not None:
-            blocks = _parse_cartesian_blocks(contents)
-            if not blocks:
-                raise ValueError(f"No Cartesian coordinates blocks found in {path}")
-            if task_index < 0 or task_index >= len(blocks):
-                raise IndexError(
-                    f"task_index={task_index} out of range; have {len(blocks)} geometry blocks"
+        try:
+            block = _select_geometry(contents, task_index)
+        except _GeometryBlockIndexError as error:
+            raise IndexError(
+                f"task_index={task_index} out of range; have "
+                f"{error.block_count} geometry blocks"
+            ) from error
+        if block is None:
+            if task_index is not None:
+                raise ValueError(
+                    f"No Cartesian coordinates blocks found in {path}"
                 )
-            block = blocks[task_index]
-        else:
-            block = _parse_final_geometry(contents)
-            if block is None:
-                raise ValueError(f"No geometry found in {path}")
+            raise ValueError(f"No geometry found in {path}")
 
         atoms = block["atoms"]
         units = (block.get("units") or "angstrom").lower()

@@ -35,9 +35,8 @@ def test_every_definition_has_a_handler():
 
 
 def test_legacy_handler_imports_resolve():
-    # Handlers moved into nwchem_<category> modules, but generic.py and external
-    # callers still do `from chemtools.mcp.tools.nwchem import _handle_x`. The
-    # __getattr__ shim must keep resolving them.
+    # External callers may still use the old aggregator import path. The
+    # __getattr__ shim must keep resolving it during the compatibility window.
     from chemtools.mcp.tools.nwchem import (  # noqa: F401
         _handle_analyze_nwchem_case,
         _handle_summarize_nwchem_output,

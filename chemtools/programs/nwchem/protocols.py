@@ -5,9 +5,6 @@ engine that walks it (``plan_calculation``, ``list_protocols``) lives in
 ``chemtools.core.workflow`` and is program-agnostic. This module just
 hands the engine the NWChem protocol library, the NWChem tool-name
 mapping, and the NWChem dynamic-step generators.
-
-A future Molcas protocol library would be a parallel file
-(``programs/molcas/protocols.py``) wrapping the same core engine.
 """
 from __future__ import annotations
 

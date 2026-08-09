@@ -51,6 +51,29 @@ from chemtools.programs.nwchem.input._utils import (
 )
 
 
+def build_scf_module_settings(
+    module: str,
+    *,
+    scf_type: str | None = None,
+    nopen: int | None = None,
+    maxiter: int | None = None,
+    thresh: float | None = None,
+) -> list[str] | None:
+    """Render the legacy tool's explicit SCF fields as NWChem directives."""
+    if module.strip().lower() != "scf":
+        return None
+    settings = []
+    if scf_type:
+        settings.append(scf_type)
+    if nopen is not None:
+        settings.append(f"nopen {nopen}")
+    if maxiter is not None:
+        settings.append(f"maxiter {maxiter}")
+    if thresh is not None:
+        settings.append(f"thresh {thresh:.2e}")
+    return settings or None
+
+
 def create_nwchem_input(
     geometry_path: str,
     library_path: str,

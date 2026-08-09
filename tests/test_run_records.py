@@ -1,8 +1,8 @@
 """Public import compatibility for extracted run-record persistence."""
 
 import chemtools
-import chemtools.core.run_records as run_records
-import chemtools.core.run_registry as run_registry
+import chemtools.application.run_registry as run_registry
+import chemtools.persistence.runs as run_records
 
 
 def test_run_registry_reexports_run_record_functions_without_wrappers():

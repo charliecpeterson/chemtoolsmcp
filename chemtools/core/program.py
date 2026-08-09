@@ -23,6 +23,7 @@ from chemtools.core.types import (
     ExampleEntry,
     TaskKind,
 )
+from chemtools.core.execution import PreparedLaunch
 
 
 # ============================================================
@@ -163,8 +164,8 @@ class Strategist(Protocol):
 
     `diagnose` is the thick-tool engine — given a parsed run, produce a
     verdict plus next_actions ready for the agent to execute.
-    `suggest_recovery` is for the failure case specifically: when something
-    went wrong, what concrete fixes are worth trying, in priority order.
+    `plan_recovery` is for the failure case specifically: given the source
+    files and intended state, what concrete fixes are worth trying.
     `suggest_resources` recommends nodes/ranks/walltime/memory for a runner
     profile. `progress_summary` is for in-flight job monitoring.
     """
@@ -173,10 +174,13 @@ class Strategist(Protocol):
         """File-level verdict + next_actions."""
         ...
 
-    def suggest_recovery(
-        self, parsed: ParsedRun, diagnosis: Diagnosis
-    ) -> list[NextAction]:
-        """Ordered list of recovery actions for a failed/incomplete run."""
+    def plan_recovery(
+        self,
+        output_path: str,
+        input_path: str | None,
+        target: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        """Build a read-only recovery plan from run files and target state."""
         ...
 
     def suggest_resources(
@@ -287,6 +291,8 @@ class ProgramCapability(str, Enum):
     RESOURCES_ESTIMATE = "resources.estimate"
     PROGRESS_INSPECT = "progress.inspect"
     RUN_CONSISTENCY = "run.consistency"
+    CALCULATION_PLAN = "calculation.plan"
+    EXECUTION_PLAN = "execution.plan"
     EXAMPLES_READ = "examples.read"
 
 
@@ -304,9 +310,12 @@ class DiagnosticAdapter(Protocol):
     def diagnose(self, parsed: ParsedRun) -> Diagnosis:
         ...
 
-    def suggest_recovery(
-        self, parsed: ParsedRun, diagnosis: Diagnosis
-    ) -> list[NextAction]:
+    def plan_recovery(
+        self,
+        output_path: str,
+        input_path: str | None,
+        target: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
         ...
 
 
@@ -334,6 +343,24 @@ class RunConsistencyAdapter(Protocol):
         parsed_output: Mapping[str, Any],
         artifact_paths: tuple[str, ...],
     ) -> Mapping[str, Any]:
+        ...
+
+
+@runtime_checkable
+class CalculationPlanner(Protocol):
+    def plan_calculation(
+        self,
+        request: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        ...
+
+
+@runtime_checkable
+class LaunchPlanner(Protocol):
+    def prepare_launch(
+        self,
+        request: Mapping[str, Any],
+    ) -> PreparedLaunch:
         ...
 
 
@@ -391,6 +418,8 @@ class ProgramBackend:
     resources: ResourceAdvisor | None = None
     progress: ProgressAdapter | None = None
     consistency: RunConsistencyAdapter | None = None
+    planning: CalculationPlanner | None = None
+    launches: LaunchPlanner | None = None
     examples: ExamplesCorpus | None = None
 
     def supports(self, capability: ProgramCapability) -> bool:
@@ -455,7 +484,7 @@ _CAPABILITY_REQUIREMENTS: dict[
     ProgramCapability.BINARY_WRITE: (("binary", "write"),),
     ProgramCapability.DIAGNOSIS_RUN: (("diagnostics", "diagnose"),),
     ProgramCapability.DIAGNOSIS_RECOVERY: (
-        ("diagnostics", "suggest_recovery"),
+        ("diagnostics", "plan_recovery"),
     ),
     ProgramCapability.RESOURCES_ESTIMATE: (
         ("resources", "suggest_resources"),
@@ -465,6 +494,12 @@ _CAPABILITY_REQUIREMENTS: dict[
     ),
     ProgramCapability.RUN_CONSISTENCY: (
         ("consistency", "compare_input_output"),
+    ),
+    ProgramCapability.CALCULATION_PLAN: (
+        ("planning", "plan_calculation"),
+    ),
+    ProgramCapability.EXECUTION_PLAN: (
+        ("launches", "prepare_launch"),
     ),
     ProgramCapability.EXAMPLES_READ: (
         ("examples", "list_examples"),
@@ -541,6 +576,8 @@ __all__ = [
     "ResourceAdvisor",
     "ProgressAdapter",
     "RunConsistencyAdapter",
+    "CalculationPlanner",
+    "LaunchPlanner",
     "ArtifactKindSpec",
     "UnsupportedCapabilityError",
     "InvalidProgramBackend",

@@ -1,7 +1,8 @@
 """Server modes: capability-tag filtering for the MCP tool list.
 
 Modes:
-  analysis — pure parsing/drafting/planning. No NWChem executable, no scheduler.
+  analysis — parsing, drafting, planning, and owned read-only monitoring.
+             No NWChem launch or scheduler submission.
   local    — NWChem runs as a foreground subprocess via a "direct" runner profile.
   hpc      — NWChem submitted to a scheduler via a "scheduler" runner profile.
 
@@ -15,7 +16,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from chemtools.mcp.catalog import builtin_program_names
 
@@ -45,6 +46,7 @@ PROGRAMS_ENV = "CHEMTOOLS_PROGRAMS"
 # Env var that selects a curated tool subset (a preset name, or a comma-separated
 # list of tool names). Trims the surface for small models / focused workflows.
 TOOLSET_ENV = "CHEMTOOLS_TOOLSET"
+FULL_TOOLSET_NAMES = frozenset({"developer", "full"})
 
 # Named tool presets. "triage" is the lean output-assessment set: enough to scan
 # a batch, diagnose a file, and follow up, without the full draft/registry/HPC
@@ -53,7 +55,15 @@ TOOLSETS: dict[str, frozenset[str]] = {
     "guided": frozenset({
         "review_input",
         "inspect_run",
-        "search_knowledge_cards",
+        "compare_runs",
+        "plan_calculation",
+        "plan_recovery",
+        "launch_run",
+        "monitor_run",
+        "draft_input",
+        "search_knowledge",
+        "find_reference_case",
+        "visualize",
     }),
     "triage": frozenset({
         "summarize_nwchem_outputs",          # batch triage entry point
@@ -201,9 +211,8 @@ def resolve_programs(
             return None, "explicit empty — no filter"
         unknown = programs - set(KNOWN_PROGRAMS)
         if unknown:
-            # We don't hard-fail on unknown program names — a future program
-            # plugin might register itself with a name we don't know about
-            # at module-load time. Warn via the reason string.
+            # Custom catalogs can add names outside the built-in set, so this
+            # compatibility parser reports unknown names without rejecting them.
             return programs, (
                 f"set by --programs={','.join(sorted(programs))} "
                 f"(unrecognized: {sorted(unknown)})"
@@ -223,22 +232,39 @@ def resolve_toolset(
     explicit: str | None = None,
     *,
     env: dict[str, str] | None = None,
+    aliases: Mapping[str, str] | None = None,
 ) -> tuple[frozenset[str] | None, str]:
     """Resolve the active tool-name allowlist.
 
-    Returns ``(names, reason)``. ``names`` is None for no filter. The value is a
-    preset name from TOOLSETS, or a comma-separated list of tool names for an
-    ad-hoc set. Priority: *explicit* (--toolset) then CHEMTOOLS_TOOLSET.
+    Returns ``(names, reason)``. ``names`` is None for the complete developer
+    surface. The value is a preset name from TOOLSETS, ``developer``/``full``,
+    or a comma-separated list of tool names for an ad-hoc set. Priority:
+    *explicit* (--toolset) then CHEMTOOLS_TOOLSET, then the guided preset.
     """
     env = env if env is not None else os.environ
     raw = explicit if explicit is not None else env.get(TOOLSET_ENV)
     if not raw or not raw.strip():
-        return None, f"no {TOOLSET_ENV} set — full tool surface"
+        guided = TOOLSETS["guided"]
+        return guided, f"default preset 'guided' ({len(guided)} tools)"
     key = raw.strip().lower()
+    if key in FULL_TOOLSET_NAMES:
+        return None, f"preset {key!r} (full developer tool surface)"
     if key in TOOLSETS:
         return TOOLSETS[key], f"preset {key!r} ({len(TOOLSETS[key])} tools)"
-    names = frozenset(t.strip() for t in raw.split(",") if t.strip())
-    return names, f"custom list ({len(names)} tools)"
+    requested = frozenset(t.strip() for t in raw.split(",") if t.strip())
+    names = frozenset(
+        (aliases or {}).get(name, name)
+        for name in requested
+    )
+    normalized_count = sum(
+        (aliases or {}).get(name, name) != name
+        for name in requested
+    )
+    tool_word = "tool" if len(names) == 1 else "tools"
+    reason = f"custom list ({len(names)} {tool_word})"
+    if normalized_count:
+        reason += f"; normalized {normalized_count} compatibility alias"
+    return names, reason
 
 
 def resolve_mode(

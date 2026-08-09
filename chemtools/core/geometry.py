@@ -8,9 +8,7 @@ extracting their atoms list.
 
 The Molcas-specific wrapper (``programs/molcas/strategy/geometry_inspector.py``)
 adds the source-resolution step (output_file / input_file / atoms) and
-unit normalization (bohr → Å), then delegates the math here. NWChem's
-analogous wrapper is yet to be built (Phase 4); it will use this same
-core module.
+unit normalization (bohr to angstrom), then delegates the math here.
 """
 
 from __future__ import annotations

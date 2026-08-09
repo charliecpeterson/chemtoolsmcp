@@ -290,16 +290,14 @@ MCP tools: `evaluate_nwchem_case(case_path)` and `evaluate_nwchem_cases(path)`
 1. Write the domain function in the appropriate `chemtools/programs/<program>/`
    submodule (parser, drafter, strategy, runtime). For generic tools, put it
    in `chemtools/core/`.
-2. Add a tool-definition dict to `<program>_tool_definitions()` in
-   `chemtools/mcp/tools/<program>.py` — schema + description.
-3. Add a `@_tool("tool_name", program="<program>", needs="<cap>")` handler
-   function in the same file that calls the library. Capability tag drives
+2. Add a tool-definition dict to the program's schema module.
+3. Add a `@_tool("tool_name", needs="<cap>")` handler to the matching focused
+   module under `chemtools/mcp/tools/`. Capability tags drive
    which server modes expose it (none / registry / runner_profile /
    executable_or_scheduler / executable / scheduler).
 4. Verify:
    ```bash
-   python3 -c "from chemtools.mcp.tools.nwchem import tool_definitions; print(len(tool_definitions()), 'tools')"
-   chemtools --list-tools | grep your_new_tool
+   chemtools --programs nwchem --list-tools | grep your_new_tool
    ```
 
 ## How to Improve an Existing Tool

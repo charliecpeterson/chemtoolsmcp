@@ -26,7 +26,9 @@ from chemtools.programs.qe.pw2qmcpack import (
     parse_pw2qmcpack_input,
 )
 from chemtools.programs.qe.qmcpack import (
+    conversion_readiness,
     inspect_conversion_calculation,
+    inspect_conversion_readiness,
     inspect_conversion_disk_io,
     inspect_conversion_isolation,
     inspect_conversion_k_points,
@@ -64,32 +66,7 @@ def _handle_check_qe_qmcpack_conversion_ready(
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
     source = Path(arguments["qe_input"]).expanduser().resolve()
-    parsed = parse_pw_input(source)
-    checks = [
-        inspect_conversion_calculation(parsed),
-        inspect_conversion_disk_io(parsed),
-        inspect_conversion_k_points(parsed),
-        inspect_conversion_isolation(parsed),
-    ]
-    statuses = {check["status"] for check in checks}
-    readiness = (
-        "not_ready"
-        if "not_ready" in statuses
-        else "review_required"
-        if "review_required" in statuses
-        else "ready"
-    )
-    return {
-        "schema_version": "chemtools.qe-qmcpack-conversion-readiness/1",
-        "qe_input": str(source),
-        "readiness": readiness,
-        "checks": checks,
-        "scope_limit": (
-            "This checks the QE input conditions for pw2qmcpack conversion. It "
-            "does not prove that the SCF completed, that orbitals were written, "
-            "or that a QMCPACK energy comparison is valid."
-        ),
-    }
+    return inspect_conversion_readiness(source, parse_pw_input(source))
 
 
 @_tool("plan_qe_qmcpack_conversion", program="qe")
@@ -148,7 +125,7 @@ def _handle_inspect_qe_qmcpack_conversion_artifacts(
         "qe_input": str(qe_input),
         "qe_output": str(qe_output),
         "pwscf_h5": str(pwscf_h5),
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This checks declared QE-to-QMCPACK artifact lineage. It does not "
@@ -252,7 +229,7 @@ def _handle_inspect_qe_qmcpack_conversion(
         "qe_output": str(qe_output),
         "pwscf_h5": str(pwscf_h5),
         "qmcpack_input": str(qmcpack_input),
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This combines Chemtools' bounded QE-to-QMCPACK conversion "
@@ -320,7 +297,7 @@ def _handle_inspect_qe_qmcpack_conversion_execution(
         "pw2qmcpack_output": str(converter_output),
         "pwscf_h5": conversion["pwscf_h5"],
         "qmcpack_input": conversion["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "pw2qmcpack_inspection": converter_inspection,
         "scope_limit": (
@@ -401,7 +378,7 @@ def _handle_inspect_qe_qmcpack_conversion_deck(
         "qe_output": artifact_inspection["qe_output"],
         "pwscf_h5": artifact_inspection["pwscf_h5"],
         "qmcpack_input": str(qmcpack_input),
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This checks that the declared QMCPACK XML deck resolves an HDF5 "
@@ -434,7 +411,7 @@ def _handle_inspect_qe_qmcpack_conversion_pseudopotentials(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This checks the declared QMCPACK pseudopotential XML files for the "
@@ -470,7 +447,7 @@ def _handle_inspect_qe_qmcpack_conversion_species(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares QE atomic-species elements with QMCPACK "
@@ -507,7 +484,7 @@ def _handle_inspect_qe_qmcpack_conversion_valence(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares parsed QE UPF z_valence values with QMCPACK XML "
@@ -544,7 +521,7 @@ def _handle_inspect_qe_qmcpack_conversion_projectors(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This reports bounded QE UPF projector evidence when a QMCPACK DMC "
@@ -583,7 +560,7 @@ def _handle_inspect_qe_qmcpack_conversion_electrons(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares explicit QE electron-count evidence with the QMCPACK "
@@ -613,7 +590,7 @@ def _handle_inspect_qe_qmcpack_conversion_atoms(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares QE's declared atom count with QMCPACK non-electron "
@@ -647,7 +624,7 @@ def _handle_inspect_qe_qmcpack_conversion_ion_species(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares QE atomic elements with QMCPACK explicitly sized "
@@ -681,7 +658,7 @@ def _handle_inspect_qe_qmcpack_conversion_geometry(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares one explicit periodic QE geometry with one explicit "
@@ -716,7 +693,7 @@ def _handle_inspect_qe_qmcpack_conversion_spin(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares only an explicit QE collinear fixed total "
@@ -752,7 +729,7 @@ def _handle_inspect_qe_qmcpack_conversion_charge(
         "qe_output": deck_inspection["qe_output"],
         "pwscf_h5": deck_inspection["pwscf_h5"],
         "qmcpack_input": deck_inspection["qmcpack_input"],
-        "readiness": _readiness(checks),
+        "readiness": conversion_readiness(checks),
         "checks": checks,
         "scope_limit": (
             "This compares QE UPF valence accounting and total charge with "
@@ -761,17 +738,6 @@ def _handle_inspect_qe_qmcpack_conversion_charge(
             "physical charge state, or spin-state compatibility."
         ),
     }
-
-
-def _readiness(checks: list[dict[str, Any]]) -> str:
-    statuses = {check["status"] for check in checks}
-    return (
-        "not_ready"
-        if "not_ready" in statuses
-        else "review_required"
-        if "review_required" in statuses
-        else "ready"
-    )
 
 
 __all__ = [

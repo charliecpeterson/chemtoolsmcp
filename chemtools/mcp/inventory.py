@@ -15,14 +15,14 @@ from chemtools.mcp.decorator import (
     _TOOL_PROGRAMS,
 )
 from chemtools.mcp.catalog import builtin_program_names
-from chemtools.mcp.dispatch import _TOOL_ALIASES, tool_definitions
+from chemtools.mcp.dispatch import _TOOL_ALIAS_REGISTRY, tool_definitions
 from chemtools.mcp.modes import MODE_CAPABILITIES, VALID_MODES, filter_tools
 from chemtools.mcp.server import (
     DEFAULT_PROTOCOL_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
 )
 
-INVENTORY_SCHEMA = "chemtools.mcp-tool-inventory/1"
+INVENTORY_SCHEMA = "chemtools.mcp-tool-inventory/3"
 PROGRAM_ORDER = ("generic", *builtin_program_names())
 CAPABILITY_ORDER = (
     "none",
@@ -31,6 +31,100 @@ CAPABILITY_ORDER = (
     "executable_or_scheduler",
     "executable",
     "scheduler",
+)
+
+ADVERTISED_LEGACY_TOOLS = {
+    "register_nwchem_run": "register_run",
+    "update_nwchem_run_status": "update_run_status",
+    "list_nwchem_runs": "list_runs",
+    "get_nwchem_run_summary": "get_run_summary",
+    "create_nwchem_campaign": "create_campaign",
+    "get_nwchem_campaign_status": "get_campaign_status",
+    "get_nwchem_campaign_energies": "get_campaign_energies",
+    "create_nwchem_workflow": "create_workflow",
+    "advance_nwchem_workflow": "advance_workflow",
+}
+
+ENTRYPOINT_ALIASES = (
+    {
+        "name": "chemtools-nwchem",
+        "target": "chemtools",
+        "state": "callable_deprecated",
+        "contract_status": "verified_equivalent",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "declaration": "pyproject.toml",
+        "known_first_party_configs": [],
+    },
+    {
+        "name": "chemtools-nwchem-docs",
+        "target": "chemtools",
+        "state": "legacy_distinct_surface",
+        "contract_status": "not_equivalent",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "declaration": "pyproject.toml",
+        "known_first_party_configs": [],
+    },
+)
+
+PYTHON_IMPORT_SHIMS = (
+    {
+        "name": "chemtools",
+        "replacement": "focused chemtools application, execution, integration, persistence, program, and reference modules",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": ["chemtools/mcp/tools/_nwchem_base.py"],
+    },
+    {
+        "name": "chemtools.api",
+        "replacement": "focused chemtools.core and chemtools.programs modules",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": [],
+    },
+    {
+        "name": "chemtools.api_input",
+        "replacement": "chemtools.programs.nwchem.input and strategy.workflow_planner",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": [],
+    },
+    {
+        "name": "chemtools.api_strategy",
+        "replacement": "chemtools.programs.nwchem.strategy",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": [],
+    },
+    {
+        "name": "chemtools.mcp.nwchem",
+        "replacement": "chemtools.mcp.cli and chemtools.mcp.dispatch",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": [],
+    },
+    {
+        "name": "chemtools.mcp.tools.nwchem",
+        "replacement": "chemtools.mcp.tools._nwchem_provider and focused nwchem handler modules",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": [],
+    },
+    {
+        "name": "chemtools.execution.executors",
+        "replacement": "chemtools.execution",
+        "state": "compatibility_deprecated",
+        "deprecated_since": SERVER_VERSION,
+        "remove_after": None,
+        "known_first_party_imports": [],
+    },
 )
 
 
@@ -44,6 +138,12 @@ def build_inventory() -> dict[str, Any]:
         tools.append(
             {
                 "name": name,
+                "lifecycle": (
+                    "advertised_legacy"
+                    if name in ADVERTISED_LEGACY_TOOLS
+                    else "canonical"
+                ),
+                "replacement": ADVERTISED_LEGACY_TOOLS.get(name),
                 "program": program,
                 "capability": capability,
                 "visible_modes": [
@@ -53,6 +153,7 @@ def build_inventory() -> dict[str, Any]:
                 ],
                 "description": definition["description"],
                 "input_schema": definition["inputSchema"],
+                "output_schema": definition.get("outputSchema"),
             }
         )
 
@@ -101,9 +202,56 @@ def build_inventory() -> dict[str, Any]:
         if program != "generic"
     }
     aliases = [
-        {"alias": alias, "target": target}
-        for alias, (target, _translator) in sorted(_TOOL_ALIASES.items())
+        {
+            "name": alias.name,
+            "target": alias.target,
+            "state": alias.state,
+            "advertised": False,
+            "contract_status": alias.contract_status,
+            "input_schema": (
+                dict(alias.input_schema)
+                if alias.input_schema is not None
+                else None
+            ),
+            "argument_adapter": alias.translate_arguments.__name__,
+            "result_adapter": (
+                alias.translate_result.__name__
+                if alias.translate_result is not None
+                else None
+            ),
+            "availability": {
+                "program": alias.availability.program,
+                "capability": alias.availability.capability,
+            },
+            "effects": (
+                {
+                    "reads_local_files": alias.effects.reads_local_files,
+                    "writes_local_files": alias.effects.writes_local_files,
+                    "executes_processes": alias.effects.executes_processes,
+                    "cancels_processes": alias.effects.cancels_processes,
+                    "network_access": alias.effects.network_access,
+                }
+                if alias.effects is not None
+                else None
+            ),
+            "deprecated_since": alias.deprecated_since,
+            "remove_after": alias.remove_after,
+            "reason": alias.reason,
+        }
+        for alias in sorted(_TOOL_ALIAS_REGISTRY, key=lambda item: item.name)
     ]
+    advertised_legacy_tools = [
+        {
+            "name": name,
+            "target": target,
+            "state": "advertised_legacy",
+            "advertised": True,
+            "deprecated_since": SERVER_VERSION,
+            "remove_after": None,
+        }
+        for name, target in ADVERTISED_LEGACY_TOOLS.items()
+    ]
+    canonical_tool_count = len(tools) - len(advertised_legacy_tools)
     return {
         "schema": INVENTORY_SCHEMA,
         "server": {
@@ -115,6 +263,12 @@ def build_inventory() -> dict[str, Any]:
         "summary": {
             "tool_count": len(tools),
             "alias_count": len(aliases),
+            "canonical_tool_count": canonical_tool_count,
+            "advertised_legacy_tool_count": len(advertised_legacy_tools),
+            "hidden_alias_count": len(aliases),
+            "total_callable_name_count": len(tools) + len(aliases),
+            "entrypoint_alias_count": len(ENTRYPOINT_ALIASES),
+            "python_import_shim_count": len(PYTHON_IMPORT_SHIMS),
             "by_program": programs,
             "by_capability": capabilities,
             "by_mode": modes,
@@ -122,6 +276,9 @@ def build_inventory() -> dict[str, Any]:
             "by_program_filter": program_filters,
         },
         "aliases": aliases,
+        "advertised_legacy_tools": advertised_legacy_tools,
+        "entrypoint_aliases": list(ENTRYPOINT_ALIASES),
+        "python_import_shims": list(PYTHON_IMPORT_SHIMS),
         "tools": tools,
     }
 
@@ -142,7 +299,10 @@ def render_markdown(inventory: dict[str, Any]) -> str:
         ".venv/bin/python scripts/generate_tool_inventory.py --write-docs",
         "```",
         "",
-        "The JSON companion contains every tool description and input schema.",
+        (
+            "The JSON companion contains every tool description, input "
+            "schema, and advertised output schema."
+        ),
         "",
         "## Summary",
         "",
@@ -152,8 +312,13 @@ def render_markdown(inventory: dict[str, Any]) -> str:
             f"`{version}`"
             for version in inventory["server"]["supported_protocol_versions"]
         ),
-        f"- Public tool definitions: {summary['tool_count']}",
-        f"- Compatibility aliases: {summary['alias_count']}",
+        f"- Canonical tool definitions: {summary['canonical_tool_count']}",
+        (
+            "- Advertised legacy tool definitions: "
+            f"{summary['advertised_legacy_tool_count']}"
+        ),
+        f"- Hidden MCP aliases: {summary['hidden_alias_count']}",
+        f"- Total callable MCP names: {summary['total_callable_name_count']}",
         "",
         "### Programs",
         "",
@@ -214,12 +379,82 @@ def render_markdown(inventory: dict[str, Any]) -> str:
             "",
             "Aliases remain callable but are omitted from `tools/list`.",
             "",
-            "| Alias | Canonical tool |",
-            "| --- | --- |",
+            "| Alias | Canonical tool | Program | Capability | Contract | Deprecated since | Remove after |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for alias in inventory["aliases"]:
-        lines.append(f"| `{alias['alias']}` | `{alias['target']}` |")
+        availability = alias["availability"]
+        remove_after = (
+            f"`{alias['remove_after']}`" if alias["remove_after"] else ""
+        )
+        lines.append(
+            f"| `{alias['name']}` | `{alias['target']}` | "
+            f"`{availability['program']}` | `{availability['capability']}` | "
+            f"`{alias['contract_status']}` | "
+            f"`{alias['deprecated_since']}` | "
+            f"{remove_after} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Advertised legacy tools",
+            "",
+            "| Legacy tool | Canonical replacement | Deprecated since | Remove after |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for tool in inventory["advertised_legacy_tools"]:
+        remove_after = (
+            f"`{tool['remove_after']}`" if tool["remove_after"] else ""
+        )
+        lines.append(
+            f"| `{tool['name']}` | `{tool['target']}` | "
+            f"`{tool['deprecated_since']}` | "
+            f"{remove_after} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Entrypoint aliases",
+            "",
+            "| Entrypoint | Replacement | State | Contract | Deprecated since | Remove after |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for entrypoint in inventory["entrypoint_aliases"]:
+        remove_after = (
+            f"`{entrypoint['remove_after']}`"
+            if entrypoint["remove_after"]
+            else ""
+        )
+        lines.append(
+            f"| `{entrypoint['name']}` | `{entrypoint['target']}` | "
+            f"`{entrypoint['state']}` | `{entrypoint['contract_status']}` | "
+            f"`{entrypoint['deprecated_since']}` | "
+            f"{remove_after} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Python import shims",
+            "",
+            "| Import | Replacement | State | Deprecated since | Remove after |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for shim in inventory["python_import_shims"]:
+        remove_after = (
+            f"`{shim['remove_after']}`" if shim["remove_after"] else ""
+        )
+        lines.append(
+            f"| `{shim['name']}` | {shim['replacement']} | "
+            f"`{shim['state']}` | `{shim['deprecated_since']}` | "
+            f"{remove_after} |"
+        )
 
     lines.extend(
         [

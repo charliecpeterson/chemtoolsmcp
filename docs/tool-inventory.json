@@ -1,27 +1,38 @@
 {
-  "schema": "chemtools.mcp-tool-inventory/1",
+  "schema": "chemtools.mcp-tool-inventory/3",
   "server": {
-    "name": "chemtools-nwchem",
+    "name": "chemtools",
     "version": "0.1.0",
-    "protocol_version": "2024-11-05",
+    "protocol_version": "2025-11-25",
     "supported_protocol_versions": [
-      "2024-11-05"
+      "2024-11-05",
+      "2025-03-26",
+      "2025-06-18",
+      "2025-11-25",
+      "2026-07-28"
     ]
   },
   "summary": {
-    "tool_count": 331,
-    "alias_count": 13,
+    "tool_count": 338,
+    "alias_count": 15,
+    "canonical_tool_count": 329,
+    "advertised_legacy_tool_count": 9,
+    "hidden_alias_count": 15,
+    "total_callable_name_count": 353,
+    "entrypoint_alias_count": 2,
+    "python_import_shim_count": 7,
     "by_program": {
-      "generic": 59,
+      "generic": 66,
       "nwchem": 101,
       "molcas": 45,
       "dirac": 39,
       "grasp": 53,
       "qe": 20,
-      "qmcpack": 14
+      "qmcpack": 14,
+      "orca": 0
     },
     "by_capability": {
-      "none": 259,
+      "none": 266,
       "registry": 18,
       "runner_profile": 4,
       "executable_or_scheduler": 5,
@@ -29,129 +40,513 @@
       "scheduler": 3
     },
     "by_mode": {
-      "analysis": 277,
-      "local": 328,
-      "hpc": 331
+      "analysis": 284,
+      "local": 335,
+      "hpc": 338
     },
     "by_mode_and_program": {
       "analysis": {
-        "generic": 54,
+        "generic": 61,
         "nwchem": 88,
         "molcas": 40,
         "dirac": 35,
         "grasp": 30,
         "qe": 18,
-        "qmcpack": 12
+        "qmcpack": 12,
+        "orca": 0
       },
       "local": {
-        "generic": 58,
+        "generic": 65,
         "nwchem": 99,
         "molcas": 45,
         "dirac": 39,
         "grasp": 53,
         "qe": 20,
-        "qmcpack": 14
+        "qmcpack": 14,
+        "orca": 0
       },
       "hpc": {
-        "generic": 59,
+        "generic": 66,
         "nwchem": 101,
         "molcas": 45,
         "dirac": 39,
         "grasp": 53,
         "qe": 20,
-        "qmcpack": 14
+        "qmcpack": 14,
+        "orca": 0
       }
     },
     "by_program_filter": {
       "nwchem": {
-        "analysis": 142,
-        "local": 157,
-        "hpc": 160
+        "analysis": 149,
+        "local": 164,
+        "hpc": 167
       },
       "molcas": {
-        "analysis": 94,
-        "local": 103,
-        "hpc": 104
+        "analysis": 101,
+        "local": 110,
+        "hpc": 111
       },
       "dirac": {
-        "analysis": 89,
-        "local": 97,
-        "hpc": 98
+        "analysis": 96,
+        "local": 104,
+        "hpc": 105
       },
       "grasp": {
-        "analysis": 84,
-        "local": 111,
-        "hpc": 112
+        "analysis": 91,
+        "local": 118,
+        "hpc": 119
       },
       "qe": {
-        "analysis": 72,
-        "local": 78,
-        "hpc": 79
+        "analysis": 79,
+        "local": 85,
+        "hpc": 86
       },
       "qmcpack": {
-        "analysis": 66,
-        "local": 72,
-        "hpc": 73
+        "analysis": 73,
+        "local": 79,
+        "hpc": 80
+      },
+      "orca": {
+        "analysis": 61,
+        "local": 65,
+        "hpc": 66
       }
     }
   },
   "aliases": [
     {
-      "alias": "check_nwchem_run_status",
-      "target": "get_nwchem_run_status"
+      "name": "check_nwchem_run_status",
+      "target": "get_nwchem_run_status",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "executable"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical run-status operation uses the get prefix."
     },
     {
-      "alias": "diagnose_nwchem_output",
-      "target": "analyze_nwchem_case"
+      "name": "diagnose_nwchem_output",
+      "target": "analyze_nwchem_case",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "NWChem case analysis replaced the narrower diagnosis name."
     },
     {
-      "alias": "prepare_nwchem_run",
-      "target": "launch_nwchem_run"
+      "name": "prepare_nwchem_run",
+      "target": "launch_nwchem_run",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "executable"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical NWChem execution operation uses the launch name."
     },
     {
-      "alias": "render_nwchem_basis_from_input",
-      "target": "render_nwchem_basis_block"
+      "name": "render_nwchem_basis_from_input",
+      "target": "render_nwchem_basis_block",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical name identifies the rendered basis-block result."
     },
     {
-      "alias": "render_nwchem_ecp_from_elements",
-      "target": "render_nwchem_ecp_block"
+      "name": "render_nwchem_ecp_from_elements",
+      "target": "render_nwchem_ecp_block",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "Element-based ECP rendering moved under one canonical operation."
     },
     {
-      "alias": "resolve_nwchem_basis_setup",
-      "target": "render_nwchem_basis_setup"
+      "name": "render_with_orbitron",
+      "target": "visualize",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "generic",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The guided surface renamed the fixed Orbitron operation."
     },
     {
-      "alias": "resolve_nwchem_ecp",
-      "target": "render_nwchem_ecp_block"
+      "name": "resolve_nwchem_basis_setup",
+      "target": "render_nwchem_basis_setup",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical basis-setup operation uses the render name."
     },
     {
-      "alias": "review_nwchem_case",
-      "target": "analyze_nwchem_case"
+      "name": "resolve_nwchem_ecp",
+      "target": "render_nwchem_ecp_block",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical name identifies the rendered ECP-block result."
     },
     {
-      "alias": "review_nwchem_followup_outcome",
-      "target": "compare_nwchem_runs"
+      "name": "review_nwchem_case",
+      "target": "analyze_nwchem_case",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_compact_to_detail",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "NWChem case analysis consolidated review operations."
     },
     {
-      "alias": "suggest_nwchem_scf_fix_strategy",
-      "target": "suggest_nwchem_recovery"
+      "name": "review_nwchem_followup_outcome",
+      "target": "compare_nwchem_runs",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "Run comparison replaced the narrower follow-up review name."
     },
     {
-      "alias": "suggest_nwchem_state_recovery_strategy",
-      "target": "suggest_nwchem_recovery"
+      "name": "search_knowledge_cards",
+      "target": "search_knowledge",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_identity",
+      "result_adapter": null,
+      "availability": {
+        "program": "generic",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The guided surface adopted an intent-level knowledge name."
     },
     {
-      "alias": "summarize_cube_file",
-      "target": "parse_cube_file"
+      "name": "suggest_nwchem_scf_fix_strategy",
+      "target": "suggest_nwchem_recovery",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_scf_fix_arguments",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical recovery operation selects SCF mode explicitly."
     },
     {
-      "alias": "summarize_nwchem_case",
-      "target": "analyze_nwchem_case"
+      "name": "suggest_nwchem_state_recovery_strategy",
+      "target": "suggest_nwchem_recovery",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_state_recovery_arguments",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "The canonical recovery operation selects state mode explicitly."
+    },
+    {
+      "name": "summarize_cube_file",
+      "target": "parse_cube_file",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_summarize_cube_arguments",
+      "result_adapter": null,
+      "availability": {
+        "program": "generic",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "Cube summary is a fixed mode of the canonical parser."
+    },
+    {
+      "name": "summarize_nwchem_case",
+      "target": "analyze_nwchem_case",
+      "state": "callable_deprecated",
+      "advertised": false,
+      "contract_status": "unverified",
+      "input_schema": null,
+      "argument_adapter": "_compact_to_detail",
+      "result_adapter": null,
+      "availability": {
+        "program": "nwchem",
+        "capability": "none"
+      },
+      "effects": null,
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "reason": "NWChem case analysis consolidated summary operations."
+    }
+  ],
+  "advertised_legacy_tools": [
+    {
+      "name": "register_nwchem_run",
+      "target": "register_run",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "update_nwchem_run_status",
+      "target": "update_run_status",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "list_nwchem_runs",
+      "target": "list_runs",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "get_nwchem_run_summary",
+      "target": "get_run_summary",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "create_nwchem_campaign",
+      "target": "create_campaign",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "get_nwchem_campaign_status",
+      "target": "get_campaign_status",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "get_nwchem_campaign_energies",
+      "target": "get_campaign_energies",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "create_nwchem_workflow",
+      "target": "create_workflow",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    },
+    {
+      "name": "advance_nwchem_workflow",
+      "target": "advance_workflow",
+      "state": "advertised_legacy",
+      "advertised": true,
+      "deprecated_since": "0.1.0",
+      "remove_after": null
+    }
+  ],
+  "entrypoint_aliases": [
+    {
+      "name": "chemtools-nwchem",
+      "target": "chemtools",
+      "state": "callable_deprecated",
+      "contract_status": "verified_equivalent",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "declaration": "pyproject.toml",
+      "known_first_party_configs": []
+    },
+    {
+      "name": "chemtools-nwchem-docs",
+      "target": "chemtools",
+      "state": "legacy_distinct_surface",
+      "contract_status": "not_equivalent",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "declaration": "pyproject.toml",
+      "known_first_party_configs": []
+    }
+  ],
+  "python_import_shims": [
+    {
+      "name": "chemtools",
+      "replacement": "focused chemtools application, execution, integration, persistence, program, and reference modules",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": [
+        "chemtools/mcp/tools/_nwchem_base.py"
+      ]
+    },
+    {
+      "name": "chemtools.api",
+      "replacement": "focused chemtools.core and chemtools.programs modules",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": []
+    },
+    {
+      "name": "chemtools.api_input",
+      "replacement": "chemtools.programs.nwchem.input and strategy.workflow_planner",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": []
+    },
+    {
+      "name": "chemtools.api_strategy",
+      "replacement": "chemtools.programs.nwchem.strategy",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": []
+    },
+    {
+      "name": "chemtools.mcp.nwchem",
+      "replacement": "chemtools.mcp.cli and chemtools.mcp.dispatch",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": []
+    },
+    {
+      "name": "chemtools.mcp.tools.nwchem",
+      "replacement": "chemtools.mcp.tools._nwchem_provider and focused nwchem handler modules",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": []
+    },
+    {
+      "name": "chemtools.execution.executors",
+      "replacement": "chemtools.execution",
+      "state": "compatibility_deprecated",
+      "deprecated_since": "0.1.0",
+      "remove_after": null,
+      "known_first_party_imports": []
     }
   ],
   "tools": [
     {
       "name": "advance_nwchem_workflow",
+      "lifecycle": "advertised_legacy",
+      "replacement": "advance_workflow",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -172,10 +567,13 @@
           "workflow_id"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "advance_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -195,10 +593,13 @@
           "workflow_id"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_atomic_multiplets",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -221,10 +622,13 @@
           "configuration"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_case",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -279,10 +683,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_dirac_open_shell",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -305,10 +712,13 @@
           "input_file",
           "h5_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_dirac_open_shell_quality",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -330,10 +740,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_geometry_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -355,10 +768,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_grasp_case",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -377,10 +793,13 @@
         "required": [
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_molcas_active_space",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -402,10 +821,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_molcas_case",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -425,10 +847,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_nwchem_case",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -481,10 +906,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_nwchem_frontier_orbitals",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -516,10 +944,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_nwchem_imaginary_modes",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -556,10 +987,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_orbitals_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -581,10 +1015,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_populations_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -606,10 +1043,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_qmcpack_dmc_input_series",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -672,10 +1112,13 @@
           "runs"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_qmcpack_dmc_series",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -744,10 +1187,13 @@
           "runs"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "analyze_vibrations_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -769,10 +1215,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "append_grasp_session_note",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -797,10 +1246,13 @@
           "working_dir",
           "note"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "append_session_log",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -838,10 +1290,13 @@
           "content"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "apply_dirac_reorder_to_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -875,10 +1330,13 @@
           "input_file",
           "per_ircop_orders"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "apply_molcas_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -922,10 +1380,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "apply_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -972,10 +1433,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "basis_library_summary",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -988,10 +1452,13 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_molcas_active_space_consistency",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -1048,10 +1515,13 @@
           "fragments"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_nwchem_freq_plausibility",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -1081,10 +1551,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_nwchem_geometry_plausibility",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -1114,10 +1587,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_nwchem_memory_fit",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable_or_scheduler",
       "visible_modes": [
@@ -1161,10 +1637,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_nwchem_spin_charge_state",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -1200,10 +1679,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_qe_qmcpack_conversion_ready",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -1224,10 +1706,13 @@
           "qe_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "check_qmcpack_vmc_energy_gate",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -1260,10 +1745,13 @@
           "trial_scf_energy_hartree"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_cube_densities",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -1307,10 +1795,13 @@
           "candidate_density_unit"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_cube_orbital_subspaces",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -1374,10 +1865,13 @@
           "candidate_orbitals"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_cube_orbitals",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -1415,10 +1909,13 @@
           "candidate_orbital_label"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_grasp_levels",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -1451,10 +1948,13 @@
           "a",
           "b"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_nwchem_runs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -1499,10 +1999,13 @@
           "candidate_output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_pyscf_reference_calculation",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -1535,10 +2038,13 @@
           "reference"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_qmcpack_tmove_locality_shift",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -1606,10 +2112,13 @@
             "additionalProperties": false
           }
         }
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compare_qmcpack_tmove_locality_shift_from_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -1677,10 +2186,118 @@
             "additionalProperties": false
           }
         }
+      },
+      "output_schema": null
+    },
+    {
+      "name": "compare_runs",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Compare two completed or partial outputs from the same chemistry program. Reports parsed energy arithmetic separately from checks of task, method, charge, composition, functional, basis, and multiplicity. A lower energy is reported conditionally when required settings or geometries could not be checked; it is never presented as a ground-state assignment by itself. Supplying the corresponding input files enables stronger comparability checks.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "reference_output_file": {
+            "type": "string",
+            "description": "Path to the reference run output."
+          },
+          "candidate_output_file": {
+            "type": "string",
+            "description": "Path to the candidate run output."
+          },
+          "reference_input_file": {
+            "type": "string",
+            "description": "Optional input corresponding to the reference output."
+          },
+          "candidate_input_file": {
+            "type": "string",
+            "description": "Optional input corresponding to the candidate output."
+          },
+          "program": {
+            "type": "string",
+            "enum": [
+              "nwchem",
+              "molcas",
+              "dirac",
+              "grasp",
+              "qe",
+              "qmcpack"
+            ],
+            "description": "Optional shared program override. Without it, both outputs are detected independently."
+          }
+        },
+        "required": [
+          "reference_output_file",
+          "candidate_output_file"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.compare-runs/1"
+              },
+              "program": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "program",
+              "sources",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "compute_dirac_core_ip",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -1703,10 +2320,13 @@
           "neutral_out",
           "ionized_out"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compute_molcas_active_space_partition",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -1787,10 +2407,13 @@
           "cas_active_orbitals"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compute_molcas_reaction_energy",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -1884,10 +2507,13 @@
           "reactants"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compute_nwchem_harmonic_frequencies",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -1923,10 +2549,13 @@
           "elements"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "compute_reaction_energy",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -1974,10 +2603,13 @@
           "products"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "convert_molecule_with_openbabel",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -2015,10 +2647,13 @@
           "output_format"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_campaign",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -2044,10 +2679,13 @@
           "name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_nwchem_campaign",
+      "lifecycle": "advertised_legacy",
+      "replacement": "create_campaign",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -2074,10 +2712,13 @@
           "name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_nwchem_dft_input_from_request",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2174,10 +2815,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_nwchem_dft_workflow_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2287,10 +2931,13 @@
           "task_operations"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_nwchem_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2403,10 +3050,13 @@
           "module"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_nwchem_input_variant",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2443,10 +3093,13 @@
           "changes"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_nwchem_workflow",
+      "lifecycle": "advertised_legacy",
+      "replacement": "create_workflow",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -2500,10 +3153,13 @@
           "steps"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "create_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -2556,10 +3212,13 @@
           "steps"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "detect_nwchem_hpc_accounts",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "scheduler",
       "visible_modes": [
@@ -2582,10 +3241,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "displace_nwchem_geometry_along_mode",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2616,10 +3278,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_dirac_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -2642,10 +3307,13 @@
         "required": [
           "spec"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_dirac_mol",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -2686,10 +3354,13 @@
         "required": [
           "atoms"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_dirac_reorder_block",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -2711,10 +3382,13 @@
         "required": [
           "per_ircop_orders"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_initial_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -2751,10 +3425,190 @@
           "output_path"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "draft_input",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Draft one chemistry input from a program-neutral molecular specification. The selected backend renders the native input text and, when available, immediately checks that text with its declared linter. Returns the exact rendered input, lint evidence, uncertainty, and the next review or save action. This tool does not write a file or launch a calculation. NWChem and OpenMolcas currently declare this capability; program_options carries settings that have no common form.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "program": {
+            "type": "string",
+            "enum": [
+              "nwchem",
+              "molcas"
+            ],
+            "description": "Program whose native input should be rendered."
+          },
+          "atoms": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2048,
+            "items": {
+              "type": "object",
+              "properties": {
+                "element": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "element",
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Inline molecular geometry."
+          },
+          "charge": {
+            "type": "integer"
+          },
+          "multiplicity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "description": "NWChem guided drafting accepts DFT, HF, and SCF. OpenMolcas also accepts its CASSCF, RASSCF, and CASPT2-family methods."
+          },
+          "basis": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "task": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "gradient",
+              "optimize",
+              "saddle",
+              "frequency",
+              "property",
+              "dynamics"
+            ],
+            "description": "OpenMolcas common drafting currently accepts energy only."
+          },
+          "title": {
+            "type": "string"
+          },
+          "geometry_units": {
+            "type": "string",
+            "enum": [
+              "angstrom",
+              "bohr"
+            ],
+            "default": "angstrom"
+          },
+          "functional": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Required for DFT and rejected for non-DFT methods."
+          },
+          "program_options": {
+            "type": "object",
+            "description": "Program-specific settings that have no common cross-program field. Unknown keys are rejected."
+          }
+        },
+        "required": [
+          "program",
+          "atoms",
+          "charge",
+          "multiplicity",
+          "method",
+          "basis",
+          "task"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.draft-input/1"
+              },
+              "program": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "program",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "draft_molcas_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -2852,10 +3706,13 @@
           "basis"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_atom_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2923,10 +3780,13 @@
           "basis"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_cube_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -2997,10 +3857,13 @@
           "vectors_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_frontier_cube_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3076,10 +3939,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_imaginary_mode_inputs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3141,10 +4007,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_mcscf_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3234,10 +4103,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_mcscf_retry_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3321,10 +4193,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_optimization_followup_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3371,10 +4246,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_property_check_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3451,10 +4329,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_pyscf_reference",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3508,10 +4389,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_scf_stabilization_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3572,10 +4456,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_tce_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3659,10 +4546,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_tce_restart_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3709,10 +4599,13 @@
           "tce_output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_nwchem_vectors_swap_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3788,10 +4681,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_ph_x_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -3828,10 +4724,13 @@
           "q_point"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "draft_pw2qmcpack_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -3852,10 +4751,13 @@
           "qe_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "estimate_nwchem_freq_walltime",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable_or_scheduler",
       "visible_modes": [
@@ -3895,10 +4797,13 @@
           "n_atoms"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "evaluate_nwchem_case",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3919,10 +4824,13 @@
           "case_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "evaluate_nwchem_cases",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -3943,10 +4851,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "extract_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -3985,10 +4896,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "extract_molcas_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -4015,10 +4929,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "extract_nwchem_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -4047,10 +4964,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "fetch_nist_atomic_reference",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -4092,10 +5012,13 @@
           "spectrum"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "find_nwchem_examples",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -4120,10 +5043,13 @@
           "topic"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "find_nwchem_restart_assets",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -4143,10 +5069,119 @@
           "path"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "find_reference_case",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Search bounded metadata for packaged chemistry reference cases. Returns only required artifacts with recorded relative paths, sizes, and SHA-256 hashes. Scientific status is a separate field and can be filtered explicitly; pinned exploratory cases are not described as validated references. This search never scans or opens the external corpus.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Terms matched against case IDs, programs, purposes, tags, and required artifact roles."
+          },
+          "program": {
+            "type": "string",
+            "enum": [
+              "nwchem",
+              "molcas",
+              "dirac",
+              "grasp",
+              "qe",
+              "qmcpack"
+            ]
+          },
+          "scientific_status": {
+            "type": "string",
+            "enum": [
+              "exploratory",
+              "regression_failure",
+              "shelved",
+              "validated_reference"
+            ],
+            "default": "validated_reference",
+            "description": "Exact review status. Defaults to validated_reference; exploratory and shelved cases require an explicit request."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 5
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.find-reference-case/1"
+              },
+              "query": {
+                "type": "object"
+              },
+              "match_count": {
+                "type": "integer"
+              },
+              "matches": {
+                "type": "array"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "query",
+              "match_count",
+              "matches",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "generate_nwchem_input_batch",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable_or_scheduler",
       "visible_modes": [
@@ -4187,10 +5222,13 @@
           "output_dir"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_campaign_energies",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -4210,10 +5248,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_campaign_status",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -4233,10 +5274,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_dirac_run_status",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "executable",
       "visible_modes": [
@@ -4270,10 +5314,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_dirac_topic_guide",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -4292,10 +5339,13 @@
         "required": [
           "topic"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_grasp_container",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -4307,10 +5357,13 @@
       "input_schema": {
         "type": "object",
         "properties": {}
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_grasp_run_status",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -4344,10 +5397,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_grasp_topic_guide",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -4363,10 +5419,13 @@
             "type": "string"
           }
         }
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_molcas_orbitals",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -4394,10 +5453,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_molcas_run_status",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "executable",
       "visible_modes": [
@@ -4431,10 +5493,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_molcas_topic_guide",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -4454,10 +5519,13 @@
           "topic"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_nwchem_campaign_energies",
+      "lifecycle": "advertised_legacy",
+      "replacement": "get_campaign_energies",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -4477,10 +5545,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_nwchem_campaign_status",
+      "lifecycle": "advertised_legacy",
+      "replacement": "get_campaign_status",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -4500,10 +5571,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_nwchem_run_status",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable",
       "visible_modes": [
@@ -4537,10 +5611,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_nwchem_run_summary",
+      "lifecycle": "advertised_legacy",
+      "replacement": "get_run_summary",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -4560,10 +5637,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_nwchem_topic_guide",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -4584,10 +5664,13 @@
           "topic"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_nwchem_workflow_state",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -4620,10 +5703,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_run_summary",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -4647,10 +5733,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "get_server_mode",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -4663,10 +5752,13 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "init_session_log",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -4696,10 +5788,13 @@
           "session_title"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -4778,10 +5873,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_grasp_mixing",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -4820,10 +5918,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_grasp_radial_wfn",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -4844,10 +5945,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_molcas_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -4963,10 +6067,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_nbo_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -4988,10 +6095,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_nwchem_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -5012,10 +6122,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_nwchem_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -5035,10 +6148,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_nwchem_runner_profiles",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "runner_profile",
       "visible_modes": [
@@ -5054,10 +6170,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_periodic_electronic_structure_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -5079,10 +6198,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5118,10 +6240,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_artifacts",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5152,10 +6277,13 @@
           "pwscf_h5"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_atoms",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5191,10 +6319,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_charge",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5230,10 +6361,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_deck",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5269,10 +6403,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_electrons",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5308,10 +6445,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_execution",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5357,10 +6497,13 @@
           "pw2qmcpack_output"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5396,10 +6539,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_ion_species",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5435,10 +6581,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_projectors",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5474,10 +6623,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_pseudopotentials",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5513,10 +6665,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_species",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5552,10 +6707,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_spin",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5591,10 +6749,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qe_qmcpack_conversion_valence",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -5630,10 +6791,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_determinant_vmc_offsets",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5687,10 +6851,13 @@
           "runs"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_dmc_population",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5723,10 +6890,13 @@
           "dmc_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_dmc_population_from_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5765,10 +6935,13 @@
           "qmc_block_index"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_hdf5",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5789,10 +6962,13 @@
           "hdf5_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_pseudopotential",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5813,10 +6989,13 @@
           "pseudopotential_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_referenced_pseudopotentials",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5837,10 +7016,13 @@
           "qmcpack_input"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_qmcpack_scalar",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "none",
       "visible_modes": [
@@ -5861,10 +7043,13 @@
           "scalar_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -5906,10 +7091,66 @@
           "output_file"
         ],
         "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.inspect-run/1"
+              },
+              "program": {
+                "type": "object"
+              },
+              "source": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "program",
+              "source",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "inspect_science_runtime",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -5922,10 +7163,13 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_structure_identity_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -5947,10 +7191,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "inspect_with_orbitron",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -5972,10 +7219,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "launch_dirac_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "executable",
       "visible_modes": [
@@ -6024,10 +7274,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "launch_grasp_workflow_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -6071,10 +7324,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "launch_molcas_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "executable",
       "visible_modes": [
@@ -6117,10 +7373,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "launch_nwchem_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable",
       "visible_modes": [
@@ -6189,10 +7448,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "launch_qe_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "executable",
       "visible_modes": [
@@ -6241,10 +7503,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "launch_qmcpack_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "executable",
       "visible_modes": [
@@ -6290,10 +7555,167 @@
           "profile"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "launch_run",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Prepare an exact launch for a reviewed chemistry input and require a second, explicitly approved call before starting anything. The first call returns a SHA-256 approval token bound to the input contents, configured target, resources, command, configured environment, output paths, and scheduler script. Environment values remain private; the plan returns their keys and a stable fingerprint. Show the plan to the user. Pass the token back only after explicit approval. Any changed input or plan invalidates the token. Existing artifacts block launch rather than being overwritten or silently archived. NWChem currently supplies the guided launch provider.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "program": {
+            "type": "string",
+            "enum": [
+              "nwchem",
+              "molcas",
+              "dirac",
+              "grasp",
+              "qe",
+              "qmcpack"
+            ]
+          },
+          "input_file": {
+            "type": "string",
+            "description": "Path to the reviewed chemistry input."
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Configured runner-profile name."
+          },
+          "profiles_path": {
+            "type": "string",
+            "description": "Optional explicit runner-profile YAML or JSON path."
+          },
+          "job_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional output and scheduler job stem."
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "nodes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "mpi_ranks": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "omp_threads": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "memory_mb_per_node": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "walltime": {
+                "type": "string",
+                "pattern": "^\\d+:[0-5]\\d:[0-5]\\d$"
+              },
+              "partition": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "approval_token": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "Token from the immediately preceding preparation. Provide it only after the user explicitly approves the displayed plan."
+          }
+        },
+        "required": [
+          "program",
+          "input_file",
+          "profile"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.launch-run/1"
+              },
+              "status": {
+                "type": "string"
+              },
+              "program": {
+                "type": "object"
+              },
+              "input": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "approval": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "status",
+              "program",
+              "input",
+              "assessment",
+              "evidence",
+              "approval",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "lint_molcas_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -6314,10 +7736,13 @@
           "input_text"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "lint_nwchem_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -6340,10 +7765,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_dirac_basis_sets",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6373,10 +7801,13 @@
           }
         },
         "required": []
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_dirac_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6388,10 +7819,13 @@
       "input_schema": {
         "type": "object",
         "properties": {}
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_grasp_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -6403,10 +7837,13 @@
       "input_schema": {
         "type": "object",
         "properties": {}
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_molcas_basis_sets",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -6428,10 +7865,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_molcas_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -6444,10 +7884,13 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_nwchem_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -6460,10 +7903,13 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_nwchem_protocols",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -6476,10 +7922,13 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_nwchem_runs",
+      "lifecycle": "advertised_legacy",
+      "replacement": "list_runs",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -6511,10 +7960,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "list_runs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -6548,10 +8000,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "lookup_dirac_section",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6574,10 +8029,13 @@
         "required": [
           "section"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "lookup_grasp_fblock_state",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -6608,10 +8066,13 @@
           "element"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "lookup_grasp_section",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -6634,10 +8095,13 @@
         "required": [
           "section"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "lookup_molcas_module",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -6657,10 +8121,13 @@
           "module_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "lookup_nwchem_block_syntax",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -6685,10 +8152,13 @@
           "block_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "merge_grasp_radial_wfns",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -6725,10 +8195,98 @@
           "output_path"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "monitor_run",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Refresh one calculation launched and owned by this Chemtools server process. The launch ID resolves the recorded program, target, process or Slurm job, and artifact paths; arbitrary PIDs, scheduler IDs, and output paths are not accepted. Returns current execution state, recorded artifact metadata, and scientific progress when the backend declares a progress inspector. It never submits, restarts, cancels, or edits a run.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "launch_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "description": "Launch ID returned by launch_run in this server process."
+          }
+        },
+        "required": [
+          "launch_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.monitor-run/1"
+              },
+              "status": {
+                "type": "string"
+              },
+              "program": {
+                "type": "object"
+              },
+              "launch": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "status",
+              "program",
+              "launch",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "next_versioned_path",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -6749,10 +8307,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_cube_file",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -6784,10 +8345,13 @@
           "file_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_cosci_energies",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6806,10 +8370,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6828,10 +8395,13 @@
         "required": [
           "input_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_mol",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6850,10 +8420,13 @@
         "required": [
           "mol_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6872,10 +8445,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_reorder_block",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6894,10 +8470,13 @@
         "required": [
           "input_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_scf_iterations",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6916,10 +8495,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_spinor_spectrum",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6950,10 +8532,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_symmetry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6972,10 +8557,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_dirac_vecpop",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -6994,10 +8582,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_frequencies",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -7035,10 +8626,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_hfs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7058,10 +8652,13 @@
         "required": [
           "path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_levels",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7081,10 +8678,13 @@
         "required": [
           "text_or_path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_lsjlbl",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7103,10 +8703,13 @@
         "required": [
           "path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_ris",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7126,10 +8729,13 @@
         "required": [
           "path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_rmcdhf_log",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7148,10 +8754,13 @@
         "required": [
           "path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_sum",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7170,10 +8779,13 @@
         "required": [
           "path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_grasp_transition",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7193,10 +8805,13 @@
         "required": [
           "path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_frequencies",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7216,10 +8831,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_inporb",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7245,10 +8863,13 @@
           "orbital_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7274,10 +8895,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_rassi",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7297,10 +8921,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_tasks",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7320,10 +8947,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_thermochem",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7343,10 +8973,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_trajectory",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7366,10 +8999,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_molcas_xmldump",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -7390,10 +9026,13 @@
           "xmldump_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_freq_progress",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7414,10 +9053,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_hessian",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7443,10 +9085,13 @@
           "hessian_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_mcscf_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7466,10 +9111,13 @@
           "file_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_mos",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7502,10 +9150,13 @@
           "file_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_movecs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7526,10 +9177,13 @@
           "movecs_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7583,10 +9237,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_population_analysis",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7606,10 +9263,13 @@
           "file_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_scf",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7629,10 +9289,13 @@
           "file_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_tasks",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7653,10 +9316,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_tce_amplitudes",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7677,10 +9343,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_tce_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7700,10 +9369,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_thermochem",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7732,10 +9404,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_nwchem_trajectory",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -7761,10 +9436,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -7796,10 +9474,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_thermochem",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -7837,10 +9518,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "parse_trajectory",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -7878,10 +9562,199 @@
           "output_file"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "plan_calculation",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Plan calculation stages and expose unresolved scientific choices before any program input is rendered. Returns a normalized verdict, an ordered dependency plan, required decisions, assumptions, and the next planning or drafting action. It does not read or write files and cannot launch a calculation. NWChem currently supplies the planning provider; other registered programs return an explicit unsupported capability result.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "program": {
+            "type": "string",
+            "enum": [
+              "nwchem",
+              "molcas",
+              "dirac",
+              "grasp",
+              "qe",
+              "qmcpack"
+            ]
+          },
+          "system": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Chemical formula or concise system label."
+          },
+          "elements": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Distinct element symbols used to identify element-dependent decisions."
+          },
+          "charge": {
+            "type": "integer"
+          },
+          "multiplicity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "stages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "optimize",
+                "frequency"
+              ]
+            },
+            "description": "Ordered scientific stages to plan."
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "functional": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basis": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "ecp": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "relativistic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "geometry_source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Description of the accepted coordinate source and units; no file is read."
+          },
+          "solvent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state_strategy": {
+            "type": "string",
+            "minLength": 1,
+            "description": "How the requested electronic state will be initialized and checked across stages."
+          }
+        },
+        "required": [
+          "program",
+          "system",
+          "elements",
+          "charge",
+          "multiplicity",
+          "stages"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.plan-calculation/1"
+              },
+              "program": {
+                "type": "object"
+              },
+              "request": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "program",
+              "request",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "plan_fblock_atomic_state",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -7913,10 +9786,13 @@
           "state"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_grasp_dhf_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -8081,10 +9957,13 @@
           "expected_csf_blocks",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_grasp_hf_bootstrap_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -8255,10 +10134,13 @@
           "expected_csf_blocks",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_grasp_nonrel_limit_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -8418,10 +10300,13 @@
           "expected_csf_blocks",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_grasp_restart_from_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -8582,10 +10467,13 @@
           "expected_csf_blocks",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_nwchem_calculation",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -8632,10 +10520,13 @@
           "protocol"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_nwchem_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -8706,10 +10597,13 @@
           "multiplicity"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "plan_qe_qmcpack_conversion",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "none",
       "visible_modes": [
@@ -8735,10 +10629,128 @@
           "pwscf_h5"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "plan_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Build a read-only recovery plan for one NWChem run. The matching input enables candidate retry drafts. Explicit target charge, multiplicity, metal elements, and SOMO count keep electronic-state recovery separate from ordinary SCF repair. If the input charge or multiplicity differs from the target, the tool requires a fresh state-specific input and will not propose an orbital swap. Candidate text is returned for review; no files are written or calculations launched.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "output_file": {
+            "type": "string",
+            "description": "Path to one NWChem output file."
+          },
+          "input_file": {
+            "type": "string",
+            "description": "Optional matching NWChem input. Required when a candidate recovery input should be prepared."
+          },
+          "program": {
+            "type": "string",
+            "enum": [
+              "nwchem"
+            ],
+            "description": "Optional NWChem override. Without it, Chemtools detects the output program from content."
+          },
+          "expected_charge": {
+            "type": "integer"
+          },
+          "expected_multiplicity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expected_metal_elements": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected_somo_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional explicit SOMO target. When omitted, it is derived as multiplicity minus one if a target multiplicity was supplied."
+          }
+        },
+        "required": [
+          "output_file"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.plan-recovery/1"
+              },
+              "program": {
+                "type": "object"
+              },
+              "source": {
+                "type": "object"
+              },
+              "target": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "program",
+              "source",
+              "target",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "preflight_check",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "runner_profile",
       "visible_modes": [
@@ -8765,10 +10777,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "preflight_molecule_with_rdkit",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -8798,10 +10813,13 @@
           "source"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_dirac_atomic_start",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -8859,10 +10877,13 @@
         "required": [
           "molecule_atoms"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_dirac_cm_class_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -8919,10 +10940,13 @@
           "central_element",
           "molecule_atoms"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_dirac_core_ionization",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -8988,10 +11012,13 @@
           "target_atom_indices",
           "n_total_electrons"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_dirac_launch",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -9059,10 +11086,13 @@
           "input_file",
           "mol_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_dirac_x2c_bootstrap",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -9097,10 +11127,13 @@
         "required": [
           "element"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_atomization",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -9266,10 +11299,13 @@
           "basis"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_caspt2_chain",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -9396,10 +11432,13 @@
           "rasscf_output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_casscf_setup",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -9548,10 +11587,13 @@
           "basis"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_excited_states",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -9767,10 +11809,13 @@
           "cas_active_orbitals"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_irc_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -10022,10 +12067,13 @@
           "basis"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_launch",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -10084,10 +12132,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_opt_freq_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -10328,10 +12379,13 @@
           "basis"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_molcas_scan_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -10586,10 +12640,13 @@
           "scan_coordinate"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_nwchem_freq_restart",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -10619,10 +12676,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_nwchem_mcscf_setup",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -10663,10 +12723,13 @@
           "scf_output_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_nwchem_next_step",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -10730,10 +12793,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "prepare_nwchem_tce_setup",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -10792,10 +12858,13 @@
           "scf_output_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_dirac_doc_excerpt",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -10824,10 +12893,13 @@
         "required": [
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_dirac_h5_geometry",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -10846,10 +12918,13 @@
         "required": [
           "h5_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_dirac_h5_metadata",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -10868,10 +12943,13 @@
         "required": [
           "h5_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_dirac_mo_coefficients",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -10897,10 +12975,13 @@
         "required": [
           "h5_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_dirac_orbitals",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -10931,10 +13012,13 @@
         "required": [
           "h5_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_grasp_doc_excerpt",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -10960,10 +13044,13 @@
         "required": [
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_grasp_session_log",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -10982,10 +13069,13 @@
         "required": [
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_molcas_doc_excerpt",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -11030,10 +13120,13 @@
           "doc_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "read_nwchem_doc_excerpt",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11068,10 +13161,13 @@
           "doc_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "refine_molcas_active_space",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -11165,10 +13261,13 @@
           "target_ao_pattern"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "register_nwchem_run",
+      "lifecycle": "advertised_legacy",
+      "replacement": "register_run",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -11247,10 +13346,13 @@
           "job_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "register_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -11338,10 +13440,13 @@
           "job_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_basis_set_with_bse",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -11390,10 +13495,13 @@
           "program_format"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_job_script",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "scheduler",
       "visible_modes": [
@@ -11425,10 +13533,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_nwchem_basis_block",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11471,10 +13582,13 @@
           "basis_name"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_nwchem_basis_setup",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11525,10 +13639,13 @@
           "basis_assignments"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_nwchem_ecp_block",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11562,10 +13679,13 @@
           "elements"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_qe_launch",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qe",
       "capability": "runner_profile",
       "visible_modes": [
@@ -11609,10 +13729,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "render_qmcpack_launch",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "qmcpack",
       "capability": "runner_profile",
       "visible_modes": [
@@ -11656,35 +13779,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
-    },
-    {
-      "name": "render_with_orbitron",
-      "program": "generic",
-      "capability": "none",
-      "visible_modes": [
-        "analysis",
-        "local",
-        "hpc"
-      ],
-      "description": "Render one local chemistry file through Orbitron's fixed headless PNG operation. Chemtools writes only to an ephemeral sibling directory, fixes the image at 1024 by 768 pixels, validates the PNG and its size, then returns the image directly in the MCP result. Source, output, camera, appearance, diagram, and dimension overrides are not accepted. Orbitron is optional; unavailable, incompatible, and refused outcomes are reported explicitly.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Path to one local file supported by Orbitron. Directories, remote targets, output paths, and render arguments are not accepted."
-          }
-        },
-        "required": [
-          "path"
-        ],
-        "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "review_input",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -11717,10 +13818,66 @@
           "input_file"
         ],
         "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.review-input/1"
+              },
+              "program": {
+                "type": "object"
+              },
+              "source": {
+                "type": "object"
+              },
+              "assessment": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "object"
+              },
+              "uncertainty": {
+                "type": "array"
+              },
+              "next_actions": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "program",
+              "source",
+              "assessment",
+              "evidence",
+              "uncertainty",
+              "next_actions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "review_nwchem_input_request",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11783,10 +13940,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "review_nwchem_mcscf_case",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11815,10 +13975,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "review_nwchem_mcscf_followup_outcome",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11860,10 +14023,13 @@
           "candidate_output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "review_nwchem_progress",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -11903,10 +14069,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_exe",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -11978,10 +14147,13 @@
           "exe",
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_hf",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12038,10 +14210,13 @@
           "orbital_list",
           "open_shell"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_jj2lsj",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12076,10 +14251,13 @@
           "working_dir",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rangular",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12101,10 +14279,13 @@
         "required": [
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rbiotransform",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12144,10 +14325,13 @@
           "initial",
           "final"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rci",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12243,10 +14427,13 @@
           "name",
           "expected_csf_blocks"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rcsfgenerate",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12338,10 +14525,13 @@
           "twoj_min",
           "twoj_max"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rhfs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12372,10 +14562,13 @@
           "working_dir",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rhfs_lsj",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12405,10 +14598,13 @@
           "working_dir",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_ris4",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12447,10 +14643,13 @@
           "working_dir",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rlevels",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12479,10 +14678,13 @@
           "working_dir",
           "files"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rmcdhf",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12568,10 +14770,13 @@
           "orbitals_to_optimize",
           "spectroscopic_orbitals"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rnucleus",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12621,10 +14826,13 @@
           "z",
           "a"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rsave",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12646,10 +14854,13 @@
           "working_dir",
           "name"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rtransition",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12688,10 +14899,13 @@
           "initial",
           "final"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rwfnestimate",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12727,10 +14941,13 @@
         "required": [
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_rwfnmchfmcdf",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12748,10 +14965,13 @@
         "required": [
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_grasp_workflow",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -12782,10 +15002,13 @@
           "plan",
           "working_dir"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_nwchem_pyscf_matched_reference",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable",
       "visible_modes": [
@@ -12910,10 +15133,13 @@
           "electron_total"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "run_pyscf_single_point",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "executable",
       "visible_modes": [
@@ -13092,10 +15318,13 @@
           "working_directory"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "search_dirac_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -13122,10 +15351,13 @@
         "required": [
           "query"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "search_grasp_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -13152,10 +15384,13 @@
         "required": [
           "query"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
-      "name": "search_knowledge_cards",
+      "name": "search_knowledge",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -13221,10 +15456,66 @@
           }
         },
         "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.knowledge-search/1"
+              },
+              "filters": {
+                "type": "object"
+              },
+              "total_matches": {
+                "type": "integer"
+              },
+              "returned_count": {
+                "type": "integer"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "curation_notice": {
+                "type": "string"
+              },
+              "cards": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "filters",
+              "total_matches",
+              "returned_count",
+              "truncated",
+              "curation_notice",
+              "cards"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "search_molcas_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -13260,10 +15551,13 @@
           "query"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "search_nwchem_docs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13294,10 +15588,13 @@
           "query"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "search_nwchem_forum",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13335,10 +15632,13 @@
           "query"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_basis_set",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -13373,10 +15673,13 @@
           "elements"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_dirac_basis",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -13403,10 +15706,13 @@
         "required": [
           "element"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_dirac_orbital_swaps",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -13437,10 +15743,13 @@
           "output_file",
           "target_character"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_grasp_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -13459,10 +15768,13 @@
             "type": "string"
           }
         }
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_memory",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -13497,10 +15809,13 @@
           "method"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_molcas_orbital_swaps",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -13542,10 +15857,13 @@
           "target_ao_pattern"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_molcas_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -13570,10 +15888,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_mcscf_active_space",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13605,10 +15926,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_multiplicity_scan",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13652,10 +15976,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_partition",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "scheduler",
       "visible_modes": [
@@ -13683,10 +16010,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13727,10 +16057,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_resources",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable_or_scheduler",
       "visible_modes": [
@@ -13759,10 +16092,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_tce_freeze",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13793,10 +16129,13 @@
           "elements"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_nwchem_vectors_swaps",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -13834,10 +16173,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -13894,10 +16236,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_relativistic_correction",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -13946,10 +16291,13 @@
           "elements"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_resources",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "executable_or_scheduler",
       "visible_modes": [
@@ -13980,10 +16328,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "suggest_spin_state",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -14019,10 +16370,13 @@
           "elements"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_dirac_outputs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -14061,10 +16415,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_dirac_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "none",
       "visible_modes": [
@@ -14086,10 +16443,13 @@
         "required": [
           "output_file"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_grasp_runs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -14119,10 +16479,13 @@
           "path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_grasp_terms",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -14141,10 +16504,13 @@
         "required": [
           "text_or_path"
         ]
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_molcas_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -14164,10 +16530,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_molcas_outputs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -14206,10 +16575,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_nwchem_electronic_structure",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -14234,10 +16606,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_nwchem_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -14279,10 +16654,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_nwchem_outputs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -14321,10 +16699,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -14351,10 +16732,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "summarize_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "none",
       "visible_modes": [
@@ -14387,10 +16771,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "swap_molcas_inporb_orbitals",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -14436,10 +16823,13 @@
           "swaps"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "swap_nwchem_movecs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -14474,10 +16864,13 @@
           "j"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "tail_nwchem_output",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable",
       "visible_modes": [
@@ -14506,10 +16899,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "terminate_dirac_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "executable",
       "visible_modes": [
@@ -14535,10 +16931,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "terminate_grasp_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -14564,10 +16963,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "terminate_molcas_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "executable",
       "visible_modes": [
@@ -14595,10 +16997,13 @@
           "profile"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "terminate_nwchem_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable",
       "visible_modes": [
@@ -14631,10 +17036,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "track_nwchem_spin_state",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -14655,10 +17063,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "try_molcas_run_with_recovery",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "executable",
       "visible_modes": [
@@ -14708,10 +17119,13 @@
           "input_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "update_nwchem_run_status",
+      "lifecycle": "advertised_legacy",
+      "replacement": "update_run_status",
       "program": "nwchem",
       "capability": "registry",
       "visible_modes": [
@@ -14768,10 +17182,13 @@
           "status"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "update_run_status",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "registry",
       "visible_modes": [
@@ -14828,10 +17245,13 @@
           "status"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "validate_grasp_csf_angular_census",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -14853,10 +17273,13 @@
           "csf_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "validate_grasp_fblock_artifacts",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "none",
       "visible_modes": [
@@ -14911,10 +17334,13 @@
           "csf_path"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "validate_molcas_caspt2_setup",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "none",
       "visible_modes": [
@@ -14935,10 +17361,13 @@
           "output_file"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "validate_nwchem_tce_setup",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "none",
       "visible_modes": [
@@ -14963,10 +17392,90 @@
           "tce_input_file"
         ],
         "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
+      "name": "visualize",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "generic",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Render one local chemistry file through Orbitron's fixed headless PNG operation. Chemtools writes only to an ephemeral sibling directory, fixes the image at 1024 by 768 pixels, validates the PNG and its size, then returns the image directly in the MCP result. Source, output, camera, appearance, diagram, and dimension overrides are not accepted. Orbitron is optional; unavailable, incompatible, and refused outcomes are reported explicitly.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to one local file supported by Orbitron. Directories, remote targets, output paths, and render arguments are not accepted."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "const": "chemtools.orbitron-render/1"
+              },
+              "status": {
+                "type": "string"
+              },
+              "operation": {
+                "const": "render"
+              },
+              "source": {
+                "type": "string"
+              },
+              "producer": {
+                "type": "object"
+              },
+              "image": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "schema_version",
+              "status",
+              "operation",
+              "source",
+              "producer",
+              "image"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
     },
     {
       "name": "watch_dirac_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "dirac",
       "capability": "executable",
       "visible_modes": [
@@ -15026,10 +17535,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "watch_grasp_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "grasp",
       "capability": "executable",
       "visible_modes": [
@@ -15089,10 +17601,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "watch_molcas_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "molcas",
       "capability": "executable",
       "visible_modes": [
@@ -15153,10 +17668,13 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "watch_multiple_runs",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "generic",
       "capability": "executable",
       "visible_modes": [
@@ -15217,10 +17735,13 @@
           "jobs"
         ],
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     },
     {
       "name": "watch_nwchem_run",
+      "lifecycle": "canonical",
+      "replacement": null,
       "program": "nwchem",
       "capability": "executable",
       "visible_modes": [
@@ -15281,7 +17802,8 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "output_schema": null
     }
   ]
 }

@@ -12,13 +12,13 @@ from chemtools.core.artifacts import (
     ExpectedArtifact,
 )
 from chemtools.core.execution import ExecutionTarget, LaunchPlan, ResourceRequest
-from chemtools.core.runner import resolve_runner_profile
-from chemtools.execution.legacy_profiles import (
+from chemtools.execution.profiles import (
     declared_program_installation,
     direct_installation,
     environment_values,
     hardware_description,
     require_version_1,
+    resolve_runner_profile,
     resource_request,
     slurm_scheduler_defaults,
 )

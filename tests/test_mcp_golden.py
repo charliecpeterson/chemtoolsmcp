@@ -6,29 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+import anyio
+from mcp import Client
 import pytest
 
-from chemtools.mcp.decorator import (
-    set_active_mode,
-    set_active_programs,
-    set_active_toolset,
-)
-from chemtools.mcp.dispatch import handle_request
+from chemtools.mcp.sdk_server import create_server
+from chemtools.mcp.state import ServerState
 
 GOLDEN_SCHEMA = "chemtools.mcp-golden-case/1"
 GOLDEN_ROOT = Path(__file__).parent / "golden" / "mcp"
 CASE_PATHS = sorted(GOLDEN_ROOT.glob("*.case.json"))
-
-
-@pytest.fixture(autouse=True)
-def analysis_mode():
-    set_active_mode("analysis")
-    set_active_programs(None)
-    set_active_toolset(None)
-    yield
-    set_active_mode("analysis")
-    set_active_programs(None)
-    set_active_toolset(None)
 
 
 @pytest.mark.parametrize("case_path", CASE_PATHS, ids=lambda path: path.stem)
@@ -39,20 +26,22 @@ def test_mcp_golden_case(case_path):
     assert fixture.is_file()
     request = _replace_fixture(case["request"], fixture)
 
-    response, should_exit = handle_request(request)
+    async def call_tool():
+        state = ServerState.create(mode="analysis", toolset=None)
+        async with Client(create_server(state)) as client:
+            await client.list_tools()
+            return await client.call_tool(
+                request["params"]["name"],
+                request["params"].get("arguments", {}),
+            )
 
-    assert should_exit is False
-    assert set(response) == {"jsonrpc", "id", "result"}
-    assert response["jsonrpc"] == "2.0"
-    assert response["id"] == request["id"]
-    assert set(response["result"]) == {"content", "isError"}
-    assert response["result"]["isError"] is False
-    assert len(response["result"]["content"]) == 1
-    content = response["result"]["content"][0]
-    assert set(content) == {"type", "text"}
-    assert content["type"] == "text"
+    result = anyio.run(call_tool)
 
-    payload = json.loads(content["text"])
+    assert result.is_error is False
+    assert len(result.content) == 1
+    assert result.content[0].type == "text"
+    payload = json.loads(result.content[0].text)
+    assert result.structured_content == payload
     assert set(payload) == set(case["expected_payload_keys"])
     _assert_subset(case["expected_payload"], payload)
 
@@ -66,7 +55,7 @@ def test_golden_set_covers_each_current_program_and_generic():
     assert programs == {
         "generic", "nwchem", "molcas", "dirac", "grasp", "qe"
     }
-    assert len(CASE_PATHS) == 8
+    assert len(CASE_PATHS) == 11
 
 
 def _replace_fixture(value: Any, fixture: Path) -> Any:

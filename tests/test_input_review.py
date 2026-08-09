@@ -320,7 +320,7 @@ def test_input_detection_refuses_ambiguous_inp_extension(tmp_path):
             "input extension '.inp' matches multiple programs; "
             "pass program explicitly"
         ),
-        "candidates": ["molcas", "dirac"],
+        "candidates": ["molcas", "dirac", "orca"],
     }
 
 

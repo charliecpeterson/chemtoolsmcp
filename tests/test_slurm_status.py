@@ -6,7 +6,7 @@ import subprocess
 import chemtools.execution.slurm as slurm_execution
 from chemtools.application.execution import ExecutionService
 from chemtools.core.execution import SlurmStatusResult
-from chemtools.core.runner import load_runner_profiles
+from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import SlurmExecutor
 from chemtools.programs.nwchem.launch import (
     adapt_legacy_nwchem_profile,

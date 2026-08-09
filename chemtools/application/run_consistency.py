@@ -42,28 +42,51 @@ def inspect_input_output_consistency(
             "impact": "Supply only the input that produced this output.",
         }]
 
-    input_path = input_paths[0]
+    input_path = Path(input_paths[0])
+    artifact_paths = tuple(
+        artifact["path"]
+        for artifact in artifacts
+        if artifact.get("entry_type") == "file"
+    )
+    return compare_explicit_input_output(
+        backend,
+        output_path,
+        input_path,
+        parsed_output,
+        artifact_paths=artifact_paths,
+    )
+
+
+def compare_explicit_input_output(
+    backend: ProgramBackend,
+    output_path: Path,
+    input_path: Path,
+    parsed_output: Mapping[str, Any],
+    *,
+    artifact_paths: tuple[str, ...] = (),
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Compare one caller-selected input with one parsed output."""
     if not backend.supports(ProgramCapability.INPUT_PARSE):
         return _unsupported(
             backend,
-            input_path,
+            str(input_path),
             "input parsing",
         )
     if not backend.supports(ProgramCapability.RUN_CONSISTENCY):
         return _unsupported(
             backend,
-            input_path,
+            str(input_path),
             "input-output consistency checks",
         )
     assert backend.parser is not None
     assert backend.consistency is not None
 
     try:
-        parsed_input = backend.parser.parse_input(input_path)
+        parsed_input = backend.parser.parse_input(str(input_path))
     except Exception as exc:
         return {
             "status": "not_checked",
-            "input_path": input_path,
+            "input_path": str(input_path),
             "reason": (
                 f"Input parsing failed with {type(exc).__name__}: {exc}"
             ),
@@ -77,7 +100,7 @@ def inspect_input_output_consistency(
     if not isinstance(parsed_input, Mapping):
         return {
             "status": "not_checked",
-            "input_path": input_path,
+            "input_path": str(input_path),
             "reason": (
                 "The input parser did not return a structured mapping."
             ),
@@ -90,14 +113,9 @@ def inspect_input_output_consistency(
             "impact": "No input-output fields were compared.",
         }]
 
-    artifact_paths = tuple(
-        artifact["path"]
-        for artifact in artifacts
-        if artifact.get("entry_type") == "file"
-    )
     try:
         compared = backend.consistency.compare_input_output(
-            input_path,
+            str(input_path),
             str(output_path),
             parsed_input,
             parsed_output,
@@ -106,7 +124,7 @@ def inspect_input_output_consistency(
     except Exception as exc:
         return {
             "status": "not_checked",
-            "input_path": input_path,
+            "input_path": str(input_path),
             "reason": (
                 f"Consistency checking failed with "
                 f"{type(exc).__name__}: {exc}"
@@ -122,7 +140,7 @@ def inspect_input_output_consistency(
     if not isinstance(compared, Mapping):
         return {
             "status": "not_checked",
-            "input_path": input_path,
+            "input_path": str(input_path),
             "reason": (
                 "The consistency adapter did not return a structured mapping."
             ),
@@ -199,4 +217,7 @@ def _unsupported(
     }]
 
 
-__all__ = ["inspect_input_output_consistency"]
+__all__ = [
+    "compare_explicit_input_output",
+    "inspect_input_output_consistency",
+]

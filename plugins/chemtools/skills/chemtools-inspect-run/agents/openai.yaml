@@ -1,0 +1,4 @@
+interface:
+  display_name: "Inspect Chemistry Run"
+  short_description: "Inspect chemistry output and related artifacts"
+  default_prompt: "Use $chemtools-inspect-run to inspect this calculation and explain the evidence."

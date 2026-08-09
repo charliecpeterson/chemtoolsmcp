@@ -304,8 +304,13 @@ def summarize_nwchem_case(
     err_file: str | None = None,
     compact: bool = False,
 ) -> dict[str, Any]:
-    # Lazy import to break circular dependency with api_input
-    from chemtools.api_input import prepare_nwchem_next_step, lint_nwchem_input, find_restart_assets
+    from chemtools.programs.nwchem.input.lint_restart import (
+        find_restart_assets,
+        lint_nwchem_input,
+    )
+    from chemtools.programs.nwchem.strategy.workflow_planner import (
+        prepare_nwchem_next_step,
+    )
 
     # Read the output file once — reused by all downstream parsers to avoid redundant I/O
     output_contents = read_text(output_path)

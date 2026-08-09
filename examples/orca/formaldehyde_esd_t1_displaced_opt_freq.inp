@@ -1,0 +1,12 @@
+! PBE0 def2-SVP def2/J RIJCOSX TightSCF Opt Freq
+%tddft
+  NRoots 5
+  IRootMult Triplet
+  IRoot 1
+end
+* xyz 0 1
+C  -0.040844   0.000001  -0.070348
+O   1.253628  -0.000001   0.015043
+H  -0.556397   0.965105   0.299735
+H  -0.556381  -0.965104   0.299735
+*

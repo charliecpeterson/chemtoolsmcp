@@ -1,0 +1,36 @@
+{
+  "name": "chemtools",
+  "version": "0.1.0",
+  "description": "Guided computational chemistry review, planning, execution, and monitoring",
+  "author": {
+    "name": "Charles Peterson",
+    "url": "https://charlespeterson.dev/"
+  },
+  "homepage": "https://github.com/charliecpeterson/chemtoolsmcp",
+  "repository": "https://github.com/charliecpeterson/chemtoolsmcp",
+  "license": "MIT",
+  "keywords": [
+    "computational-chemistry",
+    "mcp",
+    "nwchem"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Chemtools",
+    "shortDescription": "Review, plan, and monitor chemistry calculations",
+    "longDescription": "Use the installed Chemtools package through its eleven guided MCP tools. Review inputs and outputs, plan calculations, prepare approval-gated launches, and monitor runs without copying scientific logic into the plugin.",
+    "developerName": "Charles Peterson",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Analysis",
+      "Planning",
+      "Execution"
+    ],
+    "defaultPrompt": [
+      "Review this chemistry input before I run it.",
+      "Inspect this calculation output and explain any failure.",
+      "Plan a calculation and identify unresolved choices."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

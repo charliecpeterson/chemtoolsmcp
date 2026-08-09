@@ -14,6 +14,8 @@ from chemtools.programs.nwchem._plugin_binary import NWCHEM_BINARY
 from chemtools.programs.nwchem._plugin_drafter import NWCHEM_DRAFTER
 from chemtools.programs.nwchem._plugin_examples import NWCHEM_EXAMPLES
 from chemtools.programs.nwchem._plugin_parser import NWCHEM_PARSER
+from chemtools.programs.nwchem._plugin_planner import NWCHEM_CALCULATION_PLANNER
+from chemtools.programs.nwchem._plugin_launcher import NWCHEM_LAUNCH_PLANNER
 from chemtools.programs.nwchem._plugin_strategist import NWCHEM_STRATEGIST
 from chemtools.programs.nwchem.consistency import NWCHEM_RUN_CONSISTENCY
 
@@ -104,6 +106,8 @@ NWCHEM = validate_backend(
         resources=NWCHEM_STRATEGIST,
         progress=NWCHEM_STRATEGIST,
         consistency=NWCHEM_RUN_CONSISTENCY,
+        planning=NWCHEM_CALCULATION_PLANNER,
+        launches=NWCHEM_LAUNCH_PLANNER,
         examples=NWCHEM_EXAMPLES,
     )
 )

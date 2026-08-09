@@ -211,8 +211,7 @@ from chemtools.programs.nwchem.input.mcscf import (  # noqa: F401
 
 
 # Cube drafters moved to programs/nwchem/input/cube.py. Re-exported here for
-# back-compat with mcp/nwchem.py and existing callers. Will be removed when
-# the api_input.py split completes and consumers update to the new path.
+# compatibility with mcp/nwchem.py and existing Python callers.
 from chemtools.programs.nwchem.input.cube import (  # noqa: F401
     draft_nwchem_cube_input,
     draft_nwchem_frontier_cube_input,

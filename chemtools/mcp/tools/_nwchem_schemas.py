@@ -112,7 +112,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         # ------------------------------------------------------------------
-        # Generic auto-detect parsers — Phase 4 / 5
+        # Generic auto-detect parsers
         # These dispatch to the appropriate program plugin via
         # registry.resolve(path=output_file). Each program-prefixed sibling
         # (extract_molcas_geometry, parse_nwchem_thermochem, etc.) still
@@ -121,7 +121,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         # method emits.
         # ------------------------------------------------------------------
         # ------------------------------------------------------------------
-        # Generic case-analysis / recovery dispatchers (Phase 6a)
+        # Generic case-analysis and recovery dispatchers
         # ------------------------------------------------------------------
         # ------------------------------------------------------------------
         # Workflow planning and geometry setup (start here for new jobs)
@@ -1840,7 +1840,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
-        # --- Phase 6: Eval + smart input creation ---
+        # Evaluation and input creation
         {
             "name": "evaluate_nwchem_case",
             "description": (
@@ -1927,7 +1927,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
-        # --- Phase 5: Gap-fill tools ---
+        # Input and output review tools
         {
             "name": "check_nwchem_spin_charge_state",
             "description": (
@@ -2146,7 +2146,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
-        # --- Phase 3: Campaign / scale management ---
+        # Campaign and batch management
         {
             "name": "register_nwchem_run",
             "description": (
@@ -2180,7 +2180,7 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
-        # --- Generic registry tools (program-agnostic, Phase 4b/c) ---
+        # Generic registry compatibility tools
         {
             "name": "update_nwchem_run_status",
             "description": (

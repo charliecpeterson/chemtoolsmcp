@@ -41,7 +41,7 @@ hostname
 qlimits
 /usr/local/etc/taccinfo
 command -v sbatch squeue sacct scancel ibrun
-test -x /home1/01775/charlesp/apps/nwchem/7.2.3/bin/nwchem
+command -v nwchem
 test -x .venv/bin/python
 ```
 
@@ -63,11 +63,9 @@ accounting:
 Check the profile's allocation and executable path before submission. A real
 Slurm result must come from this command or an equivalent configured target.
 Render-only tests and mocked `sbatch`, `squeue`, or `sacct` calls do not count.
-Stampede3 bills jobs for at least 15 minutes. At the documented `skx-dev`
-charge of 1 SU per node-hour, this one-node smoke costs at least 0.25 SU even
-with a five-minute walltime. See the
-[Stampede3 user guide](https://docs.tacc.utexas.edu/hpc/stampede3/) for the
-current queue and charging policy.
+Check the live queue and charging policy before submitting this smoke test.
+The [Stampede3 user guide](https://docs.tacc.utexas.edu/hpc/stampede3/) and
+the allocation commands above are authoritative for the current system.
 
 ## Recorded results
 

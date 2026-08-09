@@ -17,6 +17,9 @@ from chemtools.programs.nwchem.parse.mos import METAL_CENTERS, parse_mos, parse_
 from chemtools.programs.nwchem.parse.freq import parse_freq, parse_trajectory
 from chemtools.programs.nwchem.parse.tddft import parse_tddft
 from chemtools.programs.nwchem.parse.input import inspect_nwchem_input
+from chemtools.programs.nwchem.scf_quality import (
+    find_converged_scf_excursion,
+)
 
 
 SCF_ITER_RE = re.compile(
@@ -519,9 +522,16 @@ def diagnose_nwchem_output(
             "converged orbitals to analyze. Restart from the last .movecs to finish."
         )
         confidence = "high"
-    elif state_check["assessment"] == "metal_state_mismatch_suspected":
+    elif state_check["assessment"] in {
+        "metal_state_mismatch_suspected",
+        "somo_count_mismatch",
+    }:
         failure_class = "wrong_state_convergence"
-        likely_cause = "singly_occupied_orbitals_do_not_match_expected_metal_state"
+        likely_cause = (
+            "somo_count_does_not_match_expected_state"
+            if state_check["assessment"] == "somo_count_mismatch"
+            else "singly_occupied_orbitals_do_not_match_expected_metal_state"
+        )
         next_action = "inspect_somos_then_try_fragment_guess_or_vectors_swap"
         confidence = "medium"
     elif (
@@ -675,16 +685,11 @@ def summarize_nwchem_output(
         # A converged run that spiked sharply upward mid-iteration recovered from a
         # DIIS instability — flag it so the user can harden a fragile setup.
         if scf["status"] == "converged":
-            jumps = [
-                it["delta_e_hartree"]
-                for it in primary.get("iterations", [])
-                if it.get("delta_e_hartree") is not None
-            ]
-            max_jump = max(jumps) if jumps else 0.0
-            if max_jump > 5.0:
+            instability = find_converged_scf_excursion(scf)
+            if instability is not None:
                 bullets.append(
                     f"SCF note: recovered from a large transient excursion "
-                    f"(+{max_jump:.1f} Ha jump mid-iteration). It converged, but the large "
+                    f"(+{instability['delta_e_hartree']:.1f} Ha jump mid-iteration). It converged, but the large "
                     f"basis from the atomic guess is fragile — basis stepping or convergence "
                     f"damping makes the path robust."
                 )

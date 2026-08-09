@@ -4,7 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from chemtools.application.reference_case_search import (
+    MAX_REFERENCE_QUERY_LENGTH,
+    MAX_REFERENCE_RESULTS,
+    REFERENCE_CASE_SEARCH_SCHEMA,
+    REFERENCE_CASE_STATUSES,
+    ReferenceCaseSearchError,
+    find_reference_cases,
+)
 from chemtools.mcp.decorator import _tool
+from chemtools.mcp.tools._output_schemas import (
+    ARRAY,
+    INTEGER,
+    OBJECT,
+    versioned_output_schema,
+)
 from chemtools.reference.atomic_multiplets import analyze_atomic_multiplets
 from chemtools.reference.fblock_lookup import lookup_grasp_fblock_state
 from chemtools.reference.fblock_grasp import validate_grasp_fblock_artifacts
@@ -25,6 +39,21 @@ _VALIDATE_ARGUMENTS = frozenset({
     "level_limit",
     "component_limit",
 })
+
+
+@_tool("find_reference_case")
+def _handle_find_reference_case(
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        return find_reference_cases(
+            arguments["query"],
+            program=arguments.get("program"),
+            scientific_status=arguments.get("scientific_status"),
+            limit=arguments.get("limit", 5),
+        )
+    except ReferenceCaseSearchError as exc:
+        return exc.as_dict()
 
 
 @_tool("analyze_atomic_multiplets")
@@ -126,6 +155,77 @@ def reference_tool_definitions() -> list[dict[str, Any]]:
         },
     }
     return [
+        {
+            "name": "find_reference_case",
+            "annotations": {
+                "title": "Find a pinned chemistry reference case",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "outputSchema": versioned_output_schema(
+                REFERENCE_CASE_SEARCH_SCHEMA,
+                {
+                    "query": OBJECT,
+                    "match_count": INTEGER,
+                    "matches": ARRAY,
+                    "uncertainty": ARRAY,
+                    "next_actions": ARRAY,
+                },
+            ),
+            "description": (
+                "Search bounded metadata for packaged chemistry reference "
+                "cases. Returns only required artifacts with recorded relative "
+                "paths, sizes, and SHA-256 hashes. Scientific status is a "
+                "separate field and can be filtered explicitly; pinned "
+                "exploratory cases are not described as validated references. "
+                "This search never scans or opens the external corpus."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": MAX_REFERENCE_QUERY_LENGTH,
+                        "description": (
+                            "Terms matched against case IDs, programs, purposes, "
+                            "tags, and required artifact roles."
+                        ),
+                    },
+                    "program": {
+                        "type": "string",
+                        "enum": [
+                            "nwchem",
+                            "molcas",
+                            "dirac",
+                            "grasp",
+                            "qe",
+                            "qmcpack",
+                        ],
+                    },
+                    "scientific_status": {
+                        "type": "string",
+                        "enum": sorted(REFERENCE_CASE_STATUSES),
+                        "default": "validated_reference",
+                        "description": (
+                            "Exact review status. Defaults to "
+                            "validated_reference; exploratory and shelved "
+                            "cases require an explicit request."
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": MAX_REFERENCE_RESULTS,
+                        "default": 5,
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
         {
             "name": "analyze_atomic_multiplets",
             "description": (

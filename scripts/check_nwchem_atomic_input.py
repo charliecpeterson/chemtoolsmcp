@@ -12,7 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from chemtools import draft_nwchem_atom_input
+from chemtools.programs.nwchem.input.tce import draft_nwchem_atom_input
 from chemtools.programs.nwchem.strategy.diagnose import parse_scf
 
 

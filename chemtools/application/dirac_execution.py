@@ -16,11 +16,8 @@ from chemtools.application.legacy_execution import (
     legacy_slurm_cancellation_result,
 )
 from chemtools.core.execution import RenderedSlurmScript
-from chemtools.core.runner import (
-    archive_paths,
-    load_runner_profiles,
-)
-from chemtools.execution.legacy_profiles import resource_request
+from chemtools.execution.legacy_archive import archive_paths
+from chemtools.execution.profiles import load_runner_profiles, resource_request
 from chemtools.programs.dirac.launch import (
     adapt_legacy_dirac_profile,
     build_dirac_launch_plan,

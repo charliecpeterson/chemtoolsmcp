@@ -5,17 +5,9 @@ the MCP server (chemtools/mcp/cli.py) and the per-section parsers in
 programs/nwchem/parse/. Includes orchestrators (parse_output,
 diagnose_output, summarize_output) plus thin dispatchers for each section.
 
-Two cross-program functions live here for historical reasons:
-parse_tasks() and parse_mos() use detect_program to route between nwchem
-and molcas parsers. They moved with the file rather than being carved
-out into a neutral location, since the rest of the file is NWChem-specific
-and an empty cross-program module would not earn its keep yet.
-
-TODO(multi-program):
-
-  * Lift parse_tasks(), parse_mos(), and _dispatch_parse_mos() to a future
-    chemtools/core/output.py once a second program has substantive output
-    coverage.
+``parse_tasks`` retains NWChem and Molcas routing for direct Python
+compatibility. New program parsers register through their backend instead of
+extending this module.
 """
 
 from __future__ import annotations

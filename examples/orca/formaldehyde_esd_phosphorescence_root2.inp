@@ -1,0 +1,16 @@
+! PBE0 def2-SVP def2/J RIJCOSX TightSCF ESD(PHOSP) RI-SOMF(1X)
+%tddft
+  NRoots 20
+  DoSOC true
+  TDA false
+  IRoot 2
+end
+%esd
+  GSHessian "formaldehyde_esd_gs.hess"
+  TSHessian "formaldehyde_esd_t1.hess"
+  DoHT true
+  DELE 23336.22
+  LineW 10
+  Unit NM
+end
+* xyzfile 0 1 formaldehyde_esd_gs.xyz

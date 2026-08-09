@@ -11,8 +11,8 @@ import chemtools.application.nwchem_monitoring as nwchem_monitoring
 import chemtools.mcp.tools.nwchem_jobs as nwchem_jobs
 import pytest
 
-from chemtools.core.artifact_registry import load_run_artifacts
-from chemtools.core.run_registry import get_run_summary
+from chemtools.persistence.artifacts import load_run_artifacts
+from chemtools.persistence.runs import get_run_summary
 from chemtools.mcp.decorator import set_active_mode
 from chemtools.mcp.tools.nwchem_jobs import (
     _handle_launch_nwchem_run,

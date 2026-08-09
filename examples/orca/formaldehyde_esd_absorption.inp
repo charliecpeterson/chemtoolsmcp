@@ -1,0 +1,12 @@
+! PBE0 def2-SVP def2/J RIJCOSX TightSCF ESD(ABS)
+%tddft
+  NRoots 5
+  IRoot 1
+end
+%esd
+  GSHessian "formaldehyde_esd_gs.hess"
+  HessFlag VG
+  DoHT true
+  Unit NM
+end
+* xyzfile 0 1 formaldehyde_esd_gs.xyz

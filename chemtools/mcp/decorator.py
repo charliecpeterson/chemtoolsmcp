@@ -7,51 +7,48 @@ and the per-tool handlers both touch:
   * `_TOOL_CAPABILITIES` capability tag per tool (drives mode filtering)
   * `_tool(name, needs=...)` decorator that registers a handler
 
-It also owns module-level state useful to handlers:
+It also exposes request-bound state useful to handlers:
 
+  * `get_server_state()` current filters and execution ownership
   * `LOG_PATH`           optional log file (set via env CHEMTOOLS_MCP_LOG)
   * `log_event(message)` writes a timestamped line to LOG_PATH if configured
 
-Extracted from `chemtools/mcp/nwchem.py` as the first step of the
-multi-program MCP split. The next step extracts the JSON-RPC `serve()`
-loop into `mcp/server.py`; tool definitions and handlers eventually
-move into `mcp/tools/<program>.py`.
+The stdio server lives in ``mcp/server.py``. Focused modules under
+``mcp/tools`` own tool definitions and handlers.
 """
 
 from __future__ import annotations
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import replace
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator, Optional
 
 from chemtools.application.execution import ExecutionService
 from chemtools.mcp.server import (
     DEFAULT_PROTOCOL_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
 )
+from chemtools.mcp.state import ServerState
 
 
-# Server constants — shared between any per-program MCP entry point.
-SERVER_NAME = "chemtools-nwchem"
+# Server constants shared by MCP entry points.
+SERVER_NAME = "chemtools"
 SERVER_VERSION = "0.1.0"
 TRANSPORT_MODE = "content-length"
 
 # Optional log file. Set CHEMTOOLS_MCP_LOG=/path/to/log.txt to enable.
 LOG_PATH = os.environ.get("CHEMTOOLS_MCP_LOG")
 
-# Active server mode — resolved at startup in `serve()` / `main()`.
-# Default to analysis so any caller that imports the module without going
-# through main() still gets a consistent answer (only pure tools visible).
-ACTIVE_MODE: str = "analysis"
-_EXECUTION_SERVICE = ExecutionService()
-
-# Active program filter — None means "no filter, all programs visible".
-# Otherwise it's a set of program tag strings (e.g. {"nwchem", "molcas"}).
-ACTIVE_PROGRAMS: set[str] | None = None
-
-# Active tool-name allowlist — None means "no filter". Otherwise an exact set of
-# tool names (a preset like "triage" or a custom list) to expose.
-ACTIVE_TOOLSET: frozenset[str] | None = None
+# Direct Python callers historically configured process-wide state through the
+# setters below. Request dispatch binds an explicit CLI-owned state instead.
+_COMPATIBILITY_STATE = ServerState.create()
+_REQUEST_STATE: ContextVar[Optional[ServerState]] = ContextVar(
+    "chemtools_mcp_request_state",
+    default=None,
+)
 
 
 # Per-tool state. Decorator below populates these dicts.
@@ -118,29 +115,58 @@ def log_event(message: str) -> None:
 
 
 def set_active_mode(mode: str) -> None:
-    """Set the active server mode from a CLI entry point."""
-    global ACTIVE_MODE, _EXECUTION_SERVICE
-    ACTIVE_MODE = mode
-    _EXECUTION_SERVICE = ExecutionService(
-        enable_execution=mode in {"local", "hpc"},
+    """Set mode for direct Python callers using the compatibility state."""
+    global _COMPATIBILITY_STATE
+    _COMPATIBILITY_STATE = ServerState.create(
+        mode=mode,
+        programs=_COMPATIBILITY_STATE.programs,
+        toolset=_COMPATIBILITY_STATE.toolset,
     )
+
+
+def get_server_state() -> ServerState:
+    """Return request-bound state or the direct-call compatibility state."""
+    return _REQUEST_STATE.get() or _COMPATIBILITY_STATE
+
+
+@contextmanager
+def bind_server_state(state: ServerState) -> Iterator[None]:
+    """Make one server's state visible to its registered tool handler."""
+    token = _REQUEST_STATE.set(state)
+    try:
+        yield
+    finally:
+        _REQUEST_STATE.reset(token)
 
 
 def get_execution_service() -> ExecutionService:
     """Return the service that owns launches for this MCP process."""
-    return _EXECUTION_SERVICE
+    return get_server_state().execution_service
 
 
 def set_active_programs(programs: set[str] | None) -> None:
-    """Set the active program filter from a CLI entry point."""
-    global ACTIVE_PROGRAMS
-    ACTIVE_PROGRAMS = programs
+    """Set the program filter for direct Python compatibility callers."""
+    global _COMPATIBILITY_STATE
+    normalized = frozenset(programs) if programs is not None else None
+    _COMPATIBILITY_STATE = replace(_COMPATIBILITY_STATE, programs=normalized)
 
 
 def set_active_toolset(toolset: frozenset[str] | None) -> None:
-    """Set the active tool-name allowlist from a CLI entry point."""
-    global ACTIVE_TOOLSET
-    ACTIVE_TOOLSET = toolset
+    """Set the tool allowlist for direct Python compatibility callers."""
+    global _COMPATIBILITY_STATE
+    _COMPATIBILITY_STATE = replace(_COMPATIBILITY_STATE, toolset=toolset)
+
+
+def __getattr__(name: str) -> Any:
+    """Retain the former read-only module attributes during migration."""
+    state = get_server_state()
+    if name == "ACTIVE_MODE":
+        return state.mode
+    if name == "ACTIVE_PROGRAMS":
+        return set(state.programs) if state.programs is not None else None
+    if name == "ACTIVE_TOOLSET":
+        return state.toolset
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
@@ -153,7 +179,10 @@ __all__ = [
     "ACTIVE_MODE",
     "ACTIVE_PROGRAMS",
     "ACTIVE_TOOLSET",
+    "ServerState",
+    "bind_server_state",
     "get_execution_service",
+    "get_server_state",
     "set_active_mode",
     "set_active_programs",
     "set_active_toolset",

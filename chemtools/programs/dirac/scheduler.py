@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from chemtools.core.runner import (
+from chemtools.execution.legacy_runner import (
     cancel_scheduler_job,
     inspect_run_status,
     render_calculation_run,

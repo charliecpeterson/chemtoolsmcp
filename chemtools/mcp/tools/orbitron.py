@@ -18,6 +18,11 @@ from chemtools.integrations.orbitron import (
 )
 from chemtools.mcp.decorator import _tool
 from chemtools.mcp.server import ImageToolResult
+from chemtools.mcp.tools._output_schemas import (
+    OBJECT,
+    STRING,
+    versioned_output_schema,
+)
 
 
 _ARGUMENTS = frozenset({"path"})
@@ -104,8 +109,8 @@ def _handle_analyze_vibrations_with_orbitron(
     )
 
 
-@_tool("render_with_orbitron", program="generic")
-def _handle_render_with_orbitron(
+@_tool("visualize", program="generic")
+def _handle_visualize(
     arguments: dict[str, Any],
 ) -> dict[str, Any] | ImageToolResult:
     unknown = sorted(set(arguments) - _ARGUMENTS)
@@ -578,7 +583,7 @@ def _map_scientific_system(payload: dict[str, Any]) -> dict[str, Any]:
 def orbitron_tool_definitions() -> list[dict[str, Any]]:
     return [
         {
-            "name": "render_with_orbitron",
+            "name": "visualize",
             "description": (
                 "Render one local chemistry file through Orbitron's fixed "
                 "headless PNG operation. Chemtools writes only to an "
@@ -605,6 +610,23 @@ def orbitron_tool_definitions() -> list[dict[str, Any]]:
                 "required": ["path"],
                 "additionalProperties": False,
             },
+            "annotations": {
+                "title": "Render a chemistry structure",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "outputSchema": versioned_output_schema(
+                _RENDER_SCHEMA,
+                {
+                    "status": STRING,
+                    "operation": {"const": "render"},
+                    "source": STRING,
+                    "producer": OBJECT,
+                    "image": OBJECT,
+                },
+            ),
         },
         {
             "name": "inspect_with_orbitron",

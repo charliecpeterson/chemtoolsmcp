@@ -1,0 +1,656 @@
+{
+  "schema": "chemtools.reference-corpus/1",
+  "description": "Pinned external NWChem workflows selected for the simplification behavior lock.",
+  "cases": [
+    {
+      "id": "nwchem.fecn6_lowspin_fragment",
+      "programs": [
+        "nwchem"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe",
+        "failure_diagnosis"
+      ],
+      "artifacts": [
+        {
+          "id": "failed_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/01_fecn6_lowspin_fragment/failed.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 1161,
+          "sha256": "b50ffa17b70c4244ab92c55a2b39b422fb9658e0261f50e40a9261935cc00ac9",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "failed_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/01_fecn6_lowspin_fragment/failed.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 315253,
+          "sha256": "bd21f6ff2d5daf9df5d448c77c11481e8b169132d669214ef474856f9e54a1cc",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "solution_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/01_fecn6_lowspin_fragment/solution.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 2565,
+          "sha256": "e46ee2ed07d5f825f21b9b62d248a70f6480a427c5c3db70de18c7767772eb8c",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "solution_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/01_fecn6_lowspin_fragment/solution.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 639830,
+          "sha256": "96ec817c6d489e2a1129b6baaa0282212c5a145652501011dd5f019e8a1d4a23",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "documented_failed_energy_hartree": -1819.496662763585,
+        "documented_solution_energy_hartree": -1820.002049685715,
+        "documented_failed_multiplicity": 6,
+        "documented_solution_multiplicity": 2,
+        "expected_solution_interpretation": "low-spin t2g5 Fe(III) state",
+        "current_candidate_minus_reference_hartree": -0.5053869221301284,
+        "current_failed_somo_count": 5,
+        "current_solution_somo_count": 1,
+        "current_solution_somo_vector": 52,
+        "current_solution_somo_symmetry": "t2g",
+        "current_solution_somo_fe_fraction_of_visible": 0.8696950641323992
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Artifact identity, conditional energy comparison, multiplicities, and parser SOMO evidence pinned; scientific promotion still requires review."
+      },
+      "tags": [
+        "open-shell",
+        "fragment-guess",
+        "iron",
+        "wrong-state"
+      ]
+    },
+    {
+      "id": "nwchem.hexaaquairon_swap_chain",
+      "programs": [
+        "nwchem"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe",
+        "failure_diagnosis"
+      ],
+      "artifacts": [
+        {
+          "id": "default_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/02_hexaaquairon_swap_chain/hexaaquairon.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 1367,
+          "sha256": "73a01ebe578c6552a504b5fc338471dbf89641d84dd392693f288bf92b2a36e0",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "default_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/02_hexaaquairon_swap_chain/hexaaquairon.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 545209,
+          "sha256": "1482356797af04f969e0a063811fe6a661e105ce908e0e3f6bf2d94023d083b5",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "fragment_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/02_hexaaquairon_swap_chain/hexaaquairon_frag.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 3848,
+          "sha256": "5ce833406c29bec559430c200c4c233e8ccea764915b5b5b660b09d1a9ab9272",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "fragment_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/02_hexaaquairon_swap_chain/hexaaquairon_frag.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 1085969,
+          "sha256": "f738643ea6880762ee5a1cf00363b5ef9227b6e594a867b5aa92f26a6c51c6fc",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "swap_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/02_hexaaquairon_swap_chain/hexaaquairon_swap.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 1672,
+          "sha256": "789d16787790f03022a71cf5ffc95fc1100ab85aa1c480367d9b7097d85a9c44",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "swap_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/02_hexaaquairon_swap_chain/hexaaquairon_swap.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 545023,
+          "sha256": "0f9d0e282b4ed1b9b76a3d11090e61848be7e83a02686b67f961b696f6aed56f",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        }
+      ],
+      "expected": {
+        "review_state": "blocked_on_provenance",
+        "notes_wrong_state_energy_hartree": -2093.022067822851,
+        "current_default_file_energy_hartree": -2093.070628221697,
+        "current_fragment_file_energy_hartree": -2093.022067822851,
+        "current_swap_file_energy_hartree": -2093.070929682629
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Artifact identity pinned; filename and energy provenance conflict must be resolved."
+      },
+      "tags": [
+        "open-shell",
+        "fragment-guess",
+        "vectors-swap",
+        "iron",
+        "provenance"
+      ]
+    },
+    {
+      "id": "nwchem.feo_spin_comparison",
+      "programs": [
+        "nwchem"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe"
+      ],
+      "artifacts": [
+        {
+          "id": "triplet_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/03_feo_scf_convergence/failed.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 830,
+          "sha256": "9c57bb8f28b01d4f982c1289613d08c3808b730ab0c687f5fe08b036c0e2d2da",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "triplet_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/03_feo_scf_convergence/failed.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 120618,
+          "sha256": "2f45b8efe571726a5d068dcd594c13826b0f9fc84d52d95a92b8de499fd078a6",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "quintet_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/03_feo_scf_convergence/solution.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 839,
+          "sha256": "fe0df25f5f3235d4a74de8f5910bedb9bdd9c1b983d315dcf4c803658a2f9c77",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "quintet_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/03_feo_scf_convergence/solution.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 117308,
+          "sha256": "d39c3dc57e95baf688d0360d889c49fd164c3b6cf037ffc2ae90d34ec31a260e",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "triplet_energy_hartree": -1338.848567852637,
+        "quintet_energy_hartree": -1338.950662699587,
+        "quintet_lower_by_hartree": 0.10209484695,
+        "expected_comparison": "quintet lower than triplet"
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Artifact identity and observed energies pinned; comparison contract requires review."
+      },
+      "tags": [
+        "spin-state",
+        "comparison",
+        "iron-oxide"
+      ]
+    },
+    {
+      "id": "nwchem.ferrocene_basis_stepping",
+      "programs": [
+        "nwchem"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe",
+        "methodology_warning"
+      ],
+      "artifacts": [
+        {
+          "id": "failed_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/04_ferrocene_basis_stepping/failed.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 1664,
+          "sha256": "65241ac3a22b1c390f7951832fa704c98e22d5056c8b41ed7842a2e48083e2e3",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "failed_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/04_ferrocene_basis_stepping/failed.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 356218,
+          "sha256": "e5387a8cd71783913f663088c6568563d222db2ef328e6e38b6c4cfc60b16b87",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "small_basis_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/04_ferrocene_basis_stepping/small_basis.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 1395,
+          "sha256": "56a3fb862058df887ba9ba4106747d051b52c243a093ba446db43a046a30a410",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "small_basis_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/04_ferrocene_basis_stepping/small_basis.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 220631,
+          "sha256": "0ec7fc3938aa6f1362650fa51b00cc1e27dcc04398ba6e7b2f835ea4536af6f0",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "solution_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/04_ferrocene_basis_stepping/solution.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 2160,
+          "sha256": "9b7a6a7549060fa9fde58cf7bc19aaf0bd4cfe036e91f238333d5644b98ac31b",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "solution_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/04_ferrocene_basis_stepping/solution.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 358127,
+          "sha256": "a3c38a4f1aaf09ac6b6986f4502e247ed6c60c1e2de32a2365e90b1237b36af7",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "failed_iteration_9_energy_hartree": -1649.5540018025,
+        "failed_iteration_10_energy_hartree": -1632.8414630431,
+        "documented_energy_jump_hartree": 16.7,
+        "documented_diis_error": 133,
+        "small_basis_energy_jump_hartree": 17.2,
+        "small_basis_diis_error": 133,
+        "solution_energy_hartree": -1650.9693626187
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Artifact identity pinned; unstable-trajectory diagnosis requires review."
+      },
+      "tags": [
+        "scf",
+        "diis",
+        "basis-stepping",
+        "ferrocene"
+      ]
+    },
+    {
+      "id": "nwchem.crco6_bailar_twist",
+      "programs": [
+        "nwchem"
+      ],
+      "status": "exploratory",
+      "purposes": [
+        "scientific_regression",
+        "workflow_recipe",
+        "failure_diagnosis"
+      ],
+      "artifacts": [
+        {
+          "id": "saddle_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/05_crco6_freq_restart/failed.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 2068,
+          "sha256": "214b157c2119ddb42cb9d96213e07964d08c4156937f9d7b68a40f7aba600295",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "saddle_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/05_crco6_freq_restart/failed.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 2355250,
+          "sha256": "e239bac494eccee7baaad6aca3094dba3ca38f54d8756e6a54064753bde78c2a",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "minimum_input",
+          "roles": [
+            "primary_input"
+          ],
+          "kind": "nwchem.input",
+          "path": "nwchem/hard_cases/05_crco6_freq_restart/solution.nw",
+          "storage_tier": "external_reference",
+          "size_bytes": 3277,
+          "sha256": "6e74744eb819bb54c6a039e8724f6e5dfef19a2159ffb480fd49266f3966d82a",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        },
+        {
+          "id": "minimum_output",
+          "roles": [
+            "primary_output"
+          ],
+          "kind": "nwchem.output",
+          "path": "nwchem/hard_cases/05_crco6_freq_restart/solution.out",
+          "storage_tier": "external_reference",
+          "size_bytes": 5575764,
+          "sha256": "dd0024c274ea485f9a34633af475ce421726e19bbfc527de33d0703ea7a4489e",
+          "required": true,
+          "redistribution": "review_required",
+          "source": "local-research",
+          "attribution": "Charles Peterson",
+          "license": {
+            "identifier": null,
+            "terms": null
+          },
+          "permission_evidence": null
+        }
+      ],
+      "expected": {
+        "review_state": "pending",
+        "saddle_energy_hartree": -1723.872731,
+        "saddle_imaginary_mode_count": 1,
+        "saddle_leading_frequency_cm_inverse": -234.96,
+        "minimum_energy_hartree": -1723.925434,
+        "minimum_imaginary_mode_count": 0
+      },
+      "review": {
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "scope": "Artifact identity pinned; saddle-to-minimum interpretation requires review."
+      },
+      "tags": [
+        "frequency",
+        "imaginary-mode",
+        "transition-structure",
+        "chromium-carbonyl"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+! def2-SVP def2-SVP/C UseSym
+%method
+  FrozenCore FC_EWin
+end
+%mrci
+  EWin -3,1000
+  CIType MRCI
+  EUnselOpt FullMP2
+  DavidsonOpt Davidson1
+  UseIVOs true
+  TSel 1e-6
+  TPre 1e-2
+  MaxMemInt 256
+  MaxMemVec 32
+  IntMode FullTrafo
+  AllSingles true
+  Solver Diag
+  NewBlock 1 0
+    NRoots 1
+    Excitations CISD
+    Refs CAS(2,2) end
+  end
+  NewBlock 1 1
+    NRoots 1
+    Excitations CISD
+    Refs CAS(2,2) end
+  end
+  NewBlock 3 1
+    NRoots 1
+    Excitations CISD
+    Refs CAS(2,2) end
+  end
+end
+* int 0 1
+C  0 0 0  0.000000   0.000   0.000
+O  1 0 0  1.200371   0.000   0.000
+H  1 2 0  1.107372 121.941   0.000
+H  1 2 3  1.107372 121.941 180.000
+*

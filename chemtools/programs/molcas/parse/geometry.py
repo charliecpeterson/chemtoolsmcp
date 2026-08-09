@@ -75,6 +75,15 @@ _CONVERGED_RE = re.compile(
 )
 
 
+class GeometryBlockIndexError(IndexError):
+    def __init__(self, block_index: int, block_count: int) -> None:
+        self.block_index = block_index
+        self.block_count = block_count
+        super().__init__(
+            f"geometry block index {block_index} is outside {block_count} blocks"
+        )
+
+
 def parse_cartesian_blocks(text: str) -> list[dict[str, Any]]:
     """Find every `Cartesian coordinates in angstrom:` block. Returns list of
     {atoms: [...], line_start: int, units: 'angstrom' or 'bohr'}.
@@ -126,6 +135,21 @@ def parse_final_geometry(text: str) -> dict[str, Any] | None:
         return None
     last = blocks[-1]
     return {**last, "source": "last_cartesian_block"}
+
+
+def select_geometry(
+    text: str,
+    block_index: int | None = None,
+) -> dict[str, Any] | None:
+    """Select one explicit Cartesian block or the final usable geometry."""
+    if block_index is None:
+        return parse_final_geometry(text)
+    blocks = parse_cartesian_blocks(text)
+    if not blocks:
+        return None
+    if block_index < 0 or block_index >= len(blocks):
+        raise GeometryBlockIndexError(block_index, len(blocks))
+    return blocks[block_index]
 
 
 def parse_energy_statistics(text: str) -> dict[str, Any] | None:

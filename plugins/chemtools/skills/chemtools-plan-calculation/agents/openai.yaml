@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Chemistry Calculation"
+  short_description: "Plan a chemistry calculation without writing files"
+  default_prompt: "Use $chemtools-plan-calculation to plan this calculation and identify unresolved choices."

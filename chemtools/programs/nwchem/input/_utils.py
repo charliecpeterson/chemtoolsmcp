@@ -7,6 +7,9 @@ from typing import Any
 from chemtools.core.common import COVALENT_RADII
 from chemtools.programs.nwchem.parse.input import render_nwchem_module_block
 from chemtools.programs.nwchem.parse.mos import _coerce_int, _coerce_float
+from chemtools.programs.nwchem.scf_quality import (
+    find_converged_scf_excursion,
+)
 
 # Alias so private helpers in this module and in api_runner.py can use _COVALENT_RADII
 _COVALENT_RADII = COVALENT_RADII
@@ -39,8 +42,9 @@ def _strategy_entry(
     tool: str,
     docs_topics: list[str],
     when_to_use: str,
+    params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    entry = {
         "name": name,
         "priority": priority,
         "rationale": rationale,
@@ -48,6 +52,9 @@ def _strategy_entry(
         "docs_topics": docs_topics,
         "when_to_use": when_to_use,
     }
+    if params:
+        entry["params"] = params
+    return entry
 
 
 def _summarize_prepared_artifact(name: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -137,8 +144,22 @@ def _select_scf_stabilization_strategy(
         iteration_count = last_run.get("iteration_count") or scf.get("iteration_count") or 0
         hit_max = bool(last_run.get("hit_max_iterations") or scf.get("hit_max_iterations"))
         failure_class = reference_diagnosis.get("failure_class")
+        converged_excursion = find_converged_scf_excursion(scf)
 
-        if failure_class == "scf_nonconvergence" and iteration_count <= 2 and trend in {"insufficient_data", "no_iterations_found"}:
+        if converged_excursion is not None:
+            strategy = "converged_instability_hardening"
+            notes.append("reference_scf_recovered_from_large_transient_excursion")
+            if iterations is None:
+                selected_iterations = 200
+            if smear is None:
+                selected_smear = None
+            if convergence_damp is None:
+                selected_convergence_damp = 70
+            if convergence_ncydp is None:
+                selected_convergence_ncydp = 25
+            if population_print is None:
+                selected_population_print = None
+        elif failure_class == "scf_nonconvergence" and iteration_count <= 2 and trend in {"insufficient_data", "no_iterations_found"}:
             strategy = "state_check_recovery"
             notes.append("reference_run_failed_before_meaningful_scf_progress")
             if iterations is None:

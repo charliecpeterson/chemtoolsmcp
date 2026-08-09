@@ -1,8 +1,7 @@
 """NWChem Drafter sub-protocol implementation.
 
 Adapter layer that bridges the program-neutral `InputSpec` from
-`chemtools.core.types` to the existing NWChem input drafters in
-`chemtools.api_input`. Three responsibilities:
+`chemtools.core.types` to the NWChem input modules. Three responsibilities:
 
   * `draft_input(spec)`  — render an NWChem .nw file from an InputSpec
   * `lint_input(text)`   — validate input text, return LintIssue records
@@ -17,9 +16,9 @@ Adapter layer that bridges the program-neutral `InputSpec` from
   - `program_options` provides escape hatches (library_path, extra_blocks,
     module_settings, vectors_input/output, memory, start_name)
 
-Unsupported InputSpec fields (solvent, ecp at the spec top level, ...) are
-either passed through where they fit or ignored with a warning in the
-returned dict.
+ECP assignments are rendered through the common field. Unsupported fields and
+unknown program options raise an error instead of silently changing the
+requested calculation.
 """
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.core.types import InputSpec, LintIssue
+from chemtools.core.units import ANGSTROM_PER_BOHR
 
 
 # Map InputSpec.method to NWChem's `task <module>` value. Method strings are
@@ -58,20 +58,47 @@ def _method_to_module(method: str) -> str:
     raise ValueError(f"Unrecognized method {method!r}; provide program_options['module'] explicitly")
 
 
-def _atoms_to_xyz_text(atoms: list[dict[str, Any]], title: str = "") -> str:
+_PROGRAM_OPTION_KEYS = {
+    "extra_blocks",
+    "geometry_path",
+    "library_path",
+    "memory",
+    "module",
+    "module_settings",
+    "start_name",
+    "title",
+    "vectors_input",
+    "vectors_output",
+}
+
+
+def _atoms_to_xyz_text(
+    atoms: list[dict[str, Any]],
+    title: str = "",
+    units: str = "angstrom",
+) -> str:
     """Render a list of GeometryAtom dicts to xyz file text."""
+    if units not in {"angstrom", "bohr"}:
+        raise ValueError("geometry_units must be 'angstrom' or 'bohr'")
+    scale = ANGSTROM_PER_BOHR if units == "bohr" else 1.0
     lines = [str(len(atoms)), title]
     for a in atoms:
         elem = a["element"]
-        x, y, z = a["x"], a["y"], a["z"]
+        x, y, z = (
+            float(a[axis]) * scale
+            for axis in ("x", "y", "z")
+        )
         lines.append(f"{elem:<3s} {x:>16.10f} {y:>16.10f} {z:>16.10f}")
     return "\n".join(lines) + "\n"
 
 
 def _default_basis_library_path() -> str:
     """Bundled NWChem basis library."""
-    import chemtools
-    return str(Path(chemtools.__file__).resolve().parent / "data" / "nwchem" / "basis_library")
+    from chemtools.programs.nwchem.input.basis_library import (
+        bundled_basis_library_path,
+    )
+
+    return str(bundled_basis_library_path())
 
 
 class _NwchemDrafter:
@@ -79,12 +106,20 @@ class _NwchemDrafter:
 
     def draft_input(self, spec: InputSpec) -> str:
         """Render a complete .nw input file from a program-neutral InputSpec."""
-        # Lazy import — api_input is still flat; later it splits into
-        # programs/nwchem/input/{scf,dft,tce,...}.py and this becomes cleaner.
-        from chemtools.api_input import create_nwchem_input
+        from chemtools.programs.nwchem.input.general import create_nwchem_input
 
         # ---- 1. Geometry: inline atoms or program_options['geometry_path'] ----
         program_options = spec.get("program_options") or {}
+        unknown_options = sorted(set(program_options) - _PROGRAM_OPTION_KEYS)
+        if unknown_options:
+            raise ValueError(
+                "Unsupported NWChem program_options: "
+                + ", ".join(unknown_options)
+            )
+        if spec.get("solvent") is not None:
+            raise ValueError(
+                "NWChem InputSpec solvent rendering is not implemented"
+            )
         geom_path = program_options.get("geometry_path")
         atoms = spec.get("atoms") or []
         cleanup_tempfile = None
@@ -96,7 +131,11 @@ class _NwchemDrafter:
                 )
             # Write inline atoms to a temp .xyz file.
             title = spec.get("title", "")
-            xyz_text = _atoms_to_xyz_text(atoms, title=title)
+            xyz_text = _atoms_to_xyz_text(
+                atoms,
+                title=title,
+                units=spec.get("geometry_units", "angstrom"),
+            )
             fh = tempfile.NamedTemporaryFile(
                 mode="w", suffix=".xyz", delete=False, encoding="utf-8"
             )
@@ -108,7 +147,9 @@ class _NwchemDrafter:
         # ---- 2. Method → NWChem module + task operation ----
         method = spec.get("method", "DFT")
         module = program_options.get("module") or _method_to_module(method)
-        task_operation = spec.get("task", "energy")
+        task_operation = {
+            "frequency": "freq",
+        }.get(spec.get("task", "energy"), spec.get("task", "energy"))
 
         # ---- 3. Basis: str or per-element dict ----
         basis = spec.get("basis", "def2-TZVP")
@@ -127,6 +168,21 @@ class _NwchemDrafter:
             functional = spec.get("functional")
             if functional:
                 module_settings.insert(0, f"xc {functional}")
+        elif module == "scf" and spec.get("multiplicity", 1) > 1:
+            normalized_settings = [
+                str(line).strip().lower() for line in module_settings
+            ]
+            if not any(
+                line in {"rhf", "rohf", "uhf"}
+                for line in normalized_settings
+            ):
+                module_settings.insert(0, "rohf")
+            if not any(
+                line.startswith("nopen ") for line in normalized_settings
+            ):
+                module_settings.append(
+                    f"nopen {spec['multiplicity'] - 1}"
+                )
         extra_blocks = list(program_options.get("extra_blocks") or [])
 
         # ---- 5. Library path ----
@@ -134,6 +190,9 @@ class _NwchemDrafter:
             program_options.get("library_path")
             or _default_basis_library_path()
         )
+        start_name = program_options.get("start_name")
+        if cleanup_tempfile and not start_name:
+            start_name = "chemtools_job"
 
         try:
             result = create_nwchem_input(
@@ -150,7 +209,7 @@ class _NwchemDrafter:
                 extra_blocks=extra_blocks,
                 memory=program_options.get("memory"),
                 title=spec.get("title") or program_options.get("title"),
-                start_name=program_options.get("start_name"),
+                start_name=start_name,
                 vectors_input=program_options.get("vectors_input"),
                 vectors_output=program_options.get("vectors_output"),
                 write_file=False,
@@ -169,7 +228,9 @@ class _NwchemDrafter:
         """Validate input text. Writes to a temp file so we can reuse
         the path-based lint_nwchem_input, then translates its issue list
         into the LintIssue TypedDict shape."""
-        from chemtools.api_input import lint_nwchem_input
+        from chemtools.programs.nwchem.input.lint_restart import (
+            lint_nwchem_input,
+        )
 
         fh = tempfile.NamedTemporaryFile(
             mode="w", suffix=".nw", delete=False, encoding="utf-8"

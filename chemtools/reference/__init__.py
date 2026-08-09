@@ -50,6 +50,13 @@ from chemtools.reference.grasp_angular_census import (
     GRASP_ANGULAR_CENSUS_SCHEMA,
     validate_grasp_csf_angular_census,
 )
+from chemtools.reference.external_corpus import (
+    DEFAULT_CASE_BYTE_LIMIT,
+    REFERENCE_CORPUS_SCHEMA,
+    ReferenceManifestError,
+    load_reference_manifest,
+    verify_reference_case,
+)
 
 __all__ = [
     "ATOMIC_MULTIPLET_SCHEMA",
@@ -71,6 +78,9 @@ __all__ = [
     "FBLOCK_STATE_SEMANTICS_SCHEMA",
     "FBlockStateSemanticsManifest",
     "GRASP_ANGULAR_CENSUS_SCHEMA",
+    "DEFAULT_CASE_BYTE_LIMIT",
+    "REFERENCE_CORPUS_SCHEMA",
+    "ReferenceManifestError",
     "ATSPElementRecipes",
     "ATSPStateRecipe",
     "FBLOCK_PLAN_SCHEMA",
@@ -81,9 +91,11 @@ __all__ = [
     "load_atsp_element_recipes",
     "load_fblock_donor_alias_manifest",
     "load_fblock_state_semantics",
+    "load_reference_manifest",
     "lookup_grasp_fblock_state",
     "plan_fblock_atomic_state",
     "parse_atomic_configuration",
     "validate_grasp_csf_angular_census",
     "validate_grasp_fblock_artifacts",
+    "verify_reference_case",
 ]

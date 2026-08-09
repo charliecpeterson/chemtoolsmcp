@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from chemtools.core.runner import render_calculation_run
+from chemtools.execution.legacy_runner import render_calculation_run
 from chemtools.execution.legacy_profiles import (
     declared_program_installation,
+    load_runner_profiles,
+    resolve_runner_profile,
 )
 from chemtools.programs.dirac.launch import adapt_legacy_dirac_profile
 from chemtools.programs.grasp.launch import adapt_legacy_grasp_profile
@@ -276,3 +278,32 @@ def test_profile_inspection_reports_standard_nwchem_arrays():
     assert inspected["profiles"]["local_mpirun"]["mpi_launch"] == (
         "mpirun -np '{mpi_ranks}'"
     )
+
+
+def test_bundled_slurm_example_is_portable_and_resolves():
+    profile_path = (
+        Path(__file__).parents[1]
+        / "chemtools"
+        / "runner_profiles.slurm.example.yaml"
+    )
+
+    profiles = load_runner_profiles(str(profile_path))
+    profile = resolve_runner_profile(profiles, "slurm")
+
+    assert profile["launcher"] == {
+        "kind": "scheduler",
+        "submit_command": "sbatch",
+        "scheduler_type": "slurm",
+        "job_id_regex": "Submitted batch job (\\d+)",
+        "status_command": "squeue -j {job_id} -h -o %T",
+        "cancel_command": "scancel {job_id}",
+    }
+    assert profile["scheduler"]["system"] == "slurm"
+    assert profile["programs"]["nwchem"] == {
+        "launcher_argv": ["srun"],
+        "executable_argv": ["nwchem"],
+    }
+    text = profile_path.read_text(encoding="utf-8")
+    assert "/home/" not in text
+    assert "/home1/" not in text
+    assert "/Users/" not in text

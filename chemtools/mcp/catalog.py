@@ -35,7 +35,7 @@ BUILTIN_BACKENDS: tuple[BuiltinBackendSpec, ...] = (
         name="nwchem",
         program_module="chemtools.programs.nwchem",
         backend_attribute="NWCHEM",
-        tools_module="chemtools.mcp.tools.nwchem",
+        tools_module="chemtools.mcp.tools._nwchem_provider",
         definitions_attribute="_nwchem_tool_definitions",
     ),
     BuiltinBackendSpec(
@@ -72,6 +72,13 @@ BUILTIN_BACKENDS: tuple[BuiltinBackendSpec, ...] = (
         backend_attribute="QMCPACK",
         tools_module="chemtools.mcp.tools.qmcpack",
         definitions_attribute="qmcpack_tool_definitions",
+    ),
+    BuiltinBackendSpec(
+        name="orca",
+        program_module="chemtools.programs.orca",
+        backend_attribute="ORCA",
+        tools_module="chemtools.mcp.tools.orca",
+        definitions_attribute="orca_tool_definitions",
     ),
 )
 

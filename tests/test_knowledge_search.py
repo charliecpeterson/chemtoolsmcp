@@ -33,12 +33,46 @@ def test_nonaccepted_cards_require_explicit_status():
     assert [card.id for card in result.cards] == [
         "cross_program.cheap_invariants_find_wrong_basins",
         "cross_program.silent_success",
+        "nwchem.basis_assignments_require_explicit_coverage",
+        "nwchem.imaginary_modes_require_scoped_interpretation",
+        "nwchem.scf_recovery_requires_trend_classification",
     ]
     payload = result.to_dict()
     assert payload["filters"]["status"] == "draft"
     assert [
         card["recommendation_eligible"] for card in payload["cards"]
-    ] == [False, False]
+    ] == [False, False, False, False, False]
+
+
+@pytest.mark.parametrize(
+    ("query", "card_id"),
+    (
+        (
+            "oscillatory maxiter",
+            "nwchem.scf_recovery_requires_trend_classification",
+        ),
+        (
+            "imaginary frequency",
+            "nwchem.imaginary_modes_require_scoped_interpretation",
+        ),
+        (
+            "basis coverage",
+            "nwchem.basis_assignments_require_explicit_coverage",
+        ),
+    ),
+)
+def test_migrated_nwchem_policy_cards_remain_explicit_drafts(
+    query,
+    card_id,
+):
+    result = search_knowledge_cards(
+        query=query,
+        program="nwchem",
+        status="draft",
+    )
+
+    assert [card.id for card in result.cards] == [card_id]
+    assert result.cards[0].status == "draft"
 
 
 def test_search_combines_text_and_scope_filters():
@@ -125,7 +159,7 @@ def test_search_rejects_invalid_filters(arguments, error, message):
 
 def test_mcp_tool_defaults_to_accepted_and_returns_traceability():
     payload = dispatch_tool(
-        "search_knowledge_cards",
+        "search_knowledge",
         {"query": "failure sentinel"},
     )
 
@@ -143,14 +177,25 @@ def test_mcp_tool_rejects_unknown_arguments():
         ValueError,
         match=r"unknown search arguments: \['statsu'\]",
     ):
-        dispatch_tool("search_knowledge_cards", {"statsu": "draft"})
+        dispatch_tool("search_knowledge", {"statsu": "draft"})
+
+
+def test_old_mcp_name_is_a_hidden_behavior_preserving_alias():
+    arguments = {"query": "failure sentinel"}
+
+    assert dispatch_tool("search_knowledge_cards", arguments) == (
+        dispatch_tool("search_knowledge", arguments)
+    )
+    public_names = {item["name"] for item in tool_definitions()}
+    assert "search_knowledge" in public_names
+    assert "search_knowledge_cards" not in public_names
 
 
 def test_mcp_schema_pins_status_default_and_bounds():
     definition = next(
         item
         for item in tool_definitions()
-        if item["name"] == "search_knowledge_cards"
+        if item["name"] == "search_knowledge"
     )
     properties = definition["inputSchema"]["properties"]
 

@@ -8,14 +8,7 @@ modules pull this in via `from _nwchem_base import *`; nwchem.py re-exports it.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 from typing import Any, Callable
-
-# Repo-root fallback for source-tree runs (mirrors mcp/nwchem.py).
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if not any("chemtools" in p for p in sys.path):
-    sys.path.insert(0, str(_REPO_ROOT))
 
 # Public chemtools surface — all the functions the handlers below call.
 from chemtools import (  # noqa: E402
@@ -126,7 +119,7 @@ from chemtools import (  # noqa: E402
     suggest_partition,
     draft_nwchem_pyscf_reference,
 )
-from chemtools.core.eval import evaluate_case, evaluate_cases  # noqa: E402
+from chemtools.application.evaluation import evaluate_case, evaluate_cases  # noqa: E402
 from chemtools.programs.nwchem.docs import (  # noqa: E402
     find_examples as docs_find_examples,
     get_topic_guide as docs_get_topic_guide,
@@ -142,42 +135,23 @@ from chemtools.mcp.decorator import (  # noqa: E402
     _TOOL_REGISTRY,
     _TOOL_CAPABILITIES,
     _TOOL_PROGRAMS,
-    _tool as _raw_tool,
     log_event,
     ACTIVE_MODE,
     SERVER_NAME,
     SERVER_VERSION,
     DEFAULT_PROTOCOL_VERSION,
 )
-
-
-def _tool(name: str, *, needs: str = "none", program: str = "nwchem"):
-    """Program-scoped @_tool wrapper for NWChem. All tools in this module
-    are tagged with program='nwchem' by default — pass program='generic'
-    on tools that work across programs (basis advisors, session log,
-    reaction energy, etc.)."""
-    return _raw_tool(name, needs=needs, program=program)
+from chemtools.mcp.tools._nwchem_registration import _tool  # noqa: E402,F401
 from chemtools.mcp.server import (  # noqa: E402
     make_response,
     make_success_result,
     make_error_result,
 )
 from chemtools.mcp import modes as _modes  # noqa: E402
-
-# Basis library: bundled inside the package at chemtools/data/nwchem/basis_library/
-# Can be overridden at runtime with CHEMTOOLS_BASIS_LIBRARY env var.
-import os  # noqa: E402
-try:
-    from importlib.resources import files as _pkg_files  # noqa: E402
-    DEFAULT_BASIS_LIBRARY = Path(str(_pkg_files("chemtools").joinpath("data/nwchem/basis_library")))
-except Exception:
-    DEFAULT_BASIS_LIBRARY = _REPO_ROOT / "chemtools" / "data" / "nwchem" / "basis_library"
-
-
-def basis_library_path(path: str | None = None) -> str:
-    if path:
-        return path
-    return os.environ.get("CHEMTOOLS_BASIS_LIBRARY", str(DEFAULT_BASIS_LIBRARY))
+from chemtools.mcp.tools._nwchem_paths import (  # noqa: E402,F401
+    DEFAULT_BASIS_LIBRARY,
+    basis_library_path,
+)
 
 
 def tool_definitions() -> list[dict[str, Any]]:
@@ -269,7 +243,7 @@ def _resolve_plugin_or_error(arguments: dict[str, Any]):
         }
 
 # ---------------------------------------------------------------------------
-# Generic case-analysis / recovery dispatchers (Phase 6a)
+# Generic case-analysis and recovery dispatchers
 # ---------------------------------------------------------------------------
 # Auto-detect program and dispatch to the appropriate program-specific
 # tool. Each returns the per-program shape tagged with "program" so the

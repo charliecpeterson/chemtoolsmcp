@@ -24,7 +24,7 @@ from chemtools.application.nwchem_execution import (
 from chemtools.application.nwchem_monitoring import (
     watch_nwchem_status_with_service,
 )
-from chemtools.execution.legacy_profiles import (
+from chemtools.execution.profiles import (
     load_runner_profiles,
     resolve_runner_profile,
 )

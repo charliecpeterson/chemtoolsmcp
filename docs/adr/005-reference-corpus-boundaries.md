@@ -184,9 +184,11 @@ Md3+ LS-coupling study remains `shelved`.
 ### Committed JSON manifests select external cases
 
 Phase 0 manifests remain versioned JSON so the existing standard-library
-loader can read them without another dependency. Manifests live under
-`references/` and may be split by program or workflow after the case count
-makes one file difficult to review. A database is not needed.
+loader can read them without another dependency. Manifests used by installed
+reference search live under `chemtools/data/reference_cases/`; integration
+contract manifests that are not searched may remain under `references/`.
+Files may be split by program or workflow after the case count makes one file
+difficult to review. A database is not needed.
 
 The next manifest schema will describe cases and their artifact collections:
 

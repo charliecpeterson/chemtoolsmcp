@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """chemtools MCP server entry point.
 
-Slim CLI module — owns argument parsing, mode/program resolution, and the
-``serve()`` JSON-RPC loop. The heavy lifting happens in:
+Slim CLI module that owns argument parsing and mode/program resolution. The
+heavy lifting happens in:
 
   * `chemtools/mcp/decorator.py`     @_tool decorator + shared registries
-  * `chemtools/mcp/server.py`        JSON-RPC transport + arg parser
+  * `chemtools/mcp/sdk_server.py`    official MCP SDK adapter
+  * `chemtools/mcp/server.py`        shared result type + arg parser
   * `chemtools/mcp/dispatch.py`      tool_definitions aggregator +
                                      dispatch_tool + handle_request +
                                      _TOOL_ALIASES
@@ -18,62 +19,46 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
+from importlib.resources import files
 
-# Development fallback: if running directly from the source tree, add repo
-# root to path so `chemtools` can be imported without `pip install -e .`
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if not any("chemtools" in p for p in sys.path):
-    sys.path.insert(0, str(_REPO_ROOT))
-
-# Framework
-from chemtools.mcp.decorator import (  # noqa: E402
+from chemtools.mcp.decorator import (
     _TOOL_REGISTRY,
     _TOOL_CAPABILITIES,
     _TOOL_PROGRAMS,
     log_event,
-    set_active_mode,
-    set_active_programs,
-    set_active_toolset,
 )
-from chemtools.mcp.server import (  # noqa: E402
-    read_message,
-    write_message,
-    build_arg_parser,
-)
-from chemtools.mcp import modes as _modes  # noqa: E402
+from chemtools.mcp.state import ServerState
+from chemtools.mcp.server import build_arg_parser
+from chemtools.mcp.sdk_server import serve_stdio
+from chemtools.mcp import modes as _modes
 
 # Importing dispatch registers built-in backends and loads tool modules in
 # catalog order before the server accepts requests.
-from chemtools.mcp.dispatch import (  # noqa: E402, F401
+from chemtools.mcp.dispatch import (
     tool_definitions,
     dispatch_tool,
     handle_request,
     _TOOL_ALIASES,
 )
 
-# Active mode + program filter mirrors — main() updates the decorator-module
-# canonical copies via set_active_mode + set_active_programs.
-ACTIVE_MODE: str = "analysis"
-ACTIVE_PROGRAMS: set[str] | None = None
+_PROFILE_EXAMPLE_FILES = {
+    "local": "runner_profiles.local.example.json",
+    "slurm": "runner_profiles.slurm.example.yaml",
+}
 
 
-def serve() -> None:
-    input_stream = sys.stdin.buffer
-    output_stream = sys.stdout.buffer
-    log_event(f"server start mode={ACTIVE_MODE}")
+def _profile_example_text(name: str) -> str:
+    filename = _PROFILE_EXAMPLE_FILES.get(name)
+    if filename is None:
+        raise ValueError(f"unknown runner-profile example: {name!r}")
+    return files("chemtools").joinpath(filename).read_text(encoding="utf-8")
 
-    while True:
-        message = read_message(input_stream)
-        if message is None:
-            log_event("server stop: no message")
-            break
-        response, should_exit = handle_request(message)
-        if response is not None:
-            write_message(output_stream, response)
-        if should_exit:
-            log_event("server stop: exit requested")
-            break
+
+def serve(state: ServerState | None = None) -> None:
+    state = state or ServerState.create()
+    log_event(f"server start mode={state.mode}")
+    serve_stdio(state)
+    log_event("server stop")
 
 
 def _build_arg_parser(prog: str = "chemtools"):
@@ -92,19 +77,26 @@ def main(prog: str = "chemtools") -> None:
     Default binary name is ``chemtools``; the legacy ``chemtools-nwchem``
     binary aliases to ``main(prog="chemtools-nwchem")`` for backward compat.
     """
-    global ACTIVE_MODE, ACTIVE_PROGRAMS
     args = _build_arg_parser(prog=prog).parse_args()
 
+    if args.print_profile_example:
+        sys.stdout.write(_profile_example_text(args.print_profile_example))
+        return
+
     mode, mode_reason = _modes.resolve_mode(args.mode)
-    ACTIVE_MODE = mode
-    set_active_mode(mode)  # Keep canonical mcp.decorator copy in sync.
-
     programs, programs_reason = _modes.resolve_programs(args.programs)
-    ACTIVE_PROGRAMS = programs
-    set_active_programs(programs)  # Keep canonical mcp.decorator copy in sync.
-
-    toolset, toolset_reason = _modes.resolve_toolset(args.toolset)
-    set_active_toolset(toolset)  # Keep canonical mcp.decorator copy in sync.
+    toolset, toolset_reason = _modes.resolve_toolset(
+        args.toolset,
+        aliases={
+            alias: target
+            for alias, (target, _translator) in _TOOL_ALIASES.items()
+        },
+    )
+    state = ServerState.create(
+        mode=mode,
+        programs=programs,
+        toolset=toolset,
+    )
 
     summary = _modes.summarize_mode(
         mode, _TOOL_CAPABILITIES, tool_definitions(),
@@ -144,7 +136,7 @@ def main(prog: str = "chemtools") -> None:
         f"{summary['available_tool_count']}/{summary['total_tool_count']} tools exposed\n"
     )
     sys.stderr.flush()
-    serve()
+    serve(state)
 
 
 def main_legacy_nwchem() -> None:
@@ -154,8 +146,8 @@ def main_legacy_nwchem() -> None:
     for one release. Emits a stderr deprecation hint.
     """
     sys.stderr.write(
-        "chemtools-nwchem: this binary will be renamed to 'chemtools' in a "
-        "future release. Update your MCP configs.\n"
+        "chemtools-nwchem: deprecated compatibility command; use 'chemtools'. "
+        "Update your MCP configs before the compatibility command is removed.\n"
     )
     sys.stderr.flush()
     main(prog="chemtools-nwchem")

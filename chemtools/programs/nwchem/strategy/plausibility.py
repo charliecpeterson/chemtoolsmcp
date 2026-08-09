@@ -31,8 +31,9 @@ from chemtools.programs.nwchem.input._utils import _TRANSITION_METALS
 
 
 def _extract_nwchem_geometry(*args, **kwargs):
-    """Lazy proxy for chemtools.api_input.extract_nwchem_geometry."""
+    """Delay geometry imports to keep the plausibility module independent."""
     from chemtools.programs.nwchem.input.geometry import extract_nwchem_geometry
+
     return extract_nwchem_geometry(*args, **kwargs)
 
 

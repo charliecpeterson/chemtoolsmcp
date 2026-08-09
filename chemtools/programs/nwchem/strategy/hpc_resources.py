@@ -10,9 +10,9 @@ Three entry points for HPC job sizing and submission:
   * suggest_partition       Recommend the right partition / queue for a
                             given job size on a SLURM cluster.
 
-All three pull from chemtools/core/runner.py for profile loading and
-partition specs. _analyze_job_size lives in api_strategy.py (still flat
-for now) and is lazy-imported below to avoid a cycle.
+All three pull from ``chemtools.execution.legacy_runner`` for profile loading and
+partition specs. Job sizing remains in the focused resources module and is
+loaded only when needed.
 """
 
 from __future__ import annotations
@@ -21,17 +21,18 @@ import re
 from pathlib import Path
 from typing import Any
 
-from chemtools.core.runner import (
-    load_runner_profiles,
+from chemtools.execution.profiles import (
     _resolve_profile,
+    load_runner_profiles,
 )
 from chemtools.programs.nwchem.strategy.resources import suggest_memory, _BF_PER_RANK_TARGET
 from chemtools.programs.nwchem.strategy.workflow_state import _format_walltime, _parse_walltime_hours
 
 
 def _job_size(input_file: str) -> dict[str, Any]:
-    """Lazy proxy for api_strategy._analyze_job_size — avoids the cycle."""
-    from chemtools.api_strategy import _analyze_job_size
+    """Avoid importing the resource module until a sizing request is made."""
+    from chemtools.programs.nwchem.strategy.resources import _analyze_job_size
+
     return _analyze_job_size(input_file)
 
 

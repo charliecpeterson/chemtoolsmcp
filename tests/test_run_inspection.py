@@ -13,6 +13,7 @@ from chemtools.application.run_inspection import (
     RELATED_TEXT_TOTAL_LIMIT_BYTES,
     RunInspectionError,
     inspect_run,
+    inspect_run_geometry,
     validate_primary_output_format,
 )
 from chemtools.core import registry
@@ -37,6 +38,32 @@ FIXTURES = Path(__file__).parent / "golden" / "mcp" / "fixtures"
 class _UnexpectedOutputParser:
     def parse_output(self, path: str) -> dict:
         raise AssertionError(f"parser must not read standalone NBO output: {path}")
+
+
+class _BohrGeometryParser:
+    def get_geometry(self, path: str) -> dict:
+        return {
+            "units": "bohr",
+            "atoms": [
+                {"element": "H", "x": 0.0, "y": 0.0, "z": 0.0},
+                {"element": "H", "x": 1.4, "y": 0.0, "z": 0.0},
+            ],
+        }
+
+
+def test_inspect_run_geometry_normalizes_backend_shape_and_units():
+    backend = replace(
+        load_backend(BUILTIN_BACKENDS[0]),
+        parser=_BohrGeometryParser(),
+    )
+
+    inspected = inspect_run_geometry(backend, "h2.out")
+
+    assert inspected["program"] == "nwchem"
+    assert inspected["units"] == "angstrom"
+    assert inspected["formula"] == "H2"
+    assert inspected["atoms"][1]["x"] == pytest.approx(0.740848, abs=1e-6)
+    assert inspected["bond_lengths"][0]["length"] == 0.7408
 
 
 def test_inspect_run_rejects_oversized_primary_output_before_parser(tmp_path):
@@ -408,6 +435,7 @@ def test_inspect_run_uses_backend_diagnosis_for_nwchem():
             "reasons": ["stage: single_point"],
         },
     }
+    assert inspected["evidence"]["diagnosis_anchors"] == []
     assert inspected["evidence"]["artifact_classification"] == {
         "status": "matched",
         "candidates": [{
@@ -442,6 +470,7 @@ def test_inspect_run_uses_backend_diagnosis_for_nwchem():
     )
     assert inspected["uncertainty"] == []
     assert inspected["next_actions"] == [{
+        "action": "analyze_nwchem_frontier_orbitals",
         "tool": "analyze_nwchem_frontier_orbitals",
         "params": {},
         "reason": "verify state quality before accepting result",
@@ -558,8 +587,8 @@ def test_inspect_run_preserves_parse_when_optional_diagnosis_fails():
         def diagnose(self, parsed):
             raise RuntimeError("diagnostic fixture failure")
 
-        def suggest_recovery(self, parsed, diagnosis):
-            return []
+        def plan_recovery(self, output_path, input_path, target):
+            return {}
 
     broken = replace(backend, diagnostics=_BrokenDiagnostics())
     path = FIXTURES / "nwchem_scf.out"
@@ -586,6 +615,39 @@ def test_inspect_run_preserves_parse_when_optional_diagnosis_fails():
             "diagnostic fixture failure"
         ),
         "impact": "The verdict uses parsed task outcomes only.",
+    }]
+    assert inspected["evidence"]["diagnosis_anchors"] == []
+
+
+def test_inspect_run_preserves_converged_scf_instability(tmp_path):
+    path = tmp_path / "unstable.out"
+    path.write_text(
+        "Northwest Computational Chemistry Package\n"
+        "NWChem DFT Module\n"
+        "d= 0,diis     9  -1649.5540018025  8.40D-02  1.39D-01  2.48D+01  1.0\n"
+        "d= 0,diis    10  -1632.8414630431  1.67D+01  1.39D-01  1.33D+02  1.0\n"
+        "d= 0,diis    11  -1650.0000000000 -1.72D+01  1.00D-02  1.00D+00  1.0\n"
+        "d= 0,diis    12  -1650.9693626187 -9.69D-01  1.00D-08  1.00D-09  1.0\n"
+        "Total DFT energy = -1650.9693626187\n"
+        "Task times cpu: 1.0s wall: 1.0s\n",
+        encoding="utf-8",
+    )
+
+    inspected = inspect_run(
+        load_backend(BUILTIN_BACKENDS[0]),
+        path,
+        resolved_by="explicit",
+    )
+
+    assert inspected["assessment"]["verdict"]["label"] == "success"
+    assert inspected["evidence"]["diagnosis_anchors"] == [{
+        "kind": "warning",
+        "message": (
+            "SCF converged after a transient +16.700000 Ha energy increase at "
+            "iteration 10 (DIIS error 133); the convergence path was unstable."
+        ),
+        "line": None,
+        "file": str(path),
     }]
 
 

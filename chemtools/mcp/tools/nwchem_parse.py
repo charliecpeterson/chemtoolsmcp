@@ -1,13 +1,35 @@
-"""NWChem MCP handlers — parse.
+"""NWChem MCP handlers for text and binary output parsing."""
 
-Split from mcp/tools/nwchem.py by category. Shared imports/helpers live in
-_nwchem_base (pulled in below); nwchem.py imports this module so its @_tool
-handlers register.
-"""
 from __future__ import annotations
 
-from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
-from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from pathlib import Path
+from typing import Any
+
+from chemtools.programs.nwchem.strategy.legacy_next_actions import (
+    build_legacy_next_actions as _build_next_actions,
+)
+from chemtools.mcp.tools._nwchem_registration import _tool
+from chemtools.programs.nwchem.binary.movecs import parse_nwchem_movecs
+from chemtools.programs.nwchem.input.basis import inspect_nwchem_geometry
+from chemtools.programs.nwchem.input.geometry import extract_nwchem_geometry
+from chemtools.programs.nwchem.output import (
+    parse_freq_progress,
+    parse_mcscf_output,
+    parse_mos,
+    parse_nwchem_thermochem,
+    parse_output,
+    parse_population_analysis,
+    parse_tasks,
+    parse_tce_output,
+    parse_trajectory,
+    summarize_output,
+)
+from chemtools.programs.nwchem.parse.tce import parse_tce_amplitudes
+from chemtools.programs.nwchem.strategy.diagnose import (
+    parse_scf,
+    summarize_electronic_structure,
+    summarize_nwchem_outputs,
+)
 
 
 @_tool("parse_nwchem_output")
@@ -149,7 +171,6 @@ def _handle_parse_nwchem_movecs(arguments: dict[str, Any]) -> dict[str, Any]:
     result = parse_nwchem_movecs(movecs_file)
     # The natural sibling .out file usually shares the same stem, e.g.
     # water.movecs ↔ water.out — emit that as the next-action target.
-    from pathlib import Path
     output_file = str(Path(movecs_file).with_suffix(".out"))
     result["next_actions"] = _build_next_actions(
         "movecs", result,

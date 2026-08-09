@@ -1,0 +1,48 @@
+# Minimal alpha-glycine structure extracted from COD entry 2310002.
+# The full CIF and attribution metadata are preserved in the external corpus.
+data_2310002
+_journal_paper_doi               10.1107/S0108767312029005
+_chemical_formula_sum            'C2 H5 N O2'
+_chemical_name_common            \a-Glycine
+_space_group_IT_number           14
+_symmetry_cell_setting           monoclinic
+_symmetry_space_group_name_Hall  '-P 2yn'
+_symmetry_space_group_name_H-M   'P 1 21/n 1'
+_cell_angle_alpha                90
+_cell_angle_beta                 111.990(15)
+_cell_angle_gamma                90
+_cell_formula_units_Z            4
+_cell_length_a                   5.087(2)
+_cell_length_b                   11.773(3)
+_cell_length_c                   5.460(2)
+_cell_volume                     303.21(18)
+_cod_database_code               2310002
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 +X,+Y,+Z
+2 1/2-X,1/2+Y,1/2-Z
+3 -X,-Y,-Z
+4 1/2+X,1/2-Y,1/2+Z
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_U_iso_or_equiv
+_atom_site_adp_type
+_atom_site_occupancy
+_atom_site_symmetry_multiplicity
+O(1) O 0.302156(19) 0.093778(7) 0.236474(19) 0.006 Uani 1 4
+O(2) O -0.155320(19) 0.142400(7) 0.10657(2) 0.006 Uani 1 4
+N N 0.294958(17) 0.088387(7) -0.259561(16) 0.005 Uani 1 4
+C(1) C 0.069329(18) 0.125159(8) 0.065779(18) 0.004 Uani 1 4
+C(2) C 0.057957(19) 0.145858(8) -0.214077(18) 0.005 Uani 1 4
+H(4) H 0.074477 0.237111 -0.241188 0.02009(2) Uiso 1 4
+H(5) H -0.140167 0.1137 -0.360019 0.01809(2) Uiso 1 4
+H(1) H 0.277937 0.099696 -0.452556 0.01911(2) Uiso 1 4
+H(2) H 0.489321 0.118996 -0.134753 0.01511(2) Uiso 1 4
+H(3) H 0.290225 0.002489 -0.222836 0.01611(2) Uiso 1 4

@@ -41,7 +41,7 @@ from chemtools.core.execution import (
     SlurmSubmissionResult,
 )
 from chemtools.execution import LocalExecutor, SlurmExecutor
-from chemtools.execution.launch_registry import (
+from chemtools.persistence.launches import (
     UnknownLaunchRecordError,
     create_launch_record,
     load_launch_record,

@@ -1,13 +1,20 @@
-"""NWChem MCP handlers — docs.
+"""NWChem MCP handlers for evaluations, bundled docs, and forum search."""
 
-Split from mcp/tools/nwchem.py by category. Shared imports/helpers live in
-_nwchem_base (pulled in below); nwchem.py imports this module so its @_tool
-handlers register.
-"""
 from __future__ import annotations
 
-from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
-from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from typing import Any
+
+from chemtools.application.evaluation import evaluate_case, evaluate_cases
+from chemtools.mcp.tools._nwchem_registration import _tool
+from chemtools.programs.nwchem.docs import (
+    find_examples as docs_find_examples,
+    get_topic_guide as docs_get_topic_guide,
+    list_docs as docs_list_docs,
+    lookup_block_syntax as docs_lookup_block_syntax,
+    read_doc_excerpt as docs_read_doc_excerpt,
+    search_docs as docs_search_docs,
+)
+from chemtools.programs.nwchem.forum import search_forum as forum_search
 
 
 @_tool("evaluate_nwchem_case")

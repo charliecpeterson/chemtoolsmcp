@@ -122,6 +122,17 @@ _DIPOLE_SF_ROW_RE = re.compile(
     re.M,
 )
 
+
+def parse_rassi_module(text: str) -> dict[str, Any] | None:
+    """Parse the first bounded RASSI module from a complete Molcas output."""
+    start = text.find("--- Start Module: rassi")
+    if start == -1:
+        return None
+    end = text.find("--- Stop Module: rassi", start)
+    if end == -1:
+        end = len(text)
+    return parse_rassi(text[start:end])
+
 # Dipole transition strengths (SO):
 _DIPOLE_SO_HEADER_RE = re.compile(
     r"Dipole transition strengths \(SO states\):\s*\n\s*-+\s*\n"

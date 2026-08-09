@@ -4,7 +4,7 @@ import json
 
 from chemtools.application.qmcpack_execution import render_qmcpack_launch
 from chemtools.execution import LocalExecutor
-from chemtools.core.runner import load_runner_profiles
+from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.programs.qmcpack.launch import (
     adapt_legacy_qmcpack_profile,
     build_qmcpack_launch_plan,

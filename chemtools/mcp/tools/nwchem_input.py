@@ -1,13 +1,58 @@
-"""NWChem MCP handlers — input.
+"""NWChem MCP handlers for input review, rendering, and recovery drafts."""
 
-Split from mcp/tools/nwchem.py by category. Shared imports/helpers live in
-_nwchem_base (pulled in below); nwchem.py imports this module so its @_tool
-handlers register.
-"""
 from __future__ import annotations
 
-from chemtools.mcp.tools._nwchem_base import *  # noqa: F401,F403
-from chemtools.mcp.tools._nwchem_base import _tool, _build_next_actions  # noqa: F401
+from typing import Any
+
+from chemtools.mcp.tools._nwchem_paths import basis_library_path
+from chemtools.mcp.tools._nwchem_registration import _tool
+from chemtools.programs.nwchem.input.basis import (
+    render_basis_block,
+    render_basis_block_from_geometry,
+    render_ecp_block,
+    render_nwchem_basis_setup,
+    resolve_basis,
+    resolve_ecp,
+)
+from chemtools.programs.nwchem.input.cube import (
+    draft_nwchem_cube_input,
+    draft_nwchem_frontier_cube_input,
+)
+from chemtools.programs.nwchem.input.dft import (
+    create_nwchem_dft_input_from_request,
+    create_nwchem_dft_workflow_input,
+)
+from chemtools.programs.nwchem.input.general import (
+    build_scf_module_settings,
+    create_nwchem_input,
+    create_nwchem_input_variant,
+    review_nwchem_input_request,
+)
+from chemtools.programs.nwchem.input.imaginary_modes import (
+    draft_nwchem_imaginary_mode_inputs,
+)
+from chemtools.programs.nwchem.input.lint_restart import (
+    inspect_input,
+    lint_nwchem_input,
+)
+from chemtools.programs.nwchem.input.mcscf import (
+    draft_nwchem_mcscf_input,
+    draft_nwchem_mcscf_retry_input,
+)
+from chemtools.programs.nwchem.input.opt_followup import (
+    draft_nwchem_optimization_followup_input,
+)
+from chemtools.programs.nwchem.input.scf_recovery import (
+    draft_nwchem_property_check_input,
+    draft_nwchem_scf_stabilization_input,
+    draft_nwchem_vectors_swap_input,
+)
+from chemtools.programs.nwchem.input.tce import (
+    draft_nwchem_atom_input,
+    draft_nwchem_tce_input,
+    draft_nwchem_tce_restart_input,
+)
+from chemtools.programs.nwchem.runner import inspect_runner_profiles
 
 
 @_tool("prepare_nwchem_mcscf_setup")
@@ -39,7 +84,7 @@ def _handle_prepare_nwchem_tce_setup(arguments: dict[str, Any]) -> dict[str, Any
     )
 
 # ---------------------------------------------------------------------------
-# Generic auto-detect tool dispatchers (Phase 4)
+# Input drafting handlers
 # ---------------------------------------------------------------------------
 
 
@@ -254,22 +299,6 @@ def _handle_render_nwchem_basis_setup(arguments: dict[str, Any]) -> dict[str, An
 
 @_tool("create_nwchem_input")
 def _handle_create_nwchem_input(arguments: dict[str, Any]) -> dict[str, Any]:
-    # Translate explicit SCF params into module_settings lines
-    module = arguments.get("module", "").strip().lower()
-    module_settings: list[str] = []
-    if module == "scf":
-        scf_type = arguments.get("scf_type")
-        nopen = arguments.get("nopen")
-        maxiter = arguments.get("maxiter")
-        thresh = arguments.get("thresh")
-        if scf_type:
-            module_settings.append(scf_type)
-        if nopen is not None:
-            module_settings.append(f"nopen {nopen}")
-        if maxiter is not None:
-            module_settings.append(f"maxiter {maxiter}")
-        if thresh is not None:
-            module_settings.append(f"thresh {thresh:.2e}")
     return create_nwchem_input(
         geometry_path=arguments["geometry_file"],
         library_path=basis_library_path(arguments.get("library_path")),
@@ -283,7 +312,13 @@ def _handle_create_nwchem_input(arguments: dict[str, Any]) -> dict[str, Any]:
         task_operation=arguments.get("task_operation"),
         charge=arguments.get("charge"),
         multiplicity=arguments.get("multiplicity"),
-        module_settings=module_settings or None,
+        module_settings=build_scf_module_settings(
+            arguments.get("module", ""),
+            scf_type=arguments.get("scf_type"),
+            nopen=arguments.get("nopen"),
+            maxiter=arguments.get("maxiter"),
+            thresh=arguments.get("thresh"),
+        ),
         extra_blocks=arguments.get("extra_blocks"),
         memory=arguments.get("memory"),
         title=arguments.get("title"),
@@ -467,7 +502,7 @@ def _handle_create_nwchem_input_variant(arguments: dict[str, Any]) -> dict[str, 
 
 
 # ---------------------------------------------------------------------------
-# Handlers — eval + smart input creation (Phase 6)
+# Evaluation and input creation handlers
 # ---------------------------------------------------------------------------
 
 
@@ -502,7 +537,7 @@ def _handle_create_nwchem_dft_input_from_request(arguments: dict[str, Any]) -> d
 
 
 # ---------------------------------------------------------------------------
-# Handlers — gap-fill tools (Phase 5)
+# Input and output review handlers
 # ---------------------------------------------------------------------------
 
 
