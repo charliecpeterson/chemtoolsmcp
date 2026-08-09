@@ -4,13 +4,14 @@ Audit date: 2026-08-09
 
 The legacy execution modules are not ready for wholesale removal. The old
 profile import, status, and non-NWChem scheduler paths have been removed, but
-the renderer and response translator still serve NWChem compatibility calls.
+the renderer still serves the old direct Python runner and `render_job_script`.
+The response translator remains for the retained low-level NWChem MCP launch.
 
 ## Profile ownership
 
 `chemtools.execution.profiles` now owns version 1 profile loading, default
 merging, and conversion into typed resources, installations, and Slurm target
-settings. One compatibility application adapter and the NWChem, Molcas,
+settings. The NWChem compatibility application adapter and the NWChem, Molcas,
 DIRAC, GRASP, QE, and QMCPACK launch providers import that owner directly.
 
 `chemtools.execution.legacy_profiles` was an exact compatibility facade. No
@@ -33,14 +34,18 @@ eight bundled profiles. The same wheel is installed in the repository-local
 
 ## Legacy renderer and launcher
 
-Three first-party runtime modules still import `execution.legacy_runner`:
+Two first-party runtime modules still import `execution.legacy_runner`:
 
-- The NWChem application adapter uses the old renderer to keep its low-level
-  response shape.
 - The NWChem compatibility runner still calls the old render and launch
   functions.
 - `core/runner.py` remains a pure compatibility facade with no first-party
   caller.
+
+The low-level NWChem MCP adapter now prepares through the same typed provider
+as guided launch. Its dry-run and live responses retain the established keys
+but expose the executor's exact command or Slurm script. The adapter no longer
+imports the legacy renderer or the broad NWChem runner, and environment
+overrides now enter the typed plan before rendering.
 
 The guided interface has typed, approval-gated NWChem, OpenMolcas, DIRAC,
 GRASP workflow, Quantum ESPRESSO, and QMCPACK launch providers. Each reads
@@ -60,9 +65,16 @@ passed the isolated MCP exchange.
 Removal gates:
 
 1. Replace each retained low-level preview with direct typed preparation after
-   that program has an accepted guided launch provider.
-2. Reimplement retained scheduler render and launch calls over typed targets
-   without changing their response contracts.
+   that program has an accepted guided launch provider. This is complete for
+   the low-level NWChem launch.
+2. Migrate or retire `render_job_script` and the old direct Python launch
+   functions before removing `execution.legacy_runner`.
+
+The NWChem adapter migration passed 95 focused execution, launch, model,
+profile, and boundary checks, followed by all 1,918 tests with the external
+corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+`fa6ee2215e4305e4abb08bf9a535fde8bb694769ca6dad03e21746291b6eed0a`
+passed, and the same wheel is installed in the repository-local `venv`.
 
 The QE, QMCPACK, Molcas, DIRAC, and asynchronous GRASP low-level MCP execution surfaces were
 removed after their guided providers passed the parity and external-corpus
@@ -89,8 +101,8 @@ The retention decision and per-program evidence are recorded in
 ## Legacy output archival
 
 `execution/legacy_archive.py` now owns the timestamped, collision-safe rename
-policy used before compatibility launches. Both remaining program
-application adapter imports it directly. `execution.legacy_runner` keeps exact
+policy used before compatibility launches. The NWChem application adapter
+imports it directly. `execution.legacy_runner` keeps exact
 imports of both archive functions for its old direct Python surface and its
 remaining version 1 launch implementation.
 
@@ -158,6 +170,6 @@ on this projection.
 
 Keep the canonical `profiles.py` owner and focused `legacy_archive.py` seam.
 Keep the remaining compatibility modules until their callers are removed in
-the order above. The guided NWChem path is the reference for direct typed plan
-preparation; do not add another profile schema or execution abstraction for
-the remaining compatibility callers.
+the order above. Both NWChem MCP launch paths now use the typed provider. The
+remaining decision concerns `render_job_script` and direct Python compatibility,
+not another program-specific execution adapter.

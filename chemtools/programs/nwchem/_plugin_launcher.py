@@ -40,6 +40,12 @@ class _NwchemLaunchPlanner:
                     input_file,
                     resource_request(values),
                     job_name=job_name,
+                    environment={
+                        str(key): str(value)
+                        for key, value in (
+                            request.get("env_overrides") or {}
+                        ).items()
+                    },
                 ),
                 target=configured_target,
                 metadata={
@@ -107,6 +113,10 @@ class _NwchemLaunchPlanner:
             for key, value in (profile.get("env") or {}).items()
             if value is not None
         }
+        environment.update({
+            str(key): str(value)
+            for key, value in (request.get("env_overrides") or {}).items()
+        })
         plan = build_nwchem_launch_plan(
             input_file,
             resource_request(resources),
@@ -124,6 +134,14 @@ class _NwchemLaunchPlanner:
                 "launcher_kind": (
                     profile.get("launcher") or {}
                 ).get("kind", "direct"),
+                "compatibility": {
+                    "resources": resources,
+                    "restart_prefix": context["restart_prefix"],
+                    "shell": (profile.get("execution") or {}).get(
+                        "shell",
+                        "/bin/bash",
+                    ),
+                },
             },
         )
 

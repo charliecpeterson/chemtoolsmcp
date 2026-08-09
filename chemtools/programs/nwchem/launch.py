@@ -7,7 +7,9 @@ NWChem filenames and arguments separate from target-owned command prefixes.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import re
 import shlex
 from typing import Any, Mapping
 
@@ -44,6 +46,59 @@ class LegacyNwchemTarget:
     @property
     def default_resources(self) -> ResourceRequest:
         return self.target.default_resources
+
+
+def _host_memory_mb() -> float | None:
+    try:
+        return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / (
+            1024 * 1024
+        )
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def _nwchem_memory_total_mb(input_path: str | Path) -> int | None:
+    try:
+        text = Path(input_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    match = re.search(
+        r"^\s*memory\s+(?:total\s+)?(\d+)\s*mb\b",
+        text,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    return int(match.group(1)) if match else None
+
+
+def nwchem_resource_warnings(
+    input_path: str | Path,
+    resources: Mapping[str, Any],
+) -> list[str]:
+    """Report local rank and memory requests likely to make NWChem unstable."""
+    warnings: list[str] = []
+    try:
+        ranks = resources.get("mpi_ranks")
+        if not isinstance(ranks, int):
+            return warnings
+        cores = os.cpu_count()
+        if cores and ranks > cores:
+            warnings.append(
+                f"mpi_ranks={ranks} exceeds the {cores} cores on this host; "
+                "oversubscribing the Global Arrays layer can deadlock or "
+                f"badly slow the SCF. Use ranks <= {cores}."
+            )
+        per_rank_mb = _nwchem_memory_total_mb(input_path)
+        host_mb = _host_memory_mb()
+        if per_rank_mb and host_mb and ranks * per_rank_mb > 0.9 * host_mb:
+            warnings.append(
+                f"memory {per_rank_mb} MB/rank x {ranks} ranks = "
+                f"{ranks * per_rank_mb} MB requested, near or above host RAM "
+                f"({int(host_mb)} MB); NWChem may OOM or swap-thrash mid-SCF. "
+                "Lower the 'memory' directive or the rank count."
+            )
+    except Exception:
+        return warnings
+    return warnings
 
 
 def _direct_installation(
@@ -192,4 +247,5 @@ __all__ = [
     "LegacyNwchemTarget",
     "adapt_legacy_nwchem_profile",
     "build_nwchem_launch_plan",
+    "nwchem_resource_warnings",
 ]

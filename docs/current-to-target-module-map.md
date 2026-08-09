@@ -269,8 +269,9 @@ the old dispatcher can leave with its compatibility callers.
 `render_calculation_run`. Profile loading lives in `execution/profiles.py`;
 read-only file and external Slurm status live in
 `execution/external_status.py`. The former QE, QMCPACK, Molcas, DIRAC, and
-GRASP asynchronous low-level MCP callers are gone. The old NWChem run and
-render names remain direct aliases. `programs/nwchem/external_status.py`
+GRASP asynchronous low-level MCP callers are gone. The old direct Python
+NWChem run and render names remain aliases, and `render_job_script` still uses
+that renderer. `programs/nwchem/external_status.py`
 injects the NWChem progress reader, and `core/runner.py` re-exports the
 retained owners for old direct imports. Execution has no program-package
 imports.
@@ -306,8 +307,9 @@ handle or target-owned Slurm queries, persists terminal launch metadata,
 updates the linked scientific run, and records immutable stdout and stderr
 observations.
 
-The low-level NWChem launch handlers use that service and translate typed
-results back to their retained response keys. Guided Molcas, DIRAC, and GRASP
+The low-level NWChem launch handler prepares through the same provider as
+guided launch, uses that service, and translates typed results back to its
+retained response keys. Guided Molcas, DIRAC, and GRASP
 workflow launches use the generic service without program-specific
 asynchronous execution adapters.
 Their plans retain the Molcas CASPT2 rank guard and DIRAC `pam-dirac` MPI,

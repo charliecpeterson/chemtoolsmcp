@@ -1,7 +1,7 @@
 """Translate NWChem runner calls to the typed execution service.
 
-Dry-run responses remain on the legacy renderer. Live calls keep the legacy
-response fields while process and scheduler changes pass through the service.
+The adapter retains the established MCP response fields while previews and
+live calls share the same typed launch plan and rendered command.
 """
 
 from __future__ import annotations
@@ -9,7 +9,8 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, Mapping
+import shlex
+from typing import Any
 
 from chemtools.application.execution import (
     ExecutionService,
@@ -35,11 +36,13 @@ from chemtools.core.artifacts import (
 from chemtools.core.execution import (
     ExecutionLaunchRecord,
     LocalCancellationResult,
+    PreparedLaunch,
     RecordedLocalStatus,
     RecordedSlurmStatus,
+    RenderedCommand,
+    RenderedSlurmScript,
 )
 from chemtools.execution.legacy_archive import archive_previous_outputs
-from chemtools.execution.legacy_runner import render_calculation_run
 from chemtools.persistence.runs import (
     get_run_summary,
     register_run,
@@ -49,34 +52,65 @@ from chemtools.persistence.launches import (
     UnknownExecutionRunLinkError,
     load_execution_run_link,
 )
-from chemtools.programs.nwchem.launch import (
-    adapt_legacy_nwchem_profile,
-    build_nwchem_launch_plan,
+from chemtools.programs.nwchem._plugin_launcher import (
+    NWCHEM_LAUNCH_PLANNER,
 )
-from chemtools.programs.nwchem.runner import (
-    launch_nwchem_run as legacy_launch_nwchem_run,
-)
-from chemtools.execution.profiles import (
-    load_runner_profiles,
-    resolve_runner_profile,
-    resource_request,
-)
+from chemtools.programs.nwchem.launch import nwchem_resource_warnings
 
 
-def _environment_overrides(
-    profiles: dict[str, Any],
-    profile_name: str,
-    rendered_environment: Mapping[str, str],
-    requested_overrides: Mapping[str, str] | None,
-) -> dict[str, str]:
-    profile = resolve_runner_profile(profiles, profile_name)
-    keys = set((profile.get("env") or {}).keys())
-    keys.update((requested_overrides or {}).keys())
-    return {
-        key: rendered_environment[key]
-        for key in keys
-        if key in rendered_environment
+def _launch_preview(
+    input_file: Path,
+    profile: str,
+    prepared: PreparedLaunch,
+    rendered: RenderedCommand | RenderedSlurmScript,
+) -> dict[str, Any]:
+    command = (
+        rendered.command
+        if isinstance(rendered, RenderedSlurmScript)
+        else rendered
+    )
+    if command.stdout_path is None or command.stderr_path is None:
+        raise ValueError("NWChem launch requires stdout and stderr paths")
+    compatibility = prepared.metadata["compatibility"]
+    preview = {
+        "profile": profile,
+        "profiles_path": prepared.metadata["profiles_path"],
+        "launcher_kind": prepared.metadata["launcher_kind"],
+        "input_file": str(input_file),
+        "job_name": prepared.plan.job_name,
+        "working_directory": str(command.working_directory),
+        "shell": compatibility["shell"],
+        "output_file": str(command.stdout_path),
+        "error_file": str(command.stderr_path),
+        "restart_prefix": compatibility["restart_prefix"],
+        "resources": dict(compatibility["resources"]),
+        "executed": False,
     }
+    warnings = nwchem_resource_warnings(input_file, preview["resources"])
+    if warnings:
+        preview["resource_warnings"] = warnings
+
+    if isinstance(rendered, RenderedSlurmScript):
+        scheduler = prepared.target.scheduler
+        if scheduler is None:
+            raise ValueError("NWChem Slurm target requires scheduler settings")
+        preview.update({
+            "submit_script_name": rendered.script_path.name,
+            "submit_script_path": str(rendered.script_path),
+            "submit_script_text": rendered.script_text,
+            "submit_command": list(rendered.submit_argv),
+            "job_id_regex": scheduler.job_id_regex,
+            "scheduler_type": "slurm",
+        })
+        return preview
+
+    launcher_argv = command.argv[:-len(prepared.plan.program_arguments)]
+    preview["launcher_command"] = shlex.join(launcher_argv)
+    preview["command"] = (
+        f"{shlex.join(command.argv)} > {shlex.quote(command.stdout_path.name)} "
+        f"2> {shlex.quote(command.stderr_path.name)}"
+    )
+    return preview
 
 
 def launch_nwchem_with_service(
@@ -91,65 +125,35 @@ def launch_nwchem_with_service(
     write_script: bool = True,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    preview = legacy_launch_nwchem_run(
-        input_path=input_path,
-        profile=profile,
-        profiles_path=profiles_path,
-        job_name=job_name,
-        resource_overrides=resource_overrides,
-        env_overrides=env_overrides,
-        write_script=write_script,
-        dry_run=True,
+    input_file = Path(input_path).resolve()
+    prepared = NWCHEM_LAUNCH_PLANNER.prepare_launch({
+        "input_file": str(input_file),
+        "profile": profile,
+        "profiles_path": profiles_path,
+        "job_name": job_name,
+        "resources": resource_overrides,
+        "env_overrides": env_overrides,
+    })
+    rendered = service.render(prepared.plan, prepared.target)
+    preview = _launch_preview(
+        input_file,
+        profile,
+        prepared,
+        rendered,
     )
     if dry_run:
         return preview
 
-    profiles = load_runner_profiles(profiles_path)
-    rendered = render_calculation_run(
-        input_path=input_path,
-        profile=profile,
-        profiles=profiles,
-        job_name=job_name,
-        resource_overrides=resource_overrides,
-        env_overrides=env_overrides,
-    )
-    input_file = Path(preview["input_file"]).resolve()
-    working_directory = Path(preview["working_directory"]).resolve()
-    if working_directory != input_file.parent:
-        raise ValueError(
-            "typed NWChem execution currently requires the profile working "
-            "directory to match the input directory"
-        )
-    adapted = adapt_legacy_nwchem_profile(
-        profiles,
-        profile,
-        allowed_work_roots=(working_directory,),
-    )
-    if adapted.target.executor == "slurm" and not write_script:
+    if prepared.target.executor == "slurm" and not write_script:
         raise ValueError(
             "write_script=False is not supported for typed Slurm execution"
         )
-    plan = build_nwchem_launch_plan(
-        input_file,
-        resource_request(preview["resources"]),
-        job_name=preview["job_name"],
-        output_template=adapted.output_template,
-        error_template=adapted.error_template,
-        environment=_environment_overrides(
-            profiles,
-            profile,
-            rendered["environment"],
-            env_overrides,
-        ),
-    )
-
-    service.require("launch", adapted.target)
-    service.render(plan, adapted.target)
+    service.require("launch", prepared.target)
     archived = archive_previous_outputs(
-        str(plan.working_directory),
-        plan.job_name,
+        str(prepared.plan.working_directory),
+        prepared.plan.job_name,
     )
-    launched = service.launch(plan, adapted.target)
+    launched = service.launch(prepared.plan, prepared.target)
     if archived:
         preview["archived_previous_outputs"] = archived
     return apply_legacy_launch_result(

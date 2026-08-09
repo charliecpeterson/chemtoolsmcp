@@ -22,7 +22,6 @@ from chemtools.mcp.tools.nwchem_jobs import (
     _handle_launch_nwchem_run,
     _handle_terminate_nwchem_run,
 )
-from chemtools.programs.nwchem.runner import launch_nwchem_run
 
 
 PROFILE_PATH = (
@@ -48,17 +47,8 @@ def _service(tmp_path: Path) -> ExecutionService:
     )
 
 
-def test_dry_run_is_the_unchanged_legacy_preview(tmp_path):
+def test_dry_run_uses_the_typed_command_without_registry_writes(tmp_path):
     input_path = _input_file(tmp_path)
-    expected = launch_nwchem_run(
-        input_path=str(input_path),
-        profile="local_mpirun",
-        profiles_path=str(PROFILE_PATH),
-        resource_overrides={"mpi_ranks": 3},
-        env_overrides={"OMP_NUM_THREADS": "2"},
-        dry_run=True,
-    )
-
     actual = launch_nwchem_with_service(
         ExecutionService(),
         input_path=str(input_path),
@@ -69,8 +59,103 @@ def test_dry_run_is_the_unchanged_legacy_preview(tmp_path):
         dry_run=True,
     )
 
-    assert actual == expected
-    assert actual["executed"] is False
+    assert actual == {
+        "profile": "local_mpirun",
+        "profiles_path": str(PROFILE_PATH),
+        "launcher_kind": "direct",
+        "input_file": str(input_path),
+        "job_name": "water",
+        "working_directory": str(tmp_path),
+        "shell": "/bin/bash",
+        "output_file": str(tmp_path / "water.out"),
+        "error_file": str(tmp_path / "water.err"),
+        "restart_prefix": "water",
+        "resources": {
+            "mpi_ranks": 3,
+            "omp_threads": 1,
+            "memory": None,
+            "walltime": None,
+            "node_memory_mb": None,
+            "max_walltime": None,
+            "cores_per_node": None,
+            "max_nodes": None,
+            "cpu_arch": None,
+        },
+        "executed": False,
+        "launcher_command": "mpirun -np 3 nwchem",
+        "command": (
+            "mpirun -np 3 nwchem water.nw > water.out 2> water.err"
+        ),
+    }
+    assert not (tmp_path / "registry.db").exists()
+
+
+def test_environment_overrides_reach_the_typed_local_executor(
+    tmp_path,
+    monkeypatch,
+):
+    input_path = _input_file(tmp_path)
+    observed = {}
+
+    class RunningProcess:
+        pid = 4141
+
+        def poll(self):
+            return None
+
+    def fake_popen(*args, **kwargs):
+        observed["environment"] = kwargs["env"]
+        return RunningProcess()
+
+    monkeypatch.setattr(local_execution.subprocess, "Popen", fake_popen)
+
+    launch_nwchem_with_service(
+        _service(tmp_path),
+        input_path=str(input_path),
+        profile="local_mpirun",
+        profiles_path=str(PROFILE_PATH),
+        resource_overrides={"mpi_ranks": 3},
+        env_overrides={"OMP_NUM_THREADS": "2", "GA_MEMORY": "1GiB"},
+    )
+
+    assert observed["environment"]["OMP_NUM_THREADS"] == "2"
+    assert observed["environment"]["GA_MEMORY"] == "1GiB"
+
+
+def test_slurm_dry_run_reports_the_typed_script_without_writing_it(tmp_path):
+    input_path = _input_file(tmp_path)
+
+    preview = launch_nwchem_with_service(
+        ExecutionService(registry_db_path=tmp_path / "registry.db"),
+        input_path=str(input_path),
+        profile="slurm_cpu",
+        profiles_path=str(PROFILE_PATH),
+        resource_overrides={"mpi_ranks": 3},
+        env_overrides={"OMP_NUM_THREADS": "2"},
+        dry_run=True,
+    )
+
+    assert preview["submit_command"] == [
+        "sbatch",
+        str(tmp_path / "water.job"),
+    ]
+    assert preview["submit_script_text"] == (
+        "#!/bin/bash\n"
+        "#SBATCH --job-name=water\n"
+        "#SBATCH --nodes=1\n"
+        "#SBATCH --ntasks=3\n"
+        "#SBATCH --cpus-per-task=1\n"
+        f"#SBATCH --output={tmp_path / 'water.out'}\n"
+        f"#SBATCH --error={tmp_path / 'water.err'}\n"
+        "#SBATCH --time=24:00:00\n"
+        "#SBATCH --partition=compute\n"
+        "module purge\n"
+        "module load nwchem\n"
+        "export OMP_NUM_THREADS=2\n"
+        f"cd -- {tmp_path}\n"
+        "srun nwchem water.nw\n"
+    )
+    assert not (tmp_path / "water.job").exists()
     assert not (tmp_path / "registry.db").exists()
 
 

@@ -33,6 +33,13 @@ registration, and recovery recommendations still form one compatibility
 workflow. Remove those names together after the final release and migration
 window, rather than peeling them away one at a time.
 
+The retained low-level launch now prepares through the guided NWChem provider
+and typed execution service. Its established response keys remain, while both
+dry-run and live calls report the executor's exact command or Slurm script.
+The application adapter no longer depends on the legacy renderer. The old
+direct Python runner and `render_job_script` remain a separate compatibility
+decision.
+
 QE now exposes the shared guided launch path through a schema-2 named target or
 version 1 migration profile. Its redundant `render_qe_launch` and
 `launch_qe_run` MCP tools and application adapter were removed. The typed
@@ -133,6 +140,6 @@ in the repository-local `venv`.
   program-specific arguments, artifacts, and failure behavior.
 - Do not build a second generic runner layer. Reuse the typed execution service
   and add a small program-owned launch provider when a backend is promoted.
-The next engineering target is the NWChem compatibility workflow. Its low-level
-launch, status, registration, and recovery names need one removal decision
-rather than another program-specific execution adapter.
+The next engineering target is the old direct Python runner and
+`render_job_script`. The low-level NWChem MCP workflow still needs one removal
+decision for its public names, but no longer needs another execution adapter.

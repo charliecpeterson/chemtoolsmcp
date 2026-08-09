@@ -267,6 +267,14 @@ def test_guided_nwchem_planner_bypasses_legacy_runner():
     }
 
 
+def test_nwchem_mcp_execution_adapter_bypasses_legacy_runner():
+    adapter = ROOT / "chemtools" / "application" / "nwchem_execution.py"
+
+    imports = {module for _, module in _chemtools_imports(adapter)}
+    assert "chemtools.execution.legacy_runner" not in imports
+    assert "chemtools.programs.nwchem.runner" not in imports
+
+
 def test_application_adapters_import_archive_policy_from_focused_owner():
     observed = {}
     violations = {}

@@ -458,8 +458,9 @@ contracts, with concrete program and execution adapters composed at startup.
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
       Profile and status facades that met their gates are gone. The remaining
-      version 1 renderer and launcher still serve the NWChem low-level tools,
-      so this parent item stays open until those calls are retired.
+      version 1 renderer and launcher still serve the direct Python runner and
+      `render_job_script`, so this parent item stays open until those calls are
+      migrated or retired.
   - [x] Move profile loading and typed target conversion into the canonical
         `execution/profiles.py` owner. The exact
         `execution/legacy_profiles.py` import facade had no first-party or
@@ -498,6 +499,18 @@ contracts, with concrete program and execution adapters composed at startup.
         `f6fbc933a82c3e80ed5c47c0c2c6417316799c7dc784415bd064a714a105488f`
         negotiated MCP `2025-11-25`, listed the eleven guided tools, inspected
         the representative output, and prepared an approval-gated launch.
+  - [x] Prepare the retained low-level NWChem MCP launch from the same typed
+        provider. Dry-run and live responses now describe the executor's exact
+        command or Slurm script, environment overrides reach the typed plan,
+        and the application adapter no longer imports either
+        `execution.legacy_runner` or `programs.nwchem.runner`. Resource warnings
+        moved beside the NWChem launch policy and remain available through the
+        old Python runner. Focused execution, launch, model, profile, and
+        boundary checks passed 95 tests, followed by all 1,918 tests with the
+        external corpus. Base and DIRAC-extra isolated installs of wheel
+        SHA-256
+        `fa6ee2215e4305e4abb08bf9a535fde8bb694769ca6dad03e21746291b6eed0a`
+        passed, and the same wheel is installed in the repository-local `venv`.
   - [x] Add a guided Quantum ESPRESSO provider over its existing typed `pw.x`
         plan. Schema-2 local and Slurm targets no longer load or render a
         version 1 profile; the profile adapter remains only as the migration
