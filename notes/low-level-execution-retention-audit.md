@@ -4,8 +4,8 @@ Audit date: 2026-08-09
 
 The low-level execution tools are not dead compatibility code. They remain the
 only execution interface for several program backends. The guided `launch_run`
-contract has validated providers for NWChem, OpenMolcas, Quantum ESPRESSO, and
-QMCPACK.
+contract has validated providers for NWChem, OpenMolcas, DIRAC, Quantum
+ESPRESSO, and QMCPACK.
 
 ## Decision
 
@@ -51,8 +51,25 @@ isolated installs of wheel SHA-256
 `9bd74fb8384ebb9e4f8fa47dfb57bca5f1edec4b334ea19eb68afd9166205d86`
 loaded the provider and portable Molcas target entries.
 
-The QE, QMCPACK, and Molcas guided plans do not replace their full version 1
-preview contracts. Those previews still expose `launcher_command`,
+DIRAC now exposes the shared guided launch path through a schema-2 named target
+or version 1 migration profile. Its approval snapshot includes the paired
+`.inp` and `.mol` identities. Named targets use DIRAC's installation memory
+defaults, while profiles retain explicit `--mw` and `--nw` values. The
+low-level preview, launch, and scheduler wrappers remain for advanced
+checkpoint flags, archival, and version 1 response fields.
+
+The DIRAC local and Slurm parity matrix covered the paired input command,
+artifacts, target rendering, and approval token. A dispatch-level check proved
+that the `.mol` identity reaches the shared MCP handler. Focused launch,
+backend, boundary, inventory, and MCP checks passed 119 tests, followed by all
+1,936 tests with the external corpus. Base and DIRAC-extra isolated installs
+of wheel SHA-256
+`fdd03dd2a41a2ae25ff092eb441c8031ba8d63834b0acce46a9ce134255619ec`
+loaded the provider and portable DIRAC target entries. The same wheel is
+installed in the repository-local `venv`.
+
+The QE, QMCPACK, Molcas, and DIRAC guided plans do not replace their full
+version 1 preview contracts. Those previews still expose `launcher_command`,
 `launcher_kind`, `restart_prefix`, `shell`, resolved profile paths, and
 scheduler-template fields. The QE adapter replaces the displayed command with
 its typed rendering; the QMCPACK dry run still displays the legacy command and

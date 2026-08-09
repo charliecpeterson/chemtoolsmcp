@@ -15,6 +15,7 @@ from chemtools.application.dirac_execution import (
     terminate_dirac_with_service,
 )
 from chemtools.application.execution import ExecutionService
+from chemtools.application.run_launching import LaunchRunError, launch_run
 from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor, SlurmExecutor
 from chemtools.persistence.launches import load_launch_record
@@ -28,6 +29,7 @@ from chemtools.programs.dirac.launch import (
     adapt_legacy_dirac_profile,
     build_dirac_launch_plan,
 )
+from chemtools.programs.dirac import DIRAC
 from chemtools.programs.dirac.runtime import prepare_launch
 from chemtools.programs.dirac.scheduler import launch_dirac_run
 
@@ -131,6 +133,16 @@ def _profile_path(tmp_path: Path) -> Path:
     return profile_path
 
 
+def _guided_profile_path(tmp_path: Path) -> Path:
+    profiles = _profiles()
+    for profile in profiles["profiles"].values():
+        profile.pop("default_mw", None)
+        profile.pop("default_nw", None)
+    profile_path = tmp_path / "guided_profiles.json"
+    profile_path.write_text(json.dumps(profiles), encoding="utf-8")
+    return profile_path
+
+
 def _service(tmp_path: Path) -> ExecutionService:
     return ExecutionService(
         enable_execution=True,
@@ -202,6 +214,116 @@ def test_dirac_adapter_uses_runtime_default_mpi_without_resources(
     )
 
     assert adapted.default_resources.mpi_ranks == 10
+
+
+@pytest.mark.parametrize("profile_name", ["dirac_local", "dirac_slurm"])
+def test_guided_dirac_named_target_matches_profile(
+    tmp_path,
+    profile_name,
+):
+    input_path, molecule_path = _inputs(tmp_path)
+    profile_path = _guided_profile_path(tmp_path)
+    profiles = load_runner_profiles(str(profile_path))
+    adapted = adapt_legacy_dirac_profile(
+        profiles,
+        profile_name,
+        allowed_work_roots=(tmp_path,),
+    )
+    named_service = ExecutionService(
+        configured_targets={profile_name: adapted.target},
+        default_target=profile_name,
+    )
+
+    migrated = launch_run(
+        DIRAC,
+        ExecutionService(),
+        input_file=input_path,
+        molecule_file=molecule_path,
+        profile=profile_name,
+        profiles_path=profile_path,
+    )
+    named = launch_run(
+        DIRAC,
+        named_service,
+        input_file=input_path,
+        molecule_file=molecule_path,
+    )
+
+    migrated_plan = dict(migrated["evidence"]["plan"])
+    named_plan = dict(named["evidence"]["plan"])
+    migrated_plan.pop("profile")
+    migrated_plan.pop("profiles_path")
+    named_plan.pop("profile")
+    named_plan.pop("profiles_path")
+    assert named_plan == migrated_plan
+    assert named["approval"]["token"] == migrated["approval"]["token"]
+    assert named["input"]["auxiliary_inputs"] == [{
+        "role": "molecule",
+        "path": str(molecule_path),
+        "size_bytes": 40,
+        "sha256": (
+            "e757ba0fe7251e203b0fbcfdf592baba"
+            "52862179658fed024af725303e7628e6"
+        ),
+    }]
+
+
+def test_guided_dirac_approval_binds_molecule_contents(tmp_path):
+    input_path, molecule_path = _inputs(tmp_path)
+    profile_path = _guided_profile_path(tmp_path)
+    profiles = load_runner_profiles(str(profile_path))
+    adapted = adapt_legacy_dirac_profile(
+        profiles,
+        "dirac_local",
+        allowed_work_roots=(tmp_path,),
+    )
+    service = ExecutionService(
+        configured_targets={"dirac_local": adapted.target},
+        default_target="dirac_local",
+    )
+    prepared = launch_run(
+        DIRAC,
+        service,
+        input_file=input_path,
+        molecule_file=molecule_path,
+    )
+    original_sha256 = prepared["input"]["auxiliary_inputs"][0]["sha256"]
+
+    molecule_path.write_text(
+        molecule_path.read_text(encoding="utf-8") + "# changed\n",
+        encoding="utf-8",
+    )
+    invalidated = launch_run(
+        DIRAC,
+        service,
+        input_file=input_path,
+        molecule_file=molecule_path,
+        approval_token=prepared["approval"]["token"],
+    )
+
+    assert invalidated["status"] == "approval_invalidated"
+    assert invalidated["input"]["auxiliary_inputs"][0]["sha256"] != (
+        original_sha256
+    )
+
+
+def test_guided_dirac_requires_molecule_file(tmp_path):
+    input_path, _ = _inputs(tmp_path)
+
+    with pytest.raises(LaunchRunError) as caught:
+        launch_run(
+            DIRAC,
+            ExecutionService(),
+            input_file=input_path,
+            profile="dirac_local",
+            profiles_path=_guided_profile_path(tmp_path),
+        )
+
+    assert caught.value.as_dict() == {
+        "error": "invalid_launch_request",
+        "message": "molecule_file is required for dirac",
+        "program": "dirac",
+    }
 
 
 def test_slurm_dirac_plan_keeps_pam_mpi_out_of_scheduler_launcher(

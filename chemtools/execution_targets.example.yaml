@@ -28,6 +28,8 @@ targets:
           OMP_NUM_THREADS: "{omp_threads}"
       molcas:
         executable_argv: [/absolute/path/to/pymolcas]
+      dirac:
+        executable_argv: [/absolute/path/to/pam-dirac]
       qe:
         launcher_argv: [mpirun, -np, "{mpi_ranks}"]
         executable_argv: [/absolute/path/to/pw.x]
@@ -84,6 +86,11 @@ targets:
           - module load openmolcas
         pre_run_lines:
           - export MOLCAS_PROJECT={job_name}_$SLURM_JOB_ID
+      dirac:
+        executable_argv: [pam-dirac]
+        setup_lines:
+          - module purge
+          - module load dirac
       qe:
         launcher_argv: [srun]
         executable_argv: [pw.x]

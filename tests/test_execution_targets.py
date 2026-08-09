@@ -234,6 +234,9 @@ def test_bundled_target_example_is_portable_and_execution_disabled():
     assert catalog.resolve(program="molcas").programs[
         "molcas"
     ].executable_argv == ("/absolute/path/to/pymolcas",)
+    assert catalog.resolve(program="dirac").programs[
+        "dirac"
+    ].executable_argv == ("/absolute/path/to/pam-dirac",)
     assert catalog.resolve(program="qe").programs["qe"].executable_argv == (
         "/absolute/path/to/pw.x",
     )

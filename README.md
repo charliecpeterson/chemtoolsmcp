@@ -13,7 +13,7 @@ execution operations it actually implements.
 |---|---|---|
 | **NWChem** | 101 | Input drafting, TCE/MCSCF parsers, frequency restart, full HPC submission, runner-profile auto-resource sizing, 29 bundled docs |
 | **OpenMolcas** | 45 | CASSCF/CASPT2 chain orchestrators, active-space refinement loop, recovery rule engine (11 failure modes), approval-gated named-target launch, 133 bundled docs |
-| **DIRAC** | 39 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, basis browser (Dyall), 179 bundled docs |
+| **DIRAC** | 39 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, approval-bound paired-input launch, basis browser (Dyall), 179 bundled docs |
 | **GRASP2018** | 53 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
 | **Quantum ESPRESSO** | 20 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, approval-gated launch through a schema-2 named target or version 1 migration profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
 | **QMCPACK** | 14 | XML input review, approval-gated ordinary or initialization-only launch through a schema-2 named target or version 1 migration profile, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
@@ -1028,7 +1028,7 @@ permission to start work.
 ## Named execution targets
 
 Schema-2 targets are the current configuration path for guided NWChem,
-OpenMolcas, Quantum ESPRESSO, and QMCPACK launch.
+OpenMolcas, DIRAC, Quantum ESPRESSO, and QMCPACK launch.
 They contain trusted commands, allowed work roots, machine defaults, and local
 or Slurm settings. Print the bundled portable example with:
 
@@ -1059,10 +1059,10 @@ and configure the MCP process:
 `target`. The request can change typed resource values, but it cannot replace
 configured executables, launchers, scheduler commands, or allowed roots.
 
-Named local and Slurm NWChem, OpenMolcas, Quantum ESPRESSO, and QMCPACK targets
-produce the same rendered plans and approval tokens as equivalent version 1
-profiles. Other low-level program launch tools still use version 1 profiles
-while their named-target providers are migrated.
+Named local and Slurm NWChem, OpenMolcas, DIRAC, Quantum ESPRESSO, and QMCPACK
+targets produce the same rendered plans and approval tokens as equivalent
+version 1 profiles. Other low-level program launch tools still use version 1
+profiles while their named-target providers are migrated.
 
 ## Runner profiles (version 1 migration)
 
@@ -1124,9 +1124,9 @@ Termination only accepts a PID or job ID launched by the same running MCP
 server. Restart the server and its previous local process handles are no
 longer cancelable through this tool.
 
-The typed path supports named local and Slurm NWChem, OpenMolcas, Quantum
-ESPRESSO, and QMCPACK targets plus direct and Slurm version 1 profiles whose
-working directory is the input directory. PBS, LSF, alternate working
+The typed path supports named local and Slurm NWChem, OpenMolcas, DIRAC,
+Quantum ESPRESSO, and QMCPACK targets plus direct and Slurm version 1 profiles
+whose working directory is the input directory. PBS, LSF, alternate working
 directories, and `write_script=false` scheduler submission are not supported.
 The tool returns a clear error instead of falling back to the older shell-based
 execution path.
@@ -1164,14 +1164,16 @@ execution record. File-only inspection remains available, and attaching an
 external Slurm job requires an explicit profile and job ID. Molcas
 scientific-run registration and artifact observations are still pending.
 
-DIRAC live launches now use the same tracked direct and Slurm path. The
-program plan records `pam-dirac --mpi`, the paired `.inp` and `.mol`
-filenames, and `programs.dirac.default_mw` and `default_nw` settings. Slurm
-does not prefix DIRAC with `ibrun` because `pam-dirac` manages its own MPI
-launch. The two input files must be in the same working directory. Advanced
-checkpoint flags (`--copy`, `--put`, and `--get`) remain read-only through
-`prepare_dirac_launch` until live staging has explicit destination and
-overwrite rules.
+DIRAC uses the same guided direct and Slurm path. Supply `molecule_file` with
+the primary `.inp`; the approval identity includes the path, size, and SHA-256
+of both files. The plan records `pam-dirac --mpi` and the paired filenames.
+Named targets leave `--mw` and `--nw` at the DIRAC installation defaults;
+version 1 profiles retain explicit `programs.dirac.default_mw` and `default_nw`
+values during migration. Slurm does not prefix DIRAC with `ibrun` because
+`pam-dirac` manages its own MPI launch. The two input files must be in the same
+working directory. Advanced checkpoint flags (`--copy`, `--put`, and `--get`)
+remain read-only through `prepare_dirac_launch` until live staging has explicit
+destination and overwrite rules.
 
 GRASP workflow scripts also use the tracked direct and Slurm path. A target
 runs the complete ordered recipe as `apptainer exec <sif> bash <workflow>`;
@@ -1206,7 +1208,7 @@ the underlying operation supports it.
 | Guided run inspection | ✓ | ✓ | `inspect_run` | Normalizes evidence, verdict, uncertainty, and next actions across all six built-in backends |
 | Guided recovery planning | ✓ | | `plan_recovery` | Returns bounded candidate inputs without writing files; explicit target state prevents multiplicity changes from being treated as orbital swaps, source mismatches block automatic drafts, and completed but unstable SCF paths can return optional hardening plans |
 | Guided calculation planning | ✓ | | `plan_calculation` | Returns ordered stages and unresolved scientific choices without rendering input |
-| Approval-gated launch | ✓ | | `launch_run` | NWChem, Molcas, QE, and QMCPACK providers require two calls bound to one exact reviewed input and rendered plan |
+| Approval-gated launch | ✓ | | `launch_run` | NWChem, Molcas, DIRAC, QE, and QMCPACK providers require two calls bound to exact input identities and one rendered plan |
 | Owned run monitoring | ✓ | | `monitor_run` | Refreshes retained local or Slurm state and recorded artifacts; NWChem adds declared scientific progress |
 | Independent file inspection | | | `inspect_with_orbitron` | Optional fixed-command Orbitron evidence with pinned JSON schema and build provenance |
 | Geometry summary | | | `analyze_geometry_with_orbitron` | Validated Orbitron counts, bond statistics, bounds, and unit-cell evidence |

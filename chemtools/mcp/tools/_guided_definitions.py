@@ -442,9 +442,9 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                 "block launch rather than being overwritten or silently archived. "
                 "Select a schema-2 named target, use the configured default, "
                 "or provide a version 1 profile during migration. NWChem, "
-                "OpenMolcas, Quantum ESPRESSO, and QMCPACK supply guided launch "
-                "providers. QMCPACK can prepare an initialization-only --dryrun "
-                "plan."
+                "OpenMolcas, DIRAC, Quantum ESPRESSO, and QMCPACK supply guided "
+                "launch providers. QMCPACK can prepare an initialization-only "
+                "--dryrun plan."
             ),
             "annotations": {
                 "title": "Prepare or launch an approved calculation",
@@ -483,6 +483,14 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                     "input_file": {
                         "type": "string",
                         "description": "Path to the reviewed chemistry input.",
+                    },
+                    "molecule_file": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": (
+                            "DIRAC only: paired .mol file included in the "
+                            "approval-bound input identity."
+                        ),
                     },
                     "profile": {
                         "type": "string",

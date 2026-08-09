@@ -531,9 +531,20 @@ contracts, with concrete program and execution adapters composed at startup.
         `9bd74fb8384ebb9e4f8fa47dfb57bca5f1edec4b334ea19eb68afd9166205d86`
         loaded the Molcas provider and bundled target examples. The same wheel
         is installed in the repository-local `venv`.
+  - [x] Add a guided DIRAC provider over its existing typed plan. Named local
+        and Slurm targets bypass version 1 rendering, while profiles retain
+        explicit `--mw` and `--nw` defaults during migration. Approval binds
+        both the paired `.inp` and `.mol` identities, so changing either file
+        invalidates the token. Focused launch, backend, boundary, inventory,
+        and MCP checks passed 119 tests, followed by all 1,936 tests with the
+        external corpus. Base and DIRAC-extra isolated installs of wheel
+        SHA-256
+        `fdd03dd2a41a2ae25ff092eb441c8031ba8d63834b0acce46a9ce134255619ec`
+        loaded the provider and bundled DIRAC target examples. The same wheel
+        is installed in the repository-local `venv`.
   - [x] Retain low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch
-        calls behind explicit program or developer toolsets. DIRAC and GRASP
-        have no guided execution replacement. The QE, QMCPACK, and Molcas
+        calls behind explicit program or developer toolsets. GRASP has no
+        guided execution replacement. The QE, QMCPACK, Molcas, and DIRAC
         low-level calls remain for their version 1 response contracts. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only

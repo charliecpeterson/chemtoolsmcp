@@ -717,6 +717,7 @@ def test_builtin_backends_declare_exact_capabilities():
         },
         "dirac": {
             "binary.read",
+            "execution.plan",
             "input.parse",
             "output.geometry",
             "output.parse",

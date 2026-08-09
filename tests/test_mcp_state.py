@@ -185,3 +185,65 @@ def test_dispatch_preserves_qmcpack_initialization_only(tmp_path):
         "hydrogen.xml",
         "--dryrun",
     ]
+
+
+def test_dispatch_preserves_dirac_molecule_identity(tmp_path):
+    input_path = tmp_path / "molecule.inp"
+    input_path.write_text(
+        "**DIRAC\n.WAVE FUNCTION\n**HAMILTONIAN\n.X2C\n",
+        encoding="utf-8",
+    )
+    molecule_path = tmp_path / "geometry.mol"
+    molecule_path.write_text(
+        "INTGRL\nMolecule\nC 1\n1.0 1\nH 0.0 0.0 0.0\n",
+        encoding="utf-8",
+    )
+    catalog = parse_target_catalog(
+        {
+            "schema_version": "2.0",
+            "chemtools": {
+                "enable_execution": False,
+                "default_target": "workstation",
+            },
+            "targets": {
+                "workstation": {
+                    "executor": "local",
+                    "allowed_work_roots": [str(tmp_path)],
+                    "programs": {
+                        "dirac": {
+                            "executable_argv": ["pam-dirac"],
+                        },
+                    },
+                },
+            },
+        },
+        source=tmp_path / "targets.yaml",
+    )
+    state = ServerState.create(mode="analysis", target_catalog=catalog)
+
+    prepared = dispatch.dispatch_tool(
+        "launch_run",
+        {
+            "program": "dirac",
+            "input_file": str(input_path),
+            "molecule_file": str(molecule_path),
+        },
+        state=state,
+    )
+
+    assert prepared["status"] == "awaiting_approval"
+    assert prepared["evidence"]["plan"]["argv"] == [
+        "pam-dirac",
+        "--mpi=1",
+        "--inp=molecule.inp",
+        "--mol=geometry.mol",
+    ]
+    assert prepared["input"]["auxiliary_inputs"] == [{
+        "role": "molecule",
+        "path": str(molecule_path),
+        "size_bytes": 40,
+        "sha256": (
+            "e757ba0fe7251e203b0fbcfdf592baba"
+            "52862179658fed024af725303e7628e6"
+        ),
+    }]

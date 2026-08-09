@@ -66,6 +66,7 @@ def launch_run(
     service: ExecutionService,
     *,
     input_file: str | Path,
+    molecule_file: str | Path | None = None,
     profile: str | None = None,
     profiles_path: str | Path | None = None,
     target: str | None = None,
@@ -81,6 +82,22 @@ def launch_run(
             f"chemistry input is not a readable file: {input_path}",
             program=backend.name,
         )
+    molecule_path: Path | None = None
+    if backend.name == "dirac":
+        if molecule_file is None:
+            _invalid(backend.name, "molecule_file is required for dirac")
+        molecule_path = Path(molecule_file).expanduser().resolve()
+        if not molecule_path.is_file():
+            raise LaunchRunError(
+                "source_not_file",
+                (
+                    "DIRAC molecule input is not a readable file: "
+                    f"{molecule_path}"
+                ),
+                program=backend.name,
+            )
+    elif molecule_file is not None:
+        _invalid(backend.name, "molecule_file is supported only for dirac")
     if profile is not None and (
         not isinstance(profile, str) or not profile.strip()
     ):
@@ -133,6 +150,8 @@ def launch_run(
         "resources": normalized_resources,
         "initialization_only": initialization_only,
     }
+    if molecule_path is not None:
+        request["molecule_file"] = str(molecule_path)
     if profile is not None:
         request["profile"] = profile.strip()
         if normalized_profiles_path is not None:
@@ -182,6 +201,13 @@ def launch_run(
         "size_bytes": input_path.stat().st_size,
         "sha256": _sha256_file(input_path),
     }
+    if molecule_path is not None:
+        input_identity["auxiliary_inputs"] = [{
+            "role": "molecule",
+            "path": str(molecule_path),
+            "size_bytes": molecule_path.stat().st_size,
+            "sha256": _sha256_file(molecule_path),
+        }]
     plan_summary = _plan_summary(prepared, rendered)
     current_token = _approval_token(
         prepared,

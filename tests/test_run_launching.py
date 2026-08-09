@@ -40,7 +40,7 @@ PROFILE_PATH = (
     / "runner_profiles.example.json"
 )
 NWCHEM = load_backend(BUILTIN_BACKENDS[0])
-DIRAC = load_backend(BUILTIN_BACKENDS[2])
+GRASP = load_backend(BUILTIN_BACKENDS[3])
 
 
 def _input(tmp_path: Path) -> Path:
@@ -406,7 +406,7 @@ def test_launch_run_refuses_unimplemented_program_provider(tmp_path):
 
     with pytest.raises(LaunchRunError) as caught:
         launch_run(
-            DIRAC,
+            GRASP,
             ExecutionService(),
             input_file=input_path,
             profile="local_mpirun",
@@ -415,8 +415,28 @@ def test_launch_run_refuses_unimplemented_program_provider(tmp_path):
 
     assert caught.value.as_dict() == {
         "error": "unsupported_capability",
-        "message": "'dirac' does not support guided launch planning",
-        "program": "dirac",
+        "message": "'grasp' does not support guided launch planning",
+        "program": "grasp",
+    }
+
+
+def test_launch_run_rejects_dirac_molecule_for_other_program(tmp_path):
+    input_path = _input(tmp_path)
+
+    with pytest.raises(LaunchRunError) as caught:
+        launch_run(
+            NWCHEM,
+            ExecutionService(),
+            input_file=input_path,
+            molecule_file=input_path,
+            profile="local_mpirun",
+            profiles_path=PROFILE_PATH,
+        )
+
+    assert caught.value.as_dict() == {
+        "error": "invalid_launch_request",
+        "message": "molecule_file is supported only for dirac",
+        "program": "nwchem",
     }
 
 

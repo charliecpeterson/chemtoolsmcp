@@ -9,6 +9,7 @@ from chemtools.core.program import (
     validate_backend,
 )
 from chemtools.programs.dirac._plugin_binary import DIRAC_BINARY
+from chemtools.programs.dirac._plugin_launcher import DIRAC_LAUNCH_PLANNER
 from chemtools.programs.dirac._plugin_parser import DIRAC_PARSER
 from chemtools.programs.dirac.parse.output import (
     looks_like_dirac,
@@ -34,6 +35,7 @@ DIRAC = validate_backend(
                 ProgramCapability.OUTPUT_GEOMETRY,
                 ProgramCapability.INPUT_PARSE,
                 ProgramCapability.BINARY_READ,
+                ProgramCapability.EXECUTION_PLAN,
             }
         ),
         artifact_kinds={
@@ -71,6 +73,7 @@ DIRAC = validate_backend(
         detector=_DiracDetector(),
         parser=DIRAC_PARSER,
         binary=DIRAC_BINARY,
+        launches=DIRAC_LAUNCH_PLANNER,
     )
 )
 

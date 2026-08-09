@@ -301,6 +301,14 @@ def test_launch_run_schema_pins_approval_and_target_selection():
     assert schema["required"] == ["program", "input_file"]
     assert schema["properties"]["profile"]["minLength"] == 1
     assert schema["properties"]["target"]["minLength"] == 1
+    assert schema["properties"]["molecule_file"] == {
+        "type": "string",
+        "minLength": 1,
+        "description": (
+            "DIRAC only: paired .mol file included in the approval-bound "
+            "input identity."
+        ),
+    }
     assert schema["properties"]["approval_token"]["pattern"] == (
         "^sha256:[0-9a-f]{64}$"
     )

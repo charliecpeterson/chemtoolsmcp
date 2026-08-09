@@ -403,6 +403,7 @@ def _handle_launch_run(arguments: dict[str, Any]) -> dict[str, Any]:
             backend,
             get_execution_service(),
             input_file=input_path,
+            molecule_file=arguments.get("molecule_file"),
             profile=arguments.get("profile"),
             profiles_path=arguments.get("profiles_path"),
             target=arguments.get("target"),
