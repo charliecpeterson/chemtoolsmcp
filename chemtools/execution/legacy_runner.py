@@ -1,8 +1,8 @@
 """Legacy profile rendering and program-neutral runner functions.
 
 This module retains resource inspection plus version 1 render and launch
-behavior. Profile loading lives in ``execution.legacy_profiles``; generic
-process, scheduler, and file status live in ``execution.legacy_status``.
+behavior. Profile loading lives in ``execution.profiles``; generic process,
+scheduler, and file status live in ``execution.legacy_status``.
 NWChem progress is injected by its program adapter rather than imported here.
 
 Program-neutral entry points:

@@ -1402,13 +1402,12 @@ handles, synchronous execution, status, and signals. `slurm.py` owns batch
 scripts, submission, status, and cancellation. The old `executors.py` import
 path remains as a compatibility facade.
 
-The version 1 profile runner now defines program-neutral
+The version 1 profile runner defines program-neutral
 `run_calculation`, `render_calculation_run`, `inspect_run_status`, and
 `watch_run` entry points. Molcas, DIRAC, and GRASP scheduler wrappers use
 those names. The previous NWChem run and render names remain direct aliases
 for existing Python callers. Profile loading and default merging live in
-`execution/profiles.py`; `execution/legacy_profiles.py` preserves the old
-Python import path. Compatibility-launch output archival lives in
+`execution/profiles.py`. Compatibility-launch output archival lives in
 `execution/legacy_archive.py`. Unowned PID and scheduler inspection, file
 status, tailing, and cancellation live in `execution/legacy_status.py`.
 `programs/nwchem/legacy_status.py` injects the existing NWChem progress reader

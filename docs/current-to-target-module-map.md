@@ -9,7 +9,7 @@ This map assigns current modules to the owners defined by ADRs 001 through
 005 and records the compatibility seams that remain after the ownership
 migration.
 
-Snapshot date: 2026-08-07
+Snapshot date: 2026-08-09
 
 Governing decisions:
 
@@ -242,7 +242,6 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/execution/slurm.py` | Slurm script rendering, submission, job-ID parsing, queue and accounting status, and target-command cancellation | Slurm execution adapter | Keep scheduler commands and script policy target-owned. Empty queue and accounting results must remain unknown rather than imply completion. |
 | `chemtools/execution/executors.py` | Re-exports the local executor, Slurm executor, and work-root error | Compatibility facade | Preserve existing Python imports while callers move to `chemtools.execution` or the focused modules. |
 | `chemtools/execution/profiles.py` | Loads version 1 profile files, merges defaults, and converts shared resource, hardware, module, program-installation, direct-command, and Slurm fields | Target configuration adapter | Keep program argument syntax and chemistry rules out. The standard `programs.<name>` installation block wins over old field locations. |
-| `chemtools/execution/legacy_profiles.py` | Exact imports from `execution/profiles.py` | Compatibility facade | Preserve the old Python path through the final compatibility release. No first-party runtime module imports it. |
 | `chemtools/execution/legacy_archive.py` | Timestamped, collision-safe archival of existing compatibility-launch outputs | Legacy output policy | Application adapters import this focused owner. Preserve exact imports from `legacy_runner.py` until its direct Python surface is removed. |
 | `chemtools/execution/resource_inspection.py` | Local CPU and memory budgeting plus Slurm and PBS partition discovery | Target resource inspection | Keep scheduler discovery separate from chemistry advice and version 1 launch rendering. Replace dictionary results only when a typed target inventory has a real caller. |
 | `chemtools/execution/legacy_runner.py` | Version 1 script rendering, launch behavior, and neutral compatibility imports | Legacy render and launch adapter | Keep implementation out of core. Remove it with version 1 profiles after named targets cover the retained workflows. |

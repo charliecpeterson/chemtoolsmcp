@@ -190,19 +190,24 @@ def test_execution_adapters_do_not_import_program_packages():
     assert violations == {}
 
 
-def test_internal_layers_bypass_legacy_profile_facade():
-    legacy_module = "chemtools.execution.legacy_profiles"
-    violations = {}
-    for path in TARGETS:
-        imports = [
-            item
-            for item in _chemtools_imports(path)
-            if item[1] == legacy_module
-        ]
-        if imports:
-            violations[str(path.relative_to(ROOT))] = imports
+def test_removed_legacy_profile_facade_is_absent():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import importlib.util; "
+                "assert importlib.util.find_spec("
+                "'chemtools.execution.legacy_profiles') is None"
+            ),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
-    assert violations == {}
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_guided_nwchem_planner_bypasses_legacy_runner():

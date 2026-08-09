@@ -454,14 +454,17 @@ contracts, with concrete program and execution adapters composed at startup.
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
   - [x] Move profile loading and typed target conversion into the canonical
-        `execution/profiles.py` owner. Keep `execution/legacy_profiles.py` as
-        an exact import facade with no first-party runtime caller. Focused
-        profile and execution checks passed 127 tests, followed by all 1,854
-        tests with the external corpus. An installed copy of wheel SHA-256
-        `0d25226a195fccac80f88bb3dd5ad5a6744679e43606ee98774d4b197b938e23`
-        loaded both paths as identical objects, negotiated MCP `2025-11-25`,
-        listed the eleven guided tools, inspected the representative NWChem
-        output, and prepared an approval-gated launch without writing output.
+        `execution/profiles.py` owner. The exact
+        `execution/legacy_profiles.py` import facade had no first-party or
+        maintained external caller and was removed after the `v0.1.0` final
+        compatibility release. The version 1 profile schema and every retained
+        execution caller continue to use the canonical owner directly. Focused
+        profile, execution, and import checks passed 81 tests, followed by all
+        1,890 tests with the external corpus. Base and DIRAC-extra isolated
+        installs of wheel SHA-256
+        `6f54f7d000e5871b9bb9d5d6697dc09e070f31bdb8f0ef65ec9f5c05e59978a1`
+        confirmed the facade is absent, and the repository-local `venv`
+        contains that wheel.
   - [x] Prepare guided NWChem plans without `render_calculation_run`. The
         provider now merges version 1 resource settings, expands the retained
         profile context, and builds the typed plan directly. It produced the

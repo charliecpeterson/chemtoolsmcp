@@ -8,7 +8,6 @@ import pytest
 import chemtools.core.runner as core_runner
 import chemtools.execution.legacy_archive as legacy_archive
 import chemtools.execution.legacy_runner as runner
-import chemtools.execution.legacy_profiles as legacy_profiles
 import chemtools.execution.legacy_status as legacy_status
 import chemtools.execution.profiles as profiles
 import chemtools.execution.resource_inspection as resource_inspection
@@ -69,28 +68,15 @@ def test_core_runner_reexports_split_legacy_modules_directly():
         core_runner.get_local_resource_budget
         is runner.get_local_resource_budget
     )
-    assert runner.load_runner_profiles is (
-        legacy_profiles.load_runner_profiles
-    )
-    assert runner.resolve_runner_profile is (
-        legacy_profiles.resolve_runner_profile
-    )
-    assert runner._resolve_profile is legacy_profiles._resolve_profile
+    assert runner.load_runner_profiles is profiles.load_runner_profiles
+    assert runner.resolve_runner_profile is profiles.resolve_runner_profile
+    assert runner._resolve_profile is profiles._resolve_profile
     assert runner.inspect_run_status is legacy_status.inspect_run_status
     assert runner.watch_run is legacy_status.watch_run
     assert runner.tail_text_file is legacy_status.tail_text_file
     assert runner.cancel_scheduler_job is (
         legacy_status.cancel_scheduler_job
     )
-
-
-def test_legacy_profile_module_is_an_exact_compatibility_facade():
-    assert legacy_profiles.__all__ == profiles.__all__
-    for name in profiles.__all__:
-        assert getattr(legacy_profiles, name) is getattr(profiles, name)
-    assert legacy_profiles._format_template is profiles._format_template
-    assert legacy_profiles._resolve_profile is profiles._resolve_profile
-
 
 @pytest.mark.parametrize("program", SCHEDULER_MODULES)
 def test_non_nwchem_scheduler_imports_only_neutral_runner_names(program):

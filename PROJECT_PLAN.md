@@ -1576,8 +1576,10 @@ Progress:
       aliases, and move Molcas, DIRAC, and GRASP scheduler wrappers to the
       program-neutral imports.
 - [x] Split the oversized legacy runner by responsibility. Move version 1
-      profile loading and default merging into `execution/profiles.py`, retain
-      `execution/legacy_profiles.py` as an exact compatibility import path;
+      profile loading and default merging into `execution/profiles.py`; retain
+      `execution/legacy_profiles.py` as an exact compatibility import path
+      through `v0.1.0`, then remove the unused facade on the breaking
+      development line;
       move compatibility-launch output archival into
       `execution/legacy_archive.py`;
       move local and scheduler hardware discovery into

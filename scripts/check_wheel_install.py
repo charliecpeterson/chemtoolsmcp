@@ -68,9 +68,6 @@ from chemtools.execution.legacy_runner import (
     query_partition_specs as compatible_query_partition_specs,
 )
 from chemtools.execution.legacy_status import inspect_run_status
-from chemtools.execution.legacy_profiles import (
-    load_runner_profiles as compatible_load_runner_profiles,
-)
 from chemtools.execution.profiles import (
     DEFAULT_RUNNER_PROFILES,
     load_runner_profiles,
@@ -168,7 +165,6 @@ assert compatible_connect_registry is connect_registry
 assert compatible_register_run is register_run
 assert compatible_record_run_artifacts is record_run_artifacts
 assert compatible_create_launch_record is create_launch_record
-assert compatible_load_runner_profiles is load_runner_profiles
 assert compatible_archive_paths is archive_paths
 assert compatible_archive_previous_outputs is archive_previous_outputs
 assert compatible_get_local_resource_budget is get_local_resource_budget
@@ -176,8 +172,10 @@ assert compatible_query_partition_specs is query_partition_specs
 assert package_version("chemtools-mcp") == SERVER_VERSION
 assert importlib.util.find_spec("chemtools.mcp.tools._nwchem_base") is None
 assert importlib.util.find_spec("chemtools.mcp.tools.nwchem") is None
+assert importlib.util.find_spec("chemtools.execution.legacy_profiles") is None
 assert "chemtools.mcp.tools._nwchem_base" not in sys.modules
 assert "chemtools.mcp.tools.nwchem" not in sys.modules
+assert "chemtools.execution.legacy_profiles" not in sys.modules
 assert examples
 assert NWCHEM_EXAMPLES.read_example(examples[0]["name"]).strip()
 assert inspection.get("error") is None

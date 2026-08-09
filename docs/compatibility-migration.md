@@ -32,6 +32,7 @@ Direct Python code should import the module that owns the operation:
 | `chemtools.mcp.nwchem` | `chemtools.mcp.cli` or `chemtools.mcp.dispatch` |
 | `chemtools.mcp.tools.nwchem` | `chemtools.mcp.tools._nwchem_provider` or a focused handler module |
 | `chemtools.execution.executors` | `chemtools.execution` or the specific executor module |
+| `chemtools.execution.legacy_profiles` | `chemtools.execution.profiles` |
 
 Do not replace the old broad facade with another broad facade. Existing
 scripts in this repository show the intended focused import paths.
@@ -40,6 +41,11 @@ scripts in this repository show the intended focused import paths.
 `v0.1.0` tag is the final release that provides its wildcard exports and
 dynamic handler lookup. Import `_nwchem_provider` only for MCP composition;
 ordinary code should import the focused handler module that owns the operation.
+
+`chemtools.execution.legacy_profiles` was also removed after `v0.1.0`.
+Its exports were exact identities from `chemtools.execution.profiles`, which
+remains the owner of the unchanged version 1 profile schema and conversion
+functions.
 
 ## Removal gate
 

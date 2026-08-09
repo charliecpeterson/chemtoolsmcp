@@ -48,7 +48,6 @@ chemtools/
     resource_inspection.py       Local and scheduler hardware discovery
     legacy_archive.py            Compatibility-launch output archival
     legacy_runner.py             Version 1 render and launch implementation
-    legacy_profiles.py           Compatibility imports for execution/profiles.py
     legacy_status.py             Unowned process, scheduler, and file status
 
   programs/<name>/               Per-program plugins

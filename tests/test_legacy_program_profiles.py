@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from chemtools.execution.legacy_runner import render_calculation_run
-from chemtools.execution.legacy_profiles import (
+from chemtools.execution.profiles import (
     declared_program_installation,
     load_runner_profiles,
     resolve_runner_profile,

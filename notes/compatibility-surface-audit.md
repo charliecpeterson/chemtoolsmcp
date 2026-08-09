@@ -116,6 +116,16 @@ DIRAC-extra isolated installs of wheel SHA-256
 `ce3a2406c8e54c050b967ea9d8e7262980cdc145f2a99b5d1c71591911087a0e`
 confirmed both removed modules are absent.
 
+The exact `chemtools.execution.legacy_profiles` import facade was also removed
+after `v0.1.0`. Its version 1 schema and conversion implementation remain in
+`chemtools.execution.profiles`; only the duplicate import path left. A
+maintained-workspace scan found no external caller. Focused checks passed 81
+tests, followed by all 1,890 tests with the external corpus. Base and
+DIRAC-extra isolated installs of wheel SHA-256
+`6f54f7d000e5871b9bb9d5d6697dc09e070f31bdb8f0ef65ec9f5c05e59978a1`
+confirmed the removed module is absent and all eight bundled profiles still
+load through the canonical owner.
+
 ## Final-release readiness
 
 The canonical MCP server now reports `chemtools` instead of the old

@@ -14,21 +14,23 @@ merging, and conversion into typed resources, installations, and Slurm target
 settings. Six application adapters and the NWChem, Molcas, DIRAC, GRASP, QE,
 and QMCPACK launch providers import that owner directly.
 
-`chemtools.execution.legacy_profiles` is an exact compatibility facade. No
-runtime module imports it. The installed-wheel check still imports it on
-purpose to protect the old Python path until the final compatibility release.
+`chemtools.execution.legacy_profiles` was an exact compatibility facade. No
+runtime module imported it, and a maintained-workspace scan found no external
+caller. It was removed after the final compatibility release, `v0.1.0`.
 
-Removal gate: tag the compatibility release, confirm that external callers
-have moved to `chemtools.execution.profiles`, then remove the facade and its
-identity test.
+The canonical `chemtools.execution.profiles` owner and version 1 profile schema
+remain unchanged. Source and installed-wheel absence checks prevent the old
+facade from returning on the `0.2.0.dev0` line.
 
-Verification: 127 focused profile and execution tests passed, followed by all
-1,854 tests with the external corpus. Wheel SHA-256
-`0d25226a195fccac80f88bb3dd5ad5a6744679e43606ee98774d4b197b938e23` passed
-the isolated installed-copy check. The old and canonical profile imports were
-identical, and the installed MCP command negotiated protocol `2025-11-25`,
-listed the eleven guided tools, inspected a representative NWChem output, and
-prepared an approval-gated launch without writing output files.
+Before removal, 127 focused profile and execution tests and all 1,854 tests
+with the external corpus established that the facade and canonical imports
+were identical. After removal, 81 focused checks and all 1,890 tests with the
+external corpus passed. Base and DIRAC-extra isolated installs of wheel
+SHA-256
+`6f54f7d000e5871b9bb9d5d6697dc09e070f31bdb8f0ef65ec9f5c05e59978a1`
+confirmed the old module is absent while the canonical owner still loads all
+eight bundled profiles. The same wheel is installed in the repository-local
+`venv`.
 
 ## Legacy renderer and launcher
 
