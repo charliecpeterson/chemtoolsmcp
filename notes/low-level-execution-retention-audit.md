@@ -3,14 +3,14 @@
 Audit date: 2026-08-09
 
 The remaining low-level execution tools are active compatibility code for
-NWChem, OpenMolcas, DIRAC, and GRASP. The guided `launch_run` contract has
-validated providers for those programs plus Quantum ESPRESSO and QMCPACK.
+NWChem and GRASP. The guided `launch_run` contract has validated providers for
+those programs plus OpenMolcas, DIRAC, Quantum ESPRESSO, and QMCPACK.
 
 ## Decision
 
-Retain the low-level NWChem, Molcas, DIRAC, and GRASP launch calls behind
-explicit program or developer toolsets. Do not add them to the default guided
-surface. The redundant QE and QMCPACK low-level render and launch calls were
+Retain the low-level NWChem and GRASP launch calls behind explicit program or
+developer toolsets. Do not add them to the default guided surface. The
+redundant QE, QMCPACK, Molcas, and DIRAC low-level execution surfaces were
 removed after their guided providers passed the accepted parity and corpus
 gates.
 
@@ -52,9 +52,10 @@ guided launch planning. The same wheel is installed in the repository-local
 
 Molcas now exposes the shared guided launch path through a schema-2 named
 target or version 1 migration profile. Named targets conservatively serialize
-CASPT2 and show the requested-to-effective rank change. The low-level preview,
-launch, and scheduler wrappers remain because they expose version 1 response
-fields and exact archival behavior outside the guided contract.
+CASPT2 and show the requested-to-effective rank change. Its redundant launch,
+status, watch, and cancellation MCP tools plus execution, monitoring, and
+scheduler compatibility modules were removed. The read-only
+`prepare_molcas_launch` helper, typed plan, and profile adapter remain.
 
 The Molcas local and Slurm parity matrix covered ordinary and CASPT2 input.
 Focused launch, backend, boundary, inventory, and MCP checks passed 116 tests,
@@ -66,9 +67,11 @@ loaded the provider and portable Molcas target entries.
 DIRAC now exposes the shared guided launch path through a schema-2 named target
 or version 1 migration profile. Its approval snapshot includes the paired
 `.inp` and `.mol` identities. Named targets use DIRAC's installation memory
-defaults, while profiles retain explicit `--mw` and `--nw` values. The
-low-level preview, launch, and scheduler wrappers remain for advanced
-checkpoint flags, archival, and version 1 response fields.
+defaults, while profiles retain explicit `--mw` and `--nw` values. Its
+redundant launch, status, watch, and cancellation MCP tools plus execution,
+monitoring, and scheduler compatibility modules were removed. The read-only
+`prepare_dirac_launch` helper retains advanced checkpoint flags while the
+typed plan and profile adapter remain program-owned.
 
 The DIRAC local and Slurm parity matrix covered the paired input command,
 artifacts, target rendering, and approval token. A dispatch-level check proved
@@ -79,6 +82,15 @@ of wheel SHA-256
 `fdd03dd2a41a2ae25ff092eb441c8031ba8d63834b0acce46a9ce134255619ec`
 loaded the provider and portable DIRAC target entries. The same wheel is
 installed in the repository-local `venv`.
+
+The joint Molcas and DIRAC low-level removal passed 123 focused architecture
+and guided checks, all 27 retained program test modules, and the complete
+1,923-test external-corpus suite. Base and DIRAC-extra isolated installs of
+wheel SHA-256
+`64ad9e361a9f7926b492abf886a97c23394cf8674edbb2d6f6ae916fbb5ad8b7`
+confirmed that all six retired compatibility modules are absent while both
+guided providers and advanced read-only preparers remain available. The same
+wheel is installed in the repository-local `venv`.
 
 GRASP now exposes whole workflow-script execution through the shared guided
 launch path. Named targets own the container prefix and `bash` command; version
@@ -96,33 +108,30 @@ the external corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
 loaded the provider and portable GRASP target entries. The same wheel is
 installed in the repository-local `venv`.
 
-The Molcas, DIRAC, and GRASP guided plans do not replace their full version 1
-preview contracts. Those previews still expose `launcher_command`,
-`launcher_kind`, `restart_prefix`, `shell`, resolved profile paths, and
-scheduler-template fields. Changing those responses would be a separate public
-compatibility change.
+The GRASP guided plan does not replace every interactive and version 1 workflow
+response. Those low-level calls still expose session-log behavior, captured
+stdin and output, and workflow-step results outside the one-file guided
+contract.
 
 Do not add a second generic preview projector to remove these renderer calls.
 Define each program's guided launch result first, then retire the extra version
 1 fields with the low-level response contract.
 
-Molcas and DIRAC application adapters use their scheduler wrappers to preserve
-the current low-level preview contract before a typed launch. GRASP does the
-same while its typed launch path owns workflow and interactive execution. After
-the final compatibility release, their monitoring fallbacks were narrowed to
-file-only inspection and explicit external Slurm attachment.
+The GRASP application adapter uses its scheduler wrapper for the remaining
+version 1 workflow-launch response while its typed launch path also owns
+interactive execution. Its monitoring fallback is limited to file inspection
+and explicit external Slurm attachment.
 
 ## Consequences
 
 - Keep these tools out of the default guided toolset.
-- Keep their current behavior stable through the final compatibility release.
+- Keep the remaining calls stable until their explicit removal gate is met.
 - Move a program to guided execution only after its review cases establish the
   program-specific arguments, artifacts, and failure behavior.
 - Do not build a second generic runner layer. Reuse the typed execution service
   and add a small program-owned launch provider when a backend is promoted.
-- Treat the program scheduler render and launch wrappers as active
-  compatibility code. The status wrappers now delegate to the focused
-  external-status owner.
+- Treat the GRASP scheduler render and launch wrapper as active compatibility
+  code. Its status wrapper delegates to the focused external-status owner.
 
 The next engineering target is narrower: remove old renderer calls only when a
 typed program plan already supplies the same preview and launch behavior.

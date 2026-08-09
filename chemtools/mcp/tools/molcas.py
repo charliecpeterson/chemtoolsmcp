@@ -44,19 +44,7 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.core.common import read_text
-from chemtools.application.molcas_execution import (
-    launch_molcas_with_service,
-    terminate_molcas_with_service,
-)
-from chemtools.application.molcas_monitoring import (
-    inspect_molcas_status_with_service,
-    watch_molcas_status_with_service,
-)
-from chemtools.application.execution import LaunchStatusError
-from chemtools.mcp.decorator import (
-    _tool as _raw_tool,
-    get_execution_service,
-)
+from chemtools.mcp.decorator import _tool as _raw_tool
 
 
 def _tool(name: str, *, needs: str = "none", program: str = "molcas"):
@@ -84,9 +72,6 @@ from chemtools.programs.molcas.binary.orbitals import (
     swap_orbitals_in_inporb as _swap_orbitals_in_inporb,
 )
 from chemtools.programs.molcas.runtime import prepare_launch as _prepare_molcas_launch
-from chemtools.programs.molcas.scheduler import (
-    watch_molcas_run as _watch_molcas_run,
-)
 from chemtools.programs.molcas.strategy.active_space import (
     analyze_active_space_source as _analyze_active_space_source,
     suggest_orbital_swaps_from_output as _suggest_orbital_swaps_from_output,
@@ -1509,103 +1494,6 @@ def molcas_tool_definitions() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
-        # ----- Scheduler runner tools (HPC / local) -----
-        {
-            "name": "launch_molcas_run",
-            "description": (
-                "Launch Molcas with a direct profile or submit it through a Slurm "
-                "profile. Live execution applies the CASPT2 parallelism guard, "
-                "records the effective command and resources, and writes "
-                "{job_name}.jobid after tracked Slurm submission. Set dry_run=true "
-                "for the legacy read-only preview. PBS and LSF profiles are not "
-                "supported by the typed execution boundary."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "input_file": {"type": "string"},
-                    "profile": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                    "job_name": {"type": "string"},
-                    "resource_overrides": {"type": "object"},
-                    "env_overrides": {"type": "object"},
-                    "write_script": {"type": "boolean", "default": True},
-                    "dry_run": {"type": "boolean", "default": False},
-                },
-                "required": ["input_file", "profile"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "get_molcas_run_status",
-            "description": (
-                "Check Molcas output files, a launch owned by this MCP, or an "
-                "external Slurm job. External Slurm attachment requires an "
-                "explicit profile and job_id; arbitrary process IDs and "
-                "auto-detected .jobid files are not accepted."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "output_file": {"type": "string"},
-                    "input_file": {"type": "string"},
-                    "error_file": {"type": "string"},
-                    "process_id": {"type": "integer"},
-                    "profile": {"type": "string"},
-                    "job_id": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "watch_molcas_run",
-            "description": (
-                "Poll Molcas status until terminal state or timeout. For HPC jobs, "
-                "omit timeout_seconds to block until scheduler completion. Owned local "
-                "and Slurm launches use typed status; external attachment supports only "
-                "an explicit Slurm profile and job_id."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "output_file": {"type": "string"},
-                    "input_file": {"type": "string"},
-                    "error_file": {"type": "string"},
-                    "process_id": {"type": "integer"},
-                    "profile": {"type": "string"},
-                    "job_id": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                    "poll_interval_seconds": {"type": "number", "default": 10.0},
-                    "adaptive_polling": {"type": "boolean", "default": True},
-                    "max_poll_interval_seconds": {"type": "number", "default": 60.0},
-                    "timeout_seconds": {
-                        "type": ["number", "null"],
-                        "default": 3600.0,
-                        "description": "Seconds before timing out. Set null for HPC jobs to wait indefinitely.",
-                    },
-                    "max_polls": {"type": "integer"},
-                    "history_limit": {"type": "integer", "default": 8},
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "terminate_molcas_run",
-            "description": (
-                "Cancel a Slurm Molcas job launched by this MCP process. Provide "
-                "the recorded job_id and the same profile used for launch."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "job_id": {"type": "string", "description": "Scheduler job ID (HPC runs)."},
-                    "profile": {"type": "string", "description": "Runner profile name (required with job_id)."},
-                },
-                "required": ["job_id", "profile"],
-                "additionalProperties": False,
-            },
-        },
     ]
 
 
@@ -2189,94 +2077,3 @@ def _handle_read_molcas_doc_excerpt(arguments: dict[str, Any]) -> dict[str, Any]
 @_tool("get_molcas_topic_guide")
 def _handle_get_molcas_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
     return _get_topic_guide(arguments["topic"])
-
-
-# ----- Scheduler runner handlers -----------------------------------------------
-
-@_tool("launch_molcas_run", needs="executable")
-def _handle_launch_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return launch_molcas_with_service(
-        get_execution_service(),
-        input_path=arguments["input_file"],
-        profile=arguments["profile"],
-        profiles_path=arguments.get("profiles_path"),
-        job_name=arguments.get("job_name"),
-        resource_overrides=arguments.get("resource_overrides"),
-        env_overrides=arguments.get("env_overrides"),
-        write_script=arguments.get("write_script", True),
-        dry_run=arguments.get("dry_run", False),
-    )
-
-
-@_tool("get_molcas_run_status", needs="executable")
-def _handle_get_molcas_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    return inspect_molcas_status_with_service(
-        get_execution_service(),
-        output_path=arguments.get("output_file"),
-        input_path=arguments.get("input_file"),
-        error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
-        profiles_path=arguments.get("profiles_path"),
-    )
-
-
-@_tool("watch_molcas_run", needs="executable")
-def _handle_watch_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    process_id = arguments.get("process_id")
-    job_id = arguments.get("job_id")
-    profile = arguments.get("profile")
-    watch_arguments = {
-        "output_path": arguments.get("output_file"),
-        "input_path": arguments.get("input_file"),
-        "error_path": arguments.get("error_file"),
-        "profiles_path": arguments.get("profiles_path"),
-        "poll_interval_seconds": arguments.get(
-            "poll_interval_seconds",
-            10.0,
-        ),
-        "adaptive_polling": arguments.get("adaptive_polling", True),
-        "max_poll_interval_seconds": arguments.get(
-            "max_poll_interval_seconds",
-            60.0,
-        ),
-        "timeout_seconds": arguments.get("timeout_seconds", 3600.0),
-        "max_polls": arguments.get("max_polls"),
-        "history_limit": arguments.get("history_limit", 8),
-    }
-    if process_id is not None:
-        return watch_molcas_status_with_service(
-            get_execution_service(),
-            process_id=process_id,
-            profile=profile,
-            **watch_arguments,
-        )
-    result = None
-    if job_id is not None:
-        try:
-            result = watch_molcas_status_with_service(
-                get_execution_service(),
-                job_id=job_id,
-                profile=profile,
-                **watch_arguments,
-            )
-        except LaunchStatusError as exc:
-            if exc.as_dict()["error"] != "launch_not_owned":
-                raise
-    if result is not None:
-        return result
-    return _watch_molcas_run(
-        profile=profile,
-        job_id=job_id,
-        **watch_arguments,
-    )
-
-
-@_tool("terminate_molcas_run", needs="executable")
-def _handle_terminate_molcas_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return terminate_molcas_with_service(
-        get_execution_service(),
-        job_id=arguments["job_id"],
-        profile=arguments["profile"],
-    )

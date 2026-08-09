@@ -68,18 +68,18 @@ in parallel and no longer form one clear model.
 
 ### Tool inventory
 
-The live registry currently exposes 328 tools across six registered backends:
+The live registry currently exposes 326 tools across six registered backends:
 
 | Tool group | Count |
 | --- | ---: |
 | NWChem | 101 |
-| Molcas | 45 |
-| DIRAC | 39 |
-| GRASP | 51 |
-| Quantum ESPRESSO | 20 |
-| QMCPACK | 14 |
-| Generic | 58 |
-| Total | 328 |
+| Molcas | 41 |
+| DIRAC | 35 |
+| GRASP | 53 |
+| Quantum ESPRESSO | 18 |
+| QMCPACK | 12 |
+| Generic | 66 |
+| Total | 326 |
 
 The generated inventory in `docs/tool-inventory.json` and
 `docs/tool-inventory.md` now records the live totals, input schemas,
@@ -1593,6 +1593,13 @@ Progress:
       migration adapters, and QMCPACK initialization-only launch option. Four
       MCP definitions and three obsolete adapter modules are gone; all 1,939
       external-corpus tests and both isolated wheel-install variants passed.
+- [x] Retire the redundant Molcas and DIRAC low-level launch, status, watch,
+      and cancellation MCP tools after their guided named-target providers
+      pass the same gates. Preserve `prepare_molcas_launch`,
+      `prepare_dirac_launch`, typed plans, profile migration adapters, and
+      paired DIRAC input approval. Eight MCP definitions and six compatibility
+      modules are gone. All 1,923 external-corpus tests and both isolated
+      wheel-install variants passed.
 - [x] Route explicit GRASP workflow status and watch requests through retained
       local process handles or target-owned Slurm queries for identifiers
       owned by the current service. Retain external file and explicit Slurm
@@ -1645,26 +1652,22 @@ unsupported at this boundary. The standalone legacy Python runner still
 exists during the compatibility window, but MCP live launch does not bypass
 the execution service for those cases.
 
-Typed Molcas execution has the same direct and Slurm profile limits. Slurm
-profiles must put module setup in `modules` and scratch setup in
-`hooks.pre_run`; the Stampede3 example now shows that split. The existing
-`prepare_molcas_launch` tool remains a read-only command preview. Local Molcas
-launches return a PID, and owned local or Slurm status and watch requests use
-typed execution state. The current Molcas termination tool still accepts
-scheduler job IDs only. Molcas launches do not yet create scientific-run links,
-so monitoring does not claim run-level artifact observations.
+The Molcas guided provider accepts schema-2 named direct and Slurm targets,
+with version 1 profiles retained as a migration input. Slurm targets keep
+module and scratch setup target-owned, and the Stampede3 example shows that
+split. The existing `prepare_molcas_launch` tool remains a read-only advanced
+command preview. The duplicate low-level launch and monitoring surface is
+retired; guided `monitor_run` follows launch IDs owned by the execution
+service.
 
-Typed DIRAC execution also accepts direct and Slurm version 1 profiles. The
-`.inp` and `.mol` files must exist in the same working directory. Profile
-`programs.dirac.default_mpi`, `default_mw`, and `default_nw` values become reviewed
-`pam-dirac` arguments, while Slurm does not add a second MPI launcher.
-Advanced `--copy`, `--put`, `--get`, and `--outcmo` commands remain available
-through the read-only `prepare_dirac_launch` tool; live checkpoint staging
-needs its own destination and overwrite contract. Local launches return a
-PID, and owned local or Slurm status and watch requests use typed execution
-state. The current DIRAC termination tool still accepts scheduler job IDs
-only. DIRAC launches do not yet create scientific-run links, so monitoring
-does not record run-level artifact observations.
+The DIRAC guided provider also accepts schema-2 named direct and Slurm targets,
+with version 1 profiles retained as a migration input. The `.inp` and `.mol`
+files must exist in the same working directory and both identities are bound
+to approval. Profile memory defaults become reviewed `pam-dirac` arguments,
+while Slurm does not add a second MPI launcher. Advanced `--copy`, `--put`,
+`--get`, and `--outcmo` commands remain available through the read-only
+`prepare_dirac_launch` tool. The duplicate low-level launch and monitoring
+surface is retired; guided `monitor_run` follows owned launch IDs.
 
 Typed GRASP workflow execution treats the shell script as an ordered
 calculation recipe rather than a single-program input file. The target runs

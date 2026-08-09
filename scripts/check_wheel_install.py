@@ -212,6 +212,12 @@ assert importlib.util.find_spec("chemtools.mcp.tools.nwchem") is None
 assert importlib.util.find_spec("chemtools.execution.legacy_profiles") is None
 assert importlib.util.find_spec("chemtools.execution.legacy_status") is None
 assert importlib.util.find_spec("chemtools.programs.nwchem.legacy_status") is None
+assert importlib.util.find_spec("chemtools.application.dirac_execution") is None
+assert importlib.util.find_spec("chemtools.application.dirac_monitoring") is None
+assert importlib.util.find_spec("chemtools.programs.dirac.scheduler") is None
+assert importlib.util.find_spec("chemtools.application.molcas_execution") is None
+assert importlib.util.find_spec("chemtools.application.molcas_monitoring") is None
+assert importlib.util.find_spec("chemtools.programs.molcas.scheduler") is None
 assert importlib.util.find_spec("chemtools.application.qe_execution") is None
 assert importlib.util.find_spec("chemtools.application.qmcpack_execution") is None
 assert importlib.util.find_spec("chemtools.mcp.tools.qe_execution") is None
@@ -220,6 +226,12 @@ assert "chemtools.mcp.tools.nwchem" not in sys.modules
 assert "chemtools.execution.legacy_profiles" not in sys.modules
 assert "chemtools.execution.legacy_status" not in sys.modules
 assert "chemtools.programs.nwchem.legacy_status" not in sys.modules
+assert "chemtools.application.dirac_execution" not in sys.modules
+assert "chemtools.application.dirac_monitoring" not in sys.modules
+assert "chemtools.programs.dirac.scheduler" not in sys.modules
+assert "chemtools.application.molcas_execution" not in sys.modules
+assert "chemtools.application.molcas_monitoring" not in sys.modules
+assert "chemtools.programs.molcas.scheduler" not in sys.modules
 assert "chemtools.application.qe_execution" not in sys.modules
 assert "chemtools.application.qmcpack_execution" not in sys.modules
 assert "chemtools.mcp.tools.qe_execution" not in sys.modules
@@ -271,7 +283,7 @@ print(json.dumps({
     "persistence_owners": True,
     "focused_nwchem_provider": True,
     "named_target_catalog": True,
-    "retired_qe_qmcpack_low_level_execution": True,
+    "retired_redundant_low_level_execution": True,
     "guided_dirac_launch_provider": True,
     "guided_grasp_launch_provider": True,
     "guided_molcas_launch_provider": True,

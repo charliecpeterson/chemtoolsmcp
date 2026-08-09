@@ -13,19 +13,19 @@
     ]
   },
   "summary": {
-    "tool_count": 334,
+    "tool_count": 326,
     "alias_count": 15,
-    "canonical_tool_count": 325,
+    "canonical_tool_count": 317,
     "advertised_legacy_tool_count": 9,
     "hidden_alias_count": 15,
-    "total_callable_name_count": 349,
+    "total_callable_name_count": 341,
     "entrypoint_alias_count": 2,
     "python_import_shim_count": 6,
     "by_program": {
       "generic": 66,
       "nwchem": 101,
-      "molcas": 45,
-      "dirac": 39,
+      "molcas": 41,
+      "dirac": 35,
       "grasp": 53,
       "qe": 18,
       "qmcpack": 12,
@@ -36,13 +36,13 @@
       "registry": 18,
       "runner_profile": 2,
       "executable_or_scheduler": 5,
-      "executable": 40,
+      "executable": 32,
       "scheduler": 3
     },
     "by_mode": {
       "analysis": 284,
-      "local": 331,
-      "hpc": 334
+      "local": 323,
+      "hpc": 326
     },
     "by_mode_and_program": {
       "analysis": {
@@ -58,8 +58,8 @@
       "local": {
         "generic": 65,
         "nwchem": 99,
-        "molcas": 45,
-        "dirac": 39,
+        "molcas": 41,
+        "dirac": 35,
         "grasp": 53,
         "qe": 18,
         "qmcpack": 12,
@@ -68,8 +68,8 @@
       "hpc": {
         "generic": 66,
         "nwchem": 101,
-        "molcas": 45,
-        "dirac": 39,
+        "molcas": 41,
+        "dirac": 35,
         "grasp": 53,
         "qe": 18,
         "qmcpack": 12,
@@ -84,13 +84,13 @@
       },
       "molcas": {
         "analysis": 101,
-        "local": 110,
-        "hpc": 111
+        "local": 106,
+        "hpc": 107
       },
       "dirac": {
         "analysis": 96,
-        "local": 104,
-        "hpc": 105
+        "local": 100,
+        "hpc": 101
       },
       "grasp": {
         "analysis": 91,
@@ -5268,46 +5268,6 @@
       "output_schema": null
     },
     {
-      "name": "get_dirac_run_status",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "dirac",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Check DIRAC output files, a launch owned by this MCP, or an external Slurm job. External Slurm attachment requires an explicit profile and job_id; arbitrary process IDs and auto-detected .jobid files are not accepted.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "output_file": {
-            "type": "string"
-          },
-          "input_file": {
-            "type": "string"
-          },
-          "error_file": {
-            "type": "string"
-          },
-          "process_id": {
-            "type": "integer"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "job_id": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "get_dirac_topic_guide",
       "lifecycle": "canonical",
       "replacement": null,
@@ -5442,46 +5402,6 @@
         "required": [
           "output_file"
         ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "get_molcas_run_status",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "molcas",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Check Molcas output files, a launch owned by this MCP, or an external Slurm job. External Slurm attachment requires an explicit profile and job_id; arbitrary process IDs and auto-detected .jobid files are not accepted.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "output_file": {
-            "type": "string"
-          },
-          "input_file": {
-            "type": "string"
-          },
-          "error_file": {
-            "type": "string"
-          },
-          "process_id": {
-            "type": "integer"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "job_id": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          }
-        },
         "additionalProperties": false
       },
       "output_schema": null
@@ -7213,61 +7133,6 @@
       "output_schema": null
     },
     {
-      "name": "launch_dirac_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "dirac",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Launch DIRAC with a direct profile or submit it through a Slurm profile. Live execution records the exact pam-dirac arguments, paired .inp and .mol paths, resources, and PID or job ID. Set dry_run=true for the legacy read-only preview. PBS and LSF profiles are not supported by the typed execution boundary.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "input_file": {
-            "type": "string",
-            "description": "Path to the DIRAC .inp file."
-          },
-          "mol_file": {
-            "type": "string",
-            "description": "Path to the matching .mol file."
-          },
-          "profile": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "job_name": {
-            "type": "string"
-          },
-          "resource_overrides": {
-            "type": "object"
-          },
-          "env_overrides": {
-            "type": "object"
-          },
-          "write_script": {
-            "type": "boolean",
-            "default": true
-          },
-          "dry_run": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "input_file",
-          "mol_file",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "launch_grasp_workflow_run",
       "lifecycle": "canonical",
       "replacement": null,
@@ -7311,55 +7176,6 @@
         },
         "required": [
           "workflow_script_path",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "launch_molcas_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "molcas",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Launch Molcas with a direct profile or submit it through a Slurm profile. Live execution applies the CASPT2 parallelism guard, records the effective command and resources, and writes {job_name}.jobid after tracked Slurm submission. Set dry_run=true for the legacy read-only preview. PBS and LSF profiles are not supported by the typed execution boundary.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "input_file": {
-            "type": "string"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "job_name": {
-            "type": "string"
-          },
-          "resource_overrides": {
-            "type": "object"
-          },
-          "env_overrides": {
-            "type": "object"
-          },
-          "write_script": {
-            "type": "boolean",
-            "default": true
-          },
-          "dry_run": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "input_file",
           "profile"
         ],
         "additionalProperties": false
@@ -16700,35 +16516,6 @@
       "output_schema": null
     },
     {
-      "name": "terminate_dirac_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "dirac",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Cancel a Slurm DIRAC job launched by this MCP process. Provide the recorded job_id and the same profile used for launch.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "job_id": {
-            "type": "string"
-          },
-          "profile": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "job_id",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "terminate_grasp_run",
       "lifecycle": "canonical",
       "replacement": null,
@@ -16747,37 +16534,6 @@
           },
           "profile": {
             "type": "string"
-          }
-        },
-        "required": [
-          "job_id",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "terminate_molcas_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "molcas",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Cancel a Slurm Molcas job launched by this MCP process. Provide the recorded job_id and the same profile used for launch.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "job_id": {
-            "type": "string",
-            "description": "Scheduler job ID (HPC runs)."
-          },
-          "profile": {
-            "type": "string",
-            "description": "Runner profile name (required with job_id)."
           }
         },
         "required": [
@@ -17258,72 +17014,6 @@
       }
     },
     {
-      "name": "watch_dirac_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "dirac",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Poll DIRAC status until terminal state or timeout. Owned PIDs and Slurm job IDs use typed execution state; external attachment supports only an explicit Slurm profile and job_id.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "output_file": {
-            "type": "string"
-          },
-          "input_file": {
-            "type": "string"
-          },
-          "error_file": {
-            "type": "string"
-          },
-          "process_id": {
-            "type": "integer"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "job_id": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "poll_interval_seconds": {
-            "type": "number",
-            "default": 10.0
-          },
-          "adaptive_polling": {
-            "type": "boolean",
-            "default": true
-          },
-          "max_poll_interval_seconds": {
-            "type": "number",
-            "default": 60.0
-          },
-          "timeout_seconds": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "default": 3600.0
-          },
-          "max_polls": {
-            "type": "integer"
-          },
-          "history_limit": {
-            "type": "integer",
-            "default": 8
-          }
-        },
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "watch_grasp_run",
       "lifecycle": "canonical",
       "replacement": null,
@@ -17376,73 +17066,6 @@
               "null"
             ],
             "default": 3600.0
-          },
-          "max_polls": {
-            "type": "integer"
-          },
-          "history_limit": {
-            "type": "integer",
-            "default": 8
-          }
-        },
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "watch_molcas_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "molcas",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Poll Molcas status until terminal state or timeout. For HPC jobs, omit timeout_seconds to block until scheduler completion. Owned local and Slurm launches use typed status; external attachment supports only an explicit Slurm profile and job_id.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "output_file": {
-            "type": "string"
-          },
-          "input_file": {
-            "type": "string"
-          },
-          "error_file": {
-            "type": "string"
-          },
-          "process_id": {
-            "type": "integer"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "job_id": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "poll_interval_seconds": {
-            "type": "number",
-            "default": 10.0
-          },
-          "adaptive_polling": {
-            "type": "boolean",
-            "default": true
-          },
-          "max_poll_interval_seconds": {
-            "type": "number",
-            "default": 60.0
-          },
-          "timeout_seconds": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "default": 3600.0,
-            "description": "Seconds before timing out. Set null for HPC jobs to wait indefinitely."
           },
           "max_polls": {
             "type": "integer"

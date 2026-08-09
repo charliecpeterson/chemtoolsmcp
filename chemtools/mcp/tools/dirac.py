@@ -67,19 +67,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from chemtools.application.dirac_execution import (
-    launch_dirac_with_service,
-    terminate_dirac_with_service,
-)
-from chemtools.application.dirac_monitoring import (
-    inspect_dirac_status_with_service,
-    watch_dirac_status_with_service,
-)
-from chemtools.application.execution import LaunchStatusError
-from chemtools.mcp.decorator import (
-    _tool as _raw_tool,
-    get_execution_service,
-)
+from chemtools.mcp.decorator import _tool as _raw_tool
 
 
 def _tool(name: str, *, needs: str = "none", program: str = "dirac"):
@@ -149,9 +137,6 @@ from chemtools.programs.dirac.input.core_ionization import (  # noqa: E402
 )
 from chemtools.programs.dirac.runtime import (  # noqa: E402
     prepare_launch as _prepare_launch,
-)
-from chemtools.programs.dirac.scheduler import (  # noqa: E402
-    watch_dirac_run as _watch_dirac_run,
 )
 
 
@@ -987,98 +972,6 @@ def dirac_tool_definitions() -> list[dict[str, Any]]:
                 "required": ["topic"],
             },
         },
-        # ----- Scheduler runner tools (HPC / local) -----
-        {
-            "name": "launch_dirac_run",
-            "description": (
-                "Launch DIRAC with a direct profile or submit it through a Slurm "
-                "profile. Live execution records the exact pam-dirac arguments, "
-                "paired .inp and .mol paths, resources, and PID or job ID. Set "
-                "dry_run=true for the legacy read-only preview. PBS and LSF "
-                "profiles are not supported by the typed execution boundary."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "input_file": {"type": "string", "description": "Path to the DIRAC .inp file."},
-                    "mol_file": {"type": "string", "description": "Path to the matching .mol file."},
-                    "profile": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                    "job_name": {"type": "string"},
-                    "resource_overrides": {"type": "object"},
-                    "env_overrides": {"type": "object"},
-                    "write_script": {"type": "boolean", "default": True},
-                    "dry_run": {"type": "boolean", "default": False},
-                },
-                "required": ["input_file", "mol_file", "profile"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "get_dirac_run_status",
-            "description": (
-                "Check DIRAC output files, a launch owned by this MCP, or an "
-                "external Slurm job. External Slurm attachment requires an "
-                "explicit profile and job_id; arbitrary process IDs and "
-                "auto-detected .jobid files are not accepted."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "output_file": {"type": "string"},
-                    "input_file": {"type": "string"},
-                    "error_file": {"type": "string"},
-                    "process_id": {"type": "integer"},
-                    "profile": {"type": "string"},
-                    "job_id": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "watch_dirac_run",
-            "description": (
-                "Poll DIRAC status until terminal state or timeout. Owned PIDs "
-                "and Slurm job IDs use typed execution state; external attachment "
-                "supports only an explicit Slurm profile and job_id."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "output_file": {"type": "string"},
-                    "input_file": {"type": "string"},
-                    "error_file": {"type": "string"},
-                    "process_id": {"type": "integer"},
-                    "profile": {"type": "string"},
-                    "job_id": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                    "poll_interval_seconds": {"type": "number", "default": 10.0},
-                    "adaptive_polling": {"type": "boolean", "default": True},
-                    "max_poll_interval_seconds": {"type": "number", "default": 60.0},
-                    "timeout_seconds": {"type": ["number", "null"], "default": 3600.0},
-                    "max_polls": {"type": "integer"},
-                    "history_limit": {"type": "integer", "default": 8},
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "terminate_dirac_run",
-            "description": (
-                "Cancel a Slurm DIRAC job launched by this MCP process. Provide "
-                "the recorded job_id and the same profile used for launch."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "job_id": {"type": "string"},
-                    "profile": {"type": "string"},
-                },
-                "required": ["job_id", "profile"],
-                "additionalProperties": False,
-            },
-        },
     ]
 
 
@@ -1490,95 +1383,3 @@ def _handle_read_dirac_doc_excerpt(arguments: dict[str, Any]) -> dict[str, Any]:
 @_tool("get_dirac_topic_guide")
 def _handle_get_dirac_topic_guide(arguments: dict[str, Any]) -> dict[str, Any]:
     return _get_topic_guide(arguments["topic"])
-
-
-# ----- Scheduler runner handlers -----------------------------------------------
-
-@_tool("launch_dirac_run", needs="executable")
-def _handle_launch_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return launch_dirac_with_service(
-        get_execution_service(),
-        input_path=arguments["input_file"],
-        mol_file=arguments["mol_file"],
-        profile=arguments["profile"],
-        profiles_path=arguments.get("profiles_path"),
-        job_name=arguments.get("job_name"),
-        resource_overrides=arguments.get("resource_overrides"),
-        env_overrides=arguments.get("env_overrides"),
-        write_script=arguments.get("write_script", True),
-        dry_run=arguments.get("dry_run", False),
-    )
-
-
-@_tool("get_dirac_run_status", needs="executable")
-def _handle_get_dirac_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    return inspect_dirac_status_with_service(
-        get_execution_service(),
-        output_path=arguments.get("output_file"),
-        input_path=arguments.get("input_file"),
-        error_path=arguments.get("error_file"),
-        process_id=arguments.get("process_id"),
-        profile=arguments.get("profile"),
-        job_id=arguments.get("job_id"),
-        profiles_path=arguments.get("profiles_path"),
-    )
-
-
-@_tool("watch_dirac_run", needs="executable")
-def _handle_watch_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    process_id = arguments.get("process_id")
-    job_id = arguments.get("job_id")
-    profile = arguments.get("profile")
-    watch_arguments = {
-        "output_path": arguments.get("output_file"),
-        "input_path": arguments.get("input_file"),
-        "error_path": arguments.get("error_file"),
-        "profiles_path": arguments.get("profiles_path"),
-        "poll_interval_seconds": arguments.get(
-            "poll_interval_seconds",
-            10.0,
-        ),
-        "adaptive_polling": arguments.get("adaptive_polling", True),
-        "max_poll_interval_seconds": arguments.get(
-            "max_poll_interval_seconds",
-            60.0,
-        ),
-        "timeout_seconds": arguments.get("timeout_seconds", 3600.0),
-        "max_polls": arguments.get("max_polls"),
-        "history_limit": arguments.get("history_limit", 8),
-    }
-    if process_id is not None:
-        return watch_dirac_status_with_service(
-            get_execution_service(),
-            process_id=process_id,
-            profile=profile,
-            **watch_arguments,
-        )
-    result = None
-    if job_id is not None:
-        try:
-            result = watch_dirac_status_with_service(
-                get_execution_service(),
-                job_id=job_id,
-                profile=profile,
-                **watch_arguments,
-            )
-        except LaunchStatusError as exc:
-            if exc.as_dict()["error"] != "launch_not_owned":
-                raise
-    if result is not None:
-        return result
-    return _watch_dirac_run(
-        profile=profile,
-        job_id=job_id,
-        **watch_arguments,
-    )
-
-
-@_tool("terminate_dirac_run", needs="executable")
-def _handle_terminate_dirac_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return terminate_dirac_with_service(
-        get_execution_service(),
-        job_id=arguments["job_id"],
-        profile=arguments["profile"],
-    )

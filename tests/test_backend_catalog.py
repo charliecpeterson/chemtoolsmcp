@@ -1020,8 +1020,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
         for spec in BUILTIN_BACKENDS
     } == {
         "nwchem": 101,
-        "molcas": 45,
-        "dirac": 39,
+        "molcas": 41,
+        "dirac": 35,
         "grasp": 49,
         "qe": 18,
         "qmcpack": 12,
@@ -1034,8 +1034,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     dispatch_names = [
         definition["name"] for definition in dispatch.tool_definitions()
     ]
-    assert len(catalog_names) == 334
-    assert len(set(catalog_names)) == 334
+    assert len(catalog_names) == 326
+    assert len(set(catalog_names)) == 326
     assert catalog_names == dispatch_names
 
 

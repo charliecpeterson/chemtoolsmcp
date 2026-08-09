@@ -16,8 +16,6 @@ import chemtools.programs.nwchem.external_status as nwchem_status
 
 
 SCHEDULER_MODULES = (
-    "molcas",
-    "dirac",
     "grasp",
 )
 NEUTRAL_RUNNER_IMPORTS = {
@@ -72,6 +70,7 @@ def test_core_runner_reexports_split_legacy_modules_directly():
     assert core_runner.inspect_run_status is external_status.inspect_run_status
     assert core_runner.watch_run is external_status.watch_run
     assert core_runner.tail_text_file is external_status.tail_text_file
+
 
 @pytest.mark.parametrize("program", SCHEDULER_MODULES)
 def test_non_nwchem_scheduler_imports_only_neutral_runner_names(program):

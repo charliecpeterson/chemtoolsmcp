@@ -13,10 +13,10 @@ The JSON companion contains every tool description, input schema, and advertised
 
 - Default protocol version: `2025-11-25`
 - Supported protocol versions: `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25`, `2026-07-28`
-- Canonical tool definitions: 325
+- Canonical tool definitions: 317
 - Advertised legacy tool definitions: 9
 - Hidden MCP aliases: 15
-- Total callable MCP names: 349
+- Total callable MCP names: 341
 
 ### Programs
 
@@ -24,8 +24,8 @@ The JSON companion contains every tool description, input schema, and advertised
 | --- | ---: |
 | `generic` | 66 |
 | `nwchem` | 101 |
-| `molcas` | 45 |
-| `dirac` | 39 |
+| `molcas` | 41 |
+| `dirac` | 35 |
 | `grasp` | 53 |
 | `qe` | 18 |
 | `qmcpack` | 12 |
@@ -39,7 +39,7 @@ The JSON companion contains every tool description, input schema, and advertised
 | `registry` | 18 |
 | `runner_profile` | 2 |
 | `executable_or_scheduler` | 5 |
-| `executable` | 40 |
+| `executable` | 32 |
 | `scheduler` | 3 |
 
 ### Modes
@@ -47,8 +47,8 @@ The JSON companion contains every tool description, input schema, and advertised
 | Mode | All programs |
 | --- | ---: |
 | `analysis` | 284 |
-| `local` | 331 |
-| `hpc` | 334 |
+| `local` | 323 |
+| `hpc` | 326 |
 
 ### Program filters
 
@@ -57,8 +57,8 @@ Counts include the 66 generic tools where the active mode permits them.
 | Program filter | Analysis | Local | HPC |
 | --- | ---: | ---: | ---: |
 | `nwchem` | 149 | 164 | 167 |
-| `molcas` | 101 | 110 | 111 |
-| `dirac` | 96 | 104 | 105 |
+| `molcas` | 101 | 106 | 107 |
+| `dirac` | 96 | 100 | 101 |
 | `grasp` | 91 | 118 | 119 |
 | `qe` | 79 | 83 | 84 |
 | `qmcpack` | 73 | 77 | 78 |
@@ -212,13 +212,11 @@ Aliases remain callable but are omitted from `tools/list`.
 | `generate_nwchem_input_batch` | `nwchem` | `executable_or_scheduler` | `local`, `hpc` |
 | `get_campaign_energies` | `generic` | `registry` | `analysis`, `local`, `hpc` |
 | `get_campaign_status` | `generic` | `registry` | `analysis`, `local`, `hpc` |
-| `get_dirac_run_status` | `dirac` | `executable` | `local`, `hpc` |
 | `get_dirac_topic_guide` | `dirac` | `none` | `analysis`, `local`, `hpc` |
 | `get_grasp_container` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `get_grasp_run_status` | `grasp` | `executable` | `local`, `hpc` |
 | `get_grasp_topic_guide` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `get_molcas_orbitals` | `molcas` | `none` | `analysis`, `local`, `hpc` |
-| `get_molcas_run_status` | `molcas` | `executable` | `local`, `hpc` |
 | `get_molcas_topic_guide` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `get_nwchem_campaign_energies` | `nwchem` | `registry` | `analysis`, `local`, `hpc` |
 | `get_nwchem_campaign_status` | `nwchem` | `registry` | `analysis`, `local`, `hpc` |
@@ -263,9 +261,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `inspect_science_runtime` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `inspect_structure_identity_with_orbitron` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `inspect_with_orbitron` | `generic` | `none` | `analysis`, `local`, `hpc` |
-| `launch_dirac_run` | `dirac` | `executable` | `local`, `hpc` |
 | `launch_grasp_workflow_run` | `grasp` | `executable` | `local`, `hpc` |
-| `launch_molcas_run` | `molcas` | `executable` | `local`, `hpc` |
 | `launch_nwchem_run` | `nwchem` | `executable` | `local`, `hpc` |
 | `launch_run` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `lint_molcas_input` | `molcas` | `none` | `analysis`, `local`, `hpc` |
@@ -438,9 +434,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `swap_molcas_inporb_orbitals` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `swap_nwchem_movecs` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `tail_nwchem_output` | `nwchem` | `executable` | `local`, `hpc` |
-| `terminate_dirac_run` | `dirac` | `executable` | `local`, `hpc` |
 | `terminate_grasp_run` | `grasp` | `executable` | `local`, `hpc` |
-| `terminate_molcas_run` | `molcas` | `executable` | `local`, `hpc` |
 | `terminate_nwchem_run` | `nwchem` | `executable` | `local`, `hpc` |
 | `track_nwchem_spin_state` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `try_molcas_run_with_recovery` | `molcas` | `executable` | `local`, `hpc` |
@@ -451,8 +445,6 @@ Aliases remain callable but are omitted from `tools/list`.
 | `validate_molcas_caspt2_setup` | `molcas` | `none` | `analysis`, `local`, `hpc` |
 | `validate_nwchem_tce_setup` | `nwchem` | `none` | `analysis`, `local`, `hpc` |
 | `visualize` | `generic` | `none` | `analysis`, `local`, `hpc` |
-| `watch_dirac_run` | `dirac` | `executable` | `local`, `hpc` |
 | `watch_grasp_run` | `grasp` | `executable` | `local`, `hpc` |
-| `watch_molcas_run` | `molcas` | `executable` | `local`, `hpc` |
 | `watch_multiple_runs` | `generic` | `executable` | `local`, `hpc` |
 | `watch_nwchem_run` | `nwchem` | `executable` | `local`, `hpc` |

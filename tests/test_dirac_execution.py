@@ -2,36 +2,19 @@
 
 import json
 from pathlib import Path
-import subprocess
 
 import pytest
 
-import chemtools.core.monitoring as core_monitoring
-import chemtools.execution.legacy_runner as core_runner
-import chemtools.execution.local as local_execution
-import chemtools.execution.slurm as slurm_execution
-from chemtools.application.dirac_execution import (
-    launch_dirac_with_service,
-    terminate_dirac_with_service,
-)
 from chemtools.application.execution import ExecutionService
 from chemtools.application.run_launching import LaunchRunError, launch_run
-from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor, SlurmExecutor
-from chemtools.persistence.launches import load_launch_record
-from chemtools.mcp.decorator import set_active_mode
-from chemtools.mcp.tools.dirac import (
-    _handle_get_dirac_run_status,
-    _handle_launch_dirac_run,
-    _handle_watch_dirac_run,
-)
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.programs.dirac.launch import (
     adapt_legacy_dirac_profile,
     build_dirac_launch_plan,
 )
 from chemtools.programs.dirac import DIRAC
 from chemtools.programs.dirac.runtime import prepare_launch
-from chemtools.programs.dirac.scheduler import launch_dirac_run
 
 
 STAMPEDE_PROFILE_PATH = (
@@ -124,15 +107,6 @@ def _profiles() -> dict:
     }
 
 
-def _profile_path(tmp_path: Path) -> Path:
-    profile_path = tmp_path / "profiles.json"
-    profile_path.write_text(
-        json.dumps(_profiles()),
-        encoding="utf-8",
-    )
-    return profile_path
-
-
 def _guided_profile_path(tmp_path: Path) -> Path:
     profiles = _profiles()
     for profile in profiles["profiles"].values():
@@ -141,13 +115,6 @@ def _guided_profile_path(tmp_path: Path) -> Path:
     profile_path = tmp_path / "guided_profiles.json"
     profile_path.write_text(json.dumps(profiles), encoding="utf-8")
     return profile_path
-
-
-def _service(tmp_path: Path) -> ExecutionService:
-    return ExecutionService(
-        enable_execution=True,
-        registry_db_path=tmp_path / "registry.db",
-    )
 
 
 def test_local_dirac_plan_matches_read_only_argument_builder(tmp_path):
@@ -430,317 +397,4 @@ def test_stampede3_dirac_profile_declares_typed_runtime_setup(
     assert installation.executable_argv == ("pam-dirac",)
     assert installation.setup_lines == (
         "module load tacc-apptainer",
-    )
-
-
-def test_dirac_dry_run_remains_legacy_preview(tmp_path):
-    input_path, molecule_path = _inputs(tmp_path)
-    profile_path = _profile_path(tmp_path)
-    expected = launch_dirac_run(
-        input_path=str(input_path),
-        mol_file=str(molecule_path),
-        profile="dirac_slurm",
-        profiles_path=str(profile_path),
-        dry_run=True,
-    )
-
-    actual = launch_dirac_with_service(
-        ExecutionService(),
-        input_path=str(input_path),
-        mol_file=str(molecule_path),
-        profile="dirac_slurm",
-        profiles_path=str(profile_path),
-        dry_run=True,
-    )
-
-    assert actual == expected
-    assert actual["executed"] is False
-    assert not (tmp_path / "registry.db").exists()
-
-
-def test_dirac_local_launch_uses_exact_typed_command(
-    tmp_path,
-    monkeypatch,
-):
-    input_path, molecule_path = _inputs(tmp_path)
-    profile_path = _profile_path(tmp_path)
-    observed: dict[str, object] = {}
-
-    class StartedProcess:
-        pid = 8181
-
-    def fake_popen(argv, **kwargs):
-        observed["argv"] = argv
-        observed["tmpdir"] = kwargs["env"]["DIRAC_TMPDIR"]
-        observed["shell"] = kwargs["shell"]
-        return StartedProcess()
-
-    monkeypatch.setattr(
-        local_execution.subprocess,
-        "Popen",
-        fake_popen,
-    )
-    service = _service(tmp_path)
-
-    launched = launch_dirac_with_service(
-        service,
-        input_path=str(input_path),
-        mol_file=str(molecule_path),
-        profile="dirac_local",
-        profiles_path=str(profile_path),
-        env_overrides={"DIRAC_TMPDIR": "/custom/scratch"},
-    )
-
-    assert launched["executed"] is True
-    assert launched["process_id"] == 8181
-    assert launched["status"] == "started"
-    assert launched["mol_file"] == str(molecule_path)
-    assert launched["master_memory_mb"] == 512
-    assert launched["node_memory_mb"] == 256
-    assert launched["effective_argv"] == [
-        "pam-dirac",
-        "--mpi=4",
-        "--inp=molecule.inp",
-        "--mol=geometry.mol",
-        "--mw=512",
-        "--nw=256",
-    ]
-    assert observed == {
-        "argv": tuple(launched["effective_argv"]),
-        "tmpdir": "/custom/scratch",
-        "shell": False,
-    }
-    assert service.get_launch_record(
-        launched["launch_id"]
-    ).process_id == 8181
-
-
-def test_dirac_slurm_launch_archives_output_and_cancels_owned_job(
-    tmp_path,
-    monkeypatch,
-):
-    input_path, molecule_path = _inputs(tmp_path)
-    profile_path = _profile_path(tmp_path)
-    previous_output = tmp_path / "molecule.out"
-    previous_output.write_text("prior DIRAC output\n", encoding="utf-8")
-    calls: list[tuple[str, ...]] = []
-
-    def fake_run(argv, **kwargs):
-        calls.append(tuple(argv))
-        if argv[0] == "sbatch":
-            return subprocess.CompletedProcess(
-                argv,
-                0,
-                stdout="Submitted batch job 24680\n",
-                stderr="",
-            )
-        return subprocess.CompletedProcess(
-            argv,
-            0,
-            stdout="",
-            stderr="",
-        )
-
-    monkeypatch.setattr(slurm_execution.subprocess, "run", fake_run)
-    service = _service(tmp_path)
-
-    launched = launch_dirac_with_service(
-        service,
-        input_path=str(input_path),
-        mol_file=str(molecule_path),
-        profile="dirac_slurm",
-        profiles_path=str(profile_path),
-    )
-
-    assert launched["status"] == "submitted"
-    assert launched["job_id"] == "24680"
-    assert launched["submit_command"] == [
-        "sbatch",
-        str(tmp_path / "molecule.job"),
-    ]
-    assert launched["jobid_file"] == str(
-        tmp_path / "molecule.jobid"
-    )
-    assert len(launched["archived_previous_outputs"]) == 1
-    archived_output = Path(
-        launched["archived_previous_outputs"][0]
-    )
-    assert archived_output.name.startswith("molecule.out.")
-    assert archived_output.read_text(
-        encoding="utf-8"
-    ) == "prior DIRAC output\n"
-    assert (
-        "pam-dirac --mpi=48 --inp=molecule.inp "
-        "--mol=geometry.mol --mw=1024 --nw=512\n"
-        in launched["submit_script_text"]
-    )
-
-    cancelled = terminate_dirac_with_service(
-        service,
-        job_id="24680",
-        profile="dirac_slurm",
-    )
-
-    assert cancelled == {
-        "job_id": "24680",
-        "cancelled": True,
-        "command": ["scancel", "24680"],
-        "return_code": 0,
-        "stdout": "",
-        "stderr": "",
-        "launch_id": launched["launch_id"],
-    }
-    assert calls == [
-        ("sbatch", str(tmp_path / "molecule.job")),
-        ("scancel", "24680"),
-    ]
-
-
-def test_dirac_cancel_rejects_unrecorded_job(tmp_path):
-    result = terminate_dirac_with_service(
-        _service(tmp_path),
-        job_id="24680",
-        profile="dirac_slurm",
-    )
-
-    assert result == {
-        "job_id": "24680",
-        "cancelled": False,
-        "error": "launch_not_owned",
-    }
-
-
-def test_mcp_dirac_local_status_uses_owned_process_handle(
-    tmp_path,
-    monkeypatch,
-):
-    input_path, molecule_path = _inputs(tmp_path)
-    profile_path = _profile_path(tmp_path)
-
-    class CompletedProcess:
-        pid = 8282
-
-        def poll(self):
-            return 0
-
-    def fake_popen(*args, **kwargs):
-        kwargs["stdout"].write(b"DIRAC execution output\n")
-        kwargs["stdout"].flush()
-        return CompletedProcess()
-
-    def reject_pid_probe(*args, **kwargs):
-        raise AssertionError("owned process reached legacy PID probe")
-
-    db_path = tmp_path / "registry.db"
-    monkeypatch.setenv("CHEMTOOLS_REGISTRY_DB", str(db_path))
-    monkeypatch.setattr(local_execution.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(core_runner.os, "kill", reject_pid_probe)
-    set_active_mode("local")
-    try:
-        launched = _handle_launch_dirac_run({
-            "input_file": str(input_path),
-            "mol_file": str(molecule_path),
-            "profile": "dirac_local",
-            "profiles_path": str(profile_path),
-        })
-        status = _handle_get_dirac_run_status({
-            "output_file": launched["output_file"],
-            "input_file": str(input_path),
-            "error_file": launched["error_file"],
-            "process_id": launched["process_id"],
-        })
-    finally:
-        set_active_mode("analysis")
-
-    assert status["process"] == {
-        "process_id": 8282,
-        "status": "completed",
-        "return_code": 0,
-    }
-    persisted = load_launch_record(launched["launch_id"], db_path)
-    assert status["execution_record"] == {
-        "launch_id": launched["launch_id"],
-        "status": "completed",
-        "elapsed_seconds": persisted.elapsed_seconds,
-    }
-    assert persisted.status == "completed"
-
-
-def test_mcp_dirac_slurm_watch_uses_owned_accounting_status(
-    tmp_path,
-    monkeypatch,
-):
-    input_path, molecule_path = _inputs(tmp_path)
-    profile_path = _profile_path(tmp_path)
-    calls = []
-    queue_queries = 0
-
-    def fake_run(argv, **kwargs):
-        nonlocal queue_queries
-        calls.append(tuple(argv))
-        if argv[0] == "sbatch":
-            return subprocess.CompletedProcess(
-                argv,
-                0,
-                stdout="Submitted batch job 24681\n",
-                stderr="",
-            )
-        if argv[0] == "squeue":
-            queue_queries += 1
-            return subprocess.CompletedProcess(
-                argv,
-                0,
-                stdout="RUNNING\n" if queue_queries == 1 else "",
-                stderr="",
-            )
-        (tmp_path / "molecule.out").write_text(
-            "DIRAC execution output\n",
-            encoding="utf-8",
-        )
-        return subprocess.CompletedProcess(
-            argv,
-            0,
-            stdout="COMPLETED|0:0|63\n",
-            stderr="",
-        )
-
-    db_path = tmp_path / "registry.db"
-    monkeypatch.setenv("CHEMTOOLS_REGISTRY_DB", str(db_path))
-    monkeypatch.setattr(slurm_execution.subprocess, "run", fake_run)
-    monkeypatch.setattr(core_monitoring.time, "sleep", lambda _: None)
-    set_active_mode("hpc")
-    try:
-        launched = _handle_launch_dirac_run({
-            "input_file": str(input_path),
-            "mol_file": str(molecule_path),
-            "profile": "dirac_slurm",
-            "profiles_path": str(profile_path),
-        })
-        watched = _handle_watch_dirac_run({
-            "output_file": launched["output_file"],
-            "input_file": str(input_path),
-            "error_file": launched["error_file"],
-            "profile": "dirac_slurm",
-            "job_id": launched["job_id"],
-            "profiles_path": str(profile_path),
-            "poll_interval_seconds": 0,
-        })
-    finally:
-        set_active_mode("analysis")
-
-    final_status = watched["final_status"]
-    assert watched["terminal"] is True
-    assert watched["poll_count"] == 2
-    assert final_status["scheduler"]["status"] == "completed"
-    assert final_status["scheduler"]["source"] == "accounting"
-    assert final_status["scheduler"]["elapsed_seconds"] == 63.0
-    assert final_status["execution_record"]["status"] == "completed"
-    assert load_launch_record(launched["launch_id"], db_path).status == (
-        "completed"
-    )
-    assert tuple(call[0] for call in calls) == (
-        "sbatch",
-        "squeue",
-        "squeue",
-        "sacct",
     )

@@ -458,9 +458,8 @@ contracts, with concrete program and execution adapters composed at startup.
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
       Profile and status facades that met their gates are gone. The remaining
-      version 1 renderer and launcher still serve NWChem, Molcas, DIRAC, and
-      GRASP low-level tools, so this parent item stays open until those calls
-      are retired.
+      version 1 renderer and launcher still serve NWChem and GRASP low-level
+      tools, so this parent item stays open until those calls are retired.
   - [x] Move profile loading and typed target conversion into the canonical
         `execution/profiles.py` owner. The exact
         `execution/legacy_profiles.py` import facade had no first-party or
@@ -554,10 +553,9 @@ contracts, with concrete program and execution adapters composed at startup.
         `8f547099d8b8d52ad784e3c594d3727cd4159462b50559fd8070a818e7643f52`
         loaded the provider and bundled GRASP target examples. The same wheel
         is installed in the repository-local `venv`.
-  - [x] Retain low-level NWChem, Molcas, DIRAC, and GRASP launch calls behind
-        explicit program or developer toolsets. The Molcas, DIRAC, and GRASP
-        low-level calls remain for their version 1 response contracts or
-        interactive behavior. Their
+  - [x] Retain low-level NWChem and GRASP launch calls behind explicit program
+        or developer toolsets. The GRASP calls remain for version 1 workflow
+        responses or interactive behavior. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only
         after a guided provider passes accepted
@@ -576,10 +574,25 @@ contracts, with concrete program and execution adapters composed at startup.
         confirmed the retired modules are absent and both guided providers
         remain available. The same wheel is installed in the repository-local
         `venv`.
+  - [x] Remove the redundant Molcas and DIRAC low-level launch, status, watch,
+        and cancellation tools after their named-target providers passed the
+        retained parity and corpus gates. Keep both read-only advanced launch
+        preparers, typed plans, profile migration adapters, and paired DIRAC
+        approval. This removes eight MCP definitions and six obsolete
+        compatibility modules. Focused architecture and guided checks passed
+        123 tests, all 27 retained Molcas and DIRAC test modules passed, and
+        the full external-corpus suite passed 1,923 tests. Base and DIRAC-extra
+        isolated installs of wheel SHA-256
+        `64ad9e361a9f7926b492abf886a97c23394cf8674edbb2d6f6ae916fbb5ad8b7`
+        confirmed the retired modules are absent and both guided providers
+        remain available. The same wheel is installed in the repository-local
+        `venv`.
   - [x] Move compatibility output archival into the focused
-        `execution/legacy_archive.py` owner. All six program application
-        adapters import that owner directly, while `legacy_runner.py` retains
-        exact compatibility imports for old Python callers. Execution and
+        `execution/legacy_archive.py` owner. At extraction, all six program
+        application adapters imported that owner directly; NWChem and GRASP
+        remain after the four redundant adapters were retired.
+        `legacy_runner.py` retains exact compatibility imports for old Python
+        callers. Execution and
         import-boundary checks passed 69 tests, followed by all 1,856 tests
         with the external corpus. Installed wheel SHA-256
         `63e6dd6e97a688293c6c37ba8ab8ae417405b5fc96c25e90c7bf5c742338158e`

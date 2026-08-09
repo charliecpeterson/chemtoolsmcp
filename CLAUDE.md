@@ -23,9 +23,9 @@ chemtools/
     nwchem/                      NWChem plugin (parser, drafter, strategist, runner)
       parse/, input/, strategy/, binary/, runner.py, docs.py, output.py, ...
     molcas/                      OpenMolcas plugin (CASSCF / CASPT2 / RASSI / SLAPAF)
-      parse/, input/, strategy/, binary/, runtime.py, docs.py, scheduler.py
+      parse/, input/, strategy/, binary/, runtime.py, docs.py
     dirac/                       DIRAC plugin (4c / X2C / AOC / KPSELE / Cm-class)
-      parse/, input/, strategy/, binary/, runtime.py, docs.py, basis.py, scheduler.py
+      parse/, input/, strategy/, binary/, runtime.py, docs.py, basis.py
     grasp/                       GRASP2018 plugin (multi-exe workflows + scheduler)
       parse/, input/, strategy/, runtime.py, docs.py, scheduler.py, _plugin_parser.py
   data/                          Bundled per-program data (basis libraries + docs)
@@ -95,13 +95,11 @@ examples/
 | Documentation | 7 | `search_nwchem_docs`, `lookup_nwchem_block_syntax`, `find_nwchem_examples`, `get_nwchem_topic_guide`, `read_nwchem_doc_excerpt`, `list_nwchem_docs`, `search_nwchem_forum` |
 | Evaluation | 2 | `evaluate_nwchem_case`, `evaluate_nwchem_cases` |
 
-### Molcas / OpenMolcas tools (45)
+### Molcas / OpenMolcas tools (41)
 
-Adds 4 scheduler-submit tools to the existing 40: `launch_molcas_run`,
-`get_molcas_run_status`, `watch_molcas_run`, `terminate_molcas_run` —
-parallel to the NWChem pattern, all tagged `needs="executable"`. Plus
-`summarize_molcas_outputs` — bulk one-row-per-file triage over a directory /
-glob / list (the Molcas counterpart of `summarize_nwchem_outputs`).
+Includes `summarize_molcas_outputs`, bulk one-row-per-file triage over a
+directory, glob, or list. Guided execution uses `launch_run` with the Molcas
+named-target provider.
 
 | Tool | Purpose |
 |------|---------|
@@ -165,11 +163,10 @@ Plugin layout (`chemtools/programs/molcas/`):
 - `runtime.py` — launch-helper (`prepare_launch` returns safe pymolcas command + env, with CASPT2 -np guard rail and scratch isolation)
 - `_plugin_parser.py`, `_plugin_binary.py`, `_plugin_drafter.py` — sub-protocol implementations
 
-### DIRAC tools (39)
+### DIRAC tools (35)
 
-Adds 4 scheduler-submit tools to the existing 34: `launch_dirac_run`
-(takes a `mol_file` argument), `get_dirac_run_status`, `watch_dirac_run`,
-`terminate_dirac_run`.
+Guided execution uses `launch_run`; its approval binds both the `.inp` and
+`.mol` files through the DIRAC named-target provider.
 
 | Category | Tools |
 |----------|-------|
