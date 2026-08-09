@@ -1470,11 +1470,13 @@ Progress:
       staging, and rendered-command models.
 - [x] Add schema-2 named target YAML and JSON loading at the MCP composition
       root. Keep execution permission explicit and independent from legacy
-      tool-visibility mode. Guided NWChem, Quantum ESPRESSO, and QMCPACK launch
-      can select a configured target or the server default without reading a
-      version 1 profile; equivalent local and Slurm targets render the same
-      approval-bound plan as the migration adapter. QMCPACK also retains its
-      initialization-only `--dryrun` plan through the guided approval boundary.
+      tool-visibility mode. Guided NWChem, OpenMolcas, Quantum ESPRESSO, and
+      QMCPACK launch can select a configured target or the server default
+      without reading a version 1 profile; equivalent local and Slurm targets
+      render the same approval-bound plan as the migration adapter. Named
+      Molcas targets conservatively serialize CASPT2 and report the resource
+      adjustment. QMCPACK also retains its initialization-only `--dryrun` plan
+      through the guided approval boundary.
 - [x] Add render-only local and Slurm executors with argument-array assembly,
       expected stdout and stderr paths, and allowed-root checks.
 - [x] Add a schema 1.0 legacy-profile adapter for NWChem direct and Slurm
@@ -1552,6 +1554,10 @@ Progress:
       allocation, protect `MOLCAS_PROJECT` and `MOLCAS_NPROCS`, retain dynamic
       Slurm scratch identity, archive exact `.log` outputs, and restrict
       scheduler cancellation to jobs owned by the same MCP process.
+- [x] Add guided Molcas launch preparation from schema-2 local and Slurm
+      targets, retaining version 1 profiles as the migration fallback. Named
+      targets conservatively serialize CASPT2 and expose the requested and
+      effective ranks in the reviewed plan.
 - [x] Route explicit Molcas status and watch requests through retained local
       process handles or target-owned Slurm queries when the current service
       owns the identifier. Persist terminal launch metadata and keep one-call

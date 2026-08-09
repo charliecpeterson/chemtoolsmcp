@@ -12,6 +12,7 @@ from chemtools.core.program import (
 )
 from chemtools.programs.molcas._plugin_binary import MOLCAS_BINARY
 from chemtools.programs.molcas._plugin_drafter import MOLCAS_DRAFTER
+from chemtools.programs.molcas._plugin_launcher import MOLCAS_LAUNCH_PLANNER
 from chemtools.programs.molcas._plugin_parser import MOLCAS_PARSER
 
 
@@ -50,6 +51,7 @@ MOLCAS = validate_backend(
                 ProgramCapability.INPUT_LINT,
                 ProgramCapability.BINARY_READ,
                 ProgramCapability.BINARY_WRITE,
+                ProgramCapability.EXECUTION_PLAN,
             }
         ),
         artifact_kinds={
@@ -92,6 +94,7 @@ MOLCAS = validate_backend(
         parser=MOLCAS_PARSER,
         inputs=MOLCAS_DRAFTER,
         binary=MOLCAS_BINARY,
+        launches=MOLCAS_LAUNCH_PLANNER,
     )
 )
 

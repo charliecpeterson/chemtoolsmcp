@@ -4,7 +4,8 @@ Audit date: 2026-08-09
 
 The low-level execution tools are not dead compatibility code. They remain the
 only execution interface for several program backends. The guided `launch_run`
-contract has validated providers for NWChem, Quantum ESPRESSO, and QMCPACK.
+contract has validated providers for NWChem, OpenMolcas, Quantum ESPRESSO, and
+QMCPACK.
 
 ## Decision
 
@@ -37,23 +38,36 @@ QMCPACK now exposes ordinary and initialization-only execution through the
 shared guided launch path. `render_qmcpack_launch` and `launch_qmcpack_run`
 remain because their version 1 preview fields are a compatibility contract.
 
-The QE and QMCPACK guided plans do not replace their full version 1 preview
-contracts. Those previews still expose `launcher_command`, `launcher_kind`,
-`restart_prefix`, `shell`, resolved profile paths, and scheduler-template
-fields. The QE adapter replaces the displayed command with its typed rendering;
-the QMCPACK dry run still displays the legacy command and only uses the typed
-rendering during a live launch. Changing either response now would be a public
-compatibility change.
+Molcas now exposes the shared guided launch path through a schema-2 named
+target or version 1 migration profile. Named targets conservatively serialize
+CASPT2 and show the requested-to-effective rank change. The low-level preview,
+launch, and scheduler wrappers remain because they expose version 1 response
+fields and exact archival behavior outside the guided contract.
+
+The Molcas local and Slurm parity matrix covered ordinary and CASPT2 input.
+Focused launch, backend, boundary, inventory, and MCP checks passed 116 tests,
+followed by all 1,930 tests with the external corpus. Base and DIRAC-extra
+isolated installs of wheel SHA-256
+`9bd74fb8384ebb9e4f8fa47dfb57bca5f1edec4b334ea19eb68afd9166205d86`
+loaded the provider and portable Molcas target entries.
+
+The QE, QMCPACK, and Molcas guided plans do not replace their full version 1
+preview contracts. Those previews still expose `launcher_command`,
+`launcher_kind`, `restart_prefix`, `shell`, resolved profile paths, and
+scheduler-template fields. The QE adapter replaces the displayed command with
+its typed rendering; the QMCPACK dry run still displays the legacy command and
+only uses the typed rendering during a live launch. Changing either response
+now would be a public compatibility change.
 
 Do not add a second generic preview projector to remove these renderer calls.
 Define each program's guided launch result first, then retire the extra version
 1 fields with the low-level response contract.
 
 Molcas and DIRAC application adapters use their scheduler wrappers to preserve
-the current preview contract before a typed launch. GRASP does the same while
-its typed launch path owns workflow and interactive execution. After the final
-compatibility release, their monitoring fallbacks were narrowed to file-only
-inspection and explicit external Slurm attachment.
+the current low-level preview contract before a typed launch. GRASP does the
+same while its typed launch path owns workflow and interactive execution. After
+the final compatibility release, their monitoring fallbacks were narrowed to
+file-only inspection and explicit external Slurm attachment.
 
 ## Consequences
 

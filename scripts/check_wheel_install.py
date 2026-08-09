@@ -85,6 +85,7 @@ from chemtools.persistence.artifacts import record_run_artifacts
 from chemtools.persistence.launches import create_launch_record
 from chemtools.persistence.runs import register_run
 from chemtools.persistence.sqlite import connect_registry
+from chemtools.programs.molcas import MOLCAS
 from chemtools.programs.molcas.docs import list_docs as list_molcas_docs
 from chemtools.programs.molcas.input.basis_library import list_basis_sets
 from chemtools.programs.nwchem._plugin_examples import NWCHEM_EXAMPLES
@@ -159,6 +160,10 @@ assert slurm_profiles["profiles"]["slurm"]["programs"]["nwchem"] == {
 assert target_catalog.enable_execution is False
 assert target_catalog.default_target == "workstation"
 assert tuple(target_catalog.targets) == ("workstation", "slurm_cpu")
+assert target_catalog.resolve(program="molcas").programs[
+    "molcas"
+].executable_argv == ("/absolute/path/to/pymolcas",)
+assert MOLCAS.supports(ProgramCapability.EXECUTION_PLAN)
 assert target_catalog.resolve(program="qe").programs["qe"].executable_argv == (
     "/absolute/path/to/pw.x",
 )
@@ -246,6 +251,7 @@ print(json.dumps({
     "persistence_owners": True,
     "focused_nwchem_provider": True,
     "named_target_catalog": True,
+    "guided_molcas_launch_provider": True,
     "guided_qe_launch_provider": True,
     "guided_qmcpack_launch_provider": True,
     "default_profile_count": len(profiles["profiles"]),

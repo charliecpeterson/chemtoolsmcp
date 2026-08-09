@@ -26,6 +26,8 @@ targets:
         executable_argv: [/absolute/path/to/nwchem]
         environment:
           OMP_NUM_THREADS: "{omp_threads}"
+      molcas:
+        executable_argv: [/absolute/path/to/pymolcas]
       qe:
         launcher_argv: [mpirun, -np, "{mpi_ranks}"]
         executable_argv: [/absolute/path/to/pw.x]
@@ -75,6 +77,13 @@ targets:
         setup_lines:
           - module purge
           - module load nwchem
+      molcas:
+        executable_argv: [pymolcas]
+        setup_lines:
+          - module purge
+          - module load openmolcas
+        pre_run_lines:
+          - export MOLCAS_PROJECT={job_name}_$SLURM_JOB_ID
       qe:
         launcher_argv: [srun]
         executable_argv: [pw.x]

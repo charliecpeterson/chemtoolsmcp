@@ -15,6 +15,7 @@ from chemtools.application.molcas_execution import (
     launch_molcas_with_service,
     terminate_molcas_with_service,
 )
+from chemtools.application.run_launching import launch_run
 from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor, SlurmExecutor
 from chemtools.persistence.launches import load_launch_record
@@ -28,6 +29,7 @@ from chemtools.programs.molcas.launch import (
     adapt_legacy_molcas_profile,
     build_molcas_launch_plan,
 )
+from chemtools.programs.molcas import MOLCAS
 from chemtools.programs.molcas.runtime import prepare_launch
 from chemtools.programs.molcas.scheduler import launch_molcas_run
 
@@ -102,6 +104,82 @@ def _slurm_profile_path(tmp_path: Path) -> Path:
                 },
                 "file_rules": {
                     "output_file": "{job_name}.log",
+                    "error_file": "{job_name}.err",
+                },
+            },
+        },
+    }), encoding="utf-8")
+    return profile_path
+
+
+def _guided_profile_path(tmp_path: Path) -> Path:
+    profile_path = tmp_path / "guided_profiles.json"
+    profile_path.write_text(json.dumps({
+        "schema_version": "1.0",
+        "profiles": {
+            "molcas_local": {
+                "launcher": {"kind": "direct"},
+                "programs": {
+                    "molcas": {
+                        "launcher_argv": [
+                            "apptainer",
+                            "exec",
+                            "/containers/molcas.sif",
+                        ],
+                        "executable_argv": ["pymolcas"],
+                        "parallel_caspt2_supported": False,
+                    },
+                },
+                "execution": {"working_directory": "{job_dir}"},
+                "resources": {"mpi_ranks": 4, "omp_threads": 1},
+                "file_rules": {
+                    "output_file": "{job_name}.out",
+                    "error_file": "{job_name}.err",
+                },
+            },
+            "molcas_slurm": {
+                "launcher": {
+                    "kind": "scheduler",
+                    "scheduler_type": "slurm",
+                    "submit_command": "sbatch",
+                    "status_command": "squeue -j {job_id}",
+                    "cancel_command": "scancel {job_id}",
+                },
+                "scheduler": {
+                    "system": "slurm",
+                    "submit_script_name": "{job_name}.job",
+                },
+                "programs": {
+                    "molcas": {
+                        "launcher_argv": [
+                            "apptainer",
+                            "exec",
+                            "/containers/molcas.sif",
+                        ],
+                        "executable_argv": ["pymolcas"],
+                        "parallel_caspt2_supported": False,
+                    },
+                },
+                "execution": {
+                    "working_directory": "{job_dir}",
+                    "env": {"MOLCAS_COLOR": "NO"},
+                },
+                "resources": {
+                    "nodes": 1,
+                    "mpi_ranks": 8,
+                    "omp_threads": 1,
+                    "walltime": "02:00:00",
+                    "partition": "compute",
+                },
+                "modules": {"load": ["openmolcas"]},
+                "hooks": {
+                    "pre_run": [
+                        'export MOLCAS_WORKDIR="$SCRATCH/molcas/'
+                        '$MOLCAS_PROJECT"',
+                    ],
+                },
+                "file_rules": {
+                    "output_file": "{job_name}.out",
                     "error_file": "{job_name}.err",
                 },
             },
@@ -202,6 +280,64 @@ def test_molcas_caspt2_guard_changes_plan_resources_and_command(tmp_path):
         "complex.input",
     )
     assert rendered.environment["MOLCAS_NPROCS"] == "1"
+
+
+@pytest.mark.parametrize("caspt2", [False, True])
+@pytest.mark.parametrize("executor", ["local", "slurm"])
+def test_guided_molcas_named_target_matches_safe_profile(
+    tmp_path,
+    caspt2,
+    executor,
+):
+    input_path = _input(tmp_path, caspt2=caspt2)
+    profile_name = f"molcas_{executor}"
+    profile_path = _guided_profile_path(tmp_path)
+    profiles = load_runner_profiles(str(profile_path))
+    adapted = adapt_legacy_molcas_profile(
+        profiles,
+        profile_name,
+        allowed_work_roots=(tmp_path,),
+    )
+    named_service = ExecutionService(
+        configured_targets={profile_name: adapted.target},
+        default_target=profile_name,
+    )
+
+    migrated = launch_run(
+        MOLCAS,
+        ExecutionService(),
+        input_file=input_path,
+        profile=profile_name,
+        profiles_path=profile_path,
+    )
+    named = launch_run(
+        MOLCAS,
+        named_service,
+        input_file=input_path,
+    )
+
+    migrated_plan = dict(migrated["evidence"]["plan"])
+    named_plan = dict(named["evidence"]["plan"])
+    migrated_plan.pop("profile")
+    migrated_plan.pop("profiles_path")
+    named_plan.pop("profile")
+    named_plan.pop("profiles_path")
+    assert named_plan == migrated_plan
+    assert named["approval"]["token"] == migrated["approval"]["token"]
+    if caspt2:
+        assert named_plan["resources"]["mpi_ranks"] == 1
+        assert len(named_plan["adjustments"]) == 1
+        adjustment = named_plan["adjustments"][0]
+        assert adjustment["code"] == (
+            "molcas_parallel_caspt2_serialized"
+        )
+        assert adjustment["requested_mpi_ranks"] == (
+            adapted.default_resources.mpi_ranks
+        )
+        assert adjustment["effective_mpi_ranks"] == 1
+        assert "forcing -np 1" in adjustment["reason"]
+    else:
+        assert named_plan["adjustments"] == []
 
 
 def test_slurm_molcas_plan_keeps_runtime_rules_out_of_scheduler(

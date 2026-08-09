@@ -704,6 +704,7 @@ def test_builtin_backends_declare_exact_capabilities():
         "molcas": {
             "binary.read",
             "binary.write",
+            "execution.plan",
             "input.draft",
             "input.lint",
             "output.frequencies",

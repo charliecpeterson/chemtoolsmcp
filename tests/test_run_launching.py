@@ -40,7 +40,7 @@ PROFILE_PATH = (
     / "runner_profiles.example.json"
 )
 NWCHEM = load_backend(BUILTIN_BACKENDS[0])
-MOLCAS = load_backend(BUILTIN_BACKENDS[1])
+DIRAC = load_backend(BUILTIN_BACKENDS[2])
 
 
 def _input(tmp_path: Path) -> Path:
@@ -406,7 +406,7 @@ def test_launch_run_refuses_unimplemented_program_provider(tmp_path):
 
     with pytest.raises(LaunchRunError) as caught:
         launch_run(
-            MOLCAS,
+            DIRAC,
             ExecutionService(),
             input_file=input_path,
             profile="local_mpirun",
@@ -415,8 +415,8 @@ def test_launch_run_refuses_unimplemented_program_provider(tmp_path):
 
     assert caught.value.as_dict() == {
         "error": "unsupported_capability",
-        "message": "'molcas' does not support guided launch planning",
-        "program": "molcas",
+        "message": "'dirac' does not support guided launch planning",
+        "program": "dirac",
     }
 
 

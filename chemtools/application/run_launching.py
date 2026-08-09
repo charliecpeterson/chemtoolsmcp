@@ -426,6 +426,11 @@ def _plan_summary(
         }
     else:
         summary["scheduler"] = None
+    if "adjustments" in prepared.metadata:
+        summary["adjustments"] = [
+            dict(item)
+            for item in prepared.metadata["adjustments"]
+        ]
     return summary
 
 
