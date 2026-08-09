@@ -1,9 +1,8 @@
 """NWChem MCP-tool wrappers and run-analysis helpers.
 
-This compatibility module combines NWChem launch and status wrappers with
-progress, trajectory, comparison, and follow-up analysis. Shared version 1
-execution lives in ``chemtools/execution/legacy_runner.py``. New MCP paths use
-focused application services; this module remains for the old Python surface.
+This compatibility module retains NWChem status, progress, trajectory,
+comparison, and follow-up analysis. Execution uses focused application
+services and typed launch plans.
 
 For now this is a verbatim move from chemtools/api_runner.py; public
 symbols and call signatures are unchanged so the surrounding code keeps
@@ -21,10 +20,6 @@ from chemtools.core.common import detect_program, read_text
 from chemtools.programs.nwchem.strategy.diagnose import (
     diagnose_nwchem_output,
     parse_scf,
-)
-from chemtools.execution.legacy_runner import (
-    render_calculation_run,
-    run_calculation,
 )
 from chemtools.execution.external_status import tail_text_file
 from chemtools.execution.profiles import load_runner_profiles
@@ -85,66 +80,6 @@ def inspect_runner_profiles(profiles_path: str | None = None) -> dict[str, Any]:
             for name, profile in profiles.items()
         },
     }
-
-
-def launch_nwchem_run(
-    input_path: str,
-    profile: str,
-    profiles_path: str | None = None,
-    job_name: str | None = None,
-    resource_overrides: dict[str, Any] | None = None,
-    env_overrides: dict[str, str] | None = None,
-    write_script: bool = True,
-    dry_run: bool = False,
-) -> dict[str, Any]:
-    if dry_run:
-        result = render_calculation_run(
-            input_path=input_path,
-            profile=profile,
-            profiles_path=profiles_path,
-            job_name=job_name,
-            resource_overrides=resource_overrides,
-            env_overrides=env_overrides,
-        )
-        result.pop("environment", None)
-        warnings = _resource_warnings(input_path, result.get("resources") or {})
-        if warnings:
-            result["resource_warnings"] = warnings
-        return result
-    result = run_calculation(
-        input_path=input_path,
-        profile=profile,
-        profiles_path=profiles_path,
-        job_name=job_name,
-        resource_overrides=resource_overrides,
-        env_overrides=env_overrides,
-        execute=True,
-        write_script=write_script,
-    )
-    warnings = _resource_warnings(input_path, result.get("resources") or {})
-    if warnings:
-        result["resource_warnings"] = warnings
-    return result
-
-
-def prepare_nwchem_run(
-    input_path: str,
-    profile: str,
-    profiles_path: str | None = None,
-    job_name: str | None = None,
-    resource_overrides: dict[str, Any] | None = None,
-    env_overrides: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """Deprecated: use launch_nwchem_run with dry_run=True. Kept for backward compatibility."""
-    return launch_nwchem_run(
-        input_path=input_path,
-        profile=profile,
-        profiles_path=profiles_path,
-        job_name=job_name,
-        resource_overrides=resource_overrides,
-        env_overrides=env_overrides,
-        dry_run=True,
-    )
 
 
 def check_nwchem_run_status(
@@ -232,47 +167,6 @@ def review_nwchem_progress(
         "intervention": intervention,
         "summary_bullets": bullets,
         "summary_text": "\n".join(f"- {bullet}" for bullet in bullets),
-    }
-
-
-def render_job_script(
-    input_path: str,
-    profile: str,
-    profiles_path: str | None = None,
-    job_name: str | None = None,
-    resource_overrides: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Render the HPC job submission script without executing or submitting.
-
-    Returns the script text and metadata for review before calling launch_nwchem_run.
-    Only meaningful for scheduler-type profiles; raises ValueError for direct profiles.
-    """
-    result = launch_nwchem_run(
-        input_path=input_path,
-        profile=profile,
-        profiles_path=profiles_path,
-        job_name=job_name,
-        resource_overrides=resource_overrides,
-        dry_run=True,
-    )
-    if result.get("launcher_kind") != "scheduler":
-        raise ValueError(
-            f"Profile '{profile}' is a direct/local launcher — no job script to render. "
-            "Use launch_nwchem_run(dry_run=True) to preview the local command instead."
-        )
-    return {
-        "profile": result["profile"],
-        "launcher_kind": result["launcher_kind"],
-        "scheduler_type": result.get("scheduler_type"),
-        "job_name": result["job_name"],
-        "output_file": result["output_file"],
-        "error_file": result["error_file"],
-        "script_text": result.get("submit_script_text"),
-        "script_path": result.get("submit_script_path"),
-        "script_name": result.get("submit_script_name"),
-        "resources": result["resources"],
-        "working_directory": result["working_directory"],
-        "submit_command": result.get("submit_command"),
     }
 
 

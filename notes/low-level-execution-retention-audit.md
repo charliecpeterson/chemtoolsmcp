@@ -36,9 +36,10 @@ window, rather than peeling them away one at a time.
 The retained low-level launch now prepares through the guided NWChem provider
 and typed execution service. Its established response keys remain, while both
 dry-run and live calls report the executor's exact command or Slurm script.
-The application adapter no longer depends on the legacy renderer. The old
-direct Python runner and `render_job_script` remain a separate compatibility
-decision.
+The application adapter no longer depends on the legacy renderer.
+`render_job_script` now projects the same typed Slurm preview. The unused
+direct Python launch functions and their renderer were removed after the
+`v0.1.0` compatibility release.
 
 QE now exposes the shared guided launch path through a schema-2 named target or
 version 1 migration profile. Its redundant `render_qe_launch` and
@@ -140,6 +141,5 @@ in the repository-local `venv`.
   program-specific arguments, artifacts, and failure behavior.
 - Do not build a second generic runner layer. Reuse the typed execution service
   and add a small program-owned launch provider when a backend is promoted.
-The next engineering target is the old direct Python runner and
-`render_job_script`. The low-level NWChem MCP workflow still needs one removal
-decision for its public names, but no longer needs another execution adapter.
+The low-level NWChem MCP workflow still needs one removal decision for its
+public names, but it no longer has a separate execution engine.

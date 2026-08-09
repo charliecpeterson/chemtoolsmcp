@@ -57,24 +57,10 @@ from chemtools.core.run_records import register_run as compatible_register_run
 from chemtools.execution.launch_registry import (
     create_launch_record as compatible_create_launch_record,
 )
-from chemtools.execution.legacy_archive import (
-    archive_paths,
-    archive_previous_outputs,
-)
-from chemtools.execution.legacy_runner import (
-    archive_paths as compatible_archive_paths,
-    archive_previous_outputs as compatible_archive_previous_outputs,
-    get_local_resource_budget as compatible_get_local_resource_budget,
-    query_partition_specs as compatible_query_partition_specs,
-)
 from chemtools.execution.external_status import inspect_run_status
 from chemtools.execution.profiles import (
     DEFAULT_RUNNER_PROFILES,
     load_runner_profiles,
-)
-from chemtools.execution.resource_inspection import (
-    get_local_resource_budget,
-    query_partition_specs,
 )
 from chemtools.execution.targets import load_target_catalog
 from chemtools.core.program import ProgramCapability
@@ -202,10 +188,6 @@ assert compatible_connect_registry is connect_registry
 assert compatible_register_run is register_run
 assert compatible_record_run_artifacts is record_run_artifacts
 assert compatible_create_launch_record is create_launch_record
-assert compatible_archive_paths is archive_paths
-assert compatible_archive_previous_outputs is archive_previous_outputs
-assert compatible_get_local_resource_budget is get_local_resource_budget
-assert compatible_query_partition_specs is query_partition_specs
 assert package_version("chemtools-mcp") == SERVER_VERSION
 assert importlib.util.find_spec("chemtools.mcp.tools._nwchem_base") is None
 assert importlib.util.find_spec("chemtools.mcp.tools.nwchem") is None
@@ -223,6 +205,8 @@ assert importlib.util.find_spec("chemtools.programs.molcas.scheduler") is None
 assert importlib.util.find_spec("chemtools.application.qe_execution") is None
 assert importlib.util.find_spec("chemtools.application.qmcpack_execution") is None
 assert importlib.util.find_spec("chemtools.mcp.tools.qe_execution") is None
+assert importlib.util.find_spec("chemtools.core.runner") is None
+assert importlib.util.find_spec("chemtools.execution.legacy_runner") is None
 assert "chemtools.mcp.tools._nwchem_base" not in sys.modules
 assert "chemtools.mcp.tools.nwchem" not in sys.modules
 assert "chemtools.execution.legacy_profiles" not in sys.modules
@@ -239,6 +223,8 @@ assert "chemtools.programs.molcas.scheduler" not in sys.modules
 assert "chemtools.application.qe_execution" not in sys.modules
 assert "chemtools.application.qmcpack_execution" not in sys.modules
 assert "chemtools.mcp.tools.qe_execution" not in sys.modules
+assert "chemtools.core.runner" not in sys.modules
+assert "chemtools.execution.legacy_runner" not in sys.modules
 assert examples
 assert NWCHEM_EXAMPLES.read_example(examples[0]["name"]).strip()
 assert inspection.get("error") is None

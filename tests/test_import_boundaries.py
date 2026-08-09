@@ -65,6 +65,8 @@ REMOVED_REDUNDANT_EXECUTION_MODULES = (
     "chemtools.application.qe_execution",
     "chemtools.application.qmcpack_execution",
     "chemtools.mcp.tools.qe_execution",
+    "chemtools.core.runner",
+    "chemtools.execution.legacy_runner",
 )
 CORE_COMPATIBILITY_IMPORTS = {
     "chemtools/core/artifact_registry.py": {"chemtools.persistence.artifacts"},
@@ -76,12 +78,6 @@ CORE_COMPATIBILITY_IMPORTS = {
     "chemtools/core/run_records.py": {"chemtools.persistence.runs"},
     "chemtools/core/run_registry.py": {
         "chemtools.application.run_registry",
-    },
-    "chemtools/core/runner.py": {
-        "chemtools.execution.legacy_runner",
-        "chemtools.execution.external_status",
-        "chemtools.execution.profiles",
-        "chemtools.programs.nwchem.external_status",
     },
 }
 

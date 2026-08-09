@@ -14,7 +14,7 @@ from chemtools.application.run_monitoring import (
     MonitorRunError,
     monitor_run,
 )
-from chemtools.execution.legacy_runner import load_runner_profiles
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.core.program import ProgramCapability
 from chemtools.mcp.catalog import BUILTIN_BACKENDS, load_backend
 from chemtools.mcp.dispatch import dispatch_tool

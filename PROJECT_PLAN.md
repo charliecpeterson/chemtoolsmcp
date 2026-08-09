@@ -1626,8 +1626,10 @@ Progress:
       move local and scheduler hardware discovery into
       `execution/resource_inspection.py`;
       isolate the former unowned status behavior through `v0.1.0`, then retain
-      only file and explicit Slurm inspection in `execution/external_status.py`;
-      and keep `core/runner.py` as the direct compatibility import path.
+      only file and explicit Slurm inspection in `execution/external_status.py`.
+      After `v0.1.0`, move the final NWChem preview and `render_job_script` onto
+      typed preparation, then remove the unused direct launcher,
+      `execution/legacy_runner.py`, and `core/runner.py`.
 - [x] Normalize version 1 installation fields under `programs.<name>` with
       explicit `launcher_argv` and `executable_argv` arrays. Move Molcas
       CASPT2 capability and DIRAC MPI and memory defaults into their program
@@ -2413,8 +2415,8 @@ Repository sources:
 - `chemtools/mcp/modes.py`, current program list and three-way modes.
 - `chemtools/mcp/dispatch.py`, eager program imports and manual registry
   composition.
-- `chemtools/core/runner.py`, generic execution internals behind
-  NWChem-oriented public names.
+- `chemtools/application/execution.py` and the program launch adapters, which
+  own typed execution after the former compatibility runner was removed.
 - `notes/run-layer-hardening.md`, runner assessment and known boundary issues.
 - `notes/detector-collision-audit-2026-07-31.md`, verified detector, dispatch,
   recovery, and GRASP output-routing defects plus the bounded corpus result.

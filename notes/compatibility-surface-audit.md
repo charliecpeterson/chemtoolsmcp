@@ -54,7 +54,7 @@ the rebuilt wheel.
 
 ## Direct Python caller evidence
 
-The broad top-level `chemtools` facade exports 121 names. No maintained
+The broad top-level `chemtools` facade exports 118 names. No maintained
 library module imports it. The only non-test caller is:
 
 - `scripts/check_wheel_install.py`, which imports the broad facades on purpose
@@ -80,7 +80,7 @@ requires the top-level `chemtools` facade, `chemtools.api`,
 
 The smallest supported policy would make the `chemtools` command and guided
 MCP surface the product API. Focused module paths would remain available for
-scientific Python work, but the 121-name top-level facade and its three broad
+scientific Python work, but the 118-name top-level facade and its three broad
 aggregators would be compatibility-only for one tagged release. A new small
 Python facade should wait until a real notebook or script needs one; the
 repository does not yet identify that caller.
@@ -142,6 +142,12 @@ Base and DIRAC-extra isolated installs of wheel SHA-256
 `4c5b6fba061968a2016510792523d9466edd290d41a9da87111b13084b8eccf7`
 confirmed both old modules are absent and the retained file-only inspection
 still works.
+
+The unused direct Python `launch_nwchem_run` and `prepare_nwchem_run` functions
+were removed from the program runner and broad facade after the MCP launch
+moved to typed preparation. `render_job_script` remains public but now projects
+the typed Slurm preview. The internal `execution.legacy_runner` engine and
+`core.runner` facade were deleted with their compatibility-only tests.
 
 ## Final-release readiness
 

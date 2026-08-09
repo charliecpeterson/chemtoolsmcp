@@ -238,21 +238,19 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/execution/slurm.py` | Slurm script rendering, submission, job-ID parsing, queue and accounting status, and target-command cancellation | Slurm execution adapter | Keep scheduler commands and script policy target-owned. Empty queue and accounting results must remain unknown rather than imply completion. |
 | `chemtools/execution/executors.py` | Re-exports the local executor, Slurm executor, and work-root error | Compatibility facade | Preserve existing Python imports while callers move to `chemtools.execution` or the focused modules. |
 | `chemtools/execution/profiles.py` | Loads version 1 profile files, merges defaults, and converts shared resource, hardware, module, program-installation, direct-command, and Slurm fields | Target configuration adapter | Keep program argument syntax and chemistry rules out. The standard `programs.<name>` installation block wins over old field locations. |
-| `chemtools/execution/legacy_archive.py` | Timestamped, collision-safe archival of existing compatibility-launch outputs | Legacy output policy | Application adapters import this focused owner. Preserve exact imports from `legacy_runner.py` until its direct Python surface is removed. |
+| `chemtools/execution/legacy_archive.py` | Timestamped, collision-safe archival of existing compatibility-launch outputs | Legacy output policy | The retained NWChem adapter imports this focused owner directly. |
 | `chemtools/execution/resource_inspection.py` | Local CPU and memory budgeting plus Slurm and PBS partition discovery | Target resource inspection | Keep scheduler discovery separate from chemistry advice and version 1 launch rendering. Replace dictionary results only when a typed target inventory has a real caller. |
-| `chemtools/execution/legacy_runner.py` | Version 1 script rendering, launch behavior, and neutral compatibility imports | Legacy render and launch adapter | QE, QMCPACK, Molcas, DIRAC, and GRASP callers are gone. Keep implementation out of core and remove it after the remaining NWChem and direct Python compatibility callers leave. |
 | `chemtools/execution/external_status.py` | Read-only file inspection and explicit external Slurm attachment with optional output interpretation | External-run inspection adapter | Keep process probing, cancellation, PBS, LSF, `.jobid` inference, and program imports out. |
 | `chemtools/programs/nwchem/external_status.py` | Adds the NWChem progress reader to external file and Slurm status | NWChem external-run adapter | Keep NWChem interpretation in the backend while sharing file and Slurm evidence. |
 | `chemtools/persistence/launches.py` | SQLite persistence and state-transition checks for execution launch records, including staging manifests, terminal metadata, and launch/run link lookup | Persistence adapter | Keep command and staging intent separate from artifact bytes. Local and Slurm NWChem completion use the link to synchronize the run; other programs still need the same integration. |
 | `chemtools/execution/launch_registry.py` | Exact imports from `persistence/launches.py` | Compatibility facade | Preserve direct Python imports through the final compatibility release. No persistence implementation belongs here. |
-| `chemtools/core/runner.py` | Exact imports from the neutral execution owner and NWChem status adapter | Compatibility facade | Keep old Python imports stable through the final compatibility release. No implementation belongs here. |
-| `chemtools/programs/nwchem/runner.py` | NWChem launch wrappers, progress chemistry, intervention advice, structure-drift analysis, comparison, and follow-up review | NWChem backend plus application services | Keep NWChem progress and chemistry assessment in the backend. Move launch coordination and cross-run comparison behind application services. |
+| `chemtools/programs/nwchem/runner.py` | NWChem progress chemistry, intervention advice, structure-drift analysis, comparison, and follow-up review | NWChem backend plus application services | Keep NWChem progress and chemistry assessment in the backend. Launch coordination lives in application services. |
 | `chemtools/programs/nwchem/launch.py` | Builds NWChem launch plans and adapts version 1 NWChem profiles into typed targets | NWChem launch-plan provider and compatibility adapter | Keep NWChem arguments, filenames, and artifact expectations here. Remove the profile adapter after the version 1 compatibility window. |
-| `chemtools/programs/nwchem/_plugin_launcher.py` | Prepares guided NWChem plans from schema-2 named targets or the version 1 migration adapter | NWChem guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Named targets are current; profiles remain only as the migration fallback. |
+| `chemtools/programs/nwchem/_plugin_launcher.py` | Prepares guided NWChem plans from schema-2 named targets or the version 1 migration adapter | NWChem guided launch provider | Named targets are current; profiles remain only as the migration fallback and build typed plans directly. |
 | `chemtools/programs/qe/launch.py` | Builds typed `pw.x` plans and adapts direct or Slurm version 1 profiles into targets | QE launch-plan provider and compatibility adapter | Keep `-in`, output artifacts, and QE installation selection here. Remove the profile adapter after the version 1 compatibility window. |
-| `chemtools/programs/qe/_plugin_launcher.py` | Prepares guided QE plans from schema-2 named targets or the version 1 migration adapter | QE guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Named targets are current; profiles remain only as the migration fallback. |
+| `chemtools/programs/qe/_plugin_launcher.py` | Prepares guided QE plans from schema-2 named targets or the version 1 migration adapter | QE guided launch provider | Named targets are current; profiles remain only as the migration fallback and build typed plans directly. |
 | `chemtools/programs/qmcpack/launch.py` | Builds typed QMCPACK plans and adapts direct or Slurm version 1 profiles into targets | QMCPACK launch-plan provider and compatibility adapter | Keep input arguments, initialization-only `--dryrun`, and output artifacts here. Remove the profile adapter after the version 1 compatibility window. |
-| `chemtools/programs/qmcpack/_plugin_launcher.py` | Prepares guided ordinary or initialization-only QMCPACK plans from schema-2 named targets or the version 1 migration adapter | QMCPACK guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Named targets are current; profiles remain only as the migration fallback. |
+| `chemtools/programs/qmcpack/_plugin_launcher.py` | Prepares guided ordinary or initialization-only QMCPACK plans from schema-2 named targets or the version 1 migration adapter | QMCPACK guided launch provider | Named targets are current; profiles remain only as the migration fallback and build typed plans directly. |
 | `chemtools/programs/molcas/runtime.py` | Builds the read-only legacy command preview and owns the shared CASPT2 detection and rank guard | Molcas compatibility facade and runtime rules | Keep `prepare_molcas_launch` stable while typed calls use the same guard through the launch-plan provider. |
 | `chemtools/programs/molcas/launch.py` | Builds typed Molcas plans and adapts direct or Slurm version 1 profiles into targets | Molcas launch-plan provider and compatibility adapter | Keep pymolcas arguments, protected Molcas environment values, CASPT2 allocation changes, output rules, and dynamic Slurm project identity here. |
 | `chemtools/programs/molcas/_plugin_launcher.py` | Prepares guided Molcas plans from schema-2 named targets or the version 1 migration adapter | Molcas guided launch provider | Keep named-target CASPT2 policy conservative and expose any rank adjustment in the reviewed plan. Profiles remain the path for verified parallel-CASPT2 installations during migration. |
@@ -265,16 +263,12 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/programs/grasp/strategy/runner.py` | Coordinates structured workflow steps through an injected runner and applies contained copy actions | GRASP workflow application service | MCP workflows inject the typed execution service. Record step outputs and the working directory as artifact observations when launch records link to scientific runs. |
 | `chemtools/programs/nwchem/strategy/hpc_resources.py` | Scheduler discovery mixed with NWChem resource advice | NWChem resource provider plus target inspection | Keep basis and method sizing in NWChem. Move account, partition, and hardware queries to target inspection. |
 
-`execution/legacy_runner.py` owns `run_calculation` and
-`render_calculation_run`. Profile loading lives in `execution/profiles.py`;
-read-only file and external Slurm status live in
-`execution/external_status.py`. The former QE, QMCPACK, Molcas, DIRAC, and
-GRASP asynchronous low-level MCP callers are gone. The old direct Python
-NWChem run and render names remain aliases, and `render_job_script` still uses
-that renderer. `programs/nwchem/external_status.py`
-injects the NWChem progress reader, and `core/runner.py` re-exports the
-retained owners for old direct imports. Execution has no program-package
-imports.
+Profile loading lives in `execution/profiles.py`; read-only file and external
+Slurm status live in `execution/external_status.py`. The former QE, QMCPACK,
+Molcas, DIRAC, and GRASP asynchronous low-level MCP callers are gone. NWChem
+low-level launch and `render_job_script` use typed plan preparation.
+`programs/nwchem/external_status.py` injects the NWChem progress reader.
+Execution has no program-package imports.
 
 Guided NWChem, Molcas, DIRAC, GRASP workflow, QE, and QMCPACK preparation no
 longer call the legacy renderer. They read resolved migration profiles through
@@ -285,9 +279,8 @@ used for approval.
 Version 1 profiles now use one program installation shape:
 `programs.<name>.launcher_argv` plus `executable_argv`. Molcas CASPT2
 capability and DIRAC MPI and memory defaults live beside those arrays. The
-four adapters still accept their previous field locations at lower
-precedence, and the legacy renderer exposes `{program_command}` for templates
-that use the standard block.
+program adapters still accept their previous field locations at lower
+precedence. Typed executors render the selected installation arrays.
 
 The typed execution path separates three operations:
 

@@ -163,6 +163,44 @@ def launch_nwchem_with_service(
     )
 
 
+def render_nwchem_job_script(
+    *,
+    input_path: str,
+    profile: str,
+    profiles_path: str | None = None,
+    job_name: str | None = None,
+    resource_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    preview = launch_nwchem_with_service(
+        ExecutionService(),
+        input_path=input_path,
+        profile=profile,
+        profiles_path=profiles_path,
+        job_name=job_name,
+        resource_overrides=resource_overrides,
+        dry_run=True,
+    )
+    if preview["launcher_kind"] != "scheduler":
+        raise ValueError(
+            f"Profile {profile!r} is a direct/local launcher; "
+            "no job script is available"
+        )
+    return {
+        "profile": preview["profile"],
+        "launcher_kind": preview["launcher_kind"],
+        "scheduler_type": preview["scheduler_type"],
+        "job_name": preview["job_name"],
+        "output_file": preview["output_file"],
+        "error_file": preview["error_file"],
+        "script_text": preview["submit_script_text"],
+        "script_path": preview["submit_script_path"],
+        "script_name": preview["submit_script_name"],
+        "resources": preview["resources"],
+        "working_directory": preview["working_directory"],
+        "submit_command": preview["submit_command"],
+    }
+
+
 def register_nwchem_launch_with_service(
     service: ExecutionService,
     *,
@@ -530,5 +568,6 @@ __all__ = [
     "refresh_nwchem_local_status_with_service",
     "refresh_nwchem_slurm_status_with_service",
     "register_nwchem_launch_with_service",
+    "render_nwchem_job_script",
     "terminate_nwchem_with_service",
 ]

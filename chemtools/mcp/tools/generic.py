@@ -39,6 +39,7 @@ from chemtools.application.run_registry import (
     get_campaign_energies,
     get_campaign_status,
 )
+from chemtools.application.nwchem_execution import render_nwchem_job_script
 from chemtools.core.session import (
     append_session_log,
     init_session_log,
@@ -47,10 +48,7 @@ from chemtools.core.session import (
 from chemtools.programs.nwchem.input.basis import basis_library_summary
 from chemtools.programs.nwchem.input.geometry import draft_initial_geometry
 from chemtools.programs.nwchem.output import compute_reaction_energy
-from chemtools.programs.nwchem.runner import (
-    render_job_script,
-    watch_multiple_nwchem_runs,
-)
+from chemtools.programs.nwchem.runner import watch_multiple_nwchem_runs
 from chemtools.programs.nwchem.strategy.input_advisors import (
     suggest_relativistic_correction,
     suggest_spin_state,
@@ -632,7 +630,7 @@ def _handle_preflight_check(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @_tool("render_job_script", needs="scheduler")
 def _handle_render_job_script(arguments: dict[str, Any]) -> dict[str, Any]:
-    return render_job_script(
+    return render_nwchem_job_script(
         input_path=arguments["input_file"],
         profile=arguments["profile"],
         profiles_path=arguments.get("profiles_path") or os.environ.get("CHEMTOOLS_RUNNER_PROFILES"),

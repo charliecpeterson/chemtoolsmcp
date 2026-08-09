@@ -8,14 +8,8 @@ from pathlib import Path
 import pytest
 
 import chemtools.execution.executors as compatibility_executors
-from chemtools.core.execution import (
-    ResourceRequest,
-)
 from chemtools.execution import LocalExecutor, SlurmExecutor, WorkRootViolation
-from chemtools.execution.legacy_runner import (
-    load_runner_profiles,
-    render_nwchem_run,
-)
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.programs.nwchem.launch import (
     adapt_legacy_nwchem_profile,
     build_nwchem_launch_plan,
@@ -100,36 +94,6 @@ def test_same_nwchem_plan_renders_for_local_mpi_and_slurm(tmp_path):
         "module load nwchem\n"
         f"cd -- {tmp_path}\n"
         "srun nwchem water.nw\n"
-    )
-
-
-def test_new_render_matches_legacy_nwchem_command_boundaries(tmp_path):
-    input_path = _input(tmp_path)
-    profiles = load_runner_profiles(str(PROFILE_PATH))
-    adapted = adapt_legacy_nwchem_profile(
-        profiles,
-        "local_mpirun",
-        allowed_work_roots=(tmp_path,),
-    )
-    resources = ResourceRequest(mpi_ranks=8, omp_threads=1)
-    plan = build_nwchem_launch_plan(input_path, resources)
-
-    rendered = LocalExecutor().render(plan, adapted.target)
-    legacy = render_nwchem_run(
-        str(input_path),
-        "local_mpirun",
-        profiles=profiles,
-    )
-
-    assert rendered.argv == (
-        *tuple(legacy["launcher_command"].split()),
-        input_path.name,
-    )
-    assert str(rendered.stdout_path) == legacy["output_file"]
-    assert str(rendered.stderr_path) == legacy["error_file"]
-    assert rendered.working_directory == Path(legacy["working_directory"])
-    assert rendered.environment["OMP_NUM_THREADS"] == (
-        legacy["environment"]["OMP_NUM_THREADS"]
     )
 
 

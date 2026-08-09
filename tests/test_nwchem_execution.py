@@ -11,6 +11,7 @@ from chemtools.application.execution import ExecutionService
 from chemtools.application.nwchem_execution import (
     launch_nwchem_with_service,
     register_nwchem_launch_with_service,
+    render_nwchem_job_script,
     terminate_nwchem_with_service,
 )
 from chemtools.persistence.artifacts import load_run_artifacts
@@ -157,6 +158,39 @@ def test_slurm_dry_run_reports_the_typed_script_without_writing_it(tmp_path):
     )
     assert not (tmp_path / "water.job").exists()
     assert not (tmp_path / "registry.db").exists()
+
+
+def test_job_script_projection_uses_the_typed_slurm_preview(tmp_path):
+    input_path = _input_file(tmp_path)
+
+    rendered = render_nwchem_job_script(
+        input_path=str(input_path),
+        profile="slurm_cpu",
+        profiles_path=str(PROFILE_PATH),
+        resource_overrides={"mpi_ranks": 3},
+    )
+
+    assert rendered["profile"] == "slurm_cpu"
+    assert rendered["launcher_kind"] == "scheduler"
+    assert rendered["scheduler_type"] == "slurm"
+    assert rendered["script_path"] == str(tmp_path / "water.job")
+    assert rendered["submit_command"] == [
+        "sbatch",
+        str(tmp_path / "water.job"),
+    ]
+    assert "#SBATCH --ntasks=3\n" in rendered["script_text"]
+    assert rendered["resources"]["mpi_ranks"] == 3
+
+
+def test_job_script_projection_rejects_a_direct_profile(tmp_path):
+    input_path = _input_file(tmp_path)
+
+    with pytest.raises(ValueError, match="direct/local launcher"):
+        render_nwchem_job_script(
+            input_path=str(input_path),
+            profile="local",
+            profiles_path=str(PROFILE_PATH),
+        )
 
 
 def test_local_launch_and_kill_keep_legacy_response_fields(

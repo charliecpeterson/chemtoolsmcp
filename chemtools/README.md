@@ -14,7 +14,6 @@ chemtools/
   core/                          Program-agnostic infrastructure
     registry.py                  QC-program plugin registry (auto-detect from output)
     program.py                   Parser / Drafter / Strategist / BinaryReader protocols
-    runner.py                    Exact imports from execution/legacy_runner.py
     monitoring.py                Shared polling, terminal checks, and watch history
     slurm.py                     Typed Slurm status results and evidence
     eval.py                      Compatibility imports for application/evaluation.py
@@ -25,9 +24,6 @@ chemtools/
     execution_monitoring.py       Shared owned-status projection and polling
     execution_policy.py          Permission decisions and public service errors
     execution.py                 Launch, status, cancellation, and ownership
-    dirac_monitoring.py           Typed DIRAC local and Slurm watching
-    grasp_monitoring.py           Typed GRASP workflow local and Slurm watching
-    molcas_monitoring.py          Typed Molcas local and Slurm watching
     nwchem_monitoring.py         Typed NWChem local and Slurm watching
     run_registry.py              Campaign, workflow, and batch services
     legacy_artifacts.py          Legacy run-column artifact projection
@@ -49,16 +45,15 @@ chemtools/
     resource_inspection.py       Local and scheduler hardware discovery
     external_status.py           Read-only file and external Slurm status
     legacy_archive.py            Compatibility-launch output archival
-    legacy_runner.py             Version 1 render and launch implementation
 
   programs/<name>/               Per-program plugins
     nwchem/                      101 tools: input drafting, TCE, freq restart, HPC
-    molcas/                      45 tools: CASSCF/CASPT2 chain, recovery rules
-    dirac/                       39 tools: 4c/X2C, AOC, and Cm-class workflows
-    grasp/                       51 tools: multi-executable atomic workflows
-    qe/                          20 tools: pw.x input/output and QE-to-QMCPACK review
-    qmcpack/                     14 tools: input, HDF5 metadata, and QMC analysis
-    orca/                        Shared-tool parser for serial ORCA 6.1.1 output
+    molcas/                      41 tools: CASSCF/CASPT2 chain, recovery rules
+    dirac/                       35 tools: 4c/X2C, AOC, and Cm-class workflows
+    grasp/                       49 tools: multi-executable atomic workflows
+    qe/                          18 tools: pw.x input/output and QE-to-QMCPACK review
+    qmcpack/                     12 tools: input, HDF5 metadata, and QMC analysis
+    orca/                        Shared parser, no program-specific MCP tools
 
   data/<name>/                   Bundled per-program data
     nwchem/basis_library/        608 basis files

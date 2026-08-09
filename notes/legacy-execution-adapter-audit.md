@@ -2,10 +2,10 @@
 
 Audit date: 2026-08-09
 
-The legacy execution modules are not ready for wholesale removal. The old
-profile import, status, and non-NWChem scheduler paths have been removed, but
-the renderer still serves the old direct Python runner and `render_job_script`.
-The response translator remains for the retained low-level NWChem MCP launch.
+The old profile facade, status paths, renderer, launcher, and core runner
+facade have been removed. Version 1 profile parsing remains only as migration
+input to typed target adapters. The response translator remains for the
+retained low-level NWChem MCP launch.
 
 ## Profile ownership
 
@@ -34,12 +34,8 @@ eight bundled profiles. The same wheel is installed in the repository-local
 
 ## Legacy renderer and launcher
 
-Two first-party runtime modules still import `execution.legacy_runner`:
-
-- The NWChem compatibility runner still calls the old render and launch
-  functions.
-- `core/runner.py` remains a pure compatibility facade with no first-party
-  caller.
+No runtime module imports `execution.legacy_runner`; that module and
+`core.runner` are absent.
 
 The low-level NWChem MCP adapter now prepares through the same typed provider
 as guided launch. Its dry-run and live responses retain the established keys
@@ -62,13 +58,16 @@ Focused launch, model, and boundary checks passed 30 tests, followed by all
 `f6fbc933a82c3e80ed5c47c0c2c6417316799c7dc784415bd064a714a105488f`
 passed the isolated MCP exchange.
 
-Removal gates:
+Both removal gates are complete. The retained low-level preview and
+`render_job_script` use typed NWChem preparation. No maintained caller used the
+direct Python launch functions, so they were removed after `v0.1.0` rather than
+reimplemented with hidden process ownership.
 
-1. Replace each retained low-level preview with direct typed preparation after
-   that program has an accepted guided launch provider. This is complete for
-   the low-level NWChem launch.
-2. Migrate or retire `render_job_script` and the old direct Python launch
-   functions before removing `execution.legacy_runner`.
+The final removal passed 113 focused ownership, execution, profile, facade,
+inventory, and package checks, followed by all 1,915 tests with the external
+corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+`2f40880ae2947b60c53c9b364e053a40a7132748ff35ba47c78a84596a6961b3`
+passed, and the same wheel is installed in the repository-local `venv`.
 
 The NWChem adapter migration passed 95 focused execution, launch, model,
 profile, and boundary checks, followed by all 1,918 tests with the external
@@ -102,9 +101,7 @@ The retention decision and per-program evidence are recorded in
 
 `execution/legacy_archive.py` now owns the timestamped, collision-safe rename
 policy used before compatibility launches. The NWChem application adapter
-imports it directly. `execution.legacy_runner` keeps exact
-imports of both archive functions for its old direct Python surface and its
-remaining version 1 launch implementation.
+imports it directly.
 
 Focused execution and import-boundary checks passed 69 tests, followed by all
 1,856 tests with the external corpus. The archive integration cases for
@@ -118,8 +115,7 @@ MCP exchange.
 
 `execution/resource_inspection.py` now owns local CPU and memory budgeting plus
 Slurm and PBS partition discovery. The generic resource tool and NWChem
-preflight import that owner directly. `execution.legacy_runner` keeps exact
-imports for the old Python surface.
+preflight import that owner directly.
 
 Focused resource, workflow, MCP, compatibility, and import-boundary checks
 passed 69 tests, followed by all 1,859 tests with the external corpus.
@@ -168,8 +164,7 @@ on this projection.
 
 ## Current disposition
 
-Keep the canonical `profiles.py` owner and focused `legacy_archive.py` seam.
-Keep the remaining compatibility modules until their callers are removed in
-the order above. Both NWChem MCP launch paths now use the typed provider. The
-remaining decision concerns `render_job_script` and direct Python compatibility,
-not another program-specific execution adapter.
+Keep the canonical `profiles.py` owner, focused `legacy_archive.py` policy, and
+typed program adapters. Both NWChem MCP launch paths and `render_job_script`
+now use the typed provider. The response projector leaves with the remaining
+low-level NWChem MCP names, not as an independent cleanup.

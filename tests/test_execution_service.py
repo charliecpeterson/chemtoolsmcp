@@ -28,7 +28,7 @@ from chemtools.core.execution import (
     SlurmSubmissionResult,
     StagedFile,
 )
-from chemtools.execution.legacy_runner import load_runner_profiles
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.programs.nwchem.launch import (
     adapt_legacy_nwchem_profile,
     build_nwchem_launch_plan,

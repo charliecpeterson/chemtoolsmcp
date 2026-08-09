@@ -33,8 +33,13 @@ Direct Python code should import the module that owns the operation:
 | `chemtools.mcp.tools.nwchem` | `chemtools.mcp.tools._nwchem_provider` or a focused handler module |
 | `chemtools.execution.executors` | `chemtools.execution` or the specific executor module |
 | `chemtools.execution.legacy_profiles` | `chemtools.execution.profiles` |
+| `chemtools.execution.legacy_runner` | Typed program launch providers plus `chemtools.application.execution` |
+| `chemtools.core.runner` | The focused execution, profile, external-status, or NWChem status owner |
 | `chemtools.execution.legacy_status` | `chemtools.execution.external_status` for file or explicit Slurm inspection |
 | `chemtools.programs.nwchem.legacy_status` | `chemtools.programs.nwchem.external_status` |
+| Direct Python `launch_nwchem_run` | `chemtools.application.nwchem_execution.launch_nwchem_with_service` with an explicit `ExecutionService` |
+| Direct Python `prepare_nwchem_run` | The same application function with `dry_run=True` |
+| `render_job_script` implementation | `chemtools.application.nwchem_execution.render_nwchem_job_script` |
 
 Do not replace the old broad facade with another broad facade. Existing
 scripts in this repository show the intended focused import paths.
@@ -55,6 +60,12 @@ explicit profile and job ID. Arbitrary PID probing, PBS and LSF status parsing,
 `.jobid` inference, and direct Python cancellation wrappers were removed.
 Cancellation through MCP still requires a launch owned by the current
 execution service.
+
+The old version 1 render and launch engine and its `core.runner` import facade
+were removed after `v0.1.0`. The retained NWChem MCP launch and
+`render_job_script` now prepare typed plans. Direct Python launch callers must
+construct an `ExecutionService` explicitly so process ownership is not hidden
+inside a compatibility wrapper.
 
 Version 1 runner profiles remain available during execution migration.
 Schema-2 named targets are the current path for guided NWChem launch. Configure

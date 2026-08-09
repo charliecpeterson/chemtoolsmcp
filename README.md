@@ -1458,21 +1458,16 @@ handles, synchronous execution, status, and signals. `slurm.py` owns batch
 scripts, submission, status, and cancellation. The old `executors.py` import
 path remains as a compatibility facade.
 
-The version 1 profile runner defines program-neutral `run_calculation` and
-`render_calculation_run` entry points. Old direct Python imports and the
-retained `render_job_script` tool use those names; the redundant program
-wrappers are gone. The low-level NWChem MCP launch now prepares through the
-same typed provider as guided launch, then projects typed results into its
-established response fields. The previous NWChem run and render names remain
-direct aliases for existing Python callers. Profile loading and default
-merging live in `execution/profiles.py`. Compatibility-launch output archival
-lives in `execution/legacy_archive.py`. Read-only file inspection and explicit
-external Slurm attachment live in `execution/external_status.py`, with NWChem
-progress added by `programs/nwchem/external_status.py`. Arbitrary local PIDs,
-PBS jobs, LSF jobs, and `.jobid` guessing are not supported. Cancellation
-requires a launch owned by the execution service. The remaining version 1
-rendering and launch implementation lives in `execution/legacy_runner.py`;
-`core/runner.py` is an import-only compatibility module.
+Version 1 profile loading and default merging live in
+`execution/profiles.py`. Program adapters convert those migration profiles
+into typed targets; they do not use a separate version 1 renderer or launcher.
+The low-level NWChem MCP launch and `render_job_script` prepare through the same
+typed provider as guided launch. Compatibility-launch output archival lives in
+`execution/legacy_archive.py`. Read-only file inspection and explicit external
+Slurm attachment live in `execution/external_status.py`, with NWChem progress
+added by `programs/nwchem/external_status.py`. Arbitrary local PIDs, PBS jobs,
+LSF jobs, and `.jobid` guessing are not supported. Cancellation requires a
+launch owned by the execution service.
 
 Local NWChem status checks and explicit watches now poll only the live process
 handle owned by the execution service. The retained handle remains
@@ -1550,7 +1545,6 @@ chemtools/
     resource_inspection.py       local and scheduler hardware discovery
     external_status.py           read-only file and external Slurm status
     legacy_archive.py            compatibility-launch output archival
-    legacy_runner.py             version 1 render and launch implementation
     launch_registry.py           compatibility imports for persistence.launches
   programs/
     nwchem/                      NWChem plugin

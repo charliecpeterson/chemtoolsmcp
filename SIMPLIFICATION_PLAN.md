@@ -454,13 +454,14 @@ contracts, with concrete program and execution adapters composed at startup.
       SHA-256
       `ce3a2406c8e54c050b967ea9d8e7262980cdc145f2a99b5d1c71591911087a0e`
       passed, and the repository-local `venv` now contains that wheel.
-- [ ] Remove legacy runner-profile and status adapters after named targets cover
+- [x] Remove legacy runner-profile and status adapters after named targets cover
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
-      Profile and status facades that met their gates are gone. The remaining
-      version 1 renderer and launcher still serve the direct Python runner and
-      `render_job_script`, so this parent item stays open until those calls are
-      migrated or retired.
+      Profile and status facades that met their gates are gone. Version 1
+      profiles remain a migration input to typed target adapters, not a
+      separate execution path. The old renderer, launcher, and `core.runner`
+      facade were removed after `render_job_script` moved to typed preparation
+      and the unused direct Python launch functions were retired.
   - [x] Move profile loading and typed target conversion into the canonical
         `execution/profiles.py` owner. The exact
         `execution/legacy_profiles.py` import facade had no first-party or
@@ -653,6 +654,18 @@ contracts, with concrete program and execution adapters composed at startup.
         caller. Keep the projection with the NWChem low-level contract until
         that surface is retired, rather than renaming it or creating another
         response layer.
+  - [x] Remove the final version 1 render and launch engine. The canonical
+        `render_job_script` MCP tool now projects the typed NWChem Slurm preview,
+        while the unused direct Python `launch_nwchem_run` and
+        `prepare_nwchem_run` functions left the broad facade and program runner.
+        Delete `execution/legacy_runner.py`, its `core/runner.py` import facade,
+        and compatibility-only tests. Version 1 profile loading remains in
+        `execution/profiles.py` for migration into typed targets. Focused
+        ownership, execution, profile, facade, inventory, and package checks
+        passed 113 tests, followed by all 1,915 tests with the external corpus.
+        Base and DIRAC-extra isolated installs of wheel SHA-256
+        `2f40880ae2947b60c53c9b364e053a40a7132748ff35ba47c78a84596a6961b3`
+        passed, and the same wheel is installed in the repository-local `venv`.
 - [x] Remove `chem-agent-package/` without preserving its hard-coded paths or
       obsolete tool inventory. The runtime/client audit found no maintained
       caller and no unique implementation. With owner approval, all 16 tracked

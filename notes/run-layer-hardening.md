@@ -6,6 +6,10 @@ one NWChem/Global Arrays issue and four defects in how this MCP runs and
 watches apps. This is a design note, not a task list — pick up whichever
 threads are worth it.
 
+This note describes the pre-refactor runner and keeps its original file and
+line references as historical evidence. Current execution lives in the typed
+application and executor modules; `core/runner.py` was later removed.
+
 ## What happened
 
 The MP2 optimization hung. NWChem reached the CPHF linear solve for the MP2

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from chemtools.execution.legacy_runner import render_calculation_run
+from chemtools.execution import LocalExecutor, SlurmExecutor
 from chemtools.execution.profiles import (
     declared_program_installation,
     load_runner_profiles,
@@ -19,7 +19,10 @@ from chemtools.programs.dirac.launch import adapt_legacy_dirac_profile
 from chemtools.programs.grasp.launch import adapt_legacy_grasp_profile
 from chemtools.programs.molcas.launch import adapt_legacy_molcas_profile
 from chemtools.programs.molcas.runtime import prepare_launch
-from chemtools.programs.nwchem.launch import adapt_legacy_nwchem_profile
+from chemtools.programs.nwchem.launch import (
+    adapt_legacy_nwchem_profile,
+    build_nwchem_launch_plan,
+)
 from chemtools.programs.nwchem.runner import inspect_runner_profiles
 
 
@@ -170,7 +173,7 @@ def test_program_argument_arrays_are_validated(settings, message):
         )
 
 
-def test_legacy_renderer_uses_standard_direct_program_command(
+def test_profile_adapter_uses_standard_direct_program_command(
     tmp_path: Path,
 ):
     input_path = tmp_path / "water.nw"
@@ -199,21 +202,27 @@ def test_legacy_renderer_uses_standard_direct_program_command(
         },
     }
 
-    rendered = render_calculation_run(
-        str(input_path),
+    adapted = adapt_legacy_nwchem_profile(
+        profiles,
         "local",
-        profiles=profiles,
+        allowed_work_roots=(tmp_path,),
+    )
+    plan = build_nwchem_launch_plan(
+        input_path,
+        adapted.default_resources,
+    )
+    rendered = LocalExecutor().render(plan, adapted.target)
+
+    assert rendered.argv == (
+        "mpirun",
+        "-np",
+        "6",
+        "/apps/nwchem",
+        "water.nw",
     )
 
-    assert rendered["launcher_command"] == (
-        "mpirun -np 6 /apps/nwchem"
-    )
-    assert rendered["command"] == (
-        "mpirun -np 6 /apps/nwchem water.nw > water.out 2> water.err"
-    )
 
-
-def test_legacy_renderer_exposes_standard_scheduler_program_command(
+def test_profile_adapter_exposes_standard_scheduler_program_command(
     tmp_path: Path,
 ):
     input_path = tmp_path / "water.nw"
@@ -238,15 +247,19 @@ def test_legacy_renderer_exposes_standard_scheduler_program_command(
         },
     }
 
-    rendered = render_calculation_run(
-        str(input_path),
+    adapted = adapt_legacy_nwchem_profile(
+        profiles,
         "slurm",
-        profiles=profiles,
+        allowed_work_roots=(tmp_path,),
     )
+    plan = build_nwchem_launch_plan(
+        input_path,
+        adapted.default_resources,
+    )
+    rendered = SlurmExecutor().render(plan, adapted.target)
 
-    assert rendered["submit_script_text"] == (
-        "srun /apps/nwchem water.nw\n"
-    )
+    assert rendered.command.argv == ("srun", "/apps/nwchem", "water.nw")
+    assert rendered.script_text.endswith("srun /apps/nwchem water.nw\n")
 
 
 def test_molcas_preview_reads_standard_program_block(tmp_path: Path):
