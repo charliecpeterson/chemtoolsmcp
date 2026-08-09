@@ -24,6 +24,7 @@ env/
 
 # Logs and temp
 *.log
+!tests/fixtures/knowledge/silent_success/*.log
 /tmp/
 
 # IDE
