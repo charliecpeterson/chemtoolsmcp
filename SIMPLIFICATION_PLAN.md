@@ -437,7 +437,11 @@ contracts, with concrete program and execution adapters composed at startup.
       checks passed for wheel SHA-256
       `0c6bd08dcacbb44768e54ffd922b993d711a3c36397e2d808c6f19f2603ed6c7`.
 - [ ] Remove hidden aliases after the final compatibility release and migration
-      window.
+      window. Blocked by ADR 004 rather than implementation work: only
+      `v0.1.0` is tagged, all 15 hidden alias contracts remain `unverified`,
+      and every `remove_after` value is unset. The ADR requires the canonical
+      replacement in at least two tagged releases plus golden contract
+      evidence before an alias can become a removal tombstone.
 - [x] Remove the NWChem wildcard and dynamic `__getattr__` compatibility shim.
       After the `v0.1.0` tag, delete `chemtools.mcp.tools.nwchem` and
       `_nwchem_base.py`; catalog composition already used the focused provider
@@ -453,6 +457,10 @@ contracts, with concrete program and execution adapters composed at startup.
 - [ ] Remove legacy runner-profile and status adapters after named targets cover
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
+      Profile and status facades that met their gates are gone. The remaining
+      version 1 renderer and launcher still serve NWChem, Molcas, DIRAC, GRASP,
+      Quantum ESPRESSO, and QMCPACK low-level tools, so this parent item stays
+      open until named targets cover those workflows or the tools are retired.
   - [x] Move profile loading and typed target conversion into the canonical
         `execution/profiles.py` owner. The exact
         `execution/legacy_profiles.py` import facade had no first-party or
@@ -516,8 +524,15 @@ contracts, with concrete program and execution adapters composed at startup.
         confirmed both old modules are absent, and the repository-local
         `venv` contains that wheel; see
         [notes/unowned-status-scope-audit.md](notes/unowned-status-scope-audit.md).
-  - [ ] Remove legacy response projection after its six low-level program
-        adapters leave or version their response contracts.
+  - [x] Audit legacy response projection after the compatibility release.
+        Retain `application/legacy_execution.py` while its six low-level
+        program adapters remain: one 82-line projector is the shared contract
+        for launch IDs, effective argv, Slurm submission fields, timeout
+        translation, `.jobid` compatibility writes, and scheduler cancellation
+        results. Removing it now would duplicate that behavior in six files;
+        renaming it would be cosmetic churn. The six execution contract suites
+        passed 48 tests. Remove the projector with the low-level tools, not as
+        an independent cleanup.
 - [x] Remove `chem-agent-package/` without preserving its hard-coded paths or
       obsolete tool inventory. The runtime/client audit found no maintained
       caller and no unique implementation. With owner approval, all 16 tracked

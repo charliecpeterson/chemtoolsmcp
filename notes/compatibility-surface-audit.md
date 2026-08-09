@@ -101,6 +101,13 @@ repository does not yet identify that caller.
   and effect checks before marking contracts verified or hiding the nine
   advertised legacy definitions.
 
+The 2026-08-09 post-release check found no basis for advancing the 15 hidden
+aliases to removal tombstones. `v0.1.0` is still the only tagged release, each
+alias remains `unverified`, and every `remove_after` value is unset. ADR 004
+requires at least two tagged releases containing the canonical replacement
+plus golden contract evidence. This is a release-cadence and contract-evidence
+gate, not unfinished deletion code.
+
 ## Post-release removals
 
 `chemtools.mcp.tools.nwchem` and `_nwchem_base.py` were removed after

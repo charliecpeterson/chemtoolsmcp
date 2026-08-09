@@ -127,8 +127,17 @@ confirmed the removed import paths and retained external-status boundary.
 for six program application adapters. It contains no execution mechanism, but
 it cannot leave while those low-level MCP responses remain supported.
 
-Removal gate: retire or version those response contracts after the final
-compatibility release. Guided `launch_run` and `monitor_run` do not depend on
+The post-release audit found that this is a real shared boundary rather than a
+removable facade. Its 82 lines keep launch IDs, effective argv, Slurm
+submission fields, timeout translation, `.jobid` compatibility writes, and
+scheduler cancellation results consistent across NWChem, Molcas, DIRAC,
+GRASP, Quantum ESPRESSO, and QMCPACK. Inlining it would duplicate policy across
+six adapters, while renaming it would only hide that the response contract is
+legacy. The six execution contract suites passed 48 tests.
+
+Removal gate: remove the projector when the six low-level tools are retired or
+their response contracts are replaced. Do not remove or rename it as an
+independent cleanup. Guided `launch_run` and `monitor_run` do not depend on
 this projection.
 
 ## Current disposition
