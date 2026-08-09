@@ -6,10 +6,9 @@ from pathlib import Path
 import pytest
 
 from chemtools.application.execution import ExecutionService
-from chemtools.application.qe_execution import render_qe_launch
 from chemtools.application.run_launching import launch_run
-from chemtools.execution.legacy_runner import load_runner_profiles
 from chemtools.execution import LocalExecutor
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.programs.qe import QE
 from chemtools.programs.qe.launch import (
     adapt_legacy_qe_profile,
@@ -131,22 +130,6 @@ def test_local_qe_plan_uses_profile_installation_and_artifacts(tmp_path):
         "qe.output",
         "qe.error",
     ]
-
-    preview, _ = render_qe_launch(
-        input_path=str(input_path),
-        profile="qe_local",
-        profiles_path=str(profile_path),
-        env_overrides={"QE_TRACE": "1"},
-    )
-
-    assert preview["environment"] == {
-        "OMP_NUM_THREADS": "4",
-        "QE_TRACE": "1",
-    }
-    assert preview["command"] == (
-        "/opt/qe/bin/pw.x -in silicon.in > "
-        f"{tmp_path / 'silicon.out'} 2> {tmp_path / 'silicon.err'}"
-    )
 
 
 def test_guided_qe_named_target_prepares_without_profile_loading(tmp_path):

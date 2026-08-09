@@ -2,16 +2,17 @@
 
 Audit date: 2026-08-09
 
-The low-level execution tools are not dead compatibility code. They remain the
-only execution interface for several program backends. The guided `launch_run`
-contract has validated providers for NWChem, OpenMolcas, DIRAC, GRASP workflow,
-Quantum ESPRESSO, and QMCPACK.
+The remaining low-level execution tools are active compatibility code for
+NWChem, OpenMolcas, DIRAC, and GRASP. The guided `launch_run` contract has
+validated providers for those programs plus Quantum ESPRESSO and QMCPACK.
 
 ## Decision
 
-Retain the low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch calls
-behind explicit program or developer toolsets through the compatibility
-release. Do not add them to the default guided surface.
+Retain the low-level NWChem, Molcas, DIRAC, and GRASP launch calls behind
+explicit program or developer toolsets. Do not add them to the default guided
+surface. The redundant QE and QMCPACK low-level render and launch calls were
+removed after their guided providers passed the accepted parity and corpus
+gates.
 
 A low-level launch call may leave after one of these conditions is met:
 
@@ -31,12 +32,23 @@ workflow. Remove those names together after the final release and migration
 window, rather than peeling them away one at a time.
 
 QE now exposes the shared guided launch path through a schema-2 named target or
-version 1 migration profile. `render_qe_launch` and `launch_qe_run` remain
-because their low-level response fields are a separate compatibility contract.
+version 1 migration profile. Its redundant `render_qe_launch` and
+`launch_qe_run` MCP tools and application adapter were removed. The typed
+`pw.x` plan and profile migration adapter remain program-owned.
 
 QMCPACK now exposes ordinary and initialization-only execution through the
-shared guided launch path. `render_qmcpack_launch` and `launch_qmcpack_run`
-remain because their version 1 preview fields are a compatibility contract.
+shared guided launch path. Its redundant `render_qmcpack_launch` and
+`launch_qmcpack_run` MCP tools and application adapter were removed. The typed
+plan, profile migration adapter, and explicit `initialization_only` option
+remain program-owned.
+
+The removal passed 114 focused architecture and launch checks, all 294 QE and
+QMCPACK tests, and the complete 1,939-test external-corpus suite. Base and
+DIRAC-extra isolated installs of wheel SHA-256
+`33bbc2c00d3794c7b1f6cee4e33011ec31d84bdd3e733177e5175f4e1458fd0f`
+confirmed the three retired modules are absent while both backends retain
+guided launch planning. The same wheel is installed in the repository-local
+`venv`.
 
 Molcas now exposes the shared guided launch path through a schema-2 named
 target or version 1 migration profile. Named targets conservatively serialize
@@ -84,13 +96,11 @@ the external corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
 loaded the provider and portable GRASP target entries. The same wheel is
 installed in the repository-local `venv`.
 
-The QE, QMCPACK, Molcas, DIRAC, and GRASP guided plans do not replace their
-full version 1 preview contracts. Those previews still expose `launcher_command`,
+The Molcas, DIRAC, and GRASP guided plans do not replace their full version 1
+preview contracts. Those previews still expose `launcher_command`,
 `launcher_kind`, `restart_prefix`, `shell`, resolved profile paths, and
-scheduler-template fields. The QE adapter replaces the displayed command with
-its typed rendering; the QMCPACK dry run still displays the legacy command and
-only uses the typed rendering during a live launch. Changing either response
-now would be a public compatibility change.
+scheduler-template fields. Changing those responses would be a separate public
+compatibility change.
 
 Do not add a second generic preview projector to remove these renderer calls.
 Define each program's guided launch result first, then retire the extra version

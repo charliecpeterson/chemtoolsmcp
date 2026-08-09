@@ -1587,6 +1587,12 @@ Progress:
       Slurm targets, retaining version 1 profiles as the migration fallback.
       Bind the exact workflow script and rendered container command to approval
       while reporting the absent GRASP workflow parser and linter explicitly.
+- [x] Retire the redundant Quantum ESPRESSO and QMCPACK low-level render and
+      launch MCP tools after their guided named-target providers pass the
+      package and external-corpus gates. Preserve the typed plans, profile
+      migration adapters, and QMCPACK initialization-only launch option. Four
+      MCP definitions and three obsolete adapter modules are gone; all 1,939
+      external-corpus tests and both isolated wheel-install variants passed.
 - [x] Route explicit GRASP workflow status and watch requests through retained
       local process handles or target-owned Slurm queries for identifiers
       owned by the current service. Retain external file and explicit Slurm

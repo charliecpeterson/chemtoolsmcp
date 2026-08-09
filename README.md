@@ -15,14 +15,14 @@ execution operations it actually implements.
 | **OpenMolcas** | 45 | CASSCF/CASPT2 chain orchestrators, active-space refinement loop, recovery rule engine (11 failure modes), approval-gated named-target launch, 133 bundled docs |
 | **DIRAC** | 39 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, approval-bound paired-input launch, basis browser (Dyall), 179 bundled docs |
 | **GRASP2018** | 53 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), approval-bound container workflow launch, exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
-| **Quantum ESPRESSO** | 20 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, approval-gated launch through a schema-2 named target or version 1 migration profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
-| **QMCPACK** | 14 | XML input review, approval-gated ordinary or initialization-only launch through a schema-2 named target or version 1 migration profile, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
+| **Quantum ESPRESSO** | 18 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, approval-gated launch through a schema-2 named target or version 1 migration profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
+| **QMCPACK** | 12 | XML input review, approval-gated ordinary or initialization-only launch through a schema-2 named target or version 1 migration profile, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
 | **ORCA** | 0 dedicated | Experimental ORCA 6.1.1 input parsing and output auto-detection through the shared tools; serial single points, optimization, frequencies, open-shell spin, scalar relativity, RIJCOSX, DLPNO-CCSD(T), CASSCF, NEVPT2, CASPT2, MRCI, TD-DFT, EOM-CCSD, ORCA_ESD spectra and radiative rates, additive QM/MM, molecular and ionic Crystal-QMMM, explicit SCF failure, MOREAD restart, and difficult-SCF algorithm comparison are pinned against nineteen cases |
 
 Plus 66 program-generic tools (auto-detect supported inputs and outputs)
 and a multi-program eval framework with 33 reference cases.
 
-**Total: 338 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
+**Total: 334 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
 and input schemas come from the generated
 [MCP tool inventory](docs/tool-inventory.md).
 
@@ -988,7 +988,7 @@ integration work remains in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 ### Restricting the developer surface to one program
 
 The default guided surface already stays at eleven tools. When using
-`CHEMTOOLS_TOOLSET=developer`, all seven programs mean 338 definitions in the
+`CHEMTOOLS_TOOLSET=developer`, all seven programs mean 334 definitions in the
 client's context. For a developer session focused on one program, filter:
 
 ```json
@@ -1009,8 +1009,8 @@ local and HPC counts are 110 and 111. Other choices are `nwchem`, `dirac`,
 | Mode | Tools visible | Use when |
 |---|---|---|
 | `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 284 | Post-hoc parsing, drafting, planning, and owned monitoring; no chemistry executable needed |
-| `local` | 335 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
-| `hpc` | 338 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
+| `local` | 331 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
+| `hpc` | 334 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
 
 These counts describe the complete developer surface. The default guided
 surface remains eleven tools in every mode.
@@ -1131,12 +1131,11 @@ working directories, and `write_script=false` scheduler submission are not
 supported. The tool returns a clear error instead of falling back to the older
 shell-based execution path.
 
-QE `pw.x` uses the same tracked launch boundary through `render_qe_launch` and
-`launch_qe_run`. Its typed plan passes `-in <input-file>` and requires the
-profile working directory to be the input directory. The process result is not
-an SCF verdict. Follow a completed launch with `inspect_run` to check for
-convergence and `JOB DONE.` evidence. `ph.x` and `pw2qmcpack.x` execution are
-not part of this slice.
+QE `pw.x` uses the guided `launch_run` boundary. Its typed plan passes
+`-in <input-file>` and requires the target working directory to be the input
+directory. The process result is not an SCF verdict. Follow a completed launch
+with `inspect_run` to check for convergence and `JOB DONE.` evidence. `ph.x`
+and `pw2qmcpack.x` execution are not part of this slice.
 
 QMCPACK uses the same guided launch boundary. Set `initialization_only=true` to
 approve an exact plan ending in `--dryrun`; this initializes the input while
@@ -1200,7 +1199,7 @@ the profile's hardware specs and recommends optimal nodes / ranks / walltime
 
 ## What you get
 
-The 338 definitions cover these areas. Generic tools auto-detect the program where
+The 334 definitions cover these areas. Generic tools auto-detect the program where
 the underlying operation supports it.
 
 | Area | NWChem | Molcas | Generic | Notes |
@@ -1571,14 +1570,13 @@ chemtools/
       _nwchem_provider.py        NWChem catalog composition (101 tools)
       nwchem_{input,parse,analysis,jobs,docs}.py
                                 Focused NWChem handlers
-      nwchem.py                  Legacy NWChem Python compatibility facade
       molcas.py                  Molcas tool definitions + handlers (45 tools)
       dirac.py                   DIRAC tool definitions + handlers (39 tools)
       grasp.py                   GRASP tool definitions + handlers (53 tools)
-      qe.py                      Quantum ESPRESSO definitions + handlers (20 tools)
-      qmcpack.py                 QMCPACK definitions + handlers (14 tools)
+      qe.py                      Quantum ESPRESSO definitions + handlers (18 tools)
+      qmcpack.py                 QMCPACK definitions + handlers (12 tools)
       orca.py                    Shared-tool-only ORCA catalog provider
-      generic.py                 Cross-program definitions + handlers (65 tools)
+      generic.py                 Cross-program definitions + handlers (66 tools)
       guided.py                  Contract-bound guided application adapters
       _guided_definitions.py     Guided public descriptions and input schemas
 ```

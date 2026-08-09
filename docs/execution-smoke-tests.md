@@ -90,7 +90,8 @@ configured rank count and defaults to two ranks.
 ## Local Quantum ESPRESSO
 
 The `qe_local` profile on linux-4090 was verified with a two-atom Si SCF input
-and the typed `launch_qe_run` path. It launches QE 7.5 as
+and the typed execution path now exposed through guided `launch_run`. It
+launches QE 7.5 as
 `mpirun -np 1 pw.x -in si.in`, with 20 OpenMP threads. Its local profile must set
 `I_MPI_FABRICS: "shm"`: without it, Intel MPI 2021.11 entered a one-rank
 `MPI_Alltoallv` wait through the TCP/libfabric provider during QE symmetry

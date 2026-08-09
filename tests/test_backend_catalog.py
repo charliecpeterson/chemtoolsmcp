@@ -1023,10 +1023,10 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
         "molcas": 45,
         "dirac": 39,
         "grasp": 49,
-        "qe": 20,
-            "qmcpack": 14,
-            "orca": 0,
-        }
+        "qe": 18,
+        "qmcpack": 12,
+        "orca": 0,
+    }
 
     catalog_names = [
         definition["name"] for definition in catalog_tool_definitions()
@@ -1034,8 +1034,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     dispatch_names = [
         definition["name"] for definition in dispatch.tool_definitions()
     ]
-    assert len(catalog_names) == 338
-    assert len(set(catalog_names)) == 338
+    assert len(catalog_names) == 334
+    assert len(set(catalog_names)) == 334
     assert catalog_names == dispatch_names
 
 

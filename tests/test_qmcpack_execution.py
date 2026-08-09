@@ -6,10 +6,9 @@ from pathlib import Path
 import pytest
 
 from chemtools.application.execution import ExecutionService
-from chemtools.application.qmcpack_execution import render_qmcpack_launch
 from chemtools.application.run_launching import launch_run
 from chemtools.execution import LocalExecutor
-from chemtools.execution.legacy_runner import load_runner_profiles
+from chemtools.execution.profiles import load_runner_profiles
 from chemtools.programs.qmcpack import QMCPACK
 from chemtools.programs.qmcpack.launch import (
     adapt_legacy_qmcpack_profile,
@@ -138,18 +137,6 @@ def test_local_qmcpack_plan_uses_profile_installation_and_artifacts(tmp_path):
         "qmcpack.output",
         "qmcpack.error",
     ]
-
-    preview, _ = render_qmcpack_launch(
-        input_path=str(input_path),
-        profile="qmcpack_local",
-        profiles_path=str(profile_path),
-        env_overrides={"QMCPACK_TRACE": "1"},
-    )
-
-    assert preview["environment"] == {
-        "OMP_NUM_THREADS": "4",
-        "QMCPACK_TRACE": "1",
-    }
 
 
 def test_guided_qmcpack_named_target_preserves_initialization_only(tmp_path):

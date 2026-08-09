@@ -141,12 +141,12 @@ The contract follows the Quantum ESPRESSO 7.5
 [`INPUT_PW`](https://www.quantum-espresso.org/Doc/INPUT_PW.html) reference.
 The initial regression cases come from `/home/charlie/input_examples/qe`.
 
-`render_qe_launch` and `launch_qe_run` use the shared execution service for a
-reviewed `pw.x` input through a named version 1 runner profile. The typed plan
-passes the input as `-in <filename>`, runs in the input directory, and records
-the configured command, resources, output paths, and local process or
-scheduler identity. The launch result establishes process state only; inspect
-the produced output before treating an SCF or relaxation as complete.
+The guided `launch_run` tool uses the shared execution service for a reviewed
+`pw.x` input through a schema-2 target or version 1 migration profile. The
+typed plan passes the input as `-in <filename>`, runs in the input directory,
+and records the configured command, resources, output paths, and local process
+or scheduler identity. The launch result establishes process state only;
+inspect the produced output before treating an SCF or relaxation as complete.
 
 This slice does not execute `ph.x` or `pw2qmcpack.x`, establish cutoff or
 k-point convergence, parse radial UPF data, choose a physical magnetic state,

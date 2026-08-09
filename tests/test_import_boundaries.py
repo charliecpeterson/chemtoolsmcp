@@ -47,12 +47,6 @@ APPLICATION_ARCHIVE_ADAPTERS = {
     ROOT / "chemtools" / "application" / "nwchem_execution.py": {
         "archive_previous_outputs",
     },
-    ROOT / "chemtools" / "application" / "qe_execution.py": {
-        "archive_paths",
-    },
-    ROOT / "chemtools" / "application" / "qmcpack_execution.py": {
-        "archive_paths",
-    },
 }
 RESOURCE_INSPECTION_CALLERS = {
     ROOT / "chemtools" / "mcp" / "tools" / "generic.py": {
@@ -68,6 +62,11 @@ RESOURCE_INSPECTION_CALLERS = {
         / "workflow_state.py"
     ): {"query_partition_specs"},
 }
+REMOVED_QE_QMCPACK_EXECUTION_MODULES = (
+    "chemtools.application.qe_execution",
+    "chemtools.application.qmcpack_execution",
+    "chemtools.mcp.tools.qe_execution",
+)
 CORE_COMPATIBILITY_IMPORTS = {
     "chemtools/core/artifact_registry.py": {"chemtools.persistence.artifacts"},
     "chemtools/core/eval.py": {"chemtools.application.evaluation"},
@@ -222,6 +221,28 @@ def test_removed_legacy_status_modules_are_absent():
                 "'chemtools.execution.legacy_status') is None; "
                 "assert importlib.util.find_spec("
                 "'chemtools.programs.nwchem.legacy_status') is None"
+            ),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_removed_qe_qmcpack_execution_modules_are_absent():
+    modules = repr(REMOVED_QE_QMCPACK_EXECUTION_MODULES)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import importlib.util; "
+                f"modules = {modules}; "
+                "assert all(importlib.util.find_spec(module) is None "
+                "for module in modules)"
             ),
         ],
         cwd=ROOT,

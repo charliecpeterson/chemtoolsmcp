@@ -1,6 +1,6 @@
 # Legacy execution adapter audit
 
-Audit date: 2026-08-07
+Audit date: 2026-08-09
 
 The legacy execution modules are not ready for wholesale removal. The old
 profile import and status paths have been removed, but the renderer, response
@@ -10,8 +10,8 @@ translators, and scheduler launch wrappers still have first-party callers.
 
 `chemtools.execution.profiles` now owns version 1 profile loading, default
 merging, and conversion into typed resources, installations, and Slurm target
-settings. Six application adapters and the NWChem, Molcas, DIRAC, GRASP, QE,
-and QMCPACK launch providers import that owner directly.
+settings. Four compatibility application adapters and the NWChem, Molcas,
+DIRAC, GRASP, QE, and QMCPACK launch providers import that owner directly.
 
 `chemtools.execution.legacy_profiles` was an exact compatibility facade. No
 runtime module imported it, and a maintained-workspace scan found no external
@@ -33,10 +33,10 @@ eight bundled profiles. The same wheel is installed in the repository-local
 
 ## Legacy renderer and launcher
 
-Eight first-party runtime modules still import `execution.legacy_runner`:
+Six first-party runtime modules still import `execution.legacy_runner`:
 
-- NWChem, QE, and QMCPACK application adapters use the old renderer to keep
-  their low-level response shapes.
+- The NWChem application adapter uses the old renderer to keep its low-level
+  response shape.
 - The three public scheduler modules still call the old render and launch
   functions. Their status and watch calls use `execution.external_status`.
 - The NWChem compatibility runner still calls the old render and launch
@@ -66,11 +66,13 @@ Removal gates:
 2. Reimplement retained scheduler render and launch calls over typed targets
    without changing their response contracts.
 
-The Molcas, DIRAC, GRASP workflow, QE, and QMCPACK comparisons confirmed that
-typed plans cover commands and artifacts but not the full version 1 preview
-dictionaries. A shared replacement would recreate the old renderer as another
-response projector. Keep these low-level calls until their compatibility
-contracts are retired explicitly.
+The QE and QMCPACK low-level MCP tools and application adapters were removed
+after their guided providers passed the parity and external-corpus gates. The
+Molcas, DIRAC, and GRASP comparisons confirmed that typed plans cover commands
+and artifacts but not their full version 1 preview dictionaries. A shared
+replacement would recreate the old renderer as another response projector.
+Keep those remaining low-level calls until their compatibility contracts are
+retired explicitly.
 
 The retention decision and per-program evidence are recorded in
 [`low-level-execution-retention-audit.md`](low-level-execution-retention-audit.md).
@@ -78,10 +80,10 @@ The retention decision and per-program evidence are recorded in
 ## Legacy output archival
 
 `execution/legacy_archive.py` now owns the timestamped, collision-safe rename
-policy used before compatibility launches. All six program application
-adapters import it directly. `execution.legacy_runner` keeps exact imports of
-both archive functions for its old direct Python surface and its remaining
-version 1 launch implementation.
+policy used before compatibility launches. All four remaining program
+application adapters import it directly. `execution.legacy_runner` keeps exact
+imports of both archive functions for its old direct Python surface and its
+remaining version 1 launch implementation.
 
 Focused execution and import-boundary checks passed 69 tests, followed by all
 1,856 tests with the external corpus. The archive integration cases for
@@ -128,21 +130,22 @@ confirmed the removed import paths and retained external-status boundary.
 ## Legacy response projection
 
 `application.legacy_execution` translates typed results into old dictionaries
-for six program application adapters. It contains no execution mechanism, but
+for four program application adapters. It contains no execution mechanism, but
 it cannot leave while those low-level MCP responses remain supported.
 
 The post-release audit found that this is a real shared boundary rather than a
 removable facade. Its 82 lines keep launch IDs, effective argv, Slurm
 submission fields, timeout translation, `.jobid` compatibility writes, and
-scheduler cancellation results consistent across NWChem, Molcas, DIRAC,
-GRASP, Quantum ESPRESSO, and QMCPACK. Inlining it would duplicate policy across
-six adapters, while renaming it would only hide that the response contract is
-legacy. The six execution contract suites passed 48 tests.
+scheduler cancellation results consistent across NWChem, Molcas, DIRAC, and
+GRASP. Inlining it would duplicate policy across four adapters, while renaming
+it would only hide that the response contract is legacy. Before the QE and
+QMCPACK adapters were removed, the six execution contract suites passed 48
+tests.
 
-Removal gate: remove the projector when the six low-level tools are retired or
-their response contracts are replaced. Do not remove or rename it as an
-independent cleanup. Guided `launch_run` and `monitor_run` do not depend on
-this projection.
+Removal gate: remove the projector when the remaining low-level tools are
+retired or their response contracts are replaced. Do not remove or rename it
+as an independent cleanup. Guided `launch_run` and `monitor_run` do not depend
+on this projection.
 
 ## Current disposition
 

@@ -13,12 +13,12 @@
     ]
   },
   "summary": {
-    "tool_count": 338,
+    "tool_count": 334,
     "alias_count": 15,
-    "canonical_tool_count": 329,
+    "canonical_tool_count": 325,
     "advertised_legacy_tool_count": 9,
     "hidden_alias_count": 15,
-    "total_callable_name_count": 353,
+    "total_callable_name_count": 349,
     "entrypoint_alias_count": 2,
     "python_import_shim_count": 6,
     "by_program": {
@@ -27,22 +27,22 @@
       "molcas": 45,
       "dirac": 39,
       "grasp": 53,
-      "qe": 20,
-      "qmcpack": 14,
+      "qe": 18,
+      "qmcpack": 12,
       "orca": 0
     },
     "by_capability": {
       "none": 266,
       "registry": 18,
-      "runner_profile": 4,
+      "runner_profile": 2,
       "executable_or_scheduler": 5,
-      "executable": 42,
+      "executable": 40,
       "scheduler": 3
     },
     "by_mode": {
       "analysis": 284,
-      "local": 335,
-      "hpc": 338
+      "local": 331,
+      "hpc": 334
     },
     "by_mode_and_program": {
       "analysis": {
@@ -61,8 +61,8 @@
         "molcas": 45,
         "dirac": 39,
         "grasp": 53,
-        "qe": 20,
-        "qmcpack": 14,
+        "qe": 18,
+        "qmcpack": 12,
         "orca": 0
       },
       "hpc": {
@@ -71,8 +71,8 @@
         "molcas": 45,
         "dirac": 39,
         "grasp": 53,
-        "qe": 20,
-        "qmcpack": 14,
+        "qe": 18,
+        "qmcpack": 12,
         "orca": 0
       }
     },
@@ -99,13 +99,13 @@
       },
       "qe": {
         "analysis": 79,
-        "local": 85,
-        "hpc": 86
+        "local": 83,
+        "hpc": 84
       },
       "qmcpack": {
         "analysis": 73,
-        "local": 79,
-        "hpc": 80
+        "local": 77,
+        "hpc": 78
       },
       "orca": {
         "analysis": 61,
@@ -7442,113 +7442,6 @@
       "output_schema": null
     },
     {
-      "name": "launch_qe_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "qe",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Launch a reviewed QE pw.x input through a configured runner profile. A dry run renders the command only; an enabled execution service is required for a live launch.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "qe_input": {
-            "type": "string",
-            "description": "Path to a Quantum ESPRESSO pw.x input file."
-          },
-          "profile": {
-            "type": "string",
-            "description": "Named Chemtools runner profile."
-          },
-          "profiles_path": {
-            "type": "string",
-            "description": "Optional runner-profile YAML or JSON path."
-          },
-          "job_name": {
-            "type": "string",
-            "description": "Optional output-file stem."
-          },
-          "resource_overrides": {
-            "type": "object",
-            "description": "Optional profile resource overrides."
-          },
-          "env_overrides": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Optional environment overrides for this launch."
-          },
-          "dry_run": {
-            "type": "boolean",
-            "default": false,
-            "description": "Render only; do not start QE."
-          }
-        },
-        "required": [
-          "qe_input",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "launch_qmcpack_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "qmcpack",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Launch QMCPACK with a configured local or Slurm runner profile. The launch records its effective command, resources, and output paths. Set dry_run=true to inspect the profile without starting it; set qmcpack_dry_run=true to initialize QMCPACK while skipping QMC sections.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "qmcpack_input": {
-            "type": "string"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "job_name": {
-            "type": "string"
-          },
-          "resource_overrides": {
-            "type": "object"
-          },
-          "env_overrides": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "dry_run": {
-            "type": "boolean",
-            "default": false
-          },
-          "qmcpack_dry_run": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "qmcpack_input",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "launch_run",
       "lifecycle": "canonical",
       "replacement": null,
@@ -13681,106 +13574,6 @@
         "required": [
           "ecp_name",
           "elements"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "render_qe_launch",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "qe",
-      "capability": "runner_profile",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Render the configured QE pw.x local or scheduler command without starting it. Use this to verify the selected runner profile, resources, environment, and expected output paths.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "qe_input": {
-            "type": "string",
-            "description": "Path to a Quantum ESPRESSO pw.x input file."
-          },
-          "profile": {
-            "type": "string",
-            "description": "Named Chemtools runner profile."
-          },
-          "profiles_path": {
-            "type": "string",
-            "description": "Optional runner-profile YAML or JSON path."
-          },
-          "job_name": {
-            "type": "string",
-            "description": "Optional output-file stem."
-          },
-          "resource_overrides": {
-            "type": "object",
-            "description": "Optional profile resource overrides."
-          },
-          "env_overrides": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Optional environment overrides for this launch."
-          }
-        },
-        "required": [
-          "qe_input",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "render_qmcpack_launch",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "qmcpack",
-      "capability": "runner_profile",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Render the configured QMCPACK local or scheduler command without starting it. Use this to verify the selected runner profile, resources, environment, and expected output paths.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "qmcpack_input": {
-            "type": "string",
-            "description": "Path to a QMCPACK XML input file."
-          },
-          "profile": {
-            "type": "string",
-            "description": "Named Chemtools runner profile."
-          },
-          "profiles_path": {
-            "type": "string",
-            "description": "Optional runner-profile YAML or JSON path."
-          },
-          "job_name": {
-            "type": "string",
-            "description": "Optional output-file stem."
-          },
-          "resource_overrides": {
-            "type": "object",
-            "description": "Optional profile resource overrides."
-          },
-          "env_overrides": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Optional environment-value overrides."
-          }
-        },
-        "required": [
-          "qmcpack_input",
-          "profile"
         ],
         "additionalProperties": false
       },

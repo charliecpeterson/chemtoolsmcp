@@ -5,17 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from chemtools.application.qmcpack_execution import (
-    launch_qmcpack_with_service,
-    render_qmcpack_launch,
-)
 from chemtools.integrations.science_runtime import (
     ScienceRuntimeClient,
     ScienceRuntimeCommandError,
     ScienceRuntimeProtocolError,
     ScienceRuntimeUnavailableError,
 )
-from chemtools.mcp.decorator import _tool, get_execution_service
+from chemtools.mcp.decorator import _tool
 from chemtools.programs.qmcpack.dmc import (
     analyze_dmc_input_series,
     analyze_dmc_series,
@@ -36,34 +32,6 @@ from chemtools.programs.qmcpack.pseudopotential import (
 )
 from chemtools.programs.qmcpack.scalar import parse_scalar_file
 from chemtools.science_runner import QMCPACK_HDF5_INSPECTION_REQUEST_SCHEMA
-
-
-@_tool("render_qmcpack_launch", needs="runner_profile", program="qmcpack")
-def _handle_render_qmcpack_launch(arguments: dict[str, Any]) -> dict[str, Any]:
-    preview, _ = render_qmcpack_launch(
-        input_path=arguments["qmcpack_input"],
-        profile=arguments["profile"],
-        profiles_path=arguments.get("profiles_path"),
-        job_name=arguments.get("job_name"),
-        resource_overrides=arguments.get("resource_overrides"),
-        env_overrides=arguments.get("env_overrides"),
-    )
-    return preview
-
-
-@_tool("launch_qmcpack_run", needs="executable", program="qmcpack")
-def _handle_launch_qmcpack_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    return launch_qmcpack_with_service(
-        get_execution_service(),
-        input_path=arguments["qmcpack_input"],
-        profile=arguments["profile"],
-        profiles_path=arguments.get("profiles_path"),
-        job_name=arguments.get("job_name"),
-        resource_overrides=arguments.get("resource_overrides"),
-        env_overrides=arguments.get("env_overrides"),
-        dry_run=arguments.get("dry_run", False),
-        qmcpack_dry_run=arguments.get("qmcpack_dry_run", False),
-    )
 
 
 @_tool("inspect_qmcpack_scalar", program="qmcpack")
@@ -220,77 +188,6 @@ def _qmcpack_hdf5_runtime_error(status: str, error: Exception) -> dict[str, Any]
 
 def qmcpack_tool_definitions() -> list[dict[str, Any]]:
     return [
-        {
-            "name": "render_qmcpack_launch",
-            "description": (
-                "Render the configured QMCPACK local or scheduler command without "
-                "starting it. Use this to verify the selected runner profile, "
-                "resources, environment, and expected output paths."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "qmcpack_input": {
-                        "type": "string",
-                        "description": "Path to a QMCPACK XML input file.",
-                    },
-                    "profile": {
-                        "type": "string",
-                        "description": "Named Chemtools runner profile.",
-                    },
-                    "profiles_path": {
-                        "type": "string",
-                        "description": "Optional runner-profile YAML or JSON path.",
-                    },
-                    "job_name": {
-                        "type": "string",
-                        "description": "Optional output-file stem.",
-                    },
-                    "resource_overrides": {
-                        "type": "object",
-                        "description": "Optional profile resource overrides.",
-                    },
-                    "env_overrides": {
-                        "type": "object",
-                        "additionalProperties": {"type": "string"},
-                        "description": "Optional environment-value overrides.",
-                    },
-                },
-                "required": ["qmcpack_input", "profile"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "launch_qmcpack_run",
-            "description": (
-                "Launch QMCPACK with a configured local or Slurm runner profile. "
-                "The launch records its effective command, resources, and output "
-                "paths. Set dry_run=true to inspect the profile without starting it; "
-                "set qmcpack_dry_run=true to initialize QMCPACK while skipping QMC "
-                "sections."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "qmcpack_input": {"type": "string"},
-                    "profile": {"type": "string"},
-                    "profiles_path": {"type": "string"},
-                    "job_name": {"type": "string"},
-                    "resource_overrides": {"type": "object"},
-                    "env_overrides": {
-                        "type": "object",
-                        "additionalProperties": {"type": "string"},
-                    },
-                    "dry_run": {"type": "boolean", "default": False},
-                    "qmcpack_dry_run": {
-                        "type": "boolean",
-                        "default": False,
-                    },
-                },
-                "required": ["qmcpack_input", "profile"],
-                "additionalProperties": False,
-            },
-        },
         {
             "name": "inspect_qmcpack_pseudopotential",
             "description": (
@@ -803,8 +700,6 @@ def qmcpack_tool_definitions() -> list[dict[str, Any]]:
 __all__ = [
     "_handle_analyze_qmcpack_dmc_input_series",
     "_handle_analyze_qmcpack_dmc_series",
-    "_handle_launch_qmcpack_run",
-    "_handle_render_qmcpack_launch",
     "_handle_check_qmcpack_vmc_energy_gate",
     "_handle_compare_qmcpack_tmove_locality_shift",
     "_handle_compare_qmcpack_tmove_locality_shift_from_input",

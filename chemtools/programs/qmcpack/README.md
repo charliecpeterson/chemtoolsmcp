@@ -35,9 +35,10 @@ limits. Each present include also receives the supported structural lint checks,
 with findings labelled by include path. It does not merge XML trees or validate
 full wavefunction semantics.
 
-The configured `launch_qmcpack_run` path runs QMCPACK through the shared
-execution service and records the effective command and expected artifacts.
-It does not merge includes or validate full wavefunction semantics. Primary-log
+The guided `launch_run` path runs QMCPACK through the shared execution service
+and records the effective command and expected artifacts. Set
+`initialization_only=true` for the approval-bound `--dryrun` path. It does not
+merge includes or validate full wavefunction semantics. Primary-log
 inspection records only version, the exact completion
 marker, final reported execution time and its line, completion evidence,
 line-anchored unique warnings, and

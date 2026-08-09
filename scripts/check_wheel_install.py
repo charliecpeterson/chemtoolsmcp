@@ -212,11 +212,17 @@ assert importlib.util.find_spec("chemtools.mcp.tools.nwchem") is None
 assert importlib.util.find_spec("chemtools.execution.legacy_profiles") is None
 assert importlib.util.find_spec("chemtools.execution.legacy_status") is None
 assert importlib.util.find_spec("chemtools.programs.nwchem.legacy_status") is None
+assert importlib.util.find_spec("chemtools.application.qe_execution") is None
+assert importlib.util.find_spec("chemtools.application.qmcpack_execution") is None
+assert importlib.util.find_spec("chemtools.mcp.tools.qe_execution") is None
 assert "chemtools.mcp.tools._nwchem_base" not in sys.modules
 assert "chemtools.mcp.tools.nwchem" not in sys.modules
 assert "chemtools.execution.legacy_profiles" not in sys.modules
 assert "chemtools.execution.legacy_status" not in sys.modules
 assert "chemtools.programs.nwchem.legacy_status" not in sys.modules
+assert "chemtools.application.qe_execution" not in sys.modules
+assert "chemtools.application.qmcpack_execution" not in sys.modules
+assert "chemtools.mcp.tools.qe_execution" not in sys.modules
 assert examples
 assert NWCHEM_EXAMPLES.read_example(examples[0]["name"]).strip()
 assert inspection.get("error") is None
@@ -265,6 +271,7 @@ print(json.dumps({
     "persistence_owners": True,
     "focused_nwchem_provider": True,
     "named_target_catalog": True,
+    "retired_qe_qmcpack_low_level_execution": True,
     "guided_dirac_launch_provider": True,
     "guided_grasp_launch_provider": True,
     "guided_molcas_launch_provider": True,

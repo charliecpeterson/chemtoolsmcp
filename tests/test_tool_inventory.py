@@ -16,12 +16,12 @@ ROOT = Path(__file__).parents[1]
 def test_inventory_pins_live_registry_totals():
     summary = build_inventory()["summary"]
 
-    assert summary["tool_count"] == 338
+    assert summary["tool_count"] == 334
     assert summary["alias_count"] == 15
-    assert summary["canonical_tool_count"] == 329
+    assert summary["canonical_tool_count"] == 325
     assert summary["advertised_legacy_tool_count"] == 9
     assert summary["hidden_alias_count"] == 15
-    assert summary["total_callable_name_count"] == 353
+    assert summary["total_callable_name_count"] == 349
     assert summary["entrypoint_alias_count"] == 2
     assert summary["python_import_shim_count"] == 6
     assert summary["by_program"] == {
@@ -30,30 +30,30 @@ def test_inventory_pins_live_registry_totals():
         "molcas": 45,
         "dirac": 39,
         "grasp": 53,
-        "qe": 20,
-        "qmcpack": 14,
+        "qe": 18,
+        "qmcpack": 12,
         "orca": 0,
     }
     assert summary["by_capability"] == {
         "none": 266,
         "registry": 18,
-        "runner_profile": 4,
+        "runner_profile": 2,
         "executable_or_scheduler": 5,
-        "executable": 42,
+        "executable": 40,
         "scheduler": 3,
     }
     assert summary["by_mode"] == {
         "analysis": 284,
-        "local": 335,
-        "hpc": 338,
+        "local": 331,
+        "hpc": 334,
     }
     assert summary["by_program_filter"] == {
         "nwchem": {"analysis": 149, "local": 164, "hpc": 167},
         "molcas": {"analysis": 101, "local": 110, "hpc": 111},
         "dirac": {"analysis": 96, "local": 104, "hpc": 105},
         "grasp": {"analysis": 91, "local": 118, "hpc": 119},
-        "qe": {"analysis": 79, "local": 85, "hpc": 86},
-        "qmcpack": {"analysis": 73, "local": 79, "hpc": 80},
+        "qe": {"analysis": 79, "local": 83, "hpc": 84},
+        "qmcpack": {"analysis": 73, "local": 77, "hpc": 78},
         "orca": {"analysis": 61, "local": 65, "hpc": 66},
     }
 
@@ -74,7 +74,7 @@ def test_inventory_records_schema_and_owner_for_every_tool():
             "2026-07-28",
         ],
     }
-    assert len(inventory["tools"]) == 338
+    assert len(inventory["tools"]) == 334
     assert all(tool["program"] for tool in inventory["tools"])
     assert all(tool["capability"] for tool in inventory["tools"])
     assert all(isinstance(tool["input_schema"], dict) for tool in inventory["tools"])

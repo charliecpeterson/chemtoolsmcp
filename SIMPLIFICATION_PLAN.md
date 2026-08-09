@@ -458,9 +458,9 @@ contracts, with concrete program and execution adapters composed at startup.
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
       Profile and status facades that met their gates are gone. The remaining
-      version 1 renderer and launcher still serve NWChem, Molcas, DIRAC, GRASP,
-      Quantum ESPRESSO, and QMCPACK low-level tools, so this parent item stays
-      open until named targets cover those workflows or the tools are retired.
+      version 1 renderer and launcher still serve NWChem, Molcas, DIRAC, and
+      GRASP low-level tools, so this parent item stays open until those calls
+      are retired.
   - [x] Move profile loading and typed target conversion into the canonical
         `execution/profiles.py` owner. The exact
         `execution/legacy_profiles.py` import facade had no first-party or
@@ -554,16 +554,28 @@ contracts, with concrete program and execution adapters composed at startup.
         `8f547099d8b8d52ad784e3c594d3727cd4159462b50559fd8070a818e7643f52`
         loaded the provider and bundled GRASP target examples. The same wheel
         is installed in the repository-local `venv`.
-  - [x] Retain low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch
-        calls behind explicit program or developer toolsets. The QE, QMCPACK,
-        Molcas, DIRAC, and GRASP low-level calls remain for their version 1
-        response contracts or interactive behavior. Their
+  - [x] Retain low-level NWChem, Molcas, DIRAC, and GRASP launch calls behind
+        explicit program or developer toolsets. The Molcas, DIRAC, and GRASP
+        low-level calls remain for their version 1 response contracts or
+        interactive behavior. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only
         after a guided provider passes accepted
         reference cases or the owner explicitly drops execution for that
         program. See
         [notes/low-level-execution-retention-audit.md](notes/low-level-execution-retention-audit.md).
+  - [x] Remove the redundant Quantum ESPRESSO and QMCPACK low-level render and
+        launch tools after their named-target providers passed the retained
+        parity and corpus gates. Keep typed program plans, profile migration
+        adapters, guided `launch_run`, and QMCPACK initialization-only behavior.
+        This removes four MCP definitions and three obsolete adapter modules.
+        Focused architecture and launch checks passed 114 tests, all 294 QE and
+        QMCPACK suites passed, and the full external-corpus suite passed 1,939
+        tests. Base and DIRAC-extra isolated installs of wheel SHA-256
+        `33bbc2c00d3794c7b1f6cee4e33011ec31d84bdd3e733177e5175f4e1458fd0f`
+        confirmed the retired modules are absent and both guided providers
+        remain available. The same wheel is installed in the repository-local
+        `venv`.
   - [x] Move compatibility output archival into the focused
         `execution/legacy_archive.py` owner. All six program application
         adapters import that owner directly, while `legacy_runner.py` retains
