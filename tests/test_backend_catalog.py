@@ -730,6 +730,7 @@ def test_builtin_backends_declare_exact_capabilities():
         },
         "qe": {
             "diagnosis.run",
+            "execution.plan",
             "input.lint",
             "input.parse",
             "output.geometry",

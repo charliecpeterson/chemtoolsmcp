@@ -1,10 +1,10 @@
 # Low-level execution retention audit
 
-Audit date: 2026-08-07
+Audit date: 2026-08-09
 
 The low-level execution tools are not dead compatibility code. They remain the
-only execution interface for several program backends, while the guided
-`launch_run` contract currently has a validated provider only for NWChem.
+only execution interface for several program backends. The guided `launch_run`
+contract has validated providers for NWChem and Quantum ESPRESSO.
 
 ## Decision
 
@@ -29,17 +29,16 @@ registration, and recovery recommendations still form one compatibility
 workflow. Remove those names together after the final release and migration
 window, rather than peeling them away one at a time.
 
-QE exposes `render_qe_launch` and `launch_qe_run`. The application adapter and
-smoke-test documentation cover a real `pw.x` launch through the typed execution
-service. Removing these tools now would remove QE execution rather than remove
-a duplicate guided entry point.
+QE now exposes the shared guided launch path through a schema-2 named target or
+version 1 migration profile. `render_qe_launch` and `launch_qe_run` remain
+because their low-level response fields are a separate compatibility contract.
 
 QMCPACK exposes `render_qmcpack_launch` and `launch_qmcpack_run`. Its launch
 contract also carries the QMCPACK-specific initialization-only option. That
 option belongs in a future QMCPACK guided provider if the backend is promoted.
 
-The QE and QMCPACK typed plans do not replace their full version 1 preview
-contracts. Those previews still expose `launcher_command`, `launcher_kind`,
+The QE guided plan and QMCPACK typed plan do not replace their full version 1
+preview contracts. Those previews still expose `launcher_command`, `launcher_kind`,
 `restart_prefix`, `shell`, resolved profile paths, and scheduler-template
 fields. The QE adapter replaces the displayed command with its typed rendering;
 the QMCPACK dry run still displays the legacy command and only uses the typed

@@ -26,6 +26,11 @@ targets:
         executable_argv: [/absolute/path/to/nwchem]
         environment:
           OMP_NUM_THREADS: "{omp_threads}"
+      qe:
+        launcher_argv: [mpirun, -np, "{mpi_ranks}"]
+        executable_argv: [/absolute/path/to/pw.x]
+        environment:
+          OMP_NUM_THREADS: "{omp_threads}"
 
   slurm_cpu:
     executor: slurm
@@ -65,3 +70,11 @@ targets:
         setup_lines:
           - module purge
           - module load nwchem
+      qe:
+        launcher_argv: [srun]
+        executable_argv: [pw.x]
+        environment:
+          OMP_NUM_THREADS: "{omp_threads}"
+        setup_lines:
+          - module purge
+          - module load quantum-espresso

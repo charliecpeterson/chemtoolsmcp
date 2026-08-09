@@ -441,8 +441,8 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                 "changed input or plan invalidates the token. Existing artifacts "
                 "block launch rather than being overwritten or silently archived. "
                 "Select a schema-2 named target, use the configured default, "
-                "or provide a version 1 profile during migration. NWChem "
-                "currently supplies the guided launch provider."
+                "or provide a version 1 profile during migration. NWChem and "
+                "Quantum ESPRESSO supply guided launch providers."
             ),
             "annotations": {
                 "title": "Prepare or launch an approved calculation",

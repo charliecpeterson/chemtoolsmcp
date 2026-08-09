@@ -185,6 +185,7 @@ def test_qe_backend_declares_output_and_diagnosis_capabilities():
         ProgramCapability.OUTPUT_PARSE,
         ProgramCapability.OUTPUT_TASK_INDEX,
         ProgramCapability.DIAGNOSIS_RUN,
+        ProgramCapability.EXECUTION_PLAN,
     } <= QE.capabilities
 
 

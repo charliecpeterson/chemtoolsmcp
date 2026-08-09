@@ -77,6 +77,7 @@ from chemtools.execution.resource_inspection import (
     query_partition_specs,
 )
 from chemtools.execution.targets import load_target_catalog
+from chemtools.core.program import ProgramCapability
 from chemtools.knowledge.cards import load_knowledge_cards
 from chemtools.mcp.dispatch import dispatch_tool
 from chemtools.mcp.decorator import SERVER_VERSION
@@ -100,6 +101,7 @@ from chemtools.programs.nwchem.strategy.case_review import (
 from chemtools.programs.nwchem.strategy.hpc_resources import (
     suggest_hpc_resources,
 )
+from chemtools.programs.qe import QE
 
 fixture = Path(sys.argv[1]).resolve()
 repository = Path(sys.argv[2]).resolve()
@@ -156,6 +158,10 @@ assert slurm_profiles["profiles"]["slurm"]["programs"]["nwchem"] == {
 assert target_catalog.enable_execution is False
 assert target_catalog.default_target == "workstation"
 assert tuple(target_catalog.targets) == ("workstation", "slurm_cpu")
+assert target_catalog.resolve(program="qe").programs["qe"].executable_argv == (
+    "/absolute/path/to/pw.x",
+)
+assert QE.supports(ProgramCapability.EXECUTION_PLAN)
 assert cards
 assert len(molcas_basis_sets) == 71
 assert len(molcas_documents) == 133
@@ -235,6 +241,7 @@ print(json.dumps({
     "persistence_owners": True,
     "focused_nwchem_provider": True,
     "named_target_catalog": True,
+    "guided_qe_launch_provider": True,
     "default_profile_count": len(profiles["profiles"]),
     "portable_slurm_profile": slurm_profiles["profiles"]["slurm"]["description"],
     "knowledge_card_count": len(cards),

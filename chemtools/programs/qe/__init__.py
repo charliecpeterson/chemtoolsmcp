@@ -12,6 +12,7 @@ from chemtools.core.program import (
 )
 from chemtools.programs.qe._plugin_inputs import QE_INPUTS
 from chemtools.programs.qe._plugin_diagnostics import QE_DIAGNOSTICS
+from chemtools.programs.qe._plugin_launcher import QE_LAUNCH_PLANNER
 from chemtools.programs.qe._plugin_parser import QE_PARSER
 from chemtools.programs.qe.consistency import QE_RUN_CONSISTENCY
 
@@ -53,6 +54,7 @@ QE = validate_backend(
             ProgramCapability.INPUT_LINT,
             ProgramCapability.DIAGNOSIS_RUN,
             ProgramCapability.RUN_CONSISTENCY,
+            ProgramCapability.EXECUTION_PLAN,
         }),
         artifact_kinds={
             "qe.input": ArtifactKindSpec(
@@ -81,6 +83,7 @@ QE = validate_backend(
         inputs=QE_INPUTS,
         diagnostics=QE_DIAGNOSTICS,
         consistency=QE_RUN_CONSISTENCY,
+        launches=QE_LAUNCH_PLANNER,
     )
 )
 

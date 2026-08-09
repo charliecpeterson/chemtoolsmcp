@@ -499,10 +499,21 @@ contracts, with concrete program and execution adapters composed at startup.
         `f6fbc933a82c3e80ed5c47c0c2c6417316799c7dc784415bd064a714a105488f`
         negotiated MCP `2025-11-25`, listed the eleven guided tools, inspected
         the representative output, and prepared an approval-gated launch.
+  - [x] Add a guided Quantum ESPRESSO provider over its existing typed `pw.x`
+        plan. Schema-2 local and Slurm targets no longer load or render a
+        version 1 profile; the profile adapter remains only as the migration
+        fallback. Equivalent local MPI and Slurm configurations produce the
+        same displayed plan and approval token. Focused backend, target,
+        guided-launch, inventory, and import checks passed 140 tests, followed
+        by all 1,919 tests with the external corpus. Base and DIRAC-extra
+        isolated installs of wheel SHA-256
+        `9ff641910f92547b472a269a9aa61ba9ab05c28880b69233e8b694f62c59bab2`
+        loaded the QE provider and bundled QE target examples. The same wheel
+        is installed in the repository-local `venv`.
   - [x] Retain low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch
-        calls behind explicit program or developer toolsets. QE and QMCPACK
-        have no guided execution replacement, and the Molcas, DIRAC, and GRASP
-        adapters still use their scheduler wrappers for previews. Their
+        calls behind explicit program or developer toolsets. QMCPACK, Molcas,
+        DIRAC, and GRASP have no guided execution replacement. The QE low-level
+        calls remain only for their version 1 response contract. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only
         after a guided provider passes accepted

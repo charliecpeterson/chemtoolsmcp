@@ -1470,10 +1470,12 @@ Progress:
       staging, and rendered-command models.
 - [x] Add schema-2 named target YAML and JSON loading at the MCP composition
       root. Keep execution permission explicit and independent from legacy
-      tool-visibility mode. Guided NWChem launch can select a configured target
-      or the server default without reading a version 1 profile; equivalent
-      local and Slurm targets render the same approval-bound plan as the
-      migration adapter.
+      tool-visibility mode. Guided NWChem and Quantum ESPRESSO launch can select
+      a configured target or the server default without reading a version 1
+      profile; equivalent local and Slurm targets render the same
+      approval-bound plan as the migration adapter. The QE migration passed
+      140 focused checks and all 1,919 tests with the external corpus; isolated
+      base and DIRAC-extra wheel installs retained the provider.
 - [x] Add render-only local and Slurm executors with argument-array assembly,
       expected stdout and stderr paths, and allowed-root checks.
 - [x] Add a schema 1.0 legacy-profile adapter for NWChem direct and Slurm
