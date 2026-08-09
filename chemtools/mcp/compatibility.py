@@ -5,11 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Mapping
 
-from chemtools.mcp.decorator import SERVER_VERSION
-
-
 ArgumentAdapter = Callable[[dict[str, Any]], dict[str, Any]]
 ResultAdapter = Callable[[dict[str, Any]], dict[str, Any]]
+# Deprecation history must not move when the package version advances.
+COMPATIBILITY_RELEASE = "0.1.0"
 
 
 @dataclass(frozen=True)
@@ -91,7 +90,7 @@ def _unverified_alias(
         ),
         effects=None,
         contract_status="unverified",
-        deprecated_since=SERVER_VERSION,
+        deprecated_since=COMPATIBILITY_RELEASE,
         remove_after=None,
         reason=reason,
     )

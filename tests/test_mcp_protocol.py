@@ -86,5 +86,5 @@ def test_legacy_docs_server_uses_the_same_negotiation_policy():
     assert response["result"]["protocolVersion"] == DEFAULT_PROTOCOL_VERSION
     assert response["result"]["serverInfo"] == {
         "name": "nwchem-docs-mcp",
-        "version": "0.1.0",
+        "version": "0.2.0.dev0",
     }

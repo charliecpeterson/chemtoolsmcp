@@ -15,6 +15,7 @@ from chemtools.mcp.decorator import (
     _TOOL_PROGRAMS,
 )
 from chemtools.mcp.catalog import builtin_program_names
+from chemtools.mcp.compatibility import COMPATIBILITY_RELEASE
 from chemtools.mcp.dispatch import _TOOL_ALIAS_REGISTRY, tool_definitions
 from chemtools.mcp.modes import MODE_CAPABILITIES, VALID_MODES, filter_tools
 from chemtools.mcp.server import (
@@ -51,7 +52,7 @@ ENTRYPOINT_ALIASES = (
         "target": "chemtools",
         "state": "callable_deprecated",
         "contract_status": "verified_equivalent",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "declaration": "pyproject.toml",
         "known_first_party_configs": [],
@@ -61,7 +62,7 @@ ENTRYPOINT_ALIASES = (
         "target": "chemtools",
         "state": "legacy_distinct_surface",
         "contract_status": "not_equivalent",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "declaration": "pyproject.toml",
         "known_first_party_configs": [],
@@ -73,15 +74,15 @@ PYTHON_IMPORT_SHIMS = (
         "name": "chemtools",
         "replacement": "focused chemtools application, execution, integration, persistence, program, and reference modules",
         "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
-        "known_first_party_imports": ["chemtools/mcp/tools/_nwchem_base.py"],
+        "known_first_party_imports": [],
     },
     {
         "name": "chemtools.api",
         "replacement": "focused chemtools.core and chemtools.programs modules",
         "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "known_first_party_imports": [],
     },
@@ -89,7 +90,7 @@ PYTHON_IMPORT_SHIMS = (
         "name": "chemtools.api_input",
         "replacement": "chemtools.programs.nwchem.input and strategy.workflow_planner",
         "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "known_first_party_imports": [],
     },
@@ -97,7 +98,7 @@ PYTHON_IMPORT_SHIMS = (
         "name": "chemtools.api_strategy",
         "replacement": "chemtools.programs.nwchem.strategy",
         "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "known_first_party_imports": [],
     },
@@ -105,15 +106,7 @@ PYTHON_IMPORT_SHIMS = (
         "name": "chemtools.mcp.nwchem",
         "replacement": "chemtools.mcp.cli and chemtools.mcp.dispatch",
         "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
-        "remove_after": None,
-        "known_first_party_imports": [],
-    },
-    {
-        "name": "chemtools.mcp.tools.nwchem",
-        "replacement": "chemtools.mcp.tools._nwchem_provider and focused nwchem handler modules",
-        "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "known_first_party_imports": [],
     },
@@ -121,7 +114,7 @@ PYTHON_IMPORT_SHIMS = (
         "name": "chemtools.execution.executors",
         "replacement": "chemtools.execution",
         "state": "compatibility_deprecated",
-        "deprecated_since": SERVER_VERSION,
+        "deprecated_since": COMPATIBILITY_RELEASE,
         "remove_after": None,
         "known_first_party_imports": [],
     },
@@ -246,7 +239,7 @@ def build_inventory() -> dict[str, Any]:
             "target": target,
             "state": "advertised_legacy",
             "advertised": True,
-            "deprecated_since": SERVER_VERSION,
+            "deprecated_since": COMPATIBILITY_RELEASE,
             "remove_after": None,
         }
         for name, target in ADVERTISED_LEGACY_TOOLS.items()

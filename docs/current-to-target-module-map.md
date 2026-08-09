@@ -104,14 +104,12 @@ top-level package for its path. An AST contract test prevents these migrated
 areas from returning to the public facades. All remaining NWChem program
 callers now import their focused input or strategy owner, including lazy
 imports retained to avoid module cycles. The public `chemtools`, `api_input`,
-and `api_strategy` exports remain exact aliases of those owners. The broad
-`_nwchem_base.py` MCP facade remains only for old Python imports through
-`chemtools.mcp.tools.nwchem`. All five handler families import their focused
-owners directly and load without `_nwchem_base.py`. The built-in catalog uses
-`_nwchem_provider.py` to compose those families and their schemas, so normal
-server startup also bypasses the legacy aggregator. NWChem-specific decorator
-registration and basis-data path resolution are small shared modules rather
-than responsibilities of the compatibility facade.
+and `api_strategy` exports remain exact aliases of those owners. The
+post-`v0.1.0` tree removes the broad `_nwchem_base.py` MCP facade and the
+`chemtools.mcp.tools.nwchem` aggregator. All five handler families import their
+focused owners directly. The built-in catalog uses `_nwchem_provider.py` to
+compose those families and their schemas. NWChem-specific decorator
+registration and basis-data path resolution remain small shared modules.
 
 ### MCP transport, dispatch, and tool registration
 
@@ -128,7 +126,6 @@ than responsibilities of the compatibility facade.
 | `chemtools/mcp/tools/guided.py` | Eight contract-bound guided MCP adapters calling application services | MCP adapter | Keep argument and protocol translation here. Each `_handle_<tool name>` function now derives its registration name from the matching declarative contract. Scientific interpretation belongs in application services and declared backend providers. |
 | `chemtools/mcp/tools/_guided_definitions.py` | Public descriptions, input schemas, output schemas, and annotations for eight guided adapters | MCP contract metadata | Keep declarative contracts separate from runtime adapters. The catalog receives them only after `guided.py` verifies one exact handler per definition. |
 | `chemtools/mcp/tools/_nwchem_provider.py` | Imports five focused NWChem handler families and exposes their schemas to the built-in catalog | MCP composition provider | Keep regular startup independent from the legacy NWChem Python facade. |
-| `chemtools/mcp/tools/nwchem.py` and `_nwchem_base.py` | Re-export old handler and implementation names through a wildcard and dynamic lookup | Compatibility facade | Keep outside normal catalog composition. Remove after the legacy import inventory and migration window. |
 | Other `chemtools/mcp/tools/*.py` modules | Schemas and handlers for program-specific and generic tools | MCP adapter | Preserve names, schemas, and results. Handlers should gradually call application services or backend capabilities instead of importing concrete implementation functions. |
 | `chemtools/mcp/nwchem.py` | Legacy NWChem MCP entry point | Compatibility facade | Keep until the CLI deprecation ledger permits removal. |
 | `chemtools/mcp/nwchem_docs.py` | Standalone NWChem documentation CLI | Compatibility facade or NWChem backend CLI | Keep independently from MCP alias decisions. |
@@ -138,11 +135,10 @@ all tool modules explicitly, and the tool modules import program
 implementations directly. This is acceptable as a compatibility path, but it
 must not become the route used to add QE and QMCPACK.
 
-The NWChem handler families no longer use the temporary `_nwchem_base.py`
-facade. It still imports most of `chemtools` because `nwchem.py` preserves old
-Python-level re-exports and dynamic handler lookup. This cost is now limited to
-callers that explicitly import the legacy module; catalog-driven MCP startup
-uses the focused provider.
+The NWChem handler families use focused imports, and catalog-driven MCP startup
+uses `_nwchem_provider.py`. The former `_nwchem_base.py` and `nwchem.py`
+compatibility modules were removed after the `v0.1.0` tag; the current tree has
+no wildcard NWChem MCP namespace or dynamic handler lookup.
 
 Inventory schema version 3 reports canonical definitions, advertised
 legacy definitions, hidden MCP aliases, executable aliases, and Python import

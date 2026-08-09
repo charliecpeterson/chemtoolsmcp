@@ -23,7 +23,7 @@ def test_inventory_pins_live_registry_totals():
     assert summary["hidden_alias_count"] == 15
     assert summary["total_callable_name_count"] == 353
     assert summary["entrypoint_alias_count"] == 2
-    assert summary["python_import_shim_count"] == 7
+    assert summary["python_import_shim_count"] == 6
     assert summary["by_program"] == {
         "generic": 66,
         "nwchem": 101,
@@ -64,7 +64,7 @@ def test_inventory_records_schema_and_owner_for_every_tool():
     assert inventory["schema"] == "chemtools.mcp-tool-inventory/3"
     assert inventory["server"] == {
         "name": "chemtools",
-        "version": "0.1.0",
+        "version": "0.2.0.dev0",
         "protocol_version": "2025-11-25",
         "supported_protocol_versions": [
             "2024-11-05",
@@ -126,7 +126,6 @@ def test_inventory_separates_compatibility_surfaces():
         "chemtools.api_input",
         "chemtools.api_strategy",
         "chemtools.mcp.nwchem",
-        "chemtools.mcp.tools.nwchem",
         "chemtools.execution.executors",
     ]
     assert {

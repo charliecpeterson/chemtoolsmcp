@@ -116,7 +116,6 @@ Aliases remain callable but are omitted from `tools/list`.
 | `chemtools.api_input` | chemtools.programs.nwchem.input and strategy.workflow_planner | `compatibility_deprecated` | `0.1.0` |  |
 | `chemtools.api_strategy` | chemtools.programs.nwchem.strategy | `compatibility_deprecated` | `0.1.0` |  |
 | `chemtools.mcp.nwchem` | chemtools.mcp.cli and chemtools.mcp.dispatch | `compatibility_deprecated` | `0.1.0` |  |
-| `chemtools.mcp.tools.nwchem` | chemtools.mcp.tools._nwchem_provider and focused nwchem handler modules | `compatibility_deprecated` | `0.1.0` |  |
 | `chemtools.execution.executors` | chemtools.execution | `compatibility_deprecated` | `0.1.0` |  |
 
 ## Tools

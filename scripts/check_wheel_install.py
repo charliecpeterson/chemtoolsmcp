@@ -39,6 +39,7 @@ GUIDED_TOOLS = (
 
 _INSTALLED_CHECK = """
 import importlib.util
+from importlib.metadata import version as package_version
 import json
 from pathlib import Path
 import sys
@@ -80,6 +81,7 @@ from chemtools.execution.resource_inspection import (
 )
 from chemtools.knowledge.cards import load_knowledge_cards
 from chemtools.mcp.dispatch import dispatch_tool
+from chemtools.mcp.decorator import SERVER_VERSION
 from chemtools.persistence.artifacts import record_run_artifacts
 from chemtools.persistence.launches import create_launch_record
 from chemtools.persistence.runs import register_run
@@ -171,6 +173,9 @@ assert compatible_archive_paths is archive_paths
 assert compatible_archive_previous_outputs is archive_previous_outputs
 assert compatible_get_local_resource_budget is get_local_resource_budget
 assert compatible_query_partition_specs is query_partition_specs
+assert package_version("chemtools-mcp") == SERVER_VERSION
+assert importlib.util.find_spec("chemtools.mcp.tools._nwchem_base") is None
+assert importlib.util.find_spec("chemtools.mcp.tools.nwchem") is None
 assert "chemtools.mcp.tools._nwchem_base" not in sys.modules
 assert "chemtools.mcp.tools.nwchem" not in sys.modules
 assert examples
@@ -216,6 +221,7 @@ else:
 
 print(json.dumps({
     "package_path": str(package_path),
+    "package_version": SERVER_VERSION,
     "compatibility_aliases": True,
     "persistence_owners": True,
     "focused_nwchem_provider": True,

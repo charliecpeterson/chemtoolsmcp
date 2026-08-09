@@ -2,7 +2,7 @@
   "schema": "chemtools.mcp-tool-inventory/3",
   "server": {
     "name": "chemtools",
-    "version": "0.1.0",
+    "version": "0.2.0.dev0",
     "protocol_version": "2025-11-25",
     "supported_protocol_versions": [
       "2024-11-05",
@@ -20,7 +20,7 @@
     "hidden_alias_count": 15,
     "total_callable_name_count": 353,
     "entrypoint_alias_count": 2,
-    "python_import_shim_count": 7,
+    "python_import_shim_count": 6,
     "by_program": {
       "generic": 66,
       "nwchem": 101,
@@ -489,9 +489,7 @@
       "state": "compatibility_deprecated",
       "deprecated_since": "0.1.0",
       "remove_after": null,
-      "known_first_party_imports": [
-        "chemtools/mcp/tools/_nwchem_base.py"
-      ]
+      "known_first_party_imports": []
     },
     {
       "name": "chemtools.api",
@@ -520,14 +518,6 @@
     {
       "name": "chemtools.mcp.nwchem",
       "replacement": "chemtools.mcp.cli and chemtools.mcp.dispatch",
-      "state": "compatibility_deprecated",
-      "deprecated_since": "0.1.0",
-      "remove_after": null,
-      "known_first_party_imports": []
-    },
-    {
-      "name": "chemtools.mcp.tools.nwchem",
-      "replacement": "chemtools.mcp.tools._nwchem_provider and focused nwchem handler modules",
       "state": "compatibility_deprecated",
       "deprecated_since": "0.1.0",
       "remove_after": null,

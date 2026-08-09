@@ -279,8 +279,9 @@ registry to the model.
       a source checkout. Documentation and basis accessors resolve data from
       their owning modules. An AST contract scans every core and program
       module, and exact alias tests protect the public `chemtools`,
-      `api_input`, and `api_strategy` exports. `_nwchem_base.py` remains a
-      separate MCP compatibility facade for handler-family migration. The
+      `api_input`, and `api_strategy` exports. At this stage,
+      `_nwchem_base.py` remained a separate MCP compatibility facade for
+      handler-family migration; it was removed after `v0.1.0`. The
       complete external-corpus suite passed 1,757 tests on 2026-08-07. A
       rebuilt wheel verified the public aliases, package data, and unchanged
       ten-tool guided surface outside the checkout.
@@ -404,13 +405,14 @@ contracts, with concrete program and execution adapters composed at startup.
 - [x] Compose NWChem tools through `_nwchem_provider.py` in the built-in
       catalog. Normal MCP startup registers the five focused families and
       schemas without importing the legacy `nwchem.py` aggregator or
-      `_nwchem_base.py`; both remain available only for Python compatibility.
+      `_nwchem_base.py`; both remained available for Python compatibility
+      through `v0.1.0` and were removed afterward.
       The complete external-corpus suite passed 1,762 tests on 2026-08-07.
       An installed-wheel check confirmed the focused provider path, public
       aliases, package data, and unchanged ten-tool guided surface.
 - [x] Inventory imports and configuration files that still use legacy CLI,
-      Python, and MCP names. Inventory schema version 2 separates 328
-      canonical tools, 9 advertised legacy tools, 15 hidden MCP aliases, 2
+      Python, and MCP names. The initial inventory schema version 2 separated
+      328 canonical tools, 9 advertised legacy tools, 15 hidden MCP aliases, 2
       executable aliases, and 7 Python import shims. Maintained MCP examples
       now launch `chemtools`; removal blockers are recorded in
       [notes/compatibility-surface-audit.md](notes/compatibility-surface-audit.md).
@@ -436,7 +438,18 @@ contracts, with concrete program and execution adapters composed at startup.
       `0c6bd08dcacbb44768e54ffd922b993d711a3c36397e2d808c6f19f2603ed6c7`.
 - [ ] Remove hidden aliases after the final compatibility release and migration
       window.
-- [ ] Remove the NWChem wildcard and dynamic `__getattr__` compatibility shim.
+- [x] Remove the NWChem wildcard and dynamic `__getattr__` compatibility shim.
+      After the `v0.1.0` tag, delete `chemtools.mcp.tools.nwchem` and
+      `_nwchem_base.py`; catalog composition already used the focused provider
+      and no maintained caller used either module. Absence checks now cover
+      source and installed-wheel layouts, and the generated inventory reports
+      six remaining Python shims. Main identifies the breaking development
+      line as `0.2.0.dev0`, while existing deprecation records remain anchored
+      to `0.1.0`. Focused checks passed 75 tests, followed by all 1,891 tests
+      with the external corpus. Base and DIRAC-extra isolated installs of wheel
+      SHA-256
+      `ce3a2406c8e54c050b967ea9d8e7262980cdc145f2a99b5d1c71591911087a0e`
+      passed, and the repository-local `venv` now contains that wheel.
 - [ ] Remove legacy runner-profile and status adapters after named targets cover
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).

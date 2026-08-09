@@ -36,6 +36,11 @@ Direct Python code should import the module that owns the operation:
 Do not replace the old broad facade with another broad facade. Existing
 scripts in this repository show the intended focused import paths.
 
+`chemtools.mcp.tools.nwchem` was removed from post-`v0.1.0` development. The
+`v0.1.0` tag is the final release that provides its wildcard exports and
+dynamic handler lookup. Import `_nwchem_provider` only for MCP composition;
+ordinary code should import the focused handler module that owns the operation.
+
 ## Removal gate
 
 The compatibility names stay intact in `v0.1.0`. The generated inventory uses

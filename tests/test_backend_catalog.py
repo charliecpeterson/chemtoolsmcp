@@ -42,7 +42,7 @@ from chemtools.mcp.catalog import (
     load_tool_definitions,
     validate_catalog,
 )
-from chemtools.mcp.tools import _nwchem_base, generic, guided
+from chemtools.mcp.tools import generic, guided
 
 
 class _Detector:
@@ -289,13 +289,6 @@ def test_registry_returns_every_positive_detector_match(tmp_path):
             "message": str(caught.value),
             "candidates": ["test", "other"],
         }
-        assert _nwchem_base._resolve_plugin_or_error({
-            "output_file": str(path),
-        }) == (None, {
-            "error": "program_detection_ambiguous",
-            "message": str(caught.value),
-            "candidates": ["test", "other"],
-        })
     finally:
         registry.unregister("test")
         registry.unregister("other")
@@ -377,9 +370,6 @@ def test_strict_resolution_reports_detector_failures_without_changing_compatibil
         assert generic._resolve_plugin_or_error({
             "output_file": str(path),
         }) == (None, expected_payload)
-        assert _nwchem_base._resolve_plugin_or_error({
-            "output_file": str(path),
-        }) == (None, expected_payload)
         assert guided._handle_inspect_run({
             "output_file": str(path),
         }) == expected_payload
@@ -427,9 +417,6 @@ def test_strict_resolution_reports_source_read_failures(tmp_path):
         },
     }
     assert generic._resolve_plugin_or_error({
-        "output_file": str(missing),
-    }) == (None, expected_payload)
-    assert _nwchem_base._resolve_plugin_or_error({
         "output_file": str(missing),
     }) == (None, expected_payload)
     assert generic._handle_apply_recovery_generic({

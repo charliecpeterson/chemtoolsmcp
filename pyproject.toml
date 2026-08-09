@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chemtools-mcp"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "AI agent toolkit for computational chemistry — MCP server for NWChem, Molcas (and more), with per-program tool filtering"
 readme = "README.md"
 license = { text = "MIT" }

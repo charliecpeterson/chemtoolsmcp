@@ -401,7 +401,11 @@ def test_nwchem_catalog_provider_does_not_load_legacy_aggregator():
             sys.executable,
             "-c",
             (
-                "import chemtools.mcp.tools._nwchem_provider, sys; "
+                "import importlib.util, chemtools.mcp.tools._nwchem_provider, sys; "
+                "assert importlib.util.find_spec("
+                "'chemtools.mcp.tools._nwchem_base') is None; "
+                "assert importlib.util.find_spec("
+                "'chemtools.mcp.tools.nwchem') is None; "
                 "assert 'chemtools.mcp.tools._nwchem_base' not in sys.modules; "
                 "assert 'chemtools.mcp.tools.nwchem' not in sys.modules"
             ),

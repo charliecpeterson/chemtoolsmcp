@@ -36,7 +36,7 @@ from chemtools.mcp.state import ServerState
 
 # Server constants shared by MCP entry points.
 SERVER_NAME = "chemtools"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0.dev0"
 TRANSPORT_MODE = "content-length"
 
 # Optional log file. Set CHEMTOOLS_MCP_LOG=/path/to/log.txt to enable.

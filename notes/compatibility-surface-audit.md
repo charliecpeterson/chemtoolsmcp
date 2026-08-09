@@ -13,7 +13,7 @@ Audit date: 2026-08-09
 | MCP definitions | 329 canonical and 9 advertised legacy definitions |
 | Hidden MCP aliases | 15 callable names omitted from `tools/list` |
 | Executable aliases | `chemtools-nwchem` and `chemtools-nwchem-docs` |
-| Python compatibility imports | 7 facades or shim modules |
+| Python compatibility imports | 6 facades or shim modules |
 
 The inventory assigns `deprecated_since: 0.1.0` to each compatibility surface
 for the final compatibility release and leaves `remove_after` unset. The
@@ -37,10 +37,10 @@ The Stampede3 MCP example now launches `chemtools`. No maintained example or
 configuration launches `chemtools-nwchem`. Project documentation still names
 both compatibility executables so users can identify old installations.
 
-Normal MCP startup imports `_nwchem_provider.py`. It does not import
-`chemtools.mcp.tools.nwchem` or `_nwchem_base.py`. The old aggregator remains
-covered by compatibility tests, and `_nwchem_base.py` is the only production
-module that still imports the top-level `chemtools` facade.
+Normal MCP startup imports `_nwchem_provider.py`. After the `v0.1.0` tag, the
+unused `chemtools.mcp.tools.nwchem` aggregator and `_nwchem_base.py` wildcard
+facade were removed. Absence tests now reject reinstalling either module, and
+no production MCP module imports the top-level `chemtools` facade.
 
 First-party recovery payloads now recommend canonical MCP names. State and SCF
 recovery recommendations call `suggest_nwchem_recovery` with an explicit
@@ -100,6 +100,21 @@ repository does not yet identify that caller.
 - Recover historical alias schemas and effects, then add exact result, error,
   and effect checks before marking contracts verified or hiding the nine
   advertised legacy definitions.
+
+## Post-release removals
+
+`chemtools.mcp.tools.nwchem` and `_nwchem_base.py` were removed after
+`v0.1.0`. The files had no maintained caller, normal catalog composition
+already used `_nwchem_provider.py`, and their routing helpers duplicated the
+focused generic MCP owner. The generated inventory now reports six Python
+compatibility shims. The `v0.1.0` tag remains the migration source for callers
+that still need the former wildcard or dynamic handler import behavior. The
+post-release package and MCP server version is `0.2.0.dev0`; compatibility
+metadata remains anchored to `deprecated_since: 0.1.0`. Focused checks passed
+75 tests, followed by all 1,891 tests with the external corpus. Base and
+DIRAC-extra isolated installs of wheel SHA-256
+`ce3a2406c8e54c050b967ea9d8e7262980cdc145f2a99b5d1c71591911087a0e`
+confirmed both removed modules are absent.
 
 ## Final-release readiness
 
