@@ -1470,12 +1470,11 @@ Progress:
       staging, and rendered-command models.
 - [x] Add schema-2 named target YAML and JSON loading at the MCP composition
       root. Keep execution permission explicit and independent from legacy
-      tool-visibility mode. Guided NWChem and Quantum ESPRESSO launch can select
-      a configured target or the server default without reading a version 1
-      profile; equivalent local and Slurm targets render the same
-      approval-bound plan as the migration adapter. The QE migration passed
-      140 focused checks and all 1,919 tests with the external corpus; isolated
-      base and DIRAC-extra wheel installs retained the provider.
+      tool-visibility mode. Guided NWChem, Quantum ESPRESSO, and QMCPACK launch
+      can select a configured target or the server default without reading a
+      version 1 profile; equivalent local and Slurm targets render the same
+      approval-bound plan as the migration adapter. QMCPACK also retains its
+      initialization-only `--dryrun` plan through the guided approval boundary.
 - [x] Add render-only local and Slurm executors with argument-array assembly,
       expected stdout and stderr paths, and allowed-root checks.
 - [x] Add a schema 1.0 legacy-profile adapter for NWChem direct and Slurm
@@ -2217,9 +2216,8 @@ Deliverables:
   scope.
 - Determinant-only and Jastrow validation workflow.
 - `qe_to_qmcpack` consistency service.
-- Local launch plans and execution through a named QMCPACK target profile.
-  Scheduler launch plans remain deferred until a verified site launcher
-  contract is configured.
+- Local and Slurm launch plans and execution through a named QMCPACK target.
+  Version 1 profiles remain a migration fallback for existing installations.
 
 Exit criteria:
 

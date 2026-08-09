@@ -71,6 +71,7 @@ def launch_run(
     target: str | None = None,
     job_name: str | None = None,
     resources: Mapping[str, Any] | None = None,
+    initialization_only: bool = False,
     approval_token: str | None = None,
 ) -> dict[str, Any]:
     input_path = Path(input_file).expanduser().resolve()
@@ -104,6 +105,13 @@ def launch_run(
     else:
         normalized_profiles_path = None
     normalized_resources = _normalize_resources(backend.name, resources)
+    if not isinstance(initialization_only, bool):
+        _invalid(backend.name, "initialization_only must be a boolean")
+    if initialization_only and backend.name != "qmcpack":
+        _invalid(
+            backend.name,
+            "initialization_only is supported only for qmcpack",
+        )
     if approval_token is not None and (
         not isinstance(approval_token, str)
         or _APPROVAL_RE.fullmatch(approval_token) is None
@@ -123,6 +131,7 @@ def launch_run(
     request: dict[str, Any] = {
         "input_file": str(input_path),
         "resources": normalized_resources,
+        "initialization_only": initialization_only,
     }
     if profile is not None:
         request["profile"] = profile.strip()

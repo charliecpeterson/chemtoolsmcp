@@ -281,6 +281,14 @@ def test_launch_selection_rejects_ambiguous_or_missing_configuration(tmp_path):
             input_file=tmp_path / "uo2.nw",
         )
 
+    with pytest.raises(LaunchRunError, match="supported only for qmcpack"):
+        launch_run(
+            NWCHEM,
+            _named_service(tmp_path),
+            input_file=tmp_path / "uo2.nw",
+            initialization_only=True,
+        )
+
 
 def test_same_plan_returns_same_approval_token(tmp_path):
     _input(tmp_path)

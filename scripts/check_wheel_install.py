@@ -102,6 +102,7 @@ from chemtools.programs.nwchem.strategy.hpc_resources import (
     suggest_hpc_resources,
 )
 from chemtools.programs.qe import QE
+from chemtools.programs.qmcpack import QMCPACK
 
 fixture = Path(sys.argv[1]).resolve()
 repository = Path(sys.argv[2]).resolve()
@@ -162,6 +163,10 @@ assert target_catalog.resolve(program="qe").programs["qe"].executable_argv == (
     "/absolute/path/to/pw.x",
 )
 assert QE.supports(ProgramCapability.EXECUTION_PLAN)
+assert target_catalog.resolve(program="qmcpack").programs[
+    "qmcpack"
+].executable_argv == ("/absolute/path/to/qmcpack",)
+assert QMCPACK.supports(ProgramCapability.EXECUTION_PLAN)
 assert cards
 assert len(molcas_basis_sets) == 71
 assert len(molcas_documents) == 133
@@ -242,6 +247,7 @@ print(json.dumps({
     "focused_nwchem_provider": True,
     "named_target_catalog": True,
     "guided_qe_launch_provider": True,
+    "guided_qmcpack_launch_provider": True,
     "default_profile_count": len(profiles["profiles"]),
     "portable_slurm_profile": slurm_profiles["profiles"]["slurm"]["description"],
     "knowledge_card_count": len(cards),

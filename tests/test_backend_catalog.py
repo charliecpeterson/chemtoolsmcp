@@ -740,6 +740,7 @@ def test_builtin_backends_declare_exact_capabilities():
             "run.consistency",
         },
         "qmcpack": {
+            "execution.plan",
             "input.lint",
             "input.parse",
             "output.parse",

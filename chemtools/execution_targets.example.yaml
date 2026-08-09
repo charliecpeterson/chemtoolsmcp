@@ -31,6 +31,11 @@ targets:
         executable_argv: [/absolute/path/to/pw.x]
         environment:
           OMP_NUM_THREADS: "{omp_threads}"
+      qmcpack:
+        launcher_argv: [mpirun, -np, "{mpi_ranks}"]
+        executable_argv: [/absolute/path/to/qmcpack]
+        environment:
+          OMP_NUM_THREADS: "{omp_threads}"
 
   slurm_cpu:
     executor: slurm
@@ -78,3 +83,11 @@ targets:
         setup_lines:
           - module purge
           - module load quantum-espresso
+      qmcpack:
+        launcher_argv: [srun]
+        executable_argv: [qmcpack]
+        environment:
+          OMP_NUM_THREADS: "{omp_threads}"
+        setup_lines:
+          - module purge
+          - module load qmcpack

@@ -408,6 +408,7 @@ def _handle_launch_run(arguments: dict[str, Any]) -> dict[str, Any]:
             target=arguments.get("target"),
             job_name=arguments.get("job_name"),
             resources=arguments.get("resources"),
+            initialization_only=arguments.get("initialization_only", False),
             approval_token=arguments.get("approval_token"),
         )
     except LaunchRunError as exc:

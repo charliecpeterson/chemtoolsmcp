@@ -223,7 +223,7 @@ the old dispatcher can leave with its compatibility callers.
 | --- | --- | --- | --- |
 | `chemtools/application/execution_policy.py` | Immutable execution decisions plus disabled, status, and cancellation errors | Application policy | Keep policy result shapes independent of process, scheduler, and persistence adapters. The old `application.execution` imports remain compatible. |
 | `chemtools/application/execution.py` | Default-off permission checks, read-only rendering, asynchronous and synchronous launch, read-only ownership resolution, owned local and Slurm status, terminal-state recording, and registry-bound cancellation | Application service | Status polling requires ownership but no second execution permission decision. Resolve configured targets at composition time before removing compatibility target adapters. |
-| `chemtools/execution/targets.py` | Loads schema-2 YAML or JSON into immutable named local and Slurm targets with explicit execution permission and default selection | Target configuration adapter | Keep arbitrary commands and roots in host-owned configuration. Guided NWChem and QE can use this path without loading a version 1 profile. |
+| `chemtools/execution/targets.py` | Loads schema-2 YAML or JSON into immutable named local and Slurm targets with explicit execution permission and default selection | Target configuration adapter | Keep arbitrary commands and roots in host-owned configuration. Guided NWChem, QE, and QMCPACK can use this path without loading a version 1 profile. |
 | `chemtools/application/dirac_execution.py` | Applies DIRAC pairing and profile policy, coordinates typed execution, and translates legacy MCP responses | DIRAC compatibility application adapter | Keep `.inp/.mol` validation and exact output archival here while the public DIRAC tools remain. Add live checkpoint staging only after its destination and overwrite rules are explicit. |
 | `chemtools/application/dirac_monitoring.py` | Combines owned local or Slurm execution status with legacy DIRAC file inspection | DIRAC monitoring application adapter | Keep DIRAC file interpretation here. Scientific-run linking and artifact observations remain separate work. |
 | `chemtools/application/execution_monitoring.py` | Refreshes program-matched owned identifiers, projects typed process and Slurm evidence into compatibility responses, and polls owned status readers | Shared monitoring application support | Keep program parsing, scientific status, artifact recording, and scheduler subprocess calls out. |
@@ -256,6 +256,8 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/programs/nwchem/_plugin_launcher.py` | Prepares guided NWChem plans from schema-2 named targets or the version 1 migration adapter | NWChem guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Named targets are current; profiles remain only as the migration fallback. |
 | `chemtools/programs/qe/launch.py` | Builds typed `pw.x` plans and adapts direct or Slurm version 1 profiles into targets | QE launch-plan provider and compatibility adapter | Keep `-in`, output artifacts, and QE installation selection here. Remove the profile adapter after the version 1 compatibility window. |
 | `chemtools/programs/qe/_plugin_launcher.py` | Prepares guided QE plans from schema-2 named targets or the version 1 migration adapter | QE guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Named targets are current; profiles remain only as the migration fallback. |
+| `chemtools/programs/qmcpack/launch.py` | Builds typed QMCPACK plans and adapts direct or Slurm version 1 profiles into targets | QMCPACK launch-plan provider and compatibility adapter | Keep input arguments, initialization-only `--dryrun`, and output artifacts here. Remove the profile adapter after the version 1 compatibility window. |
+| `chemtools/programs/qmcpack/_plugin_launcher.py` | Prepares guided ordinary or initialization-only QMCPACK plans from schema-2 named targets or the version 1 migration adapter | QMCPACK guided launch provider | Keep guided preparation independent of `execution/legacy_runner.py`. Named targets are current; profiles remain only as the migration fallback. |
 | `chemtools/programs/molcas/runtime.py` | Builds the read-only legacy command preview and owns the shared CASPT2 detection and rank guard | Molcas compatibility facade and runtime rules | Keep `prepare_molcas_launch` stable while typed calls use the same guard through the launch-plan provider. |
 | `chemtools/programs/molcas/launch.py` | Builds typed Molcas plans and adapts direct or Slurm version 1 profiles into targets | Molcas launch-plan provider and compatibility adapter | Keep pymolcas arguments, protected Molcas environment values, CASPT2 allocation changes, output rules, and dynamic Slurm project identity here. |
 | `chemtools/programs/dirac/runtime.py` | Builds the read-only advanced `pam-dirac` preview and owns shared argument construction | DIRAC compatibility facade and runtime rules | Keep `prepare_dirac_launch` stable for `--copy`, `--put`, `--get`, and `--outcmo` previews while typed launch plans use the same argument builder. |
@@ -275,10 +277,10 @@ aliases. `programs/nwchem/external_status.py` injects the NWChem progress
 reader, and `core/runner.py` re-exports the retained owners for old direct
 imports. Execution has no program-package imports.
 
-Guided NWChem and QE preparation no longer call the legacy renderer. They read
-resolved migration profiles through `execution/profiles.py` or accept a
-schema-2 target, build program-owned typed plans, and let the selected executor
-render the exact command or Slurm script used for approval.
+Guided NWChem, QE, and QMCPACK preparation no longer call the legacy renderer.
+They read resolved migration profiles through `execution/profiles.py` or accept
+a schema-2 target, build program-owned typed plans, and let the selected
+executor render the exact command or Slurm script used for approval.
 
 Version 1 profiles now use one program installation shape:
 `programs.<name>.launcher_argv` plus `executable_argv`. Molcas CASPT2

@@ -44,8 +44,8 @@ Eight first-party runtime modules still import `execution.legacy_runner`:
 - `core/runner.py` remains a pure compatibility facade with no first-party
   caller.
 
-The guided interface has typed, approval-gated NWChem and Quantum ESPRESSO
-launch providers. Each reads version 1 profile values from
+The guided interface has typed, approval-gated NWChem, Quantum ESPRESSO, and
+QMCPACK launch providers. Each reads version 1 profile values from
 `execution.profiles` or selects a schema-2 target from the server catalog and
 builds its program-owned plan directly. No guided runtime path imports the old
 renderer. Equivalent named local MPI and Slurm targets produce the same

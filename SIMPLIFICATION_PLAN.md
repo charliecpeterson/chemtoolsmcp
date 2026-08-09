@@ -510,10 +510,21 @@ contracts, with concrete program and execution adapters composed at startup.
         `9ff641910f92547b472a269a9aa61ba9ab05c28880b69233e8b694f62c59bab2`
         loaded the QE provider and bundled QE target examples. The same wheel
         is installed in the repository-local `venv`.
+  - [x] Add a guided QMCPACK provider over its existing typed plan. Named local
+        and Slurm targets bypass version 1 rendering, while the profile adapter
+        remains as a migration fallback. Preserve QMCPACK's initialization-only
+        workflow as an explicit guided option whose `--dryrun` argv and
+        approval token differ from ordinary execution. Focused backend, target,
+        guided-launch, inventory, and dispatch checks passed 198 tests, followed
+        by all 1,926 tests with the external corpus. Base and DIRAC-extra
+        isolated installs of wheel SHA-256
+        `051ece25ac841166070987b86ed47552041dbdb2c1b4f125438337e66e5c2106`
+        loaded the provider and bundled QMCPACK target examples. The same wheel
+        is installed in the repository-local `venv`.
   - [x] Retain low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch
-        calls behind explicit program or developer toolsets. QMCPACK, Molcas,
-        DIRAC, and GRASP have no guided execution replacement. The QE low-level
-        calls remain only for their version 1 response contract. Their
+        calls behind explicit program or developer toolsets. Molcas, DIRAC, and
+        GRASP have no guided execution replacement. The QE and QMCPACK low-level
+        calls remain only for their version 1 response contracts. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only
         after a guided provider passes accepted

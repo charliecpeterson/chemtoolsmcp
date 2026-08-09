@@ -16,7 +16,7 @@ execution operations it actually implements.
 | **DIRAC** | 39 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, basis browser (Dyall), 179 bundled docs |
 | **GRASP2018** | 53 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
 | **Quantum ESPRESSO** | 20 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, approval-gated launch through a schema-2 named target or version 1 migration profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
-| **QMCPACK** | 14 | XML input review, runner-profile launch preview and execution, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
+| **QMCPACK** | 14 | XML input review, approval-gated ordinary or initialization-only launch through a schema-2 named target or version 1 migration profile, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
 | **ORCA** | 0 dedicated | Experimental ORCA 6.1.1 input parsing and output auto-detection through the shared tools; serial single points, optimization, frequencies, open-shell spin, scalar relativity, RIJCOSX, DLPNO-CCSD(T), CASSCF, NEVPT2, CASPT2, MRCI, TD-DFT, EOM-CCSD, ORCA_ESD spectra and radiative rates, additive QM/MM, molecular and ionic Crystal-QMMM, explicit SCF failure, MOREAD restart, and difficult-SCF algorithm comparison are pinned against nineteen cases |
 
 Plus 66 program-generic tools (auto-detect supported inputs and outputs)
@@ -1027,8 +1027,8 @@ permission to start work.
 
 ## Named execution targets
 
-Schema-2 targets are the current configuration path for guided NWChem and
-Quantum ESPRESSO launch.
+Schema-2 targets are the current configuration path for guided NWChem, Quantum
+ESPRESSO, and QMCPACK launch.
 They contain trusted commands, allowed work roots, machine defaults, and local
 or Slurm settings. Print the bundled portable example with:
 
@@ -1059,9 +1059,9 @@ and configure the MCP process:
 `target`. The request can change typed resource values, but it cannot replace
 configured executables, launchers, scheduler commands, or allowed roots.
 
-Named local and Slurm NWChem and Quantum ESPRESSO targets produce the same
-rendered plans and approval tokens as equivalent version 1 profiles. Other
-low-level program launch tools still use version 1 profiles while their
+Named local and Slurm NWChem, Quantum ESPRESSO, and QMCPACK targets produce the
+same rendered plans and approval tokens as equivalent version 1 profiles.
+Other low-level program launch tools still use version 1 profiles while their
 named-target providers are migrated.
 
 ## Runner profiles (version 1 migration)
@@ -1124,11 +1124,11 @@ Termination only accepts a PID or job ID launched by the same running MCP
 server. Restart the server and its previous local process handles are no
 longer cancelable through this tool.
 
-The typed path supports named local and Slurm NWChem and Quantum ESPRESSO
-targets plus direct and Slurm version 1 profiles whose working directory is the
-input directory. PBS, LSF, alternate working directories, and
-`write_script=false` scheduler submission are not supported. The tool returns
-a clear error instead of falling back to the older shell-based execution path.
+The typed path supports named local and Slurm NWChem, Quantum ESPRESSO, and
+QMCPACK targets plus direct and Slurm version 1 profiles whose working directory
+is the input directory. PBS, LSF, alternate working directories, and
+`write_script=false` scheduler submission are not supported. The tool returns a
+clear error instead of falling back to the older shell-based execution path.
 
 QE `pw.x` uses the same tracked launch boundary through `render_qe_launch` and
 `launch_qe_run`. Its typed plan passes `-in <input-file>` and requires the
@@ -1136,6 +1136,11 @@ profile working directory to be the input directory. The process result is not
 an SCF verdict. Follow a completed launch with `inspect_run` to check for
 convergence and `JOB DONE.` evidence. `ph.x` and `pw2qmcpack.x` execution are
 not part of this slice.
+
+QMCPACK uses the same guided launch boundary. Set `initialization_only=true` to
+approve an exact plan ending in `--dryrun`; this initializes the input while
+skipping its QMC sections. The option is rejected for other programs, and the
+ordinary and initialization-only commands receive different approval tokens.
 
 The reproducible local and Slurm execution check is documented in
 [`docs/execution-smoke-tests.md`](docs/execution-smoke-tests.md). It runs a
@@ -1197,7 +1202,7 @@ the underlying operation supports it.
 | Guided run inspection | ✓ | ✓ | `inspect_run` | Normalizes evidence, verdict, uncertainty, and next actions across all six built-in backends |
 | Guided recovery planning | ✓ | | `plan_recovery` | Returns bounded candidate inputs without writing files; explicit target state prevents multiplicity changes from being treated as orbital swaps, source mismatches block automatic drafts, and completed but unstable SCF paths can return optional hardening plans |
 | Guided calculation planning | ✓ | | `plan_calculation` | Returns ordered stages and unresolved scientific choices without rendering input |
-| Approval-gated launch | ✓ | | `launch_run` | NWChem and QE providers require two calls bound to one exact reviewed input and rendered plan |
+| Approval-gated launch | ✓ | | `launch_run` | NWChem, QE, and QMCPACK providers require two calls bound to one exact reviewed input and rendered plan |
 | Owned run monitoring | ✓ | | `monitor_run` | Refreshes retained local or Slurm state and recorded artifacts; NWChem adds declared scientific progress |
 | Independent file inspection | | | `inspect_with_orbitron` | Optional fixed-command Orbitron evidence with pinned JSON schema and build provenance |
 | Geometry summary | | | `analyze_geometry_with_orbitron` | Validated Orbitron counts, bond statistics, bounds, and unit-cell evidence |

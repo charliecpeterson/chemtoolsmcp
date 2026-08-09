@@ -234,3 +234,6 @@ def test_bundled_target_example_is_portable_and_execution_disabled():
     assert catalog.resolve(program="qe").programs["qe"].executable_argv == (
         "/absolute/path/to/pw.x",
     )
+    assert catalog.resolve(program="qmcpack").programs[
+        "qmcpack"
+    ].executable_argv == ("/absolute/path/to/qmcpack",)

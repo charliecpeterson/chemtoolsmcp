@@ -11,6 +11,7 @@ from chemtools.core.program import (
     validate_backend,
 )
 from chemtools.programs.qmcpack._plugin_inputs import QMCPACK_INPUTS
+from chemtools.programs.qmcpack._plugin_launcher import QMCPACK_LAUNCH_PLANNER
 from chemtools.programs.qmcpack._plugin_parser import QMCPACK_PARSER
 from chemtools.programs.qmcpack.consistency import QMCPACK_RUN_CONSISTENCY
 
@@ -35,6 +36,7 @@ QMCPACK = validate_backend(
             ProgramCapability.INPUT_PARSE,
             ProgramCapability.INPUT_LINT,
             ProgramCapability.RUN_CONSISTENCY,
+            ProgramCapability.EXECUTION_PLAN,
         }),
         artifact_kinds={
             "qmcpack.input": ArtifactKindSpec(
@@ -72,6 +74,7 @@ QMCPACK = validate_backend(
         parser=QMCPACK_PARSER,
         inputs=QMCPACK_INPUTS,
         consistency=QMCPACK_RUN_CONSISTENCY,
+        launches=QMCPACK_LAUNCH_PLANNER,
     )
 )
 

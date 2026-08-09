@@ -138,3 +138,50 @@ def test_state_binds_named_targets_and_explicit_permission(tmp_path):
         "executor": "local",
         "programs": ["nwchem"],
     }]
+
+
+def test_dispatch_preserves_qmcpack_initialization_only(tmp_path):
+    input_path = tmp_path / "hydrogen.xml"
+    input_path.write_text(
+        '<simulation><qmc method="vmc"/></simulation>\n',
+        encoding="utf-8",
+    )
+    catalog = parse_target_catalog(
+        {
+            "schema_version": "2.0",
+            "chemtools": {
+                "enable_execution": False,
+                "default_target": "workstation",
+            },
+            "targets": {
+                "workstation": {
+                    "executor": "local",
+                    "allowed_work_roots": [str(tmp_path)],
+                    "programs": {
+                        "qmcpack": {
+                            "executable_argv": ["qmcpack"],
+                        },
+                    },
+                },
+            },
+        },
+        source=tmp_path / "targets.yaml",
+    )
+    state = ServerState.create(mode="analysis", target_catalog=catalog)
+
+    prepared = dispatch.dispatch_tool(
+        "launch_run",
+        {
+            "program": "qmcpack",
+            "input_file": str(input_path),
+            "initialization_only": True,
+        },
+        state=state,
+    )
+
+    assert prepared["status"] == "awaiting_approval"
+    assert prepared["evidence"]["plan"]["argv"] == [
+        "qmcpack",
+        "hydrogen.xml",
+        "--dryrun",
+    ]

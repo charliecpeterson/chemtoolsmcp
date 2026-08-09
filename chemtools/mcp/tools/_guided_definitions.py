@@ -441,8 +441,9 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                 "changed input or plan invalidates the token. Existing artifacts "
                 "block launch rather than being overwritten or silently archived. "
                 "Select a schema-2 named target, use the configured default, "
-                "or provide a version 1 profile during migration. NWChem and "
-                "Quantum ESPRESSO supply guided launch providers."
+                "or provide a version 1 profile during migration. NWChem, "
+                "Quantum ESPRESSO, and QMCPACK supply guided launch providers. "
+                "QMCPACK can prepare an initialization-only --dryrun plan."
             ),
             "annotations": {
                 "title": "Prepare or launch an approved calculation",
@@ -530,6 +531,14 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                             },
                         },
                         "additionalProperties": False,
+                    },
+                    "initialization_only": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "QMCPACK only: append --dryrun so QMCPACK initializes "
+                            "the input but skips QMC sections."
+                        ),
                     },
                     "approval_token": {
                         "type": "string",

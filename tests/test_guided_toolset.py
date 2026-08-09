@@ -305,6 +305,14 @@ def test_launch_run_schema_pins_approval_and_target_selection():
         "^sha256:[0-9a-f]{64}$"
     )
     assert schema["properties"]["resources"]["additionalProperties"] is False
+    assert schema["properties"]["initialization_only"] == {
+        "type": "boolean",
+        "default": False,
+        "description": (
+            "QMCPACK only: append --dryrun so QMCPACK initializes the input "
+            "but skips QMC sections."
+        ),
+    }
     assert "env_overrides" not in schema["properties"]
     assert definition["annotations"] == {
         "title": "Prepare or launch an approved calculation",
