@@ -458,8 +458,8 @@ contracts, with concrete program and execution adapters composed at startup.
       the retained workflows. See
       [notes/legacy-execution-adapter-audit.md](notes/legacy-execution-adapter-audit.md).
       Profile and status facades that met their gates are gone. The remaining
-      version 1 renderer and launcher still serve NWChem and GRASP low-level
-      tools, so this parent item stays open until those calls are retired.
+      version 1 renderer and launcher still serve the NWChem low-level tools,
+      so this parent item stays open until those calls are retired.
   - [x] Move profile loading and typed target conversion into the canonical
         `execution/profiles.py` owner. The exact
         `execution/legacy_profiles.py` import facade had no first-party or
@@ -553,9 +553,9 @@ contracts, with concrete program and execution adapters composed at startup.
         `8f547099d8b8d52ad784e3c594d3727cd4159462b50559fd8070a818e7643f52`
         loaded the provider and bundled GRASP target examples. The same wheel
         is installed in the repository-local `venv`.
-  - [x] Retain low-level NWChem and GRASP launch calls behind explicit program
-        or developer toolsets. The GRASP calls remain for version 1 workflow
-        responses or interactive behavior. Their
+  - [x] Retain low-level NWChem launch calls and the distinct GRASP interactive
+        and structured workflow calls behind explicit program or developer
+        toolsets. Their
         unowned-status behavior was retained through `v0.1.0`, then narrowed
         to file and explicit external Slurm inspection. Remove a call only
         after a guided provider passes accepted
@@ -587,10 +587,24 @@ contracts, with concrete program and execution adapters composed at startup.
         confirmed the retired modules are absent and both guided providers
         remain available. The same wheel is installed in the repository-local
         `venv`.
+  - [x] Remove the redundant GRASP asynchronous workflow launch, status,
+        watch, and cancellation tools after its named-target provider passed
+        the retained parity and corpus gates. Keep the typed workflow plan,
+        profile migration adapter, guided `launch_run` and `monitor_run`, and
+        the distinct synchronous per-executable and structured workflow calls.
+        This removes four MCP definitions and two obsolete compatibility
+        modules. Focused GRASP, catalog, inventory, boundary, runner, and launch
+        checks passed 103 tests, followed by all 1,915 tests with the external
+        corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+        `48c09af051cf95d4228adfae1dd6fb515d82cb3ac7e587e10777d2774366cdaa`
+        confirmed the guided provider and retained interactive tools remain
+        while both retired modules are absent. The same wheel is installed in
+        the repository-local `venv`.
   - [x] Move compatibility output archival into the focused
         `execution/legacy_archive.py` owner. At extraction, all six program
-        application adapters imported that owner directly; NWChem and GRASP
-        remain after the four redundant adapters were retired.
+        application adapters imported that owner directly. NWChem is the sole
+        remaining application caller after the redundant program adapters and
+        GRASP asynchronous compatibility path were retired.
         `legacy_runner.py` retains exact compatibility imports for old Python
         callers. Execution and
         import-boundary checks passed 69 tests, followed by all 1,856 tests
@@ -621,14 +635,11 @@ contracts, with concrete program and execution adapters composed at startup.
         `venv` contains that wheel; see
         [notes/unowned-status-scope-audit.md](notes/unowned-status-scope-audit.md).
   - [x] Audit legacy response projection after the compatibility release.
-        Retain `application/legacy_execution.py` while its six low-level
-        program adapters remain: one 82-line projector is the shared contract
-        for launch IDs, effective argv, Slurm submission fields, timeout
-        translation, `.jobid` compatibility writes, and scheduler cancellation
-        results. Removing it now would duplicate that behavior in six files;
-        renaming it would be cosmetic churn. The six execution contract suites
-        passed 48 tests. Remove the projector with the low-level tools, not as
-        an independent cleanup.
+        At audit time, `application/legacy_execution.py` shared one response
+        contract across six low-level program adapters. NWChem is now its sole
+        caller. Keep the projection with the NWChem low-level contract until
+        that surface is retired, rather than renaming it or creating another
+        response layer.
 - [x] Remove `chem-agent-package/` without preserving its hard-coded paths or
       obsolete tool inventory. The runtime/client audit found no maintained
       caller and no unique implementation. With owner approval, all 16 tracked

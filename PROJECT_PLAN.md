@@ -68,18 +68,19 @@ in parallel and no longer form one clear model.
 
 ### Tool inventory
 
-The live registry currently exposes 326 tools across six registered backends:
+The live registry currently exposes 322 tools across seven registered backends:
 
 | Tool group | Count |
 | --- | ---: |
 | NWChem | 101 |
 | Molcas | 41 |
 | DIRAC | 35 |
-| GRASP | 53 |
+| GRASP | 49 |
 | Quantum ESPRESSO | 18 |
 | QMCPACK | 12 |
+| ORCA | 0 |
 | Generic | 66 |
-| Total | 326 |
+| Total | 322 |
 
 The generated inventory in `docs/tool-inventory.json` and
 `docs/tool-inventory.md` now records the live totals, input schemas,
@@ -91,12 +92,12 @@ is:
 
 | Capability | Count |
 | --- | ---: |
-| Executable | 40 |
+| Executable | 28 |
 | Executable or scheduler | 5 |
 | Registry | 18 |
-| Runner profile | 4 |
+| Runner profile | 2 |
 | Scheduler | 3 |
-| No capability tag | 242 |
+| No capability tag | 266 |
 
 ### Program support
 
@@ -122,9 +123,8 @@ become part of the interface instead of relying on nullable required fields.
   hand.
 - Analysis, local, and HPC are presented as three behavior modes even though
   local and HPC are execution targets.
-- The generic runner is exposed through NWChem-named public functions.
-- DIRAC and GRASP scheduler code call those NWChem-named functions.
-- Runner profile shapes differ between programs.
+- NWChem compatibility aliases still expose the generic runner through old
+  NWChem-named Python functions.
 - The input model is molecule-shaped and cannot represent periodic systems
   cleanly.
 - A run is often modeled as an input and an output file, which is insufficient
@@ -1605,6 +1605,13 @@ Progress:
       owned by the current service. Retain external file and explicit Slurm
       inspection. Keep synchronous per-executable calls outside this watcher
       because they already return terminal execution results.
+- [x] Retire the redundant GRASP asynchronous workflow launch, status, watch,
+      and cancellation MCP tools after the guided named-target provider passes
+      the package and external-corpus gates. Preserve the synchronous
+      per-executable and structured workflow execution contracts. Four MCP
+      definitions and two obsolete compatibility modules are gone; 103 focused
+      checks, all 1,915 external-corpus tests, and both isolated wheel variants
+      passed.
 - [x] Make `run_calculation` and `render_calculation_run` the version 1 runner
       entry points. Keep the old NWChem names as direct compatibility aliases,
       and move external status and watch to a focused read-only owner after

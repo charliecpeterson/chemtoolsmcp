@@ -10,9 +10,9 @@ Three entry points for HPC job sizing and submission:
   * suggest_partition       Recommend the right partition / queue for a
                             given job size on a SLURM cluster.
 
-All three pull from ``chemtools.execution.legacy_runner`` for profile loading and
-partition specs. Job sizing remains in the focused resources module and is
-loaded only when needed.
+Profile loading comes from ``chemtools.execution.profiles``; partition
+inspection is routed through the focused workflow-state adapter. Job sizing
+remains in the NWChem resources module and is loaded only when needed.
 """
 
 from __future__ import annotations

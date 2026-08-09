@@ -201,15 +201,14 @@ Plugin layout (`chemtools/programs/dirac/`):
 - `strategy/` — open-shell quality analysis, Cm-class workflow routing
 - `_plugin_parser.py`, `_plugin_binary.py` — sub-protocol implementations
 
-### GRASP2018 tools (46)
+### GRASP2018 tools (49)
 
-Includes 26 original tools (per-exe runners, planners, parsers, session log),
-7 parity tools (analyze_grasp_case, suggest_grasp_recovery, docs tools +
-topic guides), 4 scheduler-submit tools (`launch_grasp_workflow_run`
-takes a `workflow_script_path` rather than a single input file, since
-GRASP workflows are multi-exe shell scripts), and `summarize_grasp_runs`
-(bulk working-dir triage — the GRASP counterpart of the other programs'
-`summarize_*_outputs`, one row per atom/term for screen-many workflows).
+The dedicated surface covers per-executable runners, workflow planners and the
+structured local workflow runner, parsers, binary inspection, recovery,
+documentation, and session logs. Asynchronous workflow-script launch and
+monitoring use the shared guided tools instead of four GRASP-specific wrappers.
+`summarize_grasp_runs` provides bulk working-directory triage with one row per
+atom or term.
 
 GRASP is structurally different from NWChem/Molcas/DIRAC: ~50 small executables run sequentially, each prompted via stdin (no input file). Tools wrap individual executables, plan workflows, and parse the `name.{w,c,m,sum,lsj.lbl}` files produced by `rsave`.
 

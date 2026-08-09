@@ -14,7 +14,7 @@ the failure modes are specific enough to encode.
 
 | File | Program | Status in chemtools |
 |---|---|---|
-| `grasp-fblock.md` | GRASP2018 | 53 tools exist; these are the f-block specifics beyond them |
+| `grasp-fblock.md` | GRASP2018 | 49 tools exist; these are the f-block specifics beyond them |
 | `atsp2k.md` | ATSP2K (`hf`/`mchf`) | **no tooling** — this is the spec-in-prose |
 | `dirac-fblock.md` | DIRAC | 38 tools exist; these are the actinide lessons on top |
 | `qe-qmcpack-oncvpsp.md` | Quantum ESPRESSO, QMCPACK, ONCVPSP/`ld1` | **no tooling, not installed** — read before installing |

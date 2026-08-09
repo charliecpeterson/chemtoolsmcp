@@ -225,9 +225,8 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/application/execution.py` | Default-off permission checks, read-only rendering, asynchronous and synchronous launch, read-only ownership resolution, owned local and Slurm status, terminal-state recording, and registry-bound cancellation | Application service | Status polling requires ownership but no second execution permission decision. Resolve configured targets at composition time before removing compatibility target adapters. |
 | `chemtools/execution/targets.py` | Loads schema-2 YAML or JSON into immutable named local and Slurm targets with explicit execution permission and default selection | Target configuration adapter | Keep arbitrary commands and roots in host-owned configuration. Guided NWChem, Molcas, DIRAC, GRASP workflow, QE, and QMCPACK can use this path without loading a version 1 profile. |
 | `chemtools/application/execution_monitoring.py` | Refreshes program-matched owned identifiers, projects typed process and Slurm evidence into compatibility responses, and polls owned status readers | Shared monitoring application support | Keep program parsing, scientific status, artifact recording, and scheduler subprocess calls out. |
-| `chemtools/application/grasp_execution.py` | Coordinates typed GRASP workflow-script and synchronous per-executable launches and translates legacy MCP responses | GRASP execution compatibility adapter | Keep workflow path validation, exact output archival, capture files, session logs, launch IDs, and owned scheduler cancellation here while public response shapes remain. |
-| `chemtools/application/grasp_monitoring.py` | Combines owned local or Slurm workflow status with legacy GRASP file inspection | GRASP monitoring application adapter | Keep synchronous per-executable results outside the watcher. Scientific-run linking and artifact observations remain separate work. |
-| `chemtools/application/legacy_execution.py` | Projects typed local and Slurm results into existing MCP response dictionaries | Compatibility application adapter | Keep shared launch IDs, effective argv, submitted scripts, `.jobid` writes, timeout fields, and cancellation fields consistent for the remaining NWChem and GRASP callers. |
+| `chemtools/application/grasp_execution.py` | Coordinates synchronous per-executable launches and structured local workflows through the typed execution service | GRASP execution application adapter | Keep executable allowlisting, stdin capture, timeouts, capture files, session logs, and contained workflow copy actions here. Asynchronous workflow scripts use the guided launch service. |
+| `chemtools/application/legacy_execution.py` | Projects typed local and Slurm results into the retained NWChem response dictionaries | NWChem compatibility application adapter | Keep launch IDs, effective argv, submitted scripts, `.jobid` writes, timeout fields, and cancellation fields stable until the NWChem low-level contract is retired. |
 | `chemtools/application/nwchem_execution.py` | Converts version 1 NWChem profiles and legacy responses to typed calls; verifies and registers owned launches; synchronizes local or Slurm completion with linked runs and output observations | NWChem compatibility application adapter | Keep MCP response translation, launch/run registration checks, and NWChem artifact kinds here while the public tools remain aliases. Move the completion pattern to a program-neutral service only after another backend needs it. |
 | `chemtools/application/nwchem_monitoring.py` | Combines owned execution status with NWChem output inspection and runs typed local or Slurm watch requests | NWChem monitoring application adapter | Keep chemistry progress, linked-run synchronization, and artifact observations in the NWChem path. Use the shared application helper only for execution response fields and polling. |
 | `chemtools/application/run_monitoring.py` | Refreshes one process-owned launch ID and normalizes execution, recorded artifact, and declared backend progress evidence for the guided tool | Guided monitoring application service | Keep arbitrary PIDs, scheduler IDs, and paths out. Reuse typed executor status and backend progress providers; do not add cancellation or restart effects. |
@@ -241,7 +240,7 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/execution/profiles.py` | Loads version 1 profile files, merges defaults, and converts shared resource, hardware, module, program-installation, direct-command, and Slurm fields | Target configuration adapter | Keep program argument syntax and chemistry rules out. The standard `programs.<name>` installation block wins over old field locations. |
 | `chemtools/execution/legacy_archive.py` | Timestamped, collision-safe archival of existing compatibility-launch outputs | Legacy output policy | Application adapters import this focused owner. Preserve exact imports from `legacy_runner.py` until its direct Python surface is removed. |
 | `chemtools/execution/resource_inspection.py` | Local CPU and memory budgeting plus Slurm and PBS partition discovery | Target resource inspection | Keep scheduler discovery separate from chemistry advice and version 1 launch rendering. Replace dictionary results only when a typed target inventory has a real caller. |
-| `chemtools/execution/legacy_runner.py` | Version 1 script rendering, launch behavior, and neutral compatibility imports | Legacy render and launch adapter | QE, QMCPACK, Molcas, and DIRAC callers are gone. Keep implementation out of core and remove it after the remaining NWChem, GRASP, and direct Python compatibility callers leave. |
+| `chemtools/execution/legacy_runner.py` | Version 1 script rendering, launch behavior, and neutral compatibility imports | Legacy render and launch adapter | QE, QMCPACK, Molcas, DIRAC, and GRASP callers are gone. Keep implementation out of core and remove it after the remaining NWChem and direct Python compatibility callers leave. |
 | `chemtools/execution/external_status.py` | Read-only file inspection and explicit external Slurm attachment with optional output interpretation | External-run inspection adapter | Keep process probing, cancellation, PBS, LSF, `.jobid` inference, and program imports out. |
 | `chemtools/programs/nwchem/external_status.py` | Adds the NWChem progress reader to external file and Slurm status | NWChem external-run adapter | Keep NWChem interpretation in the backend while sharing file and Slurm evidence. |
 | `chemtools/persistence/launches.py` | SQLite persistence and state-transition checks for execution launch records, including staging manifests, terminal metadata, and launch/run link lookup | Persistence adapter | Keep command and staging intent separate from artifact bytes. Local and Slurm NWChem completion use the link to synchronize the run; other programs still need the same integration. |
@@ -264,18 +263,17 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/programs/grasp/_plugin_launcher.py` | Prepares guided GRASP workflow plans from schema-2 named targets or the version 1 migration adapter | GRASP guided launch provider | Keep container commands target-owned and the exact workflow script approval-bound. Interactive stdin-driven entrypoints remain on their typed low-level path. |
 | `chemtools/programs/grasp/runtime.py` | Resolves the compatibility container, retains the direct Python runner, and formats session notes | GRASP compatibility runtime | MCP execution no longer calls its subprocess runner. Keep session formatting stable until session logs become artifact observations, then remove the direct executor after the compatibility window. |
 | `chemtools/programs/grasp/strategy/runner.py` | Coordinates structured workflow steps through an injected runner and applies contained copy actions | GRASP workflow application service | MCP workflows inject the typed execution service. Record step outputs and the working directory as artifact observations when launch records link to scientific runs. |
-| `chemtools/programs/grasp/scheduler.py` | Thin public wrapper around version 1 workflow rendering plus external file and Slurm status | Compatibility facade | Keep only while the distinct GRASP workflow and interactive low-level responses remain. External attachment requires an explicit Slurm profile and job ID. |
 | `chemtools/programs/nwchem/strategy/hpc_resources.py` | Scheduler discovery mixed with NWChem resource advice | NWChem resource provider plus target inspection | Keep basis and method sizing in NWChem. Move account, partition, and hardware queries to target inspection. |
 
 `execution/legacy_runner.py` owns `run_calculation` and
 `render_calculation_run`. Profile loading lives in `execution/profiles.py`;
 read-only file and external Slurm status live in
-`execution/external_status.py`. The GRASP scheduler module imports those
-focused owners. The former QE, QMCPACK, Molcas, and DIRAC low-level MCP and
-application callers are gone. The old NWChem run and render names remain
-direct aliases. `programs/nwchem/external_status.py` injects the NWChem
-progress reader, and `core/runner.py` re-exports the retained owners for old
-direct imports. Execution has no program-package imports.
+`execution/external_status.py`. The former QE, QMCPACK, Molcas, DIRAC, and
+GRASP asynchronous low-level MCP callers are gone. The old NWChem run and
+render names remain direct aliases. `programs/nwchem/external_status.py`
+injects the NWChem progress reader, and `core/runner.py` re-exports the
+retained owners for old direct imports. Execution has no program-package
+imports.
 
 Guided NWChem, Molcas, DIRAC, GRASP workflow, QE, and QMCPACK preparation no
 longer call the legacy renderer. They read resolved migration profiles through
@@ -306,18 +304,18 @@ synchronous terminal states, and limits default cancellation to runs launched
 through its registry and target. NWChem status uses the retained local process
 handle or target-owned Slurm queries, persists terminal launch metadata,
 updates the linked scientific run, and records immutable stdout and stderr
-observations. Asynchronous GRASP workflow status and watch use the same owned
-identifier boundary through its compatibility projection.
+observations.
 
-The low-level NWChem and GRASP launch handlers use that service and translate
-typed results back to their retained response keys. Guided Molcas and DIRAC
-launches use the generic service without program-specific execution adapters.
+The low-level NWChem launch handlers use that service and translate typed
+results back to their retained response keys. Guided Molcas, DIRAC, and GRASP
+workflow launches use the generic service without program-specific
+asynchronous execution adapters.
 Their plans retain the Molcas CASPT2 rank guard and DIRAC `pam-dirac` MPI,
 paired input names, and memory flags. The advanced DIRAC checkpoint flags
 remain available in the read-only preparer; executing those staging options
 still needs an explicit typed contract. GRASP keeps shell workflows intact for
-asynchronous direct or Slurm launch and routes interactive steps through the
-synchronous local contract.
+guided direct or Slurm launch and routes interactive and structured local
+steps through the synchronous contract.
 
 ### Workflow and application coordination
 
@@ -405,9 +403,6 @@ registry detection.
   owner is `persistence/runs.py`.
 - `programs/nwchem/output.py` still routes one compatibility parser call to
   Molcas. New parser composition uses backend capabilities.
-- The GRASP scheduler module repeats a thin wrapper over the legacy execution
-  engine. Its guided workflow launch uses typed targets and execution services,
-  while interactive and structured low-level execution remains distinct.
 - Low-level Orbitron analysis tools remain integration-specific. The guided
   surface exposes only the bounded `visualize` operation.
 

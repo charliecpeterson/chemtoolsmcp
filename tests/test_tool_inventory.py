@@ -16,12 +16,12 @@ ROOT = Path(__file__).parents[1]
 def test_inventory_pins_live_registry_totals():
     summary = build_inventory()["summary"]
 
-    assert summary["tool_count"] == 326
+    assert summary["tool_count"] == 322
     assert summary["alias_count"] == 15
-    assert summary["canonical_tool_count"] == 317
+    assert summary["canonical_tool_count"] == 313
     assert summary["advertised_legacy_tool_count"] == 9
     assert summary["hidden_alias_count"] == 15
-    assert summary["total_callable_name_count"] == 341
+    assert summary["total_callable_name_count"] == 337
     assert summary["entrypoint_alias_count"] == 2
     assert summary["python_import_shim_count"] == 6
     assert summary["by_program"] == {
@@ -29,7 +29,7 @@ def test_inventory_pins_live_registry_totals():
         "nwchem": 101,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 53,
+        "grasp": 49,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0,
@@ -39,19 +39,19 @@ def test_inventory_pins_live_registry_totals():
         "registry": 18,
         "runner_profile": 2,
         "executable_or_scheduler": 5,
-        "executable": 32,
+        "executable": 28,
         "scheduler": 3,
     }
     assert summary["by_mode"] == {
         "analysis": 284,
-        "local": 323,
-        "hpc": 326,
+        "local": 319,
+        "hpc": 322,
     }
     assert summary["by_program_filter"] == {
         "nwchem": {"analysis": 149, "local": 164, "hpc": 167},
         "molcas": {"analysis": 101, "local": 106, "hpc": 107},
         "dirac": {"analysis": 96, "local": 100, "hpc": 101},
-        "grasp": {"analysis": 91, "local": 118, "hpc": 119},
+        "grasp": {"analysis": 91, "local": 114, "hpc": 115},
         "qe": {"analysis": 79, "local": 83, "hpc": 84},
         "qmcpack": {"analysis": 73, "local": 77, "hpc": 78},
         "orca": {"analysis": 61, "local": 65, "hpc": 66},
@@ -74,7 +74,7 @@ def test_inventory_records_schema_and_owner_for_every_tool():
             "2026-07-28",
         ],
     }
-    assert len(inventory["tools"]) == 326
+    assert len(inventory["tools"]) == 322
     assert all(tool["program"] for tool in inventory["tools"])
     assert all(tool["capability"] for tool in inventory["tools"])
     assert all(isinstance(tool["input_schema"], dict) for tool in inventory["tools"])

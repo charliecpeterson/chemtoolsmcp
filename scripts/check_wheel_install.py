@@ -215,6 +215,8 @@ assert importlib.util.find_spec("chemtools.programs.nwchem.legacy_status") is No
 assert importlib.util.find_spec("chemtools.application.dirac_execution") is None
 assert importlib.util.find_spec("chemtools.application.dirac_monitoring") is None
 assert importlib.util.find_spec("chemtools.programs.dirac.scheduler") is None
+assert importlib.util.find_spec("chemtools.application.grasp_monitoring") is None
+assert importlib.util.find_spec("chemtools.programs.grasp.scheduler") is None
 assert importlib.util.find_spec("chemtools.application.molcas_execution") is None
 assert importlib.util.find_spec("chemtools.application.molcas_monitoring") is None
 assert importlib.util.find_spec("chemtools.programs.molcas.scheduler") is None
@@ -229,6 +231,8 @@ assert "chemtools.programs.nwchem.legacy_status" not in sys.modules
 assert "chemtools.application.dirac_execution" not in sys.modules
 assert "chemtools.application.dirac_monitoring" not in sys.modules
 assert "chemtools.programs.dirac.scheduler" not in sys.modules
+assert "chemtools.application.grasp_monitoring" not in sys.modules
+assert "chemtools.programs.grasp.scheduler" not in sys.modules
 assert "chemtools.application.molcas_execution" not in sys.modules
 assert "chemtools.application.molcas_monitoring" not in sys.modules
 assert "chemtools.programs.molcas.scheduler" not in sys.modules

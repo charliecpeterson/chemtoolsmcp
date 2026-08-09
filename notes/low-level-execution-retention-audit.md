@@ -2,17 +2,19 @@
 
 Audit date: 2026-08-09
 
-The remaining low-level execution tools are active compatibility code for
-NWChem and GRASP. The guided `launch_run` contract has validated providers for
-those programs plus OpenMolcas, DIRAC, Quantum ESPRESSO, and QMCPACK.
+The remaining low-level asynchronous execution tools are active compatibility
+code for NWChem. GRASP retains separate synchronous per-executable and
+structured workflow calls. The guided `launch_run` contract has validated
+providers for those programs plus OpenMolcas, DIRAC, Quantum ESPRESSO, and
+QMCPACK.
 
 ## Decision
 
-Retain the low-level NWChem and GRASP launch calls behind explicit program or
-developer toolsets. Do not add them to the default guided surface. The
-redundant QE, QMCPACK, Molcas, and DIRAC low-level execution surfaces were
-removed after their guided providers passed the accepted parity and corpus
-gates.
+Retain the low-level NWChem calls and distinct GRASP interactive and structured
+workflow calls behind explicit program or developer toolsets. Do not add them
+to the default guided surface. The redundant QE, QMCPACK, Molcas, DIRAC, and
+asynchronous GRASP execution surfaces were removed after their guided providers
+passed the accepted parity and corpus gates.
 
 A low-level launch call may leave after one of these conditions is met:
 
@@ -108,30 +110,29 @@ the external corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
 loaded the provider and portable GRASP target entries. The same wheel is
 installed in the repository-local `venv`.
 
-The GRASP guided plan does not replace every interactive and version 1 workflow
-response. Those low-level calls still expose session-log behavior, captured
-stdin and output, and workflow-step results outside the one-file guided
-contract.
+The GRASP guided plan replaces the asynchronous workflow-script launch,
+status, watch, and cancellation surface. The retained interactive and
+structured workflow calls still expose session-log behavior, captured stdin
+and output, and per-step results outside the one-file guided contract. Their
+application adapter no longer imports the legacy renderer, response projector,
+archive policy, or external-status path.
 
-Do not add a second generic preview projector to remove these renderer calls.
-Define each program's guided launch result first, then retire the extra version
-1 fields with the low-level response contract.
-
-The GRASP application adapter uses its scheduler wrapper for the remaining
-version 1 workflow-launch response while its typed launch path also owns
-interactive execution. Its monitoring fallback is limited to file inspection
-and explicit external Slurm attachment.
+The removal passed 103 focused GRASP, catalog, inventory, boundary, runner,
+and launch checks, followed by all 1,915 tests with the external corpus. Base
+and DIRAC-extra isolated installs of wheel SHA-256
+`48c09af051cf95d4228adfae1dd6fb515d82cb3ac7e587e10777d2774366cdaa`
+confirmed that the guided provider and retained interactive tools remain while
+the monitoring and scheduler modules are absent. The same wheel is installed
+in the repository-local `venv`.
 
 ## Consequences
 
-- Keep these tools out of the default guided toolset.
+- Keep the retained interactive tools out of the default guided toolset.
 - Keep the remaining calls stable until their explicit removal gate is met.
 - Move a program to guided execution only after its review cases establish the
   program-specific arguments, artifacts, and failure behavior.
 - Do not build a second generic runner layer. Reuse the typed execution service
   and add a small program-owned launch provider when a backend is promoted.
-- Treat the GRASP scheduler render and launch wrapper as active compatibility
-  code. Its status wrapper delegates to the focused external-status owner.
-
-The next engineering target is narrower: remove old renderer calls only when a
-typed program plan already supplies the same preview and launch behavior.
+The next engineering target is the NWChem compatibility workflow. Its low-level
+launch, status, registration, and recovery names need one removal decision
+rather than another program-specific execution adapter.

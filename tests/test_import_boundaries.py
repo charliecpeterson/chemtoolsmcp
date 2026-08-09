@@ -35,9 +35,6 @@ MIGRATED_NWCHEM_MCP_MODULES = (
     ROOT / "chemtools" / "mcp" / "tools" / "nwchem_parse.py",
 )
 APPLICATION_ARCHIVE_ADAPTERS = {
-    ROOT / "chemtools" / "application" / "grasp_execution.py": {
-        "archive_paths",
-    },
     ROOT / "chemtools" / "application" / "nwchem_execution.py": {
         "archive_previous_outputs",
     },
@@ -60,6 +57,8 @@ REMOVED_REDUNDANT_EXECUTION_MODULES = (
     "chemtools.application.dirac_execution",
     "chemtools.application.dirac_monitoring",
     "chemtools.programs.dirac.scheduler",
+    "chemtools.application.grasp_monitoring",
+    "chemtools.programs.grasp.scheduler",
     "chemtools.application.molcas_execution",
     "chemtools.application.molcas_monitoring",
     "chemtools.programs.molcas.scheduler",

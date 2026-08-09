@@ -1022,7 +1022,7 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
         "nwchem": 101,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 49,
+        "grasp": 45,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0,
@@ -1034,8 +1034,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     dispatch_names = [
         definition["name"] for definition in dispatch.tool_definitions()
     ]
-    assert len(catalog_names) == 326
-    assert len(set(catalog_names)) == 326
+    assert len(catalog_names) == 322
+    assert len(set(catalog_names)) == 322
     assert catalog_names == dispatch_names
 
 

@@ -3,14 +3,14 @@
 Audit date: 2026-08-09
 
 The legacy execution modules are not ready for wholesale removal. The old
-profile import and status paths have been removed, but the renderer, response
-translators, and scheduler launch wrappers still have first-party callers.
+profile import, status, and non-NWChem scheduler paths have been removed, but
+the renderer and response translator still serve NWChem compatibility calls.
 
 ## Profile ownership
 
 `chemtools.execution.profiles` now owns version 1 profile loading, default
 merging, and conversion into typed resources, installations, and Slurm target
-settings. Two compatibility application adapters and the NWChem, Molcas,
+settings. One compatibility application adapter and the NWChem, Molcas,
 DIRAC, GRASP, QE, and QMCPACK launch providers import that owner directly.
 
 `chemtools.execution.legacy_profiles` was an exact compatibility facade. No
@@ -33,12 +33,10 @@ eight bundled profiles. The same wheel is installed in the repository-local
 
 ## Legacy renderer and launcher
 
-Four first-party runtime modules still import `execution.legacy_runner`:
+Three first-party runtime modules still import `execution.legacy_runner`:
 
 - The NWChem application adapter uses the old renderer to keep its low-level
   response shape.
-- The GRASP scheduler module still calls the old render and launch functions.
-  Its status and watch calls use `execution.external_status`.
 - The NWChem compatibility runner still calls the old render and launch
   functions.
 - `core/runner.py` remains a pure compatibility facade with no first-party
@@ -66,12 +64,18 @@ Removal gates:
 2. Reimplement retained scheduler render and launch calls over typed targets
    without changing their response contracts.
 
-The QE, QMCPACK, Molcas, and DIRAC low-level MCP execution surfaces were
+The QE, QMCPACK, Molcas, DIRAC, and asynchronous GRASP low-level MCP execution surfaces were
 removed after their guided providers passed the parity and external-corpus
-gates. The GRASP comparison confirmed that its typed one-file plan does not
-cover the interactive and structured-workflow response contracts. Keep those
-remaining low-level calls until their compatibility contract is retired
-explicitly.
+gates. The GRASP comparison confirmed that its typed one-file plan replaces
+the asynchronous workflow wrappers but does not cover the interactive and
+structured-workflow response contracts. Those distinct synchronous calls
+remain without importing the legacy renderer.
+
+The GRASP removal passed 103 focused checks and all 1,915 tests with the
+external corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+`48c09af051cf95d4228adfae1dd6fb515d82cb3ac7e587e10777d2774366cdaa`
+confirmed that the scheduler and monitoring modules are absent while the
+guided provider and synchronous interactive contract remain available.
 
 The Molcas and DIRAC removal passed 123 focused architecture and guided checks,
 all 27 retained program test modules, and all 1,923 tests with the external
@@ -86,7 +90,7 @@ The retention decision and per-program evidence are recorded in
 
 `execution/legacy_archive.py` now owns the timestamped, collision-safe rename
 policy used before compatibility launches. Both remaining program
-application adapters import it directly. `execution.legacy_runner` keeps exact
+application adapter imports it directly. `execution.legacy_runner` keeps exact
 imports of both archive functions for its old direct Python surface and its
 remaining version 1 launch implementation.
 
@@ -117,7 +121,8 @@ the guided MCP exchange.
 `execution.external_status` now owns the approved retained contract: read-only
 file inspection and attachment to an external Slurm job through an explicit
 profile and job ID. `programs.nwchem.external_status` adds NWChem progress
-interpretation. The GRASP scheduler wrapper imports the generic owner directly.
+interpretation. Other programs use the generic guided monitor or call the
+external-status owner explicitly.
 
 The post-`v0.1.0` cleanup removed both former `legacy_status` modules,
 arbitrary PID probing, PBS and LSF status parsing, `.jobid` inference, and
@@ -134,17 +139,15 @@ confirmed the removed import paths and retained external-status boundary.
 ## Legacy response projection
 
 `application.legacy_execution` translates typed results into old dictionaries
-for two program application adapters. It contains no execution mechanism, but
+for the NWChem compatibility adapter. It contains no execution mechanism, but
 it cannot leave while those low-level MCP responses remain supported.
 
 The post-release audit found that this is a real shared boundary rather than a
 removable facade. Its 82 lines keep launch IDs, effective argv, Slurm
 submission fields, timeout translation, `.jobid` compatibility writes, and
-scheduler cancellation results consistent across NWChem and GRASP. Inlining
-it would duplicate policy across two adapters, while renaming
-it would only hide that the response contract is legacy. Before the QE and
-QMCPACK adapters were removed, the six execution contract suites passed 48
-tests.
+scheduler cancellation results stable for NWChem. Renaming it would only hide
+that the response contract is legacy. Before the redundant program adapters
+were removed, the six execution contract suites passed 48 tests.
 
 Removal gate: remove the projector when the remaining low-level tools are
 retired or their response contracts are replaced. Do not remove or rename it

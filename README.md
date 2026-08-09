@@ -14,7 +14,7 @@ execution operations it actually implements.
 | **NWChem** | 101 | Input drafting, TCE/MCSCF parsers, frequency restart, full HPC submission, runner-profile auto-resource sizing, 29 bundled docs |
 | **OpenMolcas** | 41 | CASSCF/CASPT2 chain orchestrators, active-space refinement loop, recovery rule engine (11 failure modes), approval-gated named-target launch, 133 bundled docs |
 | **DIRAC** | 35 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, approval-bound paired-input launch, basis browser (Dyall), 179 bundled docs |
-| **GRASP2018** | 53 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), approval-bound container workflow launch, exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
+| **GRASP2018** | 49 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), approval-bound container workflow launch, exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
 | **Quantum ESPRESSO** | 18 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, approval-gated launch through a schema-2 named target or version 1 migration profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
 | **QMCPACK** | 12 | XML input review, approval-gated ordinary or initialization-only launch through a schema-2 named target or version 1 migration profile, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
 | **ORCA** | 0 dedicated | Experimental ORCA 6.1.1 input parsing and output auto-detection through the shared tools; serial single points, optimization, frequencies, open-shell spin, scalar relativity, RIJCOSX, DLPNO-CCSD(T), CASSCF, NEVPT2, CASPT2, MRCI, TD-DFT, EOM-CCSD, ORCA_ESD spectra and radiative rates, additive QM/MM, molecular and ionic Crystal-QMMM, explicit SCF failure, MOREAD restart, and difficult-SCF algorithm comparison are pinned against nineteen cases |
@@ -22,7 +22,7 @@ execution operations it actually implements.
 Plus 66 program-generic tools (auto-detect supported inputs and outputs)
 and a multi-program eval framework with 33 reference cases.
 
-**Total: 326 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
+**Total: 322 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
 and input schemas come from the generated
 [MCP tool inventory](docs/tool-inventory.md).
 
@@ -988,7 +988,7 @@ integration work remains in [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
 ### Restricting the developer surface to one program
 
 The default guided surface already stays at eleven tools. When using
-`CHEMTOOLS_TOOLSET=developer`, all seven programs mean 326 definitions in the
+`CHEMTOOLS_TOOLSET=developer`, all seven programs mean 322 definitions in the
 client's context. For a developer session focused on one program, filter:
 
 ```json
@@ -1000,7 +1000,7 @@ client's context. For a developer session focused on one program, filter:
 
 In developer analysis mode, `CHEMTOOLS_PROGRAMS=molcas` exposes 101 tools:
 40 Molcas analysis tools and 61 generic analysis tools. The corresponding
-local and HPC counts are 110 and 111. Other choices are `nwchem`, `dirac`,
+local and HPC counts are 106 and 107. Other choices are `nwchem`, `dirac`,
 `grasp`, `qe`, and `qmcpack`. Comma-separate multiple programs
 (`nwchem,molcas`).
 
@@ -1009,8 +1009,8 @@ local and HPC counts are 110 and 111. Other choices are `nwchem`, `dirac`,
 | Mode | Tools visible | Use when |
 |---|---|---|
 | `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 284 | Post-hoc parsing, drafting, planning, and owned monitoring; no chemistry executable needed |
-| `local` | 323 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
-| `hpc` | 326 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
+| `local` | 319 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
+| `hpc` | 322 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
 
 These counts describe the complete developer surface. The default guided
 surface remains eleven tools in every mode.
@@ -1459,8 +1459,8 @@ scripts, submission, status, and cancellation. The old `executors.py` import
 path remains as a compatibility facade.
 
 The version 1 profile runner defines program-neutral `run_calculation` and
-`render_calculation_run` entry points. The GRASP scheduler wrapper and retained
-NWChem compatibility paths use those names; the redundant Molcas and DIRAC
+`render_calculation_run` entry points. Only the retained NWChem compatibility
+path and old direct Python imports use those names; the redundant program
 wrappers are gone. The previous NWChem run and render names remain direct
 aliases for existing Python callers. Profile loading and default merging live
 in `execution/profiles.py`. Compatibility-launch output archival lives in
@@ -1507,14 +1507,15 @@ target-owned Slurm queue and accounting queries and persists terminal launch
 state. File-only inspection or attachment to an unowned Slurm job stays on the
 explicit external-run path. Molcas and DIRAC do not create scientific-run
 links yet, so monitoring does not claim artifact observations or chemistry
-success from an execution exit code. Asynchronous GRASP workflow tools retain
-the same owned-identifier boundary through their compatibility projection.
+success from an execution exit code. Guided GRASP workflow scripts use the same
+shared launch and monitoring path; the former program-specific asynchronous
+wrappers are retired.
 
-GRASP per-executable tools remain synchronous and return terminal execution
-results directly. Staged-input hashes and copy provenance still await their
-planned integration. The same boundary supports captured local runs with
-closed stdin when no payload is supplied, explicit timeouts, and persistent
-terminal states.
+GRASP per-executable and structured workflow tools remain synchronous and
+return terminal execution or per-step results directly. Staged-input hashes
+and copy provenance still await their planned integration. The same boundary
+supports captured local runs with closed stdin when no payload is supplied,
+explicit timeouts, and persistent terminal states.
 
 The [current-to-target module map](docs/current-to-target-module-map.md)
 records which existing modules stay in place, which responsibilities move in
@@ -1575,7 +1576,7 @@ chemtools/
                                 Focused NWChem handlers
       molcas.py                  Molcas tool definitions + handlers (41 tools)
       dirac.py                   DIRAC tool definitions + handlers (35 tools)
-      grasp.py                   GRASP tool definitions + handlers (53 tools)
+      grasp.py                   GRASP tool definitions + handlers (49 tools)
       qe.py                      Quantum ESPRESSO definitions + handlers (18 tools)
       qmcpack.py                 QMCPACK definitions + handlers (12 tools)
       orca.py                    Shared-tool-only ORCA catalog provider

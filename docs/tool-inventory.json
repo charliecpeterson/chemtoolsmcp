@@ -13,12 +13,12 @@
     ]
   },
   "summary": {
-    "tool_count": 326,
+    "tool_count": 322,
     "alias_count": 15,
-    "canonical_tool_count": 317,
+    "canonical_tool_count": 313,
     "advertised_legacy_tool_count": 9,
     "hidden_alias_count": 15,
-    "total_callable_name_count": 341,
+    "total_callable_name_count": 337,
     "entrypoint_alias_count": 2,
     "python_import_shim_count": 6,
     "by_program": {
@@ -26,7 +26,7 @@
       "nwchem": 101,
       "molcas": 41,
       "dirac": 35,
-      "grasp": 53,
+      "grasp": 49,
       "qe": 18,
       "qmcpack": 12,
       "orca": 0
@@ -36,13 +36,13 @@
       "registry": 18,
       "runner_profile": 2,
       "executable_or_scheduler": 5,
-      "executable": 32,
+      "executable": 28,
       "scheduler": 3
     },
     "by_mode": {
       "analysis": 284,
-      "local": 323,
-      "hpc": 326
+      "local": 319,
+      "hpc": 322
     },
     "by_mode_and_program": {
       "analysis": {
@@ -60,7 +60,7 @@
         "nwchem": 99,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 53,
+        "grasp": 49,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0
@@ -70,7 +70,7 @@
         "nwchem": 101,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 53,
+        "grasp": 49,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0
@@ -94,8 +94,8 @@
       },
       "grasp": {
         "analysis": 91,
-        "local": 118,
-        "hpc": 119
+        "local": 114,
+        "hpc": 115
       },
       "qe": {
         "analysis": 79,
@@ -5311,46 +5311,6 @@
       "output_schema": null
     },
     {
-      "name": "get_grasp_run_status",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "grasp",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Check GRASP output files, a launch owned by this MCP, or an external Slurm job. External Slurm attachment requires an explicit profile and job_id; arbitrary process IDs and auto-detected .jobid files are not accepted.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "output_file": {
-            "type": "string"
-          },
-          "input_file": {
-            "type": "string"
-          },
-          "error_file": {
-            "type": "string"
-          },
-          "process_id": {
-            "type": "integer"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "job_id": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "get_grasp_topic_guide",
       "lifecycle": "canonical",
       "replacement": null,
@@ -7127,56 +7087,6 @@
         },
         "required": [
           "path"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
-      "name": "launch_grasp_workflow_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "grasp",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Launch a GRASP shell workflow with a direct profile or submit it through a Slurm profile. The configured target runs the ordered rnucleus, rcsfgenerate, and later steps inside Apptainer and records the exact workflow command, resources, and PID or job ID. Set dry_run=true for the legacy read-only preview. PBS and LSF profiles are not supported by the typed execution boundary.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "workflow_script_path": {
-            "type": "string",
-            "description": "Path to the GRASP workflow shell script."
-          },
-          "profile": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "job_name": {
-            "type": "string"
-          },
-          "resource_overrides": {
-            "type": "object"
-          },
-          "env_overrides": {
-            "type": "object"
-          },
-          "write_script": {
-            "type": "boolean",
-            "default": true
-          },
-          "dry_run": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "workflow_script_path",
-          "profile"
         ],
         "additionalProperties": false
       },
@@ -16516,35 +16426,6 @@
       "output_schema": null
     },
     {
-      "name": "terminate_grasp_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "grasp",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Cancel a Slurm GRASP workflow launched by this MCP process. Provide the recorded job_id and the same profile used for launch.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "job_id": {
-            "type": "string"
-          },
-          "profile": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "job_id",
-          "profile"
-        ],
-        "additionalProperties": false
-      },
-      "output_schema": null
-    },
-    {
       "name": "terminate_nwchem_run",
       "lifecycle": "canonical",
       "replacement": null,
@@ -17012,72 +16893,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "watch_grasp_run",
-      "lifecycle": "canonical",
-      "replacement": null,
-      "program": "grasp",
-      "capability": "executable",
-      "visible_modes": [
-        "local",
-        "hpc"
-      ],
-      "description": "Poll a GRASP workflow until terminal state or timeout. Owned PIDs and Slurm job IDs use typed execution state; external attachment supports only an explicit Slurm profile and job_id.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "output_file": {
-            "type": "string"
-          },
-          "input_file": {
-            "type": "string"
-          },
-          "error_file": {
-            "type": "string"
-          },
-          "process_id": {
-            "type": "integer"
-          },
-          "profile": {
-            "type": "string"
-          },
-          "job_id": {
-            "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
-          },
-          "poll_interval_seconds": {
-            "type": "number",
-            "default": 10.0
-          },
-          "adaptive_polling": {
-            "type": "boolean",
-            "default": true
-          },
-          "max_poll_interval_seconds": {
-            "type": "number",
-            "default": 60.0
-          },
-          "timeout_seconds": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "default": 3600.0
-          },
-          "max_polls": {
-            "type": "integer"
-          },
-          "history_limit": {
-            "type": "integer",
-            "default": 8
-          }
-        },
-        "additionalProperties": false
-      },
-      "output_schema": null
     },
     {
       "name": "watch_multiple_runs",
