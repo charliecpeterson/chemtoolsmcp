@@ -1,12 +1,9 @@
 """Molcas scheduler runner wrappers.
 
-Thin wrappers around the version 1 engine in
-``chemtools/execution/legacy_runner.py``
-that submit, monitor, and cancel Molcas jobs through an HPC scheduler. Mirrors
-the NWChem pattern in ``chemtools/programs/nwchem/runner.py`` — the underlying
-machinery (sbatch invocation, job-id parsing, ``.jobid`` writing, ``squeue``
-polling, output tailing) is generic; this module is just the public Molcas
-naming.
+Thin wrappers around the version 1 renderer and launcher plus the focused
+external-status owner. The launch path handles scheduler submission and job-ID
+persistence. Status combines files with an explicitly identified external
+Slurm job; owned launches use the execution service instead.
 
 Profiles consumed here have ``launcher.kind = "scheduler"`` and a
 ``programs.molcas`` block containing launcher and executable arrays. The
@@ -20,10 +17,11 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.execution.legacy_runner import (
-    cancel_scheduler_job,
-    inspect_run_status,
     render_calculation_run,
     run_calculation,
+)
+from chemtools.execution.external_status import (
+    inspect_run_status,
     watch_run,
 )
 
@@ -77,29 +75,24 @@ def launch_molcas_run(
         write_script=write_script,
     )
 
-
 def get_molcas_run_status(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
-    """Non-blocking status for a Molcas job (HPC or local).
+    """Inspect Molcas files or an explicitly identified external Slurm job.
 
-    Reads the ``.jobid`` file alongside the input/output if ``job_id`` is
-    not supplied. NOTE: the generic Molcas-output parser path is not yet
-    wired into ``inspect_run_status``, so ``progress_summary`` will
-    be None for Molcas runs; ``overall_status`` still works via scheduler
-    state + file presence.
+    The generic Molcas-output parser path is not yet wired into
+    ``inspect_run_status``, so ``progress_summary`` is None; scheduler state
+    and file presence still contribute to ``overall_status``.
     """
     return inspect_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -110,7 +103,6 @@ def watch_molcas_run(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -126,7 +118,6 @@ def watch_molcas_run(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -136,20 +127,4 @@ def watch_molcas_run(
         timeout_seconds=timeout_seconds,
         max_polls=max_polls,
         history_limit=history_limit,
-    )
-
-
-def terminate_molcas_run(
-    job_id: str,
-    profile: str,
-    *,
-    profiles_path: str | None = None,
-) -> dict[str, Any]:
-    """Cancel a Molcas job via the scheduler's cancel_command (scancel / qdel)."""
-    if not job_id:
-        raise ValueError("job_id is required to cancel a Molcas scheduler job")
-    if not profile:
-        raise ValueError("profile is required to resolve the cancel_command")
-    return cancel_scheduler_job(
-        profile=profile, job_id=job_id, profiles_path=profiles_path,
     )

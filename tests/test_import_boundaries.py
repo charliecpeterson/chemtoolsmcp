@@ -81,8 +81,9 @@ CORE_COMPATIBILITY_IMPORTS = {
     },
     "chemtools/core/runner.py": {
         "chemtools.execution.legacy_runner",
+        "chemtools.execution.external_status",
         "chemtools.execution.profiles",
-        "chemtools.programs.nwchem.legacy_status",
+        "chemtools.programs.nwchem.external_status",
     },
 }
 
@@ -199,6 +200,28 @@ def test_removed_legacy_profile_facade_is_absent():
                 "import importlib.util; "
                 "assert importlib.util.find_spec("
                 "'chemtools.execution.legacy_profiles') is None"
+            ),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_removed_legacy_status_modules_are_absent():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import importlib.util; "
+                "assert importlib.util.find_spec("
+                "'chemtools.execution.legacy_status') is None; "
+                "assert importlib.util.find_spec("
+                "'chemtools.programs.nwchem.legacy_status') is None"
             ),
         ],
         cwd=ROOT,

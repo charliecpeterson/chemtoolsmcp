@@ -11,6 +11,7 @@ import chemtools.application.nwchem_monitoring as nwchem_monitoring
 import chemtools.mcp.tools.nwchem_jobs as nwchem_jobs
 import pytest
 
+from chemtools.application.execution import LaunchStatusError
 from chemtools.persistence.artifacts import load_run_artifacts
 from chemtools.persistence.runs import get_run_summary
 from chemtools.mcp.decorator import set_active_mode
@@ -237,21 +238,11 @@ def test_explicit_local_watch_uses_owned_process_handle(
     assert watched["next_actions"][0]["tool"] == "analyze_nwchem_case"
 
 
-@pytest.mark.parametrize(
-    "identifier",
-    (
-        {"profile": "legacy_cluster", "job_id": "8181"},
-        {"process_id": 8282},
-    ),
-)
-def test_explicit_watch_keeps_unowned_identifier_on_legacy_path(
-    monkeypatch,
-    identifier,
-):
-    legacy_calls = []
+def test_explicit_watch_keeps_unowned_slurm_job_on_external_path(monkeypatch):
+    external_calls = []
 
-    def fake_legacy_watch(**kwargs):
-        legacy_calls.append(kwargs)
+    def fake_external_watch(**kwargs):
+        external_calls.append(kwargs)
         return {
             "terminal": False,
             "overall_status": "running",
@@ -264,7 +255,7 @@ def test_explicit_watch_keeps_unowned_identifier_on_legacy_path(
     monkeypatch.setattr(
         nwchem_jobs,
         "watch_nwchem_run",
-        fake_legacy_watch,
+        fake_external_watch,
     )
     monkeypatch.setattr(
         nwchem_monitoring,
@@ -276,16 +267,33 @@ def test_explicit_watch_keeps_unowned_identifier_on_legacy_path(
         arguments = {
             "output_file": "/work/legacy.out",
             "input_file": "/work/legacy.nw",
+            "profile": "legacy_cluster",
+            "job_id": "8181",
             "poll_interval_seconds": 0,
             "max_polls": 1,
         }
-        arguments.update(identifier)
         watched = _handle_watch_nwchem_run(arguments)
     finally:
         set_active_mode("analysis")
 
-    assert len(legacy_calls) == 1
-    for key, value in identifier.items():
-        assert legacy_calls[0][key] == value
+    assert len(external_calls) == 1
+    assert external_calls[0]["profile"] == "legacy_cluster"
+    assert external_calls[0]["job_id"] == "8181"
     assert watched["overall_status"] == "running"
     assert watched["next_actions"][0]["tool"] == "watch_nwchem_run"
+
+
+def test_explicit_watch_rejects_unowned_process_id():
+    set_active_mode("local")
+    try:
+        with pytest.raises(LaunchStatusError) as captured:
+            _handle_watch_nwchem_run({
+                "output_file": "/work/external.out",
+                "process_id": 8282,
+                "poll_interval_seconds": 0,
+                "max_polls": 1,
+            })
+    finally:
+        set_active_mode("analysis")
+
+    assert captured.value.as_dict()["error"] == "launch_not_owned"

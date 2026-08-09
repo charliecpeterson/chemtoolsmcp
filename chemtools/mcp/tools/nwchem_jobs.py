@@ -161,11 +161,6 @@ def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
         job_id=job_id,
         profiles_path=arguments.get("profiles_path"),
     )
-    inspected_process_id = (
-        process_id
-        if (status.get("process") or {}).get("status") == "running"
-        else None
-    )
     scheduler = status.get("scheduler") or {}
     typed_scheduler = scheduler.get("source") in {
         "queue",
@@ -181,7 +176,6 @@ def _handle_get_nwchem_run_status(arguments: dict[str, Any]) -> dict[str, Any]:
                 output_path=arguments["output_file"],
                 input_path=arguments.get("input_file"),
                 error_path=arguments.get("error_file"),
-                process_id=inspected_process_id,
                 profile=inspected_profile,
                 job_id=inspected_job_id,
                 profiles_path=arguments.get("profiles_path"),
@@ -244,11 +238,17 @@ def _handle_watch_nwchem_run(arguments: dict[str, Any]) -> dict[str, Any]:
         "history_limit": arguments.get("history_limit", 8),
     }
     result = None
-    if job_id is not None or process_id is not None:
+    if process_id is not None:
+        result = watch_nwchem_status_with_service(
+            service,
+            process_id=process_id,
+            profile=profile,
+            **watch_arguments,
+        )
+    elif job_id is not None:
         try:
             result = watch_nwchem_status_with_service(
                 service,
-                process_id=process_id if job_id is None else None,
                 job_id=job_id,
                 profile=profile,
                 **watch_arguments,

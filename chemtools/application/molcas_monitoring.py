@@ -51,7 +51,6 @@ def inspect_molcas_status_with_service(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=None if recorded_local is not None else process_id,
         profile=None if recorded_slurm is not None else profile,
         job_id=None if recorded_slurm is not None else job_id,
         profiles_path=profiles_path,

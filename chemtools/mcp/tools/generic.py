@@ -1505,8 +1505,8 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                 "(completed, failed, or cancelled). Use this after submitting several jobs in "
                 "parallel with auto_watch=false — call this once and it will block until all "
                 "jobs finish, then return a consolidated status table. "
-                "Each job entry requires output_file and optionally profile and job_id "
-                "(job_id auto-detected from <output_file>.jobid if omitted)."
+                "Each job entry requires output_file. External Slurm jobs must "
+                "also provide profile and job_id together."
             ),
             "inputSchema": {
                 "type": "object",
@@ -1517,7 +1517,7 @@ def generic_tool_definitions() -> list[dict[str, Any]]:
                             "type": "object",
                             "properties": {
                                 "output_file": {"type": "string", "description": "Path to the .out file for this job."},
-                                "job_id": {"type": "string", "description": "Scheduler job ID (auto-detected from .jobid file if omitted)."},
+                                "job_id": {"type": "string", "description": "Explicit external Slurm job ID; requires profile."},
                                 "profile": {"type": "string", "description": "Runner profile name (required for HPC scheduler jobs)."},
                                 "label": {"type": "string", "description": "Human-readable label for this job in the summary table."},
                             },

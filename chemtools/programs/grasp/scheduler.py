@@ -6,9 +6,9 @@ rcsfgenerate, rangular, rwfnestimate, rmcdhf, rsave, jj2lsj, rlevels, ...)
 in sequence. The script_template's ``bash {input_file}`` line executes
 that shell script inside the apptainer container.
 
-Otherwise the submit / status / watch / cancel pattern is identical to
-the other programs and delegates to the program-neutral engine in
-``chemtools/execution/legacy_runner.py``.
+Rendering and submission delegate to the version 1 engine in
+``chemtools/execution/legacy_runner.py``. Read-only file and explicit external
+Slurm inspection use the focused external-status owner.
 """
 
 from __future__ import annotations
@@ -16,10 +16,11 @@ from __future__ import annotations
 from typing import Any
 
 from chemtools.execution.legacy_runner import (
-    cancel_scheduler_job,
-    inspect_run_status,
     render_calculation_run,
     run_calculation,
+)
+from chemtools.execution.external_status import (
+    inspect_run_status,
     watch_run,
 )
 
@@ -70,22 +71,19 @@ def launch_grasp_workflow_run(
         write_script=write_script,
     )
 
-
 def get_grasp_run_status(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
-    """Non-blocking status for a GRASP job (HPC or local)."""
+    """Inspect GRASP files or an explicitly identified external Slurm job."""
     return inspect_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -96,7 +94,6 @@ def watch_grasp_run(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -112,7 +109,6 @@ def watch_grasp_run(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -122,20 +118,4 @@ def watch_grasp_run(
         timeout_seconds=timeout_seconds,
         max_polls=max_polls,
         history_limit=history_limit,
-    )
-
-
-def terminate_grasp_run(
-    job_id: str,
-    profile: str,
-    *,
-    profiles_path: str | None = None,
-) -> dict[str, Any]:
-    """Cancel a GRASP job via the scheduler's cancel_command."""
-    if not job_id:
-        raise ValueError("job_id is required to cancel a GRASP scheduler job")
-    if not profile:
-        raise ValueError("profile is required to resolve the cancel_command")
-    return cancel_scheduler_job(
-        profile=profile, job_id=job_id, profiles_path=profiles_path,
     )

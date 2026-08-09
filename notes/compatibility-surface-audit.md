@@ -126,6 +126,16 @@ DIRAC-extra isolated installs of wheel SHA-256
 confirmed the removed module is absent and all eight bundled profiles still
 load through the canonical owner.
 
+The two `legacy_status` modules were replaced with focused external file and
+Slurm inspection after `v0.1.0`. Arbitrary PID probing, PBS and LSF parsing,
+`.jobid` inference, and four direct Python cancellation wrappers were removed.
+Owned local status and MCP cancellation remain in `ExecutionService`. Focused
+checks passed 109 tests, followed by all 1,899 tests with the external corpus.
+Base and DIRAC-extra isolated installs of wheel SHA-256
+`4c5b6fba061968a2016510792523d9466edd290d41a9da87111b13084b8eccf7`
+confirmed both old modules are absent and the retained file-only inspection
+still works.
+
 ## Final-release readiness
 
 The canonical MCP server now reports `chemtools` instead of the old

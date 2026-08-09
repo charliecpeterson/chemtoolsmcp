@@ -46,9 +46,9 @@ chemtools/
     launch_registry.py           Compatibility imports for persistence/launches.py
     profiles.py                  Version 1 profile loading and typed conversion
     resource_inspection.py       Local and scheduler hardware discovery
+    external_status.py           Read-only file and external Slurm status
     legacy_archive.py            Compatibility-launch output archival
     legacy_runner.py             Version 1 render and launch implementation
-    legacy_status.py             Unowned process, scheduler, and file status
 
   programs/<name>/               Per-program plugins
     nwchem/                      101 tools: input drafting, TCE, freq restart, HPC

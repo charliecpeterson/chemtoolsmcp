@@ -33,6 +33,8 @@ Direct Python code should import the module that owns the operation:
 | `chemtools.mcp.tools.nwchem` | `chemtools.mcp.tools._nwchem_provider` or a focused handler module |
 | `chemtools.execution.executors` | `chemtools.execution` or the specific executor module |
 | `chemtools.execution.legacy_profiles` | `chemtools.execution.profiles` |
+| `chemtools.execution.legacy_status` | `chemtools.execution.external_status` for file or explicit Slurm inspection |
+| `chemtools.programs.nwchem.legacy_status` | `chemtools.programs.nwchem.external_status` |
 
 Do not replace the old broad facade with another broad facade. Existing
 scripts in this repository show the intended focused import paths.
@@ -46,6 +48,13 @@ ordinary code should import the focused handler module that owns the operation.
 Its exports were exact identities from `chemtools.execution.profiles`, which
 remains the owner of the unchanged version 1 profile schema and conversion
 functions.
+
+The two `legacy_status` modules were replaced after `v0.1.0`. Their retained
+contract is read-only file inspection and external Slurm attachment through an
+explicit profile and job ID. Arbitrary PID probing, PBS and LSF status parsing,
+`.jobid` inference, and direct Python cancellation wrappers were removed.
+Cancellation through MCP still requires a launch owned by the current
+execution service.
 
 ## Removal gate
 

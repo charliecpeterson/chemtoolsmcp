@@ -1,15 +1,13 @@
-"""Legacy process, scheduler, file, and optional output inspection.
+"""Inspect files or attach read-only status to an external Slurm job.
 
-Typed execution owns new launch status. These functions preserve the version 1
-profile behavior used for unowned identifiers and direct Python callers.
+Owned launches use the execution service. This module covers calculations
+started elsewhere without probing arbitrary local processes or cancelling jobs.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import os
 from pathlib import Path
-import re
 import shlex
 import subprocess
 from typing import Any
@@ -31,7 +29,6 @@ def inspect_run_status(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -39,43 +36,12 @@ def inspect_run_status(
     progress_summary_fn: Any = None,
 ) -> dict[str, Any]:
     output_info = _file_info(output_path)
+    input_info = _file_info(input_path)
     error_info = _file_info(error_path)
-    process_status = _process_status(process_id)
-    jobid_stale_warning = None
-    if job_id is None:
-        jobid_file = _auto_jobid_path(output_path, input_path)
-        if jobid_file is not None:
-            try:
-                job_id = (
-                    jobid_file.read_text(encoding="utf-8").strip()
-                    or None
-                )
-            except Exception:
-                pass
-    if job_id:
-        resolved_error_path = error_path
-        if not resolved_error_path:
-            for candidate_path in (output_path, input_path):
-                if not candidate_path:
-                    continue
-                base = re.sub(
-                    r"\.(out|nw|log|nwout)$",
-                    "",
-                    str(Path(candidate_path).resolve()),
-                    flags=re.IGNORECASE,
-                )
-                candidate = Path(base + ".err")
-                if candidate.exists():
-                    resolved_error_path = str(candidate)
-                    break
-        error_job_id = _extract_job_id_from_err(resolved_error_path)
-        if error_job_id and error_job_id != job_id:
-            jobid_stale_warning = (
-                f"Stale .jobid detected: file says {job_id} but .err "
-                f"references job {error_job_id}. Using {error_job_id} "
-                "from .err (more recent)."
-            )
-            job_id = error_job_id
+    if (profile is None) != (job_id is None):
+        raise ValueError(
+            "external Slurm inspection requires both profile and job_id"
+        )
 
     scheduler_status = None
     if profile and job_id:
@@ -92,7 +58,6 @@ def inspect_run_status(
         except Exception:  # pragma: no cover
             input_raw_text = None
 
-    input_summary = None
     parsed_output = None
     compact_summary = None
     progress_summary = None
@@ -107,7 +72,6 @@ def inspect_run_status(
                 input_raw_text=input_raw_text,
                 progress_summary_fn=progress_summary_fn,
             )
-            input_summary = output_status.get("input_summary")
             parsed_output = output_status.get("parsed_output")
             progress_summary = output_status.get("progress_summary")
             compact_summary = output_status.get("compact_summary")
@@ -125,7 +89,7 @@ def inspect_run_status(
     )
     if scheduler_state == "queued":
         overall_status = "queued"
-    elif scheduler_state == "running" or process_status == "running":
+    elif scheduler_state == "running":
         overall_status = "running"
     elif outcome == "success":
         overall_status = "completed_success"
@@ -147,17 +111,13 @@ def inspect_run_status(
     status = {
         "output_file": output_info,
         "input_file": {
-            "path": (
-                str(Path(input_path).resolve())
-                if input_path
-                else None
-            ),
-            "exists": bool(input_summary),
+            "path": input_info["path"],
+            "exists": input_info["exists"],
         },
         "error_file": error_info,
         "process": {
-            "process_id": process_id,
-            "status": process_status,
+            "process_id": None,
+            "status": "unknown",
         },
         "scheduler": scheduler_status,
         "output_summary": compact_summary,
@@ -166,8 +126,6 @@ def inspect_run_status(
         "parsed_tasks": parsed_output if not compact_summary else None,
         "overall_status": overall_status,
     }
-    if jobid_stale_warning:
-        status["jobid_stale_warning"] = jobid_stale_warning
     return status
 
 
@@ -176,7 +134,6 @@ def watch_run(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -195,7 +152,6 @@ def watch_run(
             output_path=output_path,
             input_path=input_path,
             error_path=error_path,
-            process_id=process_id,
             profile=profile,
             job_id=job_id,
             profiles_path=profiles_path,
@@ -247,88 +203,6 @@ def tail_text_file(
     }
 
 
-def cancel_scheduler_job(
-    profile: str,
-    job_id: str,
-    profiles_path: str | None = None,
-) -> dict[str, Any]:
-    """Send the configured cancel command for a legacy scheduler job."""
-    profiles = load_runner_profiles(profiles_path)
-    profile_payload = _resolve_profile(profiles, profile)
-    launcher = profile_payload.get("launcher", {})
-    cancel_template = launcher.get("cancel_command")
-    if not cancel_template:
-        return {
-            "job_id": job_id,
-            "cancelled": False,
-            "error": "no cancel_command configured in profile",
-        }
-    command = shlex.split(
-        _format_template(cancel_template, {"job_id": job_id})
-    )
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-        return {
-            "job_id": job_id,
-            "cancelled": completed.returncode == 0,
-            "command": command,
-            "return_code": completed.returncode,
-            "stdout": completed.stdout,
-            "stderr": completed.stderr,
-        }
-    except Exception as exc:
-        return {
-            "job_id": job_id,
-            "cancelled": False,
-            "command": command,
-            "error": str(exc),
-        }
-
-
-def _auto_jobid_path(
-    output_path: str | None,
-    input_path: str | None,
-) -> Path | None:
-    for path in (output_path, input_path):
-        if not path:
-            continue
-        base = re.sub(
-            r"\.(out|nw|log|nwout|err)$",
-            "",
-            str(Path(path).resolve()),
-            flags=re.IGNORECASE,
-        )
-        candidate = Path(base + ".jobid")
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _extract_job_id_from_err(error_path: str | None) -> str | None:
-    if not error_path:
-        return None
-    try:
-        path = Path(error_path)
-        if not path.exists() or path.stat().st_size == 0:
-            return None
-        text = path.read_text(
-            encoding="utf-8",
-            errors="replace",
-        )[-4096:]
-        matches = re.findall(r"JOB\s+(\d+)\s+ON", text)
-        if matches:
-            return matches[-1]
-    except Exception:
-        pass
-    return None
-
-
 def _file_info(path: str | None) -> dict[str, Any]:
     if not path:
         return {
@@ -357,42 +231,6 @@ def _file_info(path: str | None) -> dict[str, Any]:
     }
 
 
-def _process_status(process_id: int | None) -> str:
-    if process_id is None:
-        return "unknown"
-    try:
-        waited_pid, _ = os.waitpid(process_id, os.WNOHANG)
-        if waited_pid == process_id:
-            return "exited"
-    except ChildProcessError:
-        pass
-    except OSError:  # pragma: no cover
-        pass
-    try:
-        os.kill(process_id, 0)
-    except ProcessLookupError:
-        return "not_found"
-    except PermissionError:
-        return "permission_denied"
-    try:
-        completed = subprocess.run(
-            ["ps", "-o", "stat=", "-p", str(process_id)],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10,
-        )
-        if completed.returncode == 0:
-            state = completed.stdout.strip()
-            if not state:
-                return "not_found"
-            if "Z" in state.upper():
-                return "zombie"
-    except Exception:  # pragma: no cover
-        pass
-    return "running"
-
-
 _SLURM_STATE_MAP = {
     "PENDING": "queued",
     "CONFIGURING": "queued",
@@ -412,30 +250,6 @@ _SLURM_STATE_MAP = {
     "CANCELLED": "cancelled",
 }
 
-_PBS_STATE_MAP = {
-    "Q": "queued",
-    "H": "queued",
-    "W": "queued",
-    "T": "queued",
-    "S": "queued",
-    "R": "running",
-    "E": "running",
-    "C": "completed",
-    "F": "failed",
-}
-
-_LSF_STATE_MAP = {
-    "PEND": "queued",
-    "PSUSP": "queued",
-    "USUSP": "queued",
-    "SSUSP": "queued",
-    "RUN": "running",
-    "DONE": "completed",
-    "EXIT": "failed",
-    "ZOMBI": "failed",
-    "UNKWN": "unknown",
-}
-
 
 def _scheduler_status(
     profile: str,
@@ -451,6 +265,10 @@ def _scheduler_status(
         scheduler.get("system")
         or launcher.get("scheduler_type", "slurm")
     ).lower()
+    if scheduler_type != "slurm":
+        raise ValueError(
+            "external scheduler inspection supports only Slurm profiles"
+        )
 
     if not status_template:
         return {
@@ -490,24 +308,7 @@ def _scheduler_status(
 
     stdout = completed.stdout.strip()
     raw_state = None
-    if scheduler_type == "slurm":
-        normalized, raw_state = _slurm_status(stdout)
-    elif scheduler_type == "pbs":
-        normalized, raw_state = _pbs_status(
-            stdout,
-            completed.returncode,
-        )
-    elif scheduler_type == "lsf":
-        normalized, raw_state = _lsf_status(
-            stdout,
-            completed.returncode,
-        )
-    else:
-        normalized = (
-            "running"
-            if completed.returncode == 0 and stdout
-            else "not_found"
-        )
+    normalized, raw_state = _slurm_status(stdout)
 
     return {
         "job_id": job_id,
@@ -537,42 +338,7 @@ def _slurm_status(stdout: str) -> tuple[str, str | None]:
     return "not_found", None
 
 
-def _pbs_status(
-    stdout: str,
-    return_code: int,
-) -> tuple[str, str | None]:
-    match = re.search(
-        r"job_state\s*=\s*(\w+)",
-        stdout,
-        re.IGNORECASE,
-    )
-    if match:
-        raw_state = match.group(1).upper()
-        return _PBS_STATE_MAP.get(raw_state, "unknown"), raw_state
-    if not stdout and return_code != 0:
-        return "not_found", None
-    return "unknown", None
-
-
-def _lsf_status(
-    stdout: str,
-    return_code: int,
-) -> tuple[str, str | None]:
-    lines = [line for line in stdout.splitlines() if line.strip()]
-    if len(lines) >= 2:
-        header = lines[0].split()
-        values = lines[1].split()
-        if "STAT" in header and len(values) > header.index("STAT"):
-            raw_state = values[header.index("STAT")].upper()
-            return _LSF_STATE_MAP.get(raw_state, "unknown"), raw_state
-        return "unknown", None
-    if not stdout and return_code != 0:
-        return "not_found", None
-    return "unknown", None
-
-
 __all__ = [
-    "cancel_scheduler_job",
     "inspect_run_status",
     "tail_text_file",
     "watch_run",

@@ -1,4 +1,4 @@
-"""Compatibility fallbacks for DIRAC status and watch handlers."""
+"""External Slurm fallbacks for DIRAC status and watch handlers."""
 
 import chemtools.application.dirac_monitoring as dirac_monitoring
 import chemtools.application.execution_monitoring as execution_monitoring
@@ -11,7 +11,7 @@ from chemtools.mcp.tools.dirac import (
 )
 
 
-def test_unowned_dirac_job_uses_legacy_status_and_watch(monkeypatch):
+def test_unowned_dirac_job_uses_external_status_and_watch(monkeypatch):
     status_calls = []
     watch_calls = []
 

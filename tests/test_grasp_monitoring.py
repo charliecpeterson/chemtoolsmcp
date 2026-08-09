@@ -1,4 +1,4 @@
-"""Compatibility fallbacks for GRASP status and watch handlers."""
+"""External Slurm fallbacks for GRASP status and watch handlers."""
 
 import chemtools.application.execution_monitoring as execution_monitoring
 import chemtools.application.grasp_monitoring as grasp_monitoring
@@ -11,7 +11,7 @@ from chemtools.mcp.tools.grasp import (
 )
 
 
-def test_unowned_grasp_job_uses_legacy_status_and_watch(monkeypatch):
+def test_unowned_grasp_job_uses_external_status_and_watch(monkeypatch):
     status_calls = []
     watch_calls = []
 

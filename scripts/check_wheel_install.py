@@ -67,7 +67,7 @@ from chemtools.execution.legacy_runner import (
     get_local_resource_budget as compatible_get_local_resource_budget,
     query_partition_specs as compatible_query_partition_specs,
 )
-from chemtools.execution.legacy_status import inspect_run_status
+from chemtools.execution.external_status import inspect_run_status
 from chemtools.execution.profiles import (
     DEFAULT_RUNNER_PROFILES,
     load_runner_profiles,
@@ -89,7 +89,7 @@ from chemtools.programs.nwchem._plugin_examples import NWCHEM_EXAMPLES
 from chemtools.programs.nwchem.docs import list_docs as list_nwchem_docs
 from chemtools.programs.nwchem.input.general import create_nwchem_input
 from chemtools.programs.nwchem.input.lint_restart import lint_nwchem_input
-from chemtools.programs.nwchem.legacy_status import inspect_nwchem_run_status
+from chemtools.programs.nwchem.external_status import inspect_nwchem_run_status
 from chemtools.programs.nwchem.input.basis_library import (
     bundled_basis_library_path,
 )
@@ -136,8 +136,8 @@ inspection = dispatch_tool(
     "inspect_run",
     {"output_file": str(fixture), "program": "nwchem"},
 )
-generic_legacy_status = inspect_run_status(output_path=str(fixture))
-nwchem_legacy_status = inspect_nwchem_run_status(output_path=str(fixture))
+generic_external_status = inspect_run_status(output_path=str(fixture))
+nwchem_external_status = inspect_nwchem_run_status(output_path=str(fixture))
 reference_cases = find_reference_cases(
     "open-shell fragment guess",
     program="nwchem",
@@ -161,6 +161,7 @@ assert api_strategy.check_spin_charge_state is check_spin_charge_state
 assert api_strategy.suggest_hpc_resources is suggest_hpc_resources
 assert chemtools.create_nwchem_input is create_nwchem_input
 assert chemtools.suggest_hpc_resources is suggest_hpc_resources
+assert not hasattr(chemtools, "terminate_nwchem_run")
 assert compatible_connect_registry is connect_registry
 assert compatible_register_run is register_run
 assert compatible_record_run_artifacts is record_run_artifacts
@@ -173,9 +174,13 @@ assert package_version("chemtools-mcp") == SERVER_VERSION
 assert importlib.util.find_spec("chemtools.mcp.tools._nwchem_base") is None
 assert importlib.util.find_spec("chemtools.mcp.tools.nwchem") is None
 assert importlib.util.find_spec("chemtools.execution.legacy_profiles") is None
+assert importlib.util.find_spec("chemtools.execution.legacy_status") is None
+assert importlib.util.find_spec("chemtools.programs.nwchem.legacy_status") is None
 assert "chemtools.mcp.tools._nwchem_base" not in sys.modules
 assert "chemtools.mcp.tools.nwchem" not in sys.modules
 assert "chemtools.execution.legacy_profiles" not in sys.modules
+assert "chemtools.execution.legacy_status" not in sys.modules
+assert "chemtools.programs.nwchem.legacy_status" not in sys.modules
 assert examples
 assert NWCHEM_EXAMPLES.read_example(examples[0]["name"]).strip()
 assert inspection.get("error") is None
@@ -183,10 +188,10 @@ assert inspection["schema_version"] == "chemtools.inspect-run/1"
 assert inspection["program"]["name"] == "nwchem"
 assert inspection["assessment"]["verdict"]["label"] == "success"
 assert len(inspection["evidence"]["tasks"]) == 1
-assert generic_legacy_status["overall_status"] == "output_present_unknown"
-assert generic_legacy_status["progress_summary"] is None
-assert nwchem_legacy_status["overall_status"] == "completed_success"
-assert nwchem_legacy_status["output_summary"]["task_count"] == 1
+assert generic_external_status["overall_status"] == "output_present_unknown"
+assert generic_external_status["progress_summary"] is None
+assert nwchem_external_status["overall_status"] == "completed_success"
+assert nwchem_external_status["output_summary"]["task_count"] == 1
 assert inspection["next_actions"][0]["action"] == (
     inspection["next_actions"][0]["tool"]
 )
@@ -231,7 +236,7 @@ print(json.dumps({
     "nwchem_document_count": len(nwchem_documents),
     "nwchem_example_count": len(examples),
     "inspection_verdict": inspection["assessment"]["verdict"]["label"],
-    "legacy_status_boundary": True,
+    "external_status_boundary": True,
     "inspection_next_action": inspection["next_actions"][0]["action"],
     "reference_case_count": reference_cases["match_count"],
     "installed_extras": extras,

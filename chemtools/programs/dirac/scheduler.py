@@ -1,6 +1,7 @@
 """DIRAC scheduler runner wrappers.
 
-Submits / monitors / cancels DIRAC ``pam-dirac`` jobs through an HPC scheduler.
+Renders and submits DIRAC ``pam-dirac`` jobs, then exposes read-only file and
+explicit external Slurm inspection.
 DIRAC has one special wrinkle relative to NWChem and Molcas: ``pam-dirac``
 needs *both* a ``--inp=`` and ``--mol=`` argument, so the script_template
 references both ``{input_file}`` and ``{mol_file}``. ``launch_dirac_run``
@@ -18,10 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from chemtools.execution.legacy_runner import (
-    cancel_scheduler_job,
-    inspect_run_status,
     render_calculation_run,
     run_calculation,
+)
+from chemtools.execution.external_status import (
+    inspect_run_status,
     watch_run,
 )
 
@@ -80,22 +82,19 @@ def launch_dirac_run(
         context_overrides=overrides,
     )
 
-
 def get_dirac_run_status(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
-    """Non-blocking status for a DIRAC job (HPC or local)."""
+    """Inspect DIRAC files or an explicitly identified external Slurm job."""
     return inspect_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -106,7 +105,6 @@ def watch_dirac_run(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -122,7 +120,6 @@ def watch_dirac_run(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -132,20 +129,4 @@ def watch_dirac_run(
         timeout_seconds=timeout_seconds,
         max_polls=max_polls,
         history_limit=history_limit,
-    )
-
-
-def terminate_dirac_run(
-    job_id: str,
-    profile: str,
-    *,
-    profiles_path: str | None = None,
-) -> dict[str, Any]:
-    """Cancel a DIRAC job via the scheduler's cancel_command."""
-    if not job_id:
-        raise ValueError("job_id is required to cancel a DIRAC scheduler job")
-    if not profile:
-        raise ValueError("profile is required to resolve the cancel_command")
-    return cancel_scheduler_job(
-        profile=profile, job_id=job_id, profiles_path=profiles_path,
     )

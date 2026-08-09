@@ -1,12 +1,12 @@
-"""Compose generic legacy job status with NWChem progress inspection."""
+"""Compose external file or Slurm status with NWChem progress inspection."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from chemtools.execution.legacy_status import inspect_run_status, watch_run
+from chemtools.execution.external_status import inspect_run_status, watch_run
 from chemtools.programs.nwchem.strategy.progress import (
-    inspect_legacy_status_output,
+    inspect_external_status_output,
 )
 
 
@@ -15,7 +15,6 @@ def inspect_nwchem_run_status(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -25,11 +24,10 @@ def inspect_nwchem_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
-        output_status_reader=inspect_legacy_status_output,
+        output_status_reader=inspect_external_status_output,
         progress_summary_fn=progress_summary_fn,
     )
 
@@ -39,7 +37,6 @@ def watch_nwchem_run_status(
     output_path: str | None = None,
     input_path: str | None = None,
     error_path: str | None = None,
-    process_id: int | None = None,
     profile: str | None = None,
     job_id: str | None = None,
     profiles_path: str | None = None,
@@ -56,7 +53,6 @@ def watch_nwchem_run_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -67,7 +63,7 @@ def watch_nwchem_run_status(
         max_polls=max_polls,
         history_limit=history_limit,
         stall_timeout_seconds=stall_timeout_seconds,
-        output_status_reader=inspect_legacy_status_output,
+        output_status_reader=inspect_external_status_output,
         progress_summary_fn=progress_summary_fn,
     )
 

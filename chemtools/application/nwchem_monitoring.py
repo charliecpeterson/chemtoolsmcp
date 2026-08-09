@@ -44,11 +44,6 @@ def inspect_nwchem_status_with_service(
             profile=profile,
         )
 
-    inspected_process_id = (
-        None
-        if recorded_local is not None
-        else process_id
-    )
     inspected_profile = profile
     inspected_job_id = job_id
     if recorded_slurm is not None:
@@ -59,7 +54,6 @@ def inspect_nwchem_status_with_service(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=inspected_process_id,
         profile=inspected_profile,
         job_id=inspected_job_id,
         profiles_path=profiles_path,

@@ -15,7 +15,6 @@ from __future__ import annotations
 import math
 import os
 import shlex
-import signal
 from pathlib import Path
 from typing import Any
 
@@ -25,14 +24,13 @@ from chemtools.programs.nwchem.strategy.diagnose import (
     parse_scf,
 )
 from chemtools.execution.legacy_runner import (
-    cancel_scheduler_job,
     render_calculation_run,
     run_calculation,
-    tail_text_file,
 )
+from chemtools.execution.external_status import tail_text_file
 from chemtools.execution.profiles import load_runner_profiles
-from chemtools.programs.nwchem.legacy_status import (
-    inspect_nwchem_run_status as inspect_legacy_nwchem_status,
+from chemtools.programs.nwchem.external_status import (
+    inspect_nwchem_run_status as inspect_external_nwchem_status,
     watch_nwchem_run_status as watch_run_payload,
 )
 from chemtools.programs.nwchem.parse.freq import parse_trajectory
@@ -207,11 +205,15 @@ def check_nwchem_run_status(
     job_id: str | None = None,
     profiles_path: str | None = None,
 ) -> dict[str, Any]:
-    return inspect_legacy_nwchem_status(
+    if process_id is not None:
+        raise ValueError(
+            "arbitrary process IDs are not supported; inspect an owned "
+            "launch through ExecutionService"
+        )
+    return inspect_external_nwchem_status(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -282,55 +284,6 @@ def review_nwchem_progress(
     }
 
 
-def terminate_nwchem_run(
-    process_id: int | None = None,
-    signal_name: str = "term",
-    job_id: str | None = None,
-    profile: str | None = None,
-    profiles_path: str | None = None,
-) -> dict[str, Any]:
-    """Stop a running NWChem job.
-
-    For local runs: provide ``process_id`` and optionally ``signal_name``.
-    For HPC scheduler jobs: provide ``job_id`` and ``profile`` (calls cancel_command).
-    """
-    if job_id is not None:
-        if not profile:
-            raise ValueError("profile is required when cancelling a scheduler job by job_id")
-        return cancel_scheduler_job(profile=profile, job_id=job_id, profiles_path=profiles_path)
-
-    if process_id is None:
-        raise ValueError("Either process_id (local) or job_id + profile (HPC) must be provided")
-
-    normalized = signal_name.strip().lower()
-    if normalized in {"term", "sigterm", "terminate"}:
-        sig = signal.SIGTERM
-        used = "SIGTERM"
-    elif normalized in {"kill", "sigkill"}:
-        sig = signal.SIGKILL
-        used = "SIGKILL"
-    else:
-        raise ValueError("signal_name must be one of: term, kill")
-
-    try:
-        os.kill(process_id, sig)
-        sent = True
-        error = None
-    except ProcessLookupError:
-        sent = False
-        error = "process_not_found"
-    except PermissionError:
-        sent = False
-        error = "permission_denied"
-
-    return {
-        "process_id": process_id,
-        "signal": used,
-        "sent": sent,
-        "error": error,
-    }
-
-
 def render_job_script(
     input_path: str,
     profile: str,
@@ -388,11 +341,15 @@ def watch_nwchem_run(
     history_limit: int = 8,
     stall_timeout_seconds: float | None = 1800.0,
 ) -> dict[str, Any]:
+    if process_id is not None:
+        raise ValueError(
+            "arbitrary process IDs are not supported; watch an owned "
+            "launch through ExecutionService"
+        )
     watched = watch_run_payload(
         output_path=output_path,
         input_path=input_path,
         error_path=error_path,
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         profiles_path=profiles_path,
@@ -409,7 +366,6 @@ def watch_nwchem_run(
             output_path=output_path,
             input_path=input_path,
             error_path=error_path,
-            process_id=process_id,
             profile=profile,
             job_id=job_id,
             profiles_path=profiles_path,
@@ -448,7 +404,7 @@ def watch_multiple_nwchem_runs(
     jobs:
         List of job descriptors, each with any of:
         ``{"input_file": ..., "output_file": ..., "job_id": ..., "label": ...}``.
-        ``input_file`` is used to auto-detect the ``.jobid`` file.
+        External Slurm jobs require both ``job_id`` and ``profile``.
     profile:
         Runner profile name (used by all jobs; overridden per job if ``"profile"`` key present).
     poll_interval_seconds:
@@ -464,12 +420,18 @@ def watch_multiple_nwchem_runs(
     # Normalize job descriptors
     job_states: list[dict[str, Any]] = []
     for j in jobs:
+        job_id = j.get("job_id")
+        job_profile = j.get("profile") or profile
+        if (job_profile is None) != (job_id is None):
+            raise ValueError(
+                "each external Slurm job requires both profile and job_id"
+            )
         job_states.append({
             "label": j.get("label") or Path(j.get("input_file", "job")).stem,
             "input_file": j.get("input_file"),
             "output_file": j.get("output_file"),
-            "job_id": j.get("job_id"),
-            "profile": j.get("profile") or profile,
+            "job_id": job_id,
+            "profile": job_profile,
             "status": "unknown",
             "terminal": False,
         })
@@ -492,9 +454,6 @@ def watch_multiple_nwchem_runs(
                 )
                 js["status"] = status.get("overall_status", "unknown")
                 js["terminal"] = js["status"] in _TERMINAL
-                # Auto-persist detected job_id for future polls
-                if not js["job_id"]:
-                    js["job_id"] = (status.get("scheduler") or {}).get("job_id")
             except Exception as exc:
                 js["status"] = f"error: {exc}"
 

@@ -1,19 +1,14 @@
 """Legacy profile rendering and program-neutral runner functions.
 
 This module retains resource inspection plus version 1 render and launch
-behavior. Profile loading lives in ``execution.profiles``; generic process,
-scheduler, and file status live in ``execution.legacy_status``.
-NWChem progress is injected by its program adapter rather than imported here.
+behavior. Profile loading lives in ``execution.profiles``.
 
 Program-neutral entry points:
 
   run_calculation
   render_calculation_run
-  inspect_run_status      (accepts an output status reader)
-  watch_run               (accepts an output status reader)
-
 The NWChem run and render aliases remain because those operations are program
-neutral. NWChem status compatibility lives in its program adapter.
+neutral.
 """
 
 from __future__ import annotations
@@ -38,12 +33,6 @@ from chemtools.execution.profiles import (
     declared_program_installation,
     load_runner_profiles,
     resolve_runner_profile,
-)
-from chemtools.execution.legacy_status import (
-    cancel_scheduler_job,
-    inspect_run_status,
-    tail_text_file,
-    watch_run,
 )
 from chemtools.execution.resource_inspection import (
     _detect_local_cpu_arch,

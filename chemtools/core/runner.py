@@ -9,14 +9,15 @@ from chemtools.execution.legacy_runner import (
     _render_submit_command,
     archive_paths,
     archive_previous_outputs,
-    cancel_scheduler_job,
     get_local_resource_budget,
-    inspect_run_status,
     query_partition_specs,
     render_calculation_run,
     render_nwchem_run,
     run_calculation,
     run_nwchem,
+)
+from chemtools.execution.external_status import (
+    inspect_run_status,
     tail_text_file,
     watch_run,
 )
@@ -29,7 +30,7 @@ from chemtools.execution.profiles import (
     load_runner_profiles,
     resolve_runner_profile,
 )
-from chemtools.programs.nwchem.legacy_status import (
+from chemtools.programs.nwchem.external_status import (
     inspect_nwchem_run_status,
     watch_nwchem_run_status as watch_nwchem_run,
 )
@@ -39,7 +40,6 @@ __all__ = [
     "RUNNER_PROFILES_ENV",
     "archive_paths",
     "archive_previous_outputs",
-    "cancel_scheduler_job",
     "declared_program_installation",
     "get_local_resource_budget",
     "inspect_nwchem_run_status",

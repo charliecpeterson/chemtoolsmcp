@@ -1,4 +1,4 @@
-"""Shared polling behavior for legacy and typed calculation status readers."""
+"""Shared polling behavior for external and typed status readers."""
 
 from chemtools.core.monitoring import watch_run_status
 
@@ -29,7 +29,7 @@ def test_typed_not_found_does_not_infer_terminal_state():
     assert watched["poll_count"] == 1
 
 
-def test_legacy_not_found_with_output_keeps_compatibility_behavior():
+def test_external_not_found_with_output_uses_file_completion_evidence():
     watched = watch_run_status(
         lambda: _status({"status": "not_found"}),
         poll_interval_seconds=0,

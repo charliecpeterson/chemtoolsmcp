@@ -478,8 +478,10 @@ contracts, with concrete program and execution adapters composed at startup.
   - [x] Retain low-level NWChem, QE, QMCPACK, Molcas, DIRAC, and GRASP launch
         calls behind explicit program or developer toolsets. QE and QMCPACK
         have no guided execution replacement, and the Molcas, DIRAC, and GRASP
-        adapters still use their scheduler wrappers for previews or unowned
-        status. Remove a call only after a guided provider passes accepted
+        adapters still use their scheduler wrappers for previews. Their
+        unowned-status behavior was retained through `v0.1.0`, then narrowed
+        to file and explicit external Slurm inspection. Remove a call only
+        after a guided provider passes accepted
         reference cases or the owner explicitly drops execution for that
         program. See
         [notes/low-level-execution-retention-audit.md](notes/low-level-execution-retention-audit.md).
@@ -502,11 +504,17 @@ contracts, with concrete program and execution adapters composed at startup.
         included the focused module, preserved the old import identities, and
         passed the guided MCP exchange.
   - [x] Decide whether arbitrary unowned PID, scheduler-ID, PBS, and LSF
-        inspection remains a direct Python workflow. Keep read-only file
-        inspection and Slurm job attachment through an explicit profile and
-        job ID. Retire arbitrary PID, PBS, and LSF inspection after the final
-        compatibility release and migration window. Keep cancellation limited
-        to launches owned by the execution service; see
+        inspection remains a direct Python workflow. After `v0.1.0`, replace
+        both `legacy_status` modules with focused file and explicit external
+        Slurm inspection. Remove arbitrary PID probing, PBS and LSF parsing,
+        `.jobid` inference, and direct Python cancellation wrappers. Owned
+        local status and MCP cancellation stay in the execution service.
+        Focused status, monitoring, execution, schema, and inventory checks
+        passed 109 tests, followed by all 1,899 tests with the external
+        corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+        `4c5b6fba061968a2016510792523d9466edd290d41a9da87111b13084b8eccf7`
+        confirmed both old modules are absent, and the repository-local
+        `venv` contains that wheel; see
         [notes/unowned-status-scope-audit.md](notes/unowned-status-scope-audit.md).
   - [ ] Remove legacy response projection after its six low-level program
         adapters leave or version their response contracts.

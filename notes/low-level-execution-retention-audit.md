@@ -51,10 +51,10 @@ Define each program's guided launch result first, then retire the extra version
 1 fields with the low-level response contract.
 
 Molcas and DIRAC application adapters use their scheduler wrappers to preserve
-the current preview contract before a typed launch. Their monitoring adapters
-also use the wrappers for unowned status inspection. GRASP retains the same
-unowned monitoring fallback, while its typed launch path owns workflow and
-interactive execution.
+the current preview contract before a typed launch. GRASP does the same while
+its typed launch path owns workflow and interactive execution. After the final
+compatibility release, their monitoring fallbacks were narrowed to file-only
+inspection and explicit external Slurm attachment.
 
 ## Consequences
 
@@ -64,8 +64,9 @@ interactive execution.
   program-specific arguments, artifacts, and failure behavior.
 - Do not build a second generic runner layer. Reuse the typed execution service
   and add a small program-owned launch provider when a backend is promoted.
-- Treat the program scheduler wrappers and unowned status functions as active
-  compatibility code, not immediate deletion candidates.
+- Treat the program scheduler render and launch wrappers as active
+  compatibility code. The status wrappers now delegate to the focused
+  external-status owner.
 
 The next engineering target is narrower: remove old renderer calls only when a
 typed program plan already supplies the same preview and launch behavior.

@@ -333,14 +333,9 @@ def _record_terminal_nwchem_artifacts(
 def refresh_nwchem_local_status_with_service(
     service: ExecutionService,
     process_id: int,
-) -> RecordedLocalStatus | None:
+) -> RecordedLocalStatus:
     """Refresh an owned local launch and synchronize its linked NWChem run."""
-    try:
-        recorded = service.refresh_local_status_external(process_id)
-    except LaunchStatusError as exc:
-        if exc.as_dict()["error"] == "launch_not_owned":
-            return None
-        raise
+    recorded = service.refresh_local_status_external(process_id)
     record = recorded.record
     if record.program != "nwchem":
         raise ValueError(

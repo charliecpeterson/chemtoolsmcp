@@ -245,8 +245,8 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/execution/legacy_archive.py` | Timestamped, collision-safe archival of existing compatibility-launch outputs | Legacy output policy | Application adapters import this focused owner. Preserve exact imports from `legacy_runner.py` until its direct Python surface is removed. |
 | `chemtools/execution/resource_inspection.py` | Local CPU and memory budgeting plus Slurm and PBS partition discovery | Target resource inspection | Keep scheduler discovery separate from chemistry advice and version 1 launch rendering. Replace dictionary results only when a typed target inventory has a real caller. |
 | `chemtools/execution/legacy_runner.py` | Version 1 script rendering, launch behavior, and neutral compatibility imports | Legacy render and launch adapter | Keep implementation out of core. Remove it with version 1 profiles after named targets cover the retained workflows. |
-| `chemtools/execution/legacy_status.py` | Inspects unowned PIDs, legacy Slurm, PBS, and LSF jobs, files, output tails, and scheduler cancellation; accepts an optional output-status reader | Legacy status compatibility adapter | Keep typed owned execution and program imports out. Retain this path for unowned identifiers and direct Python callers until compatibility removal. |
-| `chemtools/programs/nwchem/legacy_status.py` | Injects the NWChem progress reader into generic legacy status and watch operations | NWChem compatibility adapter | Preserve the old NWChem status payload while keeping execution program-neutral. Remove with the version 1 status surface. |
+| `chemtools/execution/external_status.py` | Read-only file inspection and explicit external Slurm attachment with optional output interpretation | External-run inspection adapter | Keep process probing, cancellation, PBS, LSF, `.jobid` inference, and program imports out. |
+| `chemtools/programs/nwchem/external_status.py` | Adds the NWChem progress reader to external file and Slurm status | NWChem external-run adapter | Keep NWChem interpretation in the backend while sharing file and Slurm evidence. |
 | `chemtools/persistence/launches.py` | SQLite persistence and state-transition checks for execution launch records, including staging manifests, terminal metadata, and launch/run link lookup | Persistence adapter | Keep command and staging intent separate from artifact bytes. Local and Slurm NWChem completion use the link to synchronize the run; other programs still need the same integration. |
 | `chemtools/execution/launch_registry.py` | Exact imports from `persistence/launches.py` | Compatibility facade | Preserve direct Python imports through the final compatibility release. No persistence implementation belongs here. |
 | `chemtools/core/runner.py` | Exact imports from the neutral execution owner and NWChem status adapter | Compatibility facade | Keep old Python imports stable through the final compatibility release. No implementation belongs here. |
@@ -260,17 +260,17 @@ the old dispatcher can leave with its compatibility callers.
 | `chemtools/programs/grasp/launch.py` | Builds typed shell-workflow and interactive plans, declares reviewed GRASP entrypoints, and adapts direct or Slurm version 1 profiles into container targets | GRASP launch-plan provider and compatibility adapter | Keep executable selection, stdin, arguments, and workflow artifact expectations here. Remove the committed default container path with named target configuration. |
 | `chemtools/programs/grasp/runtime.py` | Resolves the compatibility container, retains the direct Python runner, and formats session notes | GRASP compatibility runtime | MCP execution no longer calls its subprocess runner. Keep session formatting stable until session logs become artifact observations, then remove the direct executor after the compatibility window. |
 | `chemtools/programs/grasp/strategy/runner.py` | Coordinates structured workflow steps through an injected runner and applies contained copy actions | GRASP workflow application service | MCP workflows inject the typed execution service. Record step outputs and the working directory as artifact observations when launch records link to scientific runs. |
-| `chemtools/programs/{molcas,dirac,grasp}/scheduler.py` | Thin public wrappers around program-neutral legacy-profile runner functions | Compatibility facade | MCP status and watch calls use typed monitoring for owned launches. Retain these Python entry points for unowned identifiers and direct Python callers during the compatibility window. |
+| `chemtools/programs/{molcas,dirac,grasp}/scheduler.py` | Thin public wrappers around version 1 rendering plus external file and Slurm status | Compatibility facade | MCP status and watch calls use typed monitoring for owned launches. External attachment requires an explicit Slurm profile and job ID. |
 | `chemtools/programs/nwchem/strategy/hpc_resources.py` | Scheduler discovery mixed with NWChem resource advice | NWChem resource provider plus target inspection | Keep basis and method sizing in NWChem. Move account, partition, and hardware queries to target inspection. |
 
 `execution/legacy_runner.py` owns `run_calculation` and
-`render_calculation_run`, and retains compatibility exports for status and
-watch. Profile loading lives in `execution/profiles.py`, while status and watch
-implementations live in `execution/legacy_status.py`. Molcas, DIRAC, and
-GRASP scheduler modules import the neutral names. The old NWChem run and render
-names remain direct aliases. `programs/nwchem/legacy_status.py` injects the
-NWChem progress reader, and `core/runner.py` re-exports the neutral and NWChem
-owners for old direct imports. Execution has no program-package imports.
+`render_calculation_run`. Profile loading lives in `execution/profiles.py`;
+read-only file and external Slurm status live in
+`execution/external_status.py`. Molcas, DIRAC, and GRASP scheduler modules
+import those focused owners. The old NWChem run and render names remain direct
+aliases. `programs/nwchem/external_status.py` injects the NWChem progress
+reader, and `core/runner.py` re-exports the retained owners for old direct
+imports. Execution has no program-package imports.
 
 Guided NWChem preparation no longer calls the legacy renderer. It reads the
 resolved profile through `execution/profiles.py`, builds the program-owned

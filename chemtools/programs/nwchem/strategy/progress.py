@@ -74,7 +74,7 @@ def compact_program_summary(
     return payload
 
 
-def inspect_legacy_status_output(
+def inspect_external_status_output(
     contents: str,
     output_path: str,
     *,

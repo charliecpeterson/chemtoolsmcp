@@ -1106,10 +1106,10 @@ Slurm profiles put module loads in `modules` and scratch initialization in
 `hooks.pre_run`; see
 [`examples/tacc_stampede3/runner_profiles.yaml`](examples/tacc_stampede3/runner_profiles.yaml).
 The existing `prepare_molcas_launch` tool remains a read-only preview. Explicit
-status and watch requests for owned local or Slurm launches now use the typed
-execution record. Unowned identifiers and auto-detected `.jobid` files retain
-the legacy path. Molcas scientific-run registration and artifact observations
-are still pending.
+status and watch requests for owned local or Slurm launches use the typed
+execution record. File-only inspection remains available, and attaching an
+external Slurm job requires an explicit profile and job ID. Molcas
+scientific-run registration and artifact observations are still pending.
 
 DIRAC live launches now use the same tracked direct and Slurm path. The
 program plan records `pam-dirac --mpi`, the paired `.inp` and `.mol`
@@ -1402,18 +1402,18 @@ handles, synchronous execution, status, and signals. `slurm.py` owns batch
 scripts, submission, status, and cancellation. The old `executors.py` import
 path remains as a compatibility facade.
 
-The version 1 profile runner defines program-neutral
-`run_calculation`, `render_calculation_run`, `inspect_run_status`, and
-`watch_run` entry points. Molcas, DIRAC, and GRASP scheduler wrappers use
-those names. The previous NWChem run and render names remain direct aliases
-for existing Python callers. Profile loading and default merging live in
-`execution/profiles.py`. Compatibility-launch output archival lives in
-`execution/legacy_archive.py`. Unowned PID and scheduler inspection, file
-status, tailing, and cancellation live in `execution/legacy_status.py`.
-`programs/nwchem/legacy_status.py` injects the existing NWChem progress reader
-for NWChem callers. The remaining version 1 rendering and launch implementation
-lives in `execution/legacy_runner.py`; `core/runner.py` is now an import-only
-compatibility module.
+The version 1 profile runner defines program-neutral `run_calculation` and
+`render_calculation_run` entry points. Molcas, DIRAC, and GRASP scheduler
+wrappers use those names. The previous NWChem run and render names remain
+direct aliases for existing Python callers. Profile loading and default
+merging live in `execution/profiles.py`. Compatibility-launch output archival
+lives in `execution/legacy_archive.py`. Read-only file inspection and explicit
+external Slurm attachment live in `execution/external_status.py`, with NWChem
+progress added by `programs/nwchem/external_status.py`. Arbitrary local PIDs,
+PBS jobs, LSF jobs, and `.jobid` guessing are not supported. Cancellation
+requires a launch owned by the execution service. The remaining version 1
+rendering and launch implementation lives in `execution/legacy_runner.py`;
+`core/runner.py` is an import-only compatibility module.
 
 Local NWChem status checks and explicit watches now poll only the live process
 handle owned by the execution service. The retained handle remains
@@ -1438,17 +1438,18 @@ same owned status path for local and Slurm launches. Their polling loop
 retains adaptive intervals and compact history while terminal execution state
 updates the launch, linked run, and output observations once. Typed
 `not_found` results continue polling instead of treating an output file as
-proof of completion. The explicit tool checks launch ownership before polling,
-then sends unowned PIDs or job IDs to the legacy watcher without an extra
-process or scheduler query. Watch responses expose their final overall status
-so the MCP can recommend analysis after incomplete or failed output.
+proof of completion. The explicit tool requires local process ownership before
+polling. An unowned Slurm job can be inspected only with an explicit profile
+and job ID. Watch responses expose their final overall status so the MCP can
+recommend analysis after incomplete or failed output.
 
 Molcas, DIRAC, and asynchronous GRASP workflow status and watch tools share
 the same owned execution projection. They use retained local process handles
-or target-owned Slurm queue and accounting queries, persist terminal launch
-state, and keep the legacy watcher for unowned identifiers. These programs do
-not create scientific-run links yet, so the status tools do not claim artifact
-observations or chemistry success from an execution exit code.
+or target-owned Slurm queue and accounting queries and persist terminal launch
+state. Their fallback supports file-only inspection or an explicit external
+Slurm profile and job ID. These programs do not create scientific-run links
+yet, so the status tools do not claim artifact observations or chemistry
+success from an execution exit code.
 
 GRASP per-executable tools remain synchronous and return terminal execution
 results directly. Staged-input hashes and copy provenance still await their
@@ -1484,9 +1485,9 @@ chemtools/
   execution/
     profiles.py                  version 1 profile loading + typed conversion
     resource_inspection.py       local and scheduler hardware discovery
+    external_status.py           read-only file and external Slurm status
     legacy_archive.py            compatibility-launch output archival
     legacy_runner.py             version 1 render and launch implementation
-    legacy_status.py             unowned process, scheduler, and file status
     launch_registry.py           compatibility imports for persistence.launches
   programs/
     nwchem/                      NWChem plugin

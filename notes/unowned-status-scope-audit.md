@@ -1,12 +1,12 @@
 # Unowned status scope audit
 
-Audit date: 2026-08-07
+Audit date: 2026-08-09
 
 The version 1 status adapter combines file inspection, arbitrary local process
 probing, and three scheduler families. Those capabilities do not need the same
 retention decision.
 
-## Active evidence
+## Pre-removal evidence
 
 NWChem, Molcas, DIRAC, and GRASP status and watch tools first try the typed
 execution service. When a process or scheduler identifier is not owned by that
@@ -31,7 +31,7 @@ Unowned cancellation is not part of the typed application contract. Program
 cancellation functions resolve a recorded launch owned by the current service
 instance before sending a signal or scheduler command.
 
-## Approved retained contract
+## Implemented retained contract
 
 After the final compatibility release:
 
@@ -45,7 +45,17 @@ After the final compatibility release:
   is identified before the compatibility release.
 - Continue requiring execution-service ownership for cancellation.
 
-The owner approved this scope on 2026-08-07. Compatibility behavior remains in
-place through the final compatibility release and migration window. Removal
-of PID, PBS, and LSF inspection is release-gated, not part of this decision
-record.
+The owner approved this scope on 2026-08-07. It was implemented on the
+`0.2.0.dev0` line after the `v0.1.0` final compatibility release.
+`execution.external_status` now owns file and explicit Slurm inspection.
+Arbitrary PID probing, PBS and LSF parsing, `.jobid` inference, and direct
+Python cancellation wrappers were removed. Source and installed-wheel absence
+checks cover both former `legacy_status` module paths.
+
+Focused status, monitoring, execution, schema, and inventory checks passed 109
+tests, followed by all 1,899 tests with the external corpus. Base and
+DIRAC-extra isolated installs of wheel SHA-256
+`4c5b6fba061968a2016510792523d9466edd290d41a9da87111b13084b8eccf7`
+confirmed the removed modules are absent, file-only NWChem status still parses,
+the external status API has no `process_id`, and the MCP exchange still exposes
+the eleven guided tools. The repository-local `venv` contains the same wheel.

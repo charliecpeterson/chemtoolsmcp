@@ -3,9 +3,8 @@
 Audit date: 2026-08-07
 
 The legacy execution modules are not ready for wholesale removal. The old
-profile import path is now isolated, but the renderer, response translators,
-unowned status functions, and scheduler wrappers still have first-party
-callers.
+profile import and status paths have been removed, but the renderer, response
+translators, and scheduler launch wrappers still have first-party callers.
 
 ## Profile ownership
 
@@ -38,8 +37,8 @@ Eight first-party runtime modules still import `execution.legacy_runner`:
 
 - NWChem, QE, and QMCPACK application adapters use the old renderer to keep
   their low-level response shapes.
-- The three public scheduler modules still call the old render, launch,
-  status, watch, and cancellation functions.
+- The three public scheduler modules still call the old render and launch
+  functions. Their status and watch calls use `execution.external_status`.
 - The NWChem compatibility runner still calls the old render and launch
   functions.
 - `core/runner.py` remains a pure compatibility facade with no first-party
@@ -61,8 +60,8 @@ Removal gates:
 
 1. Replace each retained low-level preview with direct typed preparation after
    that program has an accepted guided launch provider.
-2. Reimplement retained scheduler calls over typed targets after their unowned
-   status contract is decided.
+2. Reimplement retained scheduler render and launch calls over typed targets
+   without changing their response contracts.
 
 The QE and QMCPACK comparison confirmed that typed plans cover commands and
 artifacts but not the full version 1 preview dictionaries. A shared replacement
@@ -102,25 +101,25 @@ Installed wheel SHA-256
 included the focused owner, preserved the old import identities, and passed
 the guided MCP exchange.
 
-## Legacy status
+## External status
 
-`execution.legacy_status` accepts arbitrary PIDs, scheduler job IDs, output
-paths, `.jobid` files, PBS jobs, and LSF jobs. Guided `monitor_run` accepts
-only a launch ID owned by the current execution service. These are different
-contracts.
+`execution.external_status` now owns the approved retained contract: read-only
+file inspection and attachment to an external Slurm job through an explicit
+profile and job ID. `programs.nwchem.external_status` adds NWChem progress
+interpretation. The three other program scheduler wrappers import the generic
+owner directly.
 
-The old status implementation is still reached through the three scheduler
-wrappers and `programs.nwchem.legacy_status`. Program-specific monitoring
-uses typed status for owned launches, then retains the legacy path for
-unowned identifiers.
-
-Removal gate: decide whether arbitrary unowned process and scheduler
-inspection is still part of the personal Python workflow. If it is retained,
-it needs a clearly named direct API outside the guided surface. If it is not,
-remove the fallback tools and wrappers after the compatibility release.
-
-The current evidence and proposed Slurm-plus-file scope are recorded in
+The post-`v0.1.0` cleanup removed both former `legacy_status` modules,
+arbitrary PID probing, PBS and LSF status parsing, `.jobid` inference, and
+direct Python cancellation wrappers. Local process status and every MCP
+cancellation require a launch owned by the current execution service. The
+decision evidence is recorded in
 [`unowned-status-scope-audit.md`](unowned-status-scope-audit.md).
+
+Focused checks passed 109 tests, followed by all 1,899 tests with the external
+corpus. Base and DIRAC-extra isolated installs of wheel SHA-256
+`4c5b6fba061968a2016510792523d9466edd290d41a9da87111b13084b8eccf7`
+confirmed the removed import paths and retained external-status boundary.
 
 ## Legacy response projection
 

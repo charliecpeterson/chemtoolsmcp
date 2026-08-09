@@ -22,13 +22,8 @@ def refresh_owned_local_status(
     *,
     program: str,
     program_label: str,
-) -> RecordedLocalStatus | None:
-    try:
-        recorded = service.refresh_local_status_external(process_id)
-    except LaunchStatusError as exc:
-        if exc.as_dict()["error"] == "launch_not_owned":
-            return None
-        raise
+) -> RecordedLocalStatus:
+    recorded = service.refresh_local_status_external(process_id)
     if recorded.record.program != program:
         raise ValueError(
             f"local process {process_id} belongs to "

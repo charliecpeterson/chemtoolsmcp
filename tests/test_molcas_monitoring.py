@@ -1,4 +1,4 @@
-"""Compatibility fallbacks for Molcas status and watch handlers."""
+"""External Slurm fallbacks for Molcas status and watch handlers."""
 
 import chemtools.application.molcas_monitoring as molcas_monitoring
 import chemtools.application.execution_monitoring as execution_monitoring
@@ -11,7 +11,7 @@ from chemtools.mcp.tools.molcas import (
 )
 
 
-def test_unowned_molcas_job_uses_legacy_status_and_watch(monkeypatch):
+def test_unowned_molcas_job_uses_external_status_and_watch(monkeypatch):
     status_calls = []
     watch_calls = []
 

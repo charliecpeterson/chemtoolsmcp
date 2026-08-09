@@ -685,10 +685,10 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "get_nwchem_run_status",
             "description": (
-                "Check the status of a NWChem run. For HPC jobs the scheduler job ID is auto-detected "
-                "from {job_name}.jobid alongside the input/output file. Returns scheduler state "
-                "(queued/running/completed/failed/cancelled), parsed output outcome, and a compact "
-                "progress summary for running jobs."
+                "Check NWChem output files, a launch owned by this MCP, or an "
+                "external Slurm job. An external Slurm attachment requires an "
+                "explicit profile and job_id. Arbitrary process IDs, PBS jobs, "
+                "LSF jobs, and auto-detected .jobid files are not accepted."
             ),
             "inputSchema": {
                 "type": "object",
@@ -708,7 +708,9 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
             "name": "watch_nwchem_run",
             "description": (
                 "Poll NWChem status until terminal state or timeout. "
-                "For HPC jobs, omit timeout_seconds to block until scheduler completion. "
+                "A process_id must belong to this MCP; an external Slurm job "
+                "requires an explicit profile and job_id. For HPC jobs, omit "
+                "timeout_seconds to block until scheduler completion. "
                 "Detects output-silent phases (SAD, X2C, freq displacements) as expected. "
                 "Only call directly for local runs or jobs launched with auto_watch=false."
             ),
@@ -753,9 +755,9 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
         {
             "name": "terminate_nwchem_run",
             "description": (
-                "Stop a running NWChem job. "
-                "For local runs: provide process_id and optionally signal_name (term or kill). "
-                "For HPC scheduler jobs: provide job_id and profile (calls scancel/qdel/bkill). "
+                "Stop a NWChem launch owned by this MCP. For local runs, "
+                "provide process_id and optionally signal_name (term or kill). "
+                "For Slurm runs, provide job_id and profile. "
                 "Only call after intervention review has determined the run should stop."
             ),
             "inputSchema": {
@@ -765,7 +767,6 @@ def _nwchem_tool_definitions() -> list[dict[str, Any]]:
                     "signal_name": {"type": "string", "default": "term", "description": "term or kill (local only)."},
                     "job_id": {"type": "string", "description": "Scheduler job ID (HPC runs)."},
                     "profile": {"type": "string", "description": "Runner profile name (required with job_id)."},
-                    "profiles_path": {"type": "string"},
                 },
                 "additionalProperties": False,
             },

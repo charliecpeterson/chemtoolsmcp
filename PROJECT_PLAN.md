@@ -1559,22 +1559,21 @@ Progress:
       process handles or target-owned Slurm queries for identifiers owned by
       the current service. Share only the execution-state projection and
       polling boundary across NWChem, Molcas, and DIRAC; keep file parsing and
-      scientific interpretation in each program adapter. Retain legacy status
-      and watch calls for unowned identifiers.
+      scientific interpretation in each program adapter. Retain external file
+      and explicit Slurm inspection after the compatibility release.
 - [x] Adapt GRASP workflow-script launch calls for direct and Slurm profiles.
       Run the ordered shell workflow inside the target-owned container,
       preserve legacy previews, archive exact scheduler output paths, and
       restrict cancellation to jobs owned by the same MCP process.
 - [x] Route explicit GRASP workflow status and watch requests through retained
       local process handles or target-owned Slurm queries for identifiers
-      owned by the current service. Retain legacy status and watch calls for
-      unowned identifiers. Keep synchronous per-executable calls outside this
-      watcher because they already return terminal execution results.
-- [x] Make `run_calculation`, `render_calculation_run`,
-      `inspect_run_status`, and `watch_run` the canonical legacy-profile
-      runner entry points. Keep the old NWChem names as direct compatibility
-      aliases, and move Molcas, DIRAC, and GRASP scheduler wrappers to the
-      program-neutral imports.
+      owned by the current service. Retain external file and explicit Slurm
+      inspection. Keep synchronous per-executable calls outside this watcher
+      because they already return terminal execution results.
+- [x] Make `run_calculation` and `render_calculation_run` the version 1 runner
+      entry points. Keep the old NWChem names as direct compatibility aliases,
+      and move external status and watch to a focused read-only owner after
+      `v0.1.0`.
 - [x] Split the oversized legacy runner by responsibility. Move version 1
       profile loading and default merging into `execution/profiles.py`; retain
       `execution/legacy_profiles.py` as an exact compatibility import path
@@ -1584,9 +1583,9 @@ Progress:
       `execution/legacy_archive.py`;
       move local and scheduler hardware discovery into
       `execution/resource_inspection.py`;
-      move unowned PID, scheduler, file, tail, cancellation, and optional
-      NWChem progress inspection into `execution/legacy_status.py`; and keep
-      `core/runner.py` as the direct compatibility import path.
+      isolate the former unowned status behavior through `v0.1.0`, then retain
+      only file and explicit Slurm inspection in `execution/external_status.py`;
+      and keep `core/runner.py` as the direct compatibility import path.
 - [x] Normalize version 1 installation fields under `programs.<name>` with
       explicit `launcher_argv` and `executable_argv` arrays. Move Molcas
       CASPT2 capability and DIRAC MPI and memory defaults into their program

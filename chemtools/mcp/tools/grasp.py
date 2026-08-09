@@ -689,12 +689,18 @@ def _handle_watch_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
         "max_polls": arguments.get("max_polls"),
         "history_limit": arguments.get("history_limit", 8),
     }
+    if process_id is not None:
+        return watch_grasp_status_with_service(
+            get_execution_service(),
+            process_id=process_id,
+            profile=profile,
+            **watch_arguments,
+        )
     result = None
-    if job_id is not None or process_id is not None:
+    if job_id is not None:
         try:
             result = watch_grasp_status_with_service(
                 get_execution_service(),
-                process_id=process_id if job_id is None else None,
                 job_id=job_id,
                 profile=profile,
                 **watch_arguments,
@@ -705,7 +711,6 @@ def _handle_watch_grasp_run(arguments: dict[str, Any]) -> dict[str, Any]:
     if result is not None:
         return result
     return _watch_grasp_run(
-        process_id=process_id,
         profile=profile,
         job_id=job_id,
         **watch_arguments,
@@ -1755,10 +1760,10 @@ _DEFS: list[dict[str, Any]] = [
     {
         "name": "get_grasp_run_status",
         "description": (
-            "Check a GRASP workflow run. PIDs and Slurm job IDs owned by this "
-            "MCP use retained process handles or target-owned queue and "
-            "accounting queries. Unowned identifiers and auto-detected "
-            ".jobid files use the legacy status path."
+            "Check GRASP output files, a launch owned by this MCP, or an "
+            "external Slurm job. External Slurm attachment requires an "
+            "explicit profile and job_id; arbitrary process IDs and "
+            "auto-detected .jobid files are not accepted."
         ),
         "inputSchema": {
             "type": "object",
@@ -1778,8 +1783,8 @@ _DEFS: list[dict[str, Any]] = [
         "name": "watch_grasp_run",
         "description": (
             "Poll a GRASP workflow until terminal state or timeout. Owned PIDs "
-            "and Slurm job IDs use typed execution state; unowned identifiers "
-            "use the legacy watcher."
+            "and Slurm job IDs use typed execution state; external attachment "
+            "supports only an explicit Slurm profile and job_id."
         ),
         "inputSchema": {
             "type": "object",
@@ -1812,7 +1817,6 @@ _DEFS: list[dict[str, Any]] = [
             "properties": {
                 "job_id": {"type": "string"},
                 "profile": {"type": "string"},
-                "profiles_path": {"type": "string"},
             },
             "required": ["job_id", "profile"],
             "additionalProperties": False,

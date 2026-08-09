@@ -5277,7 +5277,7 @@
         "local",
         "hpc"
       ],
-      "description": "Check a DIRAC run. PIDs and Slurm job IDs owned by this MCP use retained process handles or target-owned queue and accounting queries. Unowned identifiers and auto-detected .jobid files use the legacy status path.",
+      "description": "Check DIRAC output files, a launch owned by this MCP, or an external Slurm job. External Slurm attachment requires an explicit profile and job_id; arbitrary process IDs and auto-detected .jobid files are not accepted.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5360,7 +5360,7 @@
         "local",
         "hpc"
       ],
-      "description": "Check a GRASP workflow run. PIDs and Slurm job IDs owned by this MCP use retained process handles or target-owned queue and accounting queries. Unowned identifiers and auto-detected .jobid files use the legacy status path.",
+      "description": "Check GRASP output files, a launch owned by this MCP, or an external Slurm job. External Slurm attachment requires an explicit profile and job_id; arbitrary process IDs and auto-detected .jobid files are not accepted.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5456,7 +5456,7 @@
         "local",
         "hpc"
       ],
-      "description": "Check the status of a Molcas run. For HPC jobs the scheduler job ID is auto-detected from {job_name}.jobid alongside the input/output file. Returns scheduler state (queued/running/completed/failed/cancelled) and an overall_status combining scheduler + output-file presence. Explicit PIDs and job IDs launched by this MCP use retained typed execution state.",
+      "description": "Check Molcas output files, a launch owned by this MCP, or an external Slurm job. External Slurm attachment requires an explicit profile and job_id; arbitrary process IDs and auto-detected .jobid files are not accepted.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5574,7 +5574,7 @@
         "local",
         "hpc"
       ],
-      "description": "Check the status of a NWChem run. For HPC jobs the scheduler job ID is auto-detected from {job_name}.jobid alongside the input/output file. Returns scheduler state (queued/running/completed/failed/cancelled), parsed output outcome, and a compact progress summary for running jobs.",
+      "description": "Check NWChem output files, a launch owned by this MCP, or an external Slurm job. An external Slurm attachment requires an explicit profile and job_id. Arbitrary process IDs, PBS jobs, LSF jobs, and auto-detected .jobid files are not accepted.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -16911,9 +16911,6 @@
           },
           "profile": {
             "type": "string"
-          },
-          "profiles_path": {
-            "type": "string"
           }
         },
         "required": [
@@ -16942,9 +16939,6 @@
             "type": "string"
           },
           "profile": {
-            "type": "string"
-          },
-          "profiles_path": {
             "type": "string"
           }
         },
@@ -16977,9 +16971,6 @@
           "profile": {
             "type": "string",
             "description": "Runner profile name (required with job_id)."
-          },
-          "profiles_path": {
-            "type": "string"
           }
         },
         "required": [
@@ -17000,7 +16991,7 @@
         "local",
         "hpc"
       ],
-      "description": "Stop a running NWChem job. For local runs: provide process_id and optionally signal_name (term or kill). For HPC scheduler jobs: provide job_id and profile (calls scancel/qdel/bkill). Only call after intervention review has determined the run should stop.",
+      "description": "Stop a NWChem launch owned by this MCP. For local runs, provide process_id and optionally signal_name (term or kill). For Slurm runs, provide job_id and profile. Only call after intervention review has determined the run should stop.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -17020,9 +17011,6 @@
           "profile": {
             "type": "string",
             "description": "Runner profile name (required with job_id)."
-          },
-          "profiles_path": {
-            "type": "string"
           }
         },
         "additionalProperties": false
@@ -17472,7 +17460,7 @@
         "local",
         "hpc"
       ],
-      "description": "Poll DIRAC status until terminal state or timeout. Owned PIDs and Slurm job IDs use typed execution state; unowned identifiers use the legacy watcher.",
+      "description": "Poll DIRAC status until terminal state or timeout. Owned PIDs and Slurm job IDs use typed execution state; external attachment supports only an explicit Slurm profile and job_id.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -17538,7 +17526,7 @@
         "local",
         "hpc"
       ],
-      "description": "Poll a GRASP workflow until terminal state or timeout. Owned PIDs and Slurm job IDs use typed execution state; unowned identifiers use the legacy watcher.",
+      "description": "Poll a GRASP workflow until terminal state or timeout. Owned PIDs and Slurm job IDs use typed execution state; external attachment supports only an explicit Slurm profile and job_id.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -17604,7 +17592,7 @@
         "local",
         "hpc"
       ],
-      "description": "Poll Molcas status until terminal state or timeout. For HPC jobs, omit timeout_seconds to block until scheduler completion. Owned local and Slurm launches use typed status; unowned identifiers retain the legacy compatibility watcher.",
+      "description": "Poll Molcas status until terminal state or timeout. For HPC jobs, omit timeout_seconds to block until scheduler completion. Owned local and Slurm launches use typed status; external attachment supports only an explicit Slurm profile and job_id.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -17671,7 +17659,7 @@
         "local",
         "hpc"
       ],
-      "description": "Monitor multiple NWChem jobs simultaneously until all reach a terminal state (completed, failed, or cancelled). Use this after submitting several jobs in parallel with auto_watch=false — call this once and it will block until all jobs finish, then return a consolidated status table. Each job entry requires output_file and optionally profile and job_id (job_id auto-detected from <output_file>.jobid if omitted).",
+      "description": "Monitor multiple NWChem jobs simultaneously until all reach a terminal state (completed, failed, or cancelled). Use this after submitting several jobs in parallel with auto_watch=false — call this once and it will block until all jobs finish, then return a consolidated status table. Each job entry requires output_file. External Slurm jobs must also provide profile and job_id together.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -17686,7 +17674,7 @@
                 },
                 "job_id": {
                   "type": "string",
-                  "description": "Scheduler job ID (auto-detected from .jobid file if omitted)."
+                  "description": "Explicit external Slurm job ID; requires profile."
                 },
                 "profile": {
                   "type": "string",
@@ -17738,7 +17726,7 @@
         "local",
         "hpc"
       ],
-      "description": "Poll NWChem status until terminal state or timeout. For HPC jobs, omit timeout_seconds to block until scheduler completion. Detects output-silent phases (SAD, X2C, freq displacements) as expected. Only call directly for local runs or jobs launched with auto_watch=false.",
+      "description": "Poll NWChem status until terminal state or timeout. A process_id must belong to this MCP; an external Slurm job requires an explicit profile and job_id. For HPC jobs, omit timeout_seconds to block until scheduler completion. Detects output-silent phases (SAD, X2C, freq displacements) as expected. Only call directly for local runs or jobs launched with auto_watch=false.",
       "input_schema": {
         "type": "object",
         "properties": {
