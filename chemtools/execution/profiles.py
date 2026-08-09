@@ -107,6 +107,27 @@ def _format_template(
     return template.format_map(safe_context)
 
 
+def render_profile_value(
+    template: str,
+    context: Mapping[str, Any],
+) -> str:
+    return _format_template(template, dict(context))
+
+
+def merge_profile_resources(
+    profile: Mapping[str, Any],
+    overrides: Mapping[str, Any],
+) -> dict[str, Any]:
+    resources = deepcopy(profile.get("resources") or {})
+    resources.update(overrides)
+    nodes = resources.get("nodes") or 1
+    mpi_ranks = resources.get("mpi_ranks") or 1
+    cores_per_node = resources.get("cores_per_node") or mpi_ranks
+    if nodes > 1 and mpi_ranks <= cores_per_node:
+        resources["mpi_ranks"] = cores_per_node * nodes
+    return resources
+
+
 def require_version_1(profiles: Mapping[str, Any]) -> None:
     schema_version = str(profiles.get("schema_version") or "")
     if schema_version != "1.0":
@@ -342,10 +363,12 @@ __all__ = [
     "expanded_profile_path",
     "hardware_description",
     "load_runner_profiles",
+    "merge_profile_resources",
     "module_lines",
     "program_settings",
     "require_version_1",
     "resolve_runner_profile",
+    "render_profile_value",
     "resource_request",
     "scheduler_type",
     "slurm_scheduler_defaults",

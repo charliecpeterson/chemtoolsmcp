@@ -9,6 +9,8 @@ from typing import Any, Mapping
 from chemtools.core.execution import ExecutionTarget, PreparedLaunch
 from chemtools.execution.profiles import (
     load_runner_profiles,
+    merge_profile_resources,
+    render_profile_value,
     resolve_runner_profile,
     resource_request,
 )
@@ -16,30 +18,6 @@ from chemtools.programs.nwchem.launch import (
     adapt_legacy_nwchem_profile,
     build_nwchem_launch_plan,
 )
-
-
-def _resource_values(
-    profile: Mapping[str, Any],
-    overrides: Mapping[str, Any],
-) -> dict[str, Any]:
-    values = dict(profile.get("resources") or {})
-    values.update(overrides)
-    nodes = values.get("nodes") or 1
-    mpi_ranks = values.get("mpi_ranks") or 1
-    cores_per_node = values.get("cores_per_node") or mpi_ranks
-    if nodes > 1 and mpi_ranks <= cores_per_node:
-        values["mpi_ranks"] = cores_per_node * nodes
-    return values
-
-
-def _format_profile_value(
-    value: str,
-    context: Mapping[str, Any],
-) -> str:
-    return value.format_map({
-        key: "" if item is None else item
-        for key, item in context.items()
-    })
 
 
 class _NwchemLaunchPlanner:
@@ -80,7 +58,7 @@ class _NwchemLaunchPlanner:
         if not input_file.is_file():
             raise ValueError(f"input file does not exist: {input_file}")
         job_name = str(request.get("job_name") or input_file.stem)
-        resources = _resource_values(
+        resources = merge_profile_resources(
             profile,
             request.get("resources") or {},
         )
@@ -92,24 +70,24 @@ class _NwchemLaunchPlanner:
             **resources,
         }
         file_rules = profile.get("file_rules") or {}
-        output_file = _format_profile_value(
+        output_file = render_profile_value(
             str(file_rules.get("output_file", "{job_name}.out")),
             context,
         )
-        error_file = _format_profile_value(
+        error_file = render_profile_value(
             str(file_rules.get("error_file", "{job_name}.err")),
             context,
         )
         context.update({
             "output_file": output_file,
             "error_file": error_file,
-            "restart_prefix": _format_profile_value(
+            "restart_prefix": render_profile_value(
                 str(file_rules.get("restart_prefix", "{job_name}")),
                 context,
             ),
         })
         execution = profile.get("execution") or {}
-        working_directory = Path(_format_profile_value(
+        working_directory = Path(render_profile_value(
             str(execution.get("working_directory", "{job_dir}")),
             context,
         )).resolve()
@@ -125,7 +103,7 @@ class _NwchemLaunchPlanner:
             allowed_work_roots=(working_directory,),
         )
         environment = {
-            str(key): _format_profile_value(str(value), context)
+            str(key): render_profile_value(str(value), context)
             for key, value in (profile.get("env") or {}).items()
             if value is not None
         }

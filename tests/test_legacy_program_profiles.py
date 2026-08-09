@@ -11,6 +11,8 @@ from chemtools.execution.legacy_runner import render_calculation_run
 from chemtools.execution.profiles import (
     declared_program_installation,
     load_runner_profiles,
+    merge_profile_resources,
+    render_profile_value,
     resolve_runner_profile,
 )
 from chemtools.programs.dirac.launch import adapt_legacy_dirac_profile
@@ -27,6 +29,31 @@ ADAPTERS = {
     "molcas": adapt_legacy_molcas_profile,
     "nwchem": adapt_legacy_nwchem_profile,
 }
+
+
+def test_guided_profile_helpers_preserve_version_1_rendering_rules():
+    profile = {
+        "resources": {
+            "nodes": 2,
+            "mpi_ranks": 8,
+            "cores_per_node": 48,
+            "account": None,
+        },
+    }
+
+    resources = merge_profile_resources(profile, {"omp_threads": 2})
+
+    assert resources == {
+        "nodes": 2,
+        "mpi_ranks": 96,
+        "cores_per_node": 48,
+        "omp_threads": 2,
+        "account": None,
+    }
+    assert render_profile_value(
+        "{mpi_ranks}-{omp_threads}-{account}",
+        resources,
+    ) == "96-2-"
 
 
 def _scheduler_profiles(
