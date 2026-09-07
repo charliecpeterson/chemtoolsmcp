@@ -32,6 +32,13 @@ prose remain drafts. They cover SCF trend classification, scoped imaginary-mode
 interpretation, and explicit element-by-element basis coverage. Existing code
 and tests support narrower pieces of these claims, but not their complete
 scope, so they are excluded from default recommendations.
+The accepted GRASP cards separate three decisions that the executable exposes
+through different evidence. Process completion must be checked against
+terminal failure markers. A completed RMCDHF trace still retains its orbital
+residual, Norm-1, and node-count history because the completion line does not
+name the stopping test. New correlation orbitals are varied separately on
+their first pass and are not marked spectroscopic; optimization and node
+checking are independent masks.
 The `search_knowledge` MCP tool defaults to `accepted`. Other curation
 states require an explicit status, and every result repeats its status, scope,
 sources, checks, tests, and recommendation eligibility.

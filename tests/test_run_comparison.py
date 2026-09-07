@@ -75,6 +75,46 @@ def _backend(records):
     )
 
 
+def _grasp_rci_summary(
+    energy_hartree: float,
+    *,
+    breit: bool,
+    n_csfs: int = 2,
+) -> str:
+    hamiltonian = (
+        """ To H (Dirac Coulomb) is added
+ H (Transverse) --- factor multiplying the photon frequency: 0.00000000D+00;
+ the total will be diagonalised."""
+        if breit
+        else " H (Dirac Coulomb) will be diagonalised by itself."
+    )
+    energy = f"{energy_hartree:.14E}".replace("E", "D")
+    return f""" There are 4 electrons in the cloud
+ in {n_csfs} relativistic CSFs
+ based on 2 relativistic subshells.
+The atomic number is 4.0000000000;
+ the nucleus is stationary;
+ Fermi nucleus:
+ c = 3.906285761065D-05 Bohr radii,
+ a = 9.890591372451D-06 Bohr radii;
+ there are 89 tabulation points in the nucleus.
+Speed of light = 1.370359991390D+02 atomic units.
+{hamiltonian}
+ RNT = 5.000000000000D-07 Bohr radii;
+ H = 5.000000000000D-02 Bohr radii;
+ N = 590;
+ R(N) = 3.082779741723D+06 Bohr radii.
+  1s  4.7124727709D+00 1.475D+01 1.00 3.782D-07 -4.017D-12 357
+  2s  3.4984451422D-01 2.557D+00 1.00 6.555D-08 -6.962D-13 360
+Eigenenergies:
+Level  J Parity       Hartrees              Kaysers                eV
+  1     0 +   {energy} -3.20915498819261D+06 -3.97884505512706D+02
+Weights of major contributors to ASF:
+Level J Parity      CSF contributions
+  1     0 +      1.00000
+"""
+
+
 def test_compare_runs_reports_conditional_lower_energy_without_inputs(tmp_path):
     reference = tmp_path / "reference.out"
     candidate = tmp_path / "candidate.out"
@@ -275,6 +315,75 @@ def test_compare_runs_guided_handler_uses_application_contract():
     assert compared["assessment"]["verdict"]["label"] == (
         "energies_equal_within_tolerance"
     )
+
+
+def test_compare_grasp_rci_uses_atomic_model_signature(tmp_path):
+    reference = tmp_path / "dc.csum"
+    candidate = tmp_path / "breit.csum"
+    reference_text = _grasp_rci_summary(-14.6219860042965, breit=False)
+    candidate_text = _grasp_rci_summary(-14.6212846667336, breit=True)
+    reference.write_text(reference_text, encoding="utf-8")
+    candidate.write_text(candidate_text, encoding="utf-8")
+
+    compared = compare_runs(
+        load_backend(next(spec for spec in BUILTIN_BACKENDS if spec.name == "grasp")),
+        reference,
+        candidate,
+    )
+
+    assert compared["assessment"]["comparability"] == {
+        "status": "comparable",
+        "blocking_fields": [],
+        "unchecked_fields": [],
+    }
+    checks = {
+        check["field"]: check for check in compared["evidence"]["comparability_checks"]
+    }
+    assert checks["model.n_csfs"]["status"] == "match"
+    assert checks["model.nucleus"]["status"] == "match"
+    assert checks["model.radial_grid"]["status"] == "match"
+    assert checks["model.state_sectors"]["status"] == "match"
+    assert checks["axis.hamiltonian"] == {
+        "field": "axis.hamiltonian",
+        "status": "different",
+        "reference": "dirac_coulomb",
+        "candidate": "dirac_coulomb_plus_zero_frequency_breit",
+        "comparison_axis": True,
+    }
+    assert checks["axis.transverse_breit"]["status"] == "different"
+    assert "geometry" not in checks
+    assert compared["evidence"]["energy"]["candidate_minus_reference"] == (
+        pytest.approx(0.0007013375629014718)
+    )
+    assert compared["evidence"]["reference"]["task"]["line_range"] == (
+        1,
+        len(reference_text.splitlines()),
+    )
+
+
+def test_compare_grasp_rci_rejects_different_csf_spaces(tmp_path):
+    reference = tmp_path / "reference.csum"
+    candidate = tmp_path / "candidate.csum"
+    reference.write_text(
+        _grasp_rci_summary(-14.62, breit=False, n_csfs=2),
+        encoding="utf-8",
+    )
+    candidate.write_text(
+        _grasp_rci_summary(-14.63, breit=False, n_csfs=3),
+        encoding="utf-8",
+    )
+
+    compared = compare_runs(
+        load_backend(next(spec for spec in BUILTIN_BACKENDS if spec.name == "grasp")),
+        reference,
+        candidate,
+    )
+
+    assert compared["assessment"]["comparability"] == {
+        "status": "not_comparable",
+        "blocking_fields": ["model.n_csfs"],
+        "unchecked_fields": [],
+    }
 
 
 def test_compare_runs_guided_handler_rejects_mixed_programs():

@@ -15,15 +15,16 @@ def test_search_defaults_to_accepted_cards_only():
         "cross_program.optimizer_failure_sentinel_must_lose",
         "cross_program.same_producer_is_correlated",
         "cross_program.same_starting_guess_class_is_one_measurement",
+        "grasp.rmcdhf.completion_requires_orbital_trace",
+        "grasp.rmcdhf.correlation_layer_orbital_roles",
         "grasp.rmcdhf.zero_exit_requires_convergence",
         "pyscf.electron_spin_consistency_is_runtime_required",
         "pyscf.scf_convergence_is_separate_from_execution",
         "qmcpack.determinant_only_vmc_offsets",
         "qmcpack.fblock_dmc_reference_protocol",
-        "qmcpack.jastrow_vmc_energy_gate",
-        "qmcpack.variational_parameter_sidecar",
     ]
-    assert result.total_matches == 10
+    assert result.total_matches == 12
+    assert result.to_dict()["truncated"] is True
     assert all(card.status == "accepted" for card in result.cards)
 
 
@@ -131,7 +132,7 @@ def test_pyscf_cards_are_scoped_to_the_bounded_single_point_runner():
 def test_search_limit_reports_truncation_exactly():
     payload = search_knowledge_cards(limit=2).to_dict()
 
-    assert payload["total_matches"] == 10
+    assert payload["total_matches"] == 12
     assert payload["returned_count"] == 2
     assert payload["truncated"] is True
     assert payload["cards"][0]["recommendation_eligible"] is True

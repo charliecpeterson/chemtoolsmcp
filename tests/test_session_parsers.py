@@ -7,6 +7,8 @@ thresholds, multiplicity scans, and GRASP convergence classification.
 """
 from pathlib import Path
 
+import pytest
+
 from chemtools.programs.dirac.parse.relccsd import parse_relccsd
 from chemtools.programs.dirac.parse.output import parse_cosci_energies
 from chemtools.programs.molcas.strategy.active_space import (
@@ -19,6 +21,7 @@ from chemtools.programs.grasp.parse.hfs import parse_hfs
 from chemtools.programs.grasp.parse.ris import parse_ris
 from chemtools.programs.grasp.parse.transition import parse_transition
 from chemtools.programs.grasp.parse.rmcdhf_log import parse_rmcdhf_log
+from chemtools.programs.grasp.parse.rci_log import parse_rci_log
 from chemtools.programs.grasp.parse.lsjlbl import parse_lsjlbl
 from chemtools.programs.grasp import GRASP
 from chemtools.programs.grasp.strategy.diagnose import suggest_grasp_recovery
@@ -163,6 +166,49 @@ def test_grasp_dhf_sum_has_no_rci_corrections():
     assert "rci_corrections" not in parse_grasp_sum(GRASP_SUM_DHF)
 
 
+def test_grasp_summary_reports_comparison_metadata():
+    parsed = parse_grasp_sum(
+        """ There are 4 electrons in the cloud
+ in 26 relativistic CSFs
+ based on 16 relativistic subshells.
+The atomic number is 4.0000000000;
+ the nucleus is stationary;
+ Fermi nucleus:
+ c = 3.906285761065D-05 Bohr radii,
+ a = 9.890591372451D-06 Bohr radii;
+ there are 89 tabulation points in the nucleus.
+Speed of light = 1.370359991390D+02 atomic units.
+Radial grid: R(I) = RNT*(exp((I-1)*H)-1), I = 1, ..., N;
+ RNT = 5.000000000000D-07 Bohr radii;
+ H = 5.000000000000D-02 Bohr radii;
+ N = 590;
+ R(N) = 3.082779741723D+06 Bohr radii.
+ OL calculation.
+ Level 1 will be optimised.
+"""
+    )
+
+    assert parsed["n_electrons"] == 4
+    assert parsed["n_csfs"] == 26
+    assert parsed["n_subshells"] == 16
+    assert parsed["nucleus"] == {
+        "stationary": True,
+        "mass_electron_units": 0.0,
+        "model": "fermi",
+        "fermi_c_bohr": 3.906285761065e-05,
+        "fermi_a_bohr": 9.890591372451e-06,
+        "tabulation_points": 89,
+    }
+    assert parsed["radial_grid"] == {
+        "RNT": 5.0e-7,
+        "H": 0.05,
+        "N": 590,
+        "rmax_bohr": 3.082779741723e6,
+    }
+    assert parsed["optimization_mode"] == "OL"
+    assert parsed["ol_level_optimized"] == 1
+
+
 # rhfs_lsj .chlsj — the GRASP manual's Li 1s(2).2p_2P example (real Li-7 moments,
 # published A/B/g_J values; pins the parser against ground truth).
 GRASP_CHLSJ = """Nuclear spin 1.500000000000000D+00 au
@@ -258,6 +304,42 @@ RMCDHF_OK = """ Iteration number   1
  RMCDHF: Execution complete.
 """
 
+RMCDHF_BE_LEVELS = """ Iteration number  16
+ Average energy =  -1.2603378003D+01 Hartrees
+ Level  1    Energy = -1.462198600448D+01    Weight =  1.00000D+00
+ Iteration number  17
+ Average energy =  -1.2602945004D+01 Hartrees
+ Level  1    Energy = -1.462198600430D+01    Weight =  1.00000D+00
+ RMCDHF: Execution complete.
+"""
+
+RMCDHF_GROWING_ALTERNATION = """ There are 616 relativistic CSFs
+ There are/is 24 relativistic subshells
+ Iteration number   1
+  6p    4.0363833D-01  3  3.088D+02  1.00D-02 -3.92D-02 0.800   371   421  0  4
+ Level  1    Energy = -1.406770368000D+04    Weight =  1.00000D+00
+ Iteration number   2
+  6p    3.9840810D-01  3  3.075D+02  1.20D-02  2.01D-02 0.800   371   421  0  4
+ Level  1    Energy = -1.406770368400D+04    Weight =  1.00000D+00
+ Iteration number   3
+  6p    3.9741981D-01  3  3.107D+02  2.00D-02 -4.03D-02 0.800   371   421  0  3
+ Level  1    Energy = -1.406770368700D+04    Weight =  1.00000D+00
+ Iteration number   4
+  6p    3.9806664D-01  3  3.012D+02  3.40D-02  3.91D-02 0.800   371   421  0  3
+ Level  1    Energy = -1.406770368751D+04    Weight =  1.00000D+00
+ RMCDHF: Execution complete.
+"""
+
+RCI_BE_LOG = """ RCI
+ Block            1 ,  ncf =           26
+ There are/is           16  relativistic subshells;
+ There are           26  relativistic CSFs... load complete;
+ Computing       53106  Breit integrals of type 1
+ Computing       26494  Breit integrals of type 2
+ INTERP: Accuracy of interpolation (3.8D-03) is below input criterion.
+ RCI: Execution complete.
+"""
+
 
 def test_rmcdhf_log_flags_orbital_solver_crash():
     r = parse_rmcdhf_log(RMCDHF_FAILED)
@@ -270,6 +352,105 @@ def test_rmcdhf_log_clean_run_not_flagged():
     r = parse_rmcdhf_log(RMCDHF_OK)
     assert r["converged"] is True
     assert not r["orbital_solver_failed"] and not r["error_stop"]
+
+
+def test_rmcdhf_log_cycle_limit_overrides_execution_complete():
+    parsed = parse_rmcdhf_log(
+        RMCDHF_OK + " Maximum iterations in SCF Exceeded.\n"
+    )
+
+    assert parsed["converged"] is False
+    assert parsed["explicitly_not_converged"] is True
+
+
+def test_rmcdhf_log_flags_mpi_signal_termination():
+    parsed = parse_rmcdhf_log(
+        RMCDHF_OK
+        + "BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES\n"
+    )
+
+    assert parsed["converged"] is False
+    assert parsed["error_stop"] is True
+
+
+def test_rmcdhf_log_uses_asf_level_energy_not_average_energy_record():
+    parsed = parse_rmcdhf_log(RMCDHF_BE_LEVELS)
+
+    assert parsed["final_energy_hartree"] == -14.62198600430
+    assert parsed["final_energy_source"] == "rmcdhf_level_record"
+    assert parsed["energy_change"] == pytest.approx(1.8e-10)
+    assert parsed["iterations"][-1]["average_energy_records_hartree"] == [-12.602945004]
+
+
+def test_rmcdhf_log_preserves_orbital_trace_after_energy_stopped_run():
+    parsed = parse_rmcdhf_log(RMCDHF_GROWING_ALTERNATION)
+
+    assert parsed["converged"] is True
+    assert parsed["convergence_evidence"] == (
+        "execution_complete_without_reported_stopping_test"
+    )
+    assert parsed["max_final_orbital_self_consistency"] == 0.034
+    assert parsed["final_orbitals"] == [{
+        "label": "6p",
+        "energy_au": 0.39806664,
+        "method": 3,
+        "p0": 301.2,
+        "self_consistency": 0.034,
+        "norm_minus_one": 0.0391,
+        "damping_factor": 0.8,
+        "join_point": 371,
+        "max_tabulation_point": 421,
+        "inversion_count": 0,
+        "node_count": 3,
+    }]
+    assert parsed["alternating_norm_orbitals"] == ["6p"]
+    assert parsed["growing_alternating_orbitals"] == ["6p"]
+    assert parsed["node_count_changes"] == [{
+        "label": "6p",
+        "node_counts": [4, 3],
+    }]
+
+
+def test_grasp_parser_marks_growing_orbital_alternation_for_review(tmp_path):
+    path = tmp_path / "rmcdhf_mem.stdout"
+    path.write_text(RMCDHF_GROWING_ALTERNATION, encoding="utf-8")
+
+    parsed = GRASP.parser.parse_output(str(path))
+
+    assert parsed["derived"][
+        "grasp:max_final_orbital_self_consistency"
+    ] == 0.034
+    assert parsed["derived"]["grasp:growing_alternating_orbitals"] == ["6p"]
+    assert parsed["diagnosis"]["verdict"]["label"] == (
+        "completed_with_unstable_orbital_trace"
+    )
+    assert parsed["diagnosis"]["next_actions"][0]["action"] == (
+        "stage_grasp_orbital_recovery"
+    )
+
+
+def test_grasp_recovery_stages_growing_orbital_alternation():
+    recovery = suggest_grasp_recovery(
+        error_text=RMCDHF_GROWING_ALTERNATION
+    )
+
+    assert recovery["failure_class"] == "rmcdhf_orbital_oscillation"
+    assert recovery["orbitals"] == ["6p"]
+    assert recovery["next_actions"][0] == (
+        "Do not propagate rwfn.out from this stage."
+    )
+
+
+def test_rci_log_reports_execution_metadata_but_no_energy():
+    parsed = parse_rci_log(RCI_BE_LOG)
+
+    assert parsed["completed"] is True
+    assert parsed["n_csfs"] == 26
+    assert parsed["n_subshells"] == 16
+    assert parsed["breit_integrals"] == {"1": 53106, "2": 26494}
+    assert parsed["qed_interpolation_warning_count"] == 1
+    assert parsed["final_energy_hartree"] is None
+    assert parsed["energy_source_required"] == "rci_summary_csum"
 
 
 def test_zero_exit_rmcdhf_requires_positive_convergence_evidence():
@@ -308,6 +489,10 @@ def test_zero_exit_rmcdhf_requires_positive_convergence_evidence():
         assert parsed["converged"] is converged
         assert parsed["explicitly_not_converged"] is cycle_limit_reached
         assert [task["outcome"] for task in tasks] == [task_outcome]
+        assert tasks[0]["line_range"] == (
+            1,
+            len(path.read_text(encoding="utf-8").splitlines()),
+        )
         if recovery_class is not None:
             recovery = suggest_grasp_recovery(
                 error_text=path.read_text(encoding="utf-8")

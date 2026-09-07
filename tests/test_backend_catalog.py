@@ -222,6 +222,23 @@ def test_artifact_kind_rejects_unknown_content_declaration():
         )
 
 
+def test_artifact_failure_markers_require_text_artifact():
+    marker = "Maximum iterations in SCF Exceeded."
+    assert ArtifactKindSpec(
+        content_kind="text",
+        failure_markers=(marker,),
+    ).failure_markers == (marker,)
+
+    with pytest.raises(
+        ValueError,
+        match="^failure_markers require content_kind='text'$",
+    ):
+        ArtifactKindSpec(
+            content_kind="binary",
+            failure_markers=(marker,),
+        )
+
+
 def test_registry_rejects_duplicate_program_names():
     backend = _backend(capabilities=frozenset())
     registry.register(backend)
@@ -516,6 +533,7 @@ def test_generic_handlers_return_exact_unsupported_capability_error(
         "available_capabilities": [
             "binary.read",
             "binary.write",
+            "calculation.plan",
             "execution.plan",
             "output.orbitals",
             "output.parse",
@@ -727,6 +745,7 @@ def test_builtin_backends_declare_exact_capabilities():
         "grasp": {
             "binary.read",
             "binary.write",
+            "calculation.plan",
             "execution.plan",
             "output.orbitals",
             "output.parse",
@@ -805,6 +824,14 @@ def test_builtin_backends_preserve_legacy_extension_maps():
             "orbitals": ["DFCOEF", "DFPCMO", "DFACMO"],
         },
         "grasp": {
+            "stdin_capture": [".in"],
+            "nuclear_data": ["isodata"],
+            "csf_input": ["rcsf.inp"],
+            "radial_wfn_seed": ["rwfn.inp"],
+            "radial_wfn_output": ["rwfn.out"],
+            "mixing_output": ["rmix.out"],
+            "rmcdhf_input_log": ["rmcdhf.log"],
+            "rci_input_log": [".clog"],
             "rmcdhf_summary": [".sum"],
             "rci_summary": [".csum"],
             "hfs": [".h", ".ch", ".hlsj", ".chlsj"],
@@ -815,8 +842,8 @@ def test_builtin_backends_preserve_legacy_extension_maps():
             "csf_list": [".c"],
             "radial_wfn": [".w"],
             "scf_log": [".log", ".alog"],
-            "output": [".out"],
-            "error": [".err"],
+            "output": [".out", ".stdout"],
+            "error": [".err", ".stderr"],
         },
         "qe": {
             "input": [".in"],
@@ -885,6 +912,14 @@ def test_builtin_artifact_roles_are_exact():
             "dirac.orbitals": ("checkpoint", "orbital"),
         },
         "grasp": {
+            "grasp.stdin_capture": ("auxiliary_input",),
+            "grasp.nuclear_data": ("auxiliary_input",),
+            "grasp.csf_input": ("auxiliary_input",),
+            "grasp.radial_wfn_seed": ("orbital", "wavefunction_seed"),
+            "grasp.radial_wfn_output": ("orbital", "wavefunction"),
+            "grasp.mixing_output": ("wavefunction",),
+            "grasp.rmcdhf_input_log": ("auxiliary_output",),
+            "grasp.rci_input_log": ("auxiliary_output",),
             "grasp.rmcdhf_summary": ("primary_output",),
             "grasp.rci_summary": ("primary_output",),
             "grasp.hfs": ("primary_output",),
@@ -965,6 +1000,14 @@ def test_builtin_artifact_content_kinds_are_exact():
             "dirac.orbitals": "binary",
         },
         "grasp": {
+            "grasp.stdin_capture": "text",
+            "grasp.nuclear_data": "text",
+            "grasp.csf_input": "text",
+            "grasp.radial_wfn_seed": "binary",
+            "grasp.radial_wfn_output": "binary",
+            "grasp.mixing_output": "binary",
+            "grasp.rmcdhf_input_log": "text",
+            "grasp.rci_input_log": "text",
             "grasp.rmcdhf_summary": "text",
             "grasp.rci_summary": "text",
             "grasp.hfs": "text",
@@ -1022,7 +1065,7 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
         "nwchem": 101,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 45,
+        "grasp": 46,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0,
@@ -1034,8 +1077,8 @@ def test_catalog_tool_aggregation_matches_current_dispatch_exactly():
     dispatch_names = [
         definition["name"] for definition in dispatch.tool_definitions()
     ]
-    assert len(catalog_names) == 322
-    assert len(set(catalog_names)) == 322
+    assert len(catalog_names) == 323
+    assert len(set(catalog_names)) == 323
     assert catalog_names == dispatch_names
 
 

@@ -14,7 +14,7 @@ execution operations it actually implements.
 | **NWChem** | 101 | Input drafting, TCE/MCSCF parsers, frequency restart, full HPC submission, runner-profile auto-resource sizing, 29 bundled docs |
 | **OpenMolcas** | 41 | CASSCF/CASPT2 chain orchestrators, active-space refinement loop, recovery rule engine (11 failure modes), approval-gated named-target launch, 133 bundled docs |
 | **DIRAC** | 35 | 4c/X2C atomic + molecular SCF, AOC + KPSELE for actinides, Cm-class workflow, approval-bound paired-input launch, basis browser (Dyall), 179 bundled docs |
-| **GRASP2018** | 49 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), approval-bound container workflow launch, exact f-block reference planning, bounded radial-wavefunction inspection, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
+| **GRASP2018** | 50 | Multi-exe DHF workflow (rnucleus → rmcdhf → jj2lsj → rlevels), approval-bound container workflow launch, exact f-block reference planning, bounded radial-wavefunction inspection, case-ladder and fixed-orbital RCI comparison, leading mixing components mapped to matching CSFs, first-donor-wins orbital merging, hf-bootstrap for high-Z, non-rel limit, 15 bundled docs |
 | **Quantum ESPRESSO** | 18 | `pw.x` SCF, relax, and vc-relax input review plus output diagnosis, approval-gated launch through a schema-2 named target or version 1 migration profile, single-q phonon and converter-input drafters, a declared QE-to-QMCPACK artifact handoff plan, conversion-readiness, artifact-lineage, deck-reference, semilocal-card, pseudopotential and ion species, valence, DMC projector evidence, electron-count, atom-count, periodic-geometry, fixed-moment spin, charge-accounting, aggregate conversion, and completed-converter chain checks |
 | **QMCPACK** | 12 | XML input review, approval-gated ordinary or initialization-only launch through a schema-2 named target or version 1 migration profile, semilocal pseudopotential inspection, referenced-pseudopotential inspection, fixed-layout HDF5 metadata inspection, primary-log completion and warning inspection, scalar summaries, determinant-only VMC offset inspection, DMC population inspection, input-bound DMC population inspection, time-step analysis, input-bound time-step analysis, a VMC energy gate, a T-move control comparison, and an input-bound T-move control comparison |
 | **ORCA** | 0 dedicated | Experimental ORCA 6.1.1 input parsing and output auto-detection through the shared tools; serial single points, optimization, frequencies, open-shell spin, scalar relativity, RIJCOSX, DLPNO-CCSD(T), CASSCF, NEVPT2, CASPT2, MRCI, TD-DFT, EOM-CCSD, ORCA_ESD spectra and radiative rates, additive QM/MM, molecular and ionic Crystal-QMMM, explicit SCF failure, MOREAD restart, and difficult-SCF algorithm comparison are pinned against nineteen cases |
@@ -22,7 +22,7 @@ execution operations it actually implements.
 Plus 66 program-generic tools (auto-detect supported inputs and outputs)
 and a multi-program eval framework with 33 reference cases.
 
-**Total: 322 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
+**Total: 323 MCP tool definitions.** Counts, capability tags, mode visibility, aliases,
 and input schemas come from the generated
 [MCP tool inventory](docs/tool-inventory.md).
 
@@ -1008,9 +1008,9 @@ local and HPC counts are 106 and 107. Other choices are `nwchem`, `dirac`,
 
 | Mode | Tools visible | Use when |
 |---|---|---|
-| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 284 | Post-hoc parsing, drafting, planning, and owned monitoring; no chemistry executable needed |
-| `local` | 319 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
-| `hpc` | 322 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
+| `analysis` (default if no `CHEMTOOLS_RUNNER_PROFILES`) | 285 | Post-hoc parsing, drafting, planning, and owned monitoring; no chemistry executable needed |
+| `local` | 320 | Programs run as subprocesses on this machine (`launcher.kind: "direct"`) |
+| `hpc` | 323 | Submit to SLURM/PBS/LSF on an HPC cluster (`launcher.kind: "scheduler"`) |
 
 These counts describe the complete developer surface. The default guided
 surface remains eleven tools in every mode.

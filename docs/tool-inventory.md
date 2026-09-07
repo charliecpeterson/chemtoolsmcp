@@ -13,10 +13,10 @@ The JSON companion contains every tool description, input schema, and advertised
 
 - Default protocol version: `2025-11-25`
 - Supported protocol versions: `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25`, `2026-07-28`
-- Canonical tool definitions: 313
+- Canonical tool definitions: 314
 - Advertised legacy tool definitions: 9
 - Hidden MCP aliases: 15
-- Total callable MCP names: 337
+- Total callable MCP names: 338
 
 ### Programs
 
@@ -26,7 +26,7 @@ The JSON companion contains every tool description, input schema, and advertised
 | `nwchem` | 101 |
 | `molcas` | 41 |
 | `dirac` | 35 |
-| `grasp` | 49 |
+| `grasp` | 50 |
 | `qe` | 18 |
 | `qmcpack` | 12 |
 | `orca` | 0 |
@@ -35,7 +35,7 @@ The JSON companion contains every tool description, input schema, and advertised
 
 | Capability | Tools |
 | --- | ---: |
-| `none` | 266 |
+| `none` | 267 |
 | `registry` | 18 |
 | `runner_profile` | 2 |
 | `executable_or_scheduler` | 5 |
@@ -46,9 +46,9 @@ The JSON companion contains every tool description, input schema, and advertised
 
 | Mode | All programs |
 | --- | ---: |
-| `analysis` | 284 |
-| `local` | 319 |
-| `hpc` | 322 |
+| `analysis` | 285 |
+| `local` | 320 |
+| `hpc` | 323 |
 
 ### Program filters
 
@@ -59,7 +59,7 @@ Counts include the 66 generic tools where the active mode permits them.
 | `nwchem` | 149 | 164 | 167 |
 | `molcas` | 101 | 106 | 107 |
 | `dirac` | 96 | 100 | 101 |
-| `grasp` | 91 | 114 | 115 |
+| `grasp` | 92 | 115 | 116 |
 | `qe` | 79 | 83 | 84 |
 | `qmcpack` | 73 | 77 | 78 |
 | `orca` | 61 | 65 | 66 |
@@ -227,6 +227,7 @@ Aliases remain callable but are omitted from `tools/list`.
 | `get_server_mode` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `init_session_log` | `generic` | `none` | `analysis`, `local`, `hpc` |
 | `inspect_geometry` | `generic` | `none` | `analysis`, `local`, `hpc` |
+| `inspect_grasp_case_directory` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `inspect_grasp_mixing` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `inspect_grasp_radial_wfn` | `grasp` | `none` | `analysis`, `local`, `hpc` |
 | `inspect_molcas_geometry` | `molcas` | `none` | `analysis`, `local`, `hpc` |

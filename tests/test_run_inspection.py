@@ -561,11 +561,13 @@ def test_inspect_run_reports_specific_grasp_sum_artifact():
         "resolved_by": "content",
     }
     assert inspected["assessment"] == {
-        "source": "task_outcomes",
+        "source": "parser_diagnosis",
         "verdict": {
-            "label": "completed",
-            "confidence": 0.7,
-            "reasons": ["All 1 parsed task(s) completed."],
+            "label": "incomplete",
+            "confidence": 0.8,
+            "reasons": [
+                "The GRASP summary contains no eigenenergy table."
+            ],
         },
     }
     assert inspected["evidence"]["artifact_classification"]["status"] == "matched"
@@ -575,9 +577,94 @@ def test_inspect_run_reports_specific_grasp_sum_artifact():
             "artifact_classification"
         ]["candidates"]
     ] == ["grasp.rmcdhf_summary"]
-    assert [item["code"] for item in inspected["uncertainty"]] == [
-        "scientific_diagnosis_unavailable",
-    ]
+    assert inspected["uncertainty"] == []
+
+
+def test_inspect_run_related_grasp_stderr_overrides_saved_summary(tmp_path):
+    path = tmp_path / "rmcdhf.sum"
+    path.write_text(
+        """There are 4 electrons in the cloud
+ in 1 relativistic CSFs
+ based on 2 relativistic subshells.
+Eigenenergies:
+Level J Parity Hartrees Kaysers eV
+ 1 0 + -1.000000000000D+01 -2.1947463136D+06 -2.7211386246D+02
+Weights of major contributors to ASF:
+""",
+        encoding="utf-8",
+    )
+    stderr_path = tmp_path / "rmcdhf_mem.stderr"
+    stderr_path.write_text(
+        "Maximum iterations in SCF Exceeded.\n",
+        encoding="utf-8",
+    )
+
+    inspected = inspect_run(
+        load_backend(BUILTIN_BACKENDS[3]),
+        path,
+        resolved_by="content",
+        artifact_files=(stderr_path,),
+    )
+
+    message = (
+        "Related artifact reports a terminal failure: "
+        "Maximum iterations in SCF Exceeded."
+    )
+    assert inspected["assessment"] == {
+        "source": "related_artifact_failure_marker",
+        "verdict": {
+            "label": "failed",
+            "confidence": 0.99,
+            "reasons": [message],
+        },
+    }
+    assert inspected["evidence"]["diagnostics"] == [{
+        "kind": "error",
+        "message": message,
+        "line": None,
+        "file": str(stderr_path.resolve()),
+    }]
+    assert inspected["evidence"]["tasks"][0]["has_usable_data"] is True
+    assert inspected["evidence"]["tasks"][0]["energy_hartree"] == -10.0
+
+
+def test_inspect_run_related_grasp_stderr_overrides_completion_stdout(tmp_path):
+    path = tmp_path / "rmcdhf_mem.stdout"
+    path.write_text(
+        """RMCDHF
+ There are 2561 relativistic CSFs
+ There are/is 22 relativistic subshells
+ Iteration number  300
+ Level 1 Energy = -1.406700000000D+04
+ RMCDHF: Execution complete.
+""",
+        encoding="utf-8",
+    )
+    stderr_path = tmp_path / "rmcdhf_mem.stderr"
+    stderr_path.write_text(
+        "Maximum iterations in SCF Exceeded.\n",
+        encoding="utf-8",
+    )
+
+    inspected = inspect_run(
+        load_backend(BUILTIN_BACKENDS[3]),
+        path,
+        resolved_by="content",
+        artifact_files=(stderr_path,),
+    )
+
+    assert inspected["assessment"] == {
+        "source": "related_artifact_failure_marker",
+        "verdict": {
+            "label": "failed",
+            "confidence": 0.99,
+            "reasons": [
+                "Related artifact reports a terminal failure: "
+                "Maximum iterations in SCF Exceeded."
+            ],
+        },
+    }
+    assert inspected["evidence"]["derived"]["grasp:scf_converged"] is True
 
 
 def test_inspect_run_preserves_parse_when_optional_diagnosis_fails():

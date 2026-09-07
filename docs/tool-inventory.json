@@ -13,12 +13,12 @@
     ]
   },
   "summary": {
-    "tool_count": 322,
+    "tool_count": 323,
     "alias_count": 15,
-    "canonical_tool_count": 313,
+    "canonical_tool_count": 314,
     "advertised_legacy_tool_count": 9,
     "hidden_alias_count": 15,
-    "total_callable_name_count": 337,
+    "total_callable_name_count": 338,
     "entrypoint_alias_count": 2,
     "python_import_shim_count": 6,
     "by_program": {
@@ -26,13 +26,13 @@
       "nwchem": 101,
       "molcas": 41,
       "dirac": 35,
-      "grasp": 49,
+      "grasp": 50,
       "qe": 18,
       "qmcpack": 12,
       "orca": 0
     },
     "by_capability": {
-      "none": 266,
+      "none": 267,
       "registry": 18,
       "runner_profile": 2,
       "executable_or_scheduler": 5,
@@ -40,9 +40,9 @@
       "scheduler": 3
     },
     "by_mode": {
-      "analysis": 284,
-      "local": 319,
-      "hpc": 322
+      "analysis": 285,
+      "local": 320,
+      "hpc": 323
     },
     "by_mode_and_program": {
       "analysis": {
@@ -50,7 +50,7 @@
         "nwchem": 88,
         "molcas": 40,
         "dirac": 35,
-        "grasp": 30,
+        "grasp": 31,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0
@@ -60,7 +60,7 @@
         "nwchem": 99,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 49,
+        "grasp": 50,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0
@@ -70,7 +70,7 @@
         "nwchem": 101,
         "molcas": 41,
         "dirac": 35,
-        "grasp": 49,
+        "grasp": 50,
         "qe": 18,
         "qmcpack": 12,
         "orca": 0
@@ -93,9 +93,9 @@
         "hpc": 101
       },
       "grasp": {
-        "analysis": 91,
-        "local": 114,
-        "hpc": 115
+        "analysis": 92,
+        "local": 115,
+        "hpc": 116
       },
       "qe": {
         "analysis": 79,
@@ -5747,6 +5747,48 @@
       "output_schema": null
     },
     {
+      "name": "inspect_grasp_case_directory",
+      "lifecycle": "canonical",
+      "replacement": null,
+      "program": "grasp",
+      "capability": "none",
+      "visible_modes": [
+        "analysis",
+        "local",
+        "hpc"
+      ],
+      "description": "Inspect an ordered GRASP MCDHF model ladder and optional paired RCI tree. Reads authoritative .sum/.csum energies, reports CSF and active-spinor dimensions, derives stage increments, and checks that Dirac-Coulomb and zero-frequency Breit variants use identical CSF, radial-wavefunction, and nuclear artifacts. The RCI tree must be rci_root/<stage>/<variant>/*.csum.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "mcdhf_root": {
+            "type": "string",
+            "description": "Parent whose direct child directories contain the MCDHF stage .sum files."
+          },
+          "rci_root": {
+            "type": "string",
+            "description": "Optional parent containing <stage>/<variant> RCI directories with .csum files."
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true,
+            "description": "Ordered direct-child stage names. If omitted, direct children containing .sum files are sorted by name."
+          }
+        },
+        "required": [
+          "mcdhf_root"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": null
+    },
+    {
       "name": "inspect_grasp_mixing",
       "lifecycle": "canonical",
       "replacement": null,
@@ -9199,7 +9241,7 @@
         "local",
         "hpc"
       ],
-      "description": "Plan calculation stages and expose unresolved scientific choices before any program input is rendered. Returns a normalized verdict, an ordered dependency plan, required decisions, assumptions, and the next planning or drafting action. It does not read or write files and cannot launch a calculation. NWChem currently supplies the planning provider; other registered programs return an explicit unsupported capability result.",
+      "description": "Plan calculation stages and expose unresolved scientific choices before any program input is rendered. Returns a normalized verdict, an ordered dependency plan, required decisions, assumptions, and the next planning or drafting action. It does not read or write files and cannot launch a calculation. NWChem supplies molecular DFT plans. GRASP supplies atomic MCDHF and RCI accuracy-ladder plans, with atomic choices carried in program_options. Other registered programs return an explicit unsupported capability result.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -9307,6 +9349,11 @@
             "type": "string",
             "minLength": 1,
             "description": "How the requested electronic state will be initialized and checked across stages."
+          },
+          "program_options": {
+            "type": "object",
+            "maxProperties": 32,
+            "description": "Program-specific planning choices. GRASP uses this for the isotope and Fermi nucleus, inactive core, reference configurations, active spinors, J/parity sector, correlation substitutions, orbital policy, Hamiltonian variants, and numerical controls."
           }
         },
         "required": [

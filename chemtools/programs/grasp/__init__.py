@@ -11,6 +11,15 @@ from chemtools.core.program import (
 from chemtools.programs.grasp._plugin_parser import GRASP_PARSER
 from chemtools.programs.grasp._plugin_binary import GRASP_BINARY
 from chemtools.programs.grasp._plugin_launcher import GRASP_LAUNCH_PLANNER
+from chemtools.programs.grasp._plugin_planner import GRASP_CALCULATION_PLANNER
+
+
+_TERMINAL_FAILURE_MARKERS = (
+    "Maximum iterations in SCF Exceeded.",
+    "Convergence not obtained",
+    "BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES",
+    "ERROR STOP",
+)
 
 
 def _looks_like_grasp(output_head: str) -> bool:
@@ -66,10 +75,51 @@ GRASP = validate_backend(
                 ProgramCapability.OUTPUT_ORBITALS,
                 ProgramCapability.BINARY_READ,
                 ProgramCapability.BINARY_WRITE,
+                ProgramCapability.CALCULATION_PLAN,
                 ProgramCapability.EXECUTION_PLAN,
             }
         ),
         artifact_kinds={
+            "grasp.stdin_capture": ArtifactKindSpec(
+                extensions=(".in",),
+                default_roles=frozenset({"auxiliary_input"}),
+                content_kind="text",
+            ),
+            "grasp.nuclear_data": ArtifactKindSpec(
+                filenames=("isodata",),
+                default_roles=frozenset({"auxiliary_input"}),
+                content_kind="text",
+            ),
+            "grasp.csf_input": ArtifactKindSpec(
+                filenames=("rcsf.inp",),
+                default_roles=frozenset({"auxiliary_input"}),
+                content_kind="text",
+            ),
+            "grasp.radial_wfn_seed": ArtifactKindSpec(
+                filenames=("rwfn.inp",),
+                default_roles=frozenset({"orbital", "wavefunction_seed"}),
+                content_kind="binary",
+            ),
+            "grasp.radial_wfn_output": ArtifactKindSpec(
+                filenames=("rwfn.out",),
+                default_roles=frozenset({"orbital", "wavefunction"}),
+                content_kind="binary",
+            ),
+            "grasp.mixing_output": ArtifactKindSpec(
+                filenames=("rmix.out",),
+                default_roles=frozenset({"wavefunction"}),
+                content_kind="binary",
+            ),
+            "grasp.rmcdhf_input_log": ArtifactKindSpec(
+                filenames=("rmcdhf.log",),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="text",
+            ),
+            "grasp.rci_input_log": ArtifactKindSpec(
+                extensions=(".clog",),
+                default_roles=frozenset({"auxiliary_output"}),
+                content_kind="text",
+            ),
             "grasp.rmcdhf_summary": ArtifactKindSpec(
                 extensions=(".sum",),
                 default_roles=frozenset({"primary_output"}),
@@ -121,20 +171,23 @@ GRASP = validate_backend(
                 content_kind="text",
             ),
             "grasp.output": ArtifactKindSpec(
-                extensions=(".out",),
+                extensions=(".out", ".stdout"),
                 default_roles=frozenset({"primary_output"}),
                 content_kind="text",
+                failure_markers=_TERMINAL_FAILURE_MARKERS,
             ),
             "grasp.error": ArtifactKindSpec(
-                extensions=(".err",),
+                extensions=(".err", ".stderr"),
                 default_roles=frozenset({"stderr"}),
                 content_kind="text",
+                failure_markers=_TERMINAL_FAILURE_MARKERS,
             ),
         },
         detector=_GraspDetector(),
         parser=GRASP_PARSER,
         binary=GRASP_BINARY,
         launches=GRASP_LAUNCH_PLANNER,
+        planning=GRASP_CALCULATION_PLANNER,
     )
 )
 

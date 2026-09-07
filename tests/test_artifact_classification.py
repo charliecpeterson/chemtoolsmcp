@@ -128,6 +128,88 @@ def test_grasp_scientific_outputs_have_one_specific_kind(
     assert classification.candidates[0].matched_value == matched_value
 
 
+@pytest.mark.parametrize(
+    ("path", "kind", "roles", "content_kind", "matched_by"),
+    (
+        (
+            "rmcdhf.in",
+            "grasp.stdin_capture",
+            frozenset({ArtifactRole.AUXILIARY_INPUT}),
+            "text",
+            "extension",
+        ),
+        (
+            "isodata",
+            "grasp.nuclear_data",
+            frozenset({ArtifactRole.AUXILIARY_INPUT}),
+            "text",
+            "filename",
+        ),
+        (
+            "rcsf.inp",
+            "grasp.csf_input",
+            frozenset({ArtifactRole.AUXILIARY_INPUT}),
+            "text",
+            "filename",
+        ),
+        (
+            "rwfn.inp",
+            "grasp.radial_wfn_seed",
+            frozenset({
+                ArtifactRole.ORBITAL,
+                ArtifactRole.WAVEFUNCTION_SEED,
+            }),
+            "binary",
+            "filename",
+        ),
+        (
+            "rwfn.out",
+            "grasp.radial_wfn_output",
+            frozenset({ArtifactRole.ORBITAL, ArtifactRole.WAVEFUNCTION}),
+            "binary",
+            "filename",
+        ),
+        (
+            "rmix.out",
+            "grasp.mixing_output",
+            frozenset({ArtifactRole.WAVEFUNCTION}),
+            "binary",
+            "filename",
+        ),
+        (
+            "rmcdhf.log",
+            "grasp.rmcdhf_input_log",
+            frozenset({ArtifactRole.AUXILIARY_OUTPUT}),
+            "text",
+            "filename",
+        ),
+        (
+            "state.clog",
+            "grasp.rci_input_log",
+            frozenset({ArtifactRole.AUXILIARY_OUTPUT}),
+            "text",
+            "extension",
+        ),
+    ),
+)
+def test_grasp_workflow_artifacts_have_stage_specific_kinds(
+    path,
+    kind,
+    roles,
+    content_kind,
+    matched_by,
+):
+    classification = classify_artifact(BACKENDS["grasp"], path)
+
+    assert classification.status == "matched"
+    assert len(classification.candidates) == 1
+    candidate = classification.candidates[0]
+    assert candidate.kind == kind
+    assert candidate.roles == roles
+    assert candidate.content_kind == content_kind
+    assert candidate.matched_by == matched_by
+
+
 def test_exact_expectation_overrides_suffix_ambiguity():
     step = StepRef(run_uid="run-grasp-1", step_id="rmcdhf")
     expectation = ExpectedArtifact(

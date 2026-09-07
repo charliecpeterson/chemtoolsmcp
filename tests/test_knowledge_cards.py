@@ -73,6 +73,16 @@ def test_bundled_cards_are_valid_and_traceable():
         ),
         ("cross_program.silent_success", "draft", ("*",)),
         (
+            "grasp.rmcdhf.completion_requires_orbital_trace",
+            "accepted",
+            ("grasp",),
+        ),
+        (
+            "grasp.rmcdhf.correlation_layer_orbital_roles",
+            "accepted",
+            ("grasp",),
+        ),
+        (
             "grasp.rmcdhf.zero_exit_requires_convergence",
             "accepted",
             ("grasp",),
@@ -150,6 +160,23 @@ def test_bundled_cards_are_valid_and_traceable():
     assert grasp.applies_when == {
         "executable": "rmcdhf",
         "process_exit_code": 0,
+    }
+    grasp_orbital_trace = by_id[
+        "grasp.rmcdhf.completion_requires_orbital_trace"
+    ]
+    assert grasp_orbital_trace.applies_when == {
+        "executable": "rmcdhf",
+        "completion_marker": "RMCDHF_execution_complete",
+        "orbital_iteration_table": "present",
+    }
+    grasp_correlation_roles = by_id[
+        "grasp.rmcdhf.correlation_layer_orbital_roles"
+    ]
+    assert grasp_correlation_roles.applies_when == {
+        "executable": "rmcdhf",
+        "calculation_stage": (
+            "first_pass_after_adding_correlation_orbitals"
+        ),
     }
     pyscf_convergence = by_id[
         "pyscf.scf_convergence_is_separate_from_execution"

@@ -12,6 +12,7 @@ from chemtools.application.calculation_planning import (
     CALCULATION_PLAN_SCHEMA,
     MAX_PLAN_ELEMENTS,
     MAX_PLAN_STAGES,
+    MAX_PROGRAM_OPTIONS,
 )
 from chemtools.application.input_drafting import INPUT_DRAFT_SCHEMA, MAX_DRAFT_ATOMS
 from chemtools.application.input_review import INPUT_REVIEW_SCHEMA
@@ -320,9 +321,10 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                 "normalized verdict, an ordered dependency plan, required "
                 "decisions, assumptions, and the next planning or drafting "
                 "action. It does not read or write files and cannot launch a "
-                "calculation. NWChem currently supplies the planning provider; "
-                "other registered programs return an explicit unsupported "
-                "capability result."
+                "calculation. NWChem supplies molecular DFT plans. GRASP "
+                "supplies atomic MCDHF and RCI accuracy-ladder plans, with "
+                "atomic choices carried in program_options. Other registered "
+                "programs return an explicit unsupported capability result."
             ),
             "inputSchema": {
                 "type": "object",
@@ -413,6 +415,18 @@ def guided_tool_definitions() -> list[dict[str, Any]]:
                         "description": (
                             "How the requested electronic state will be "
                             "initialized and checked across stages."
+                        ),
+                    },
+                    "program_options": {
+                        "type": "object",
+                        "maxProperties": MAX_PROGRAM_OPTIONS,
+                        "description": (
+                            "Program-specific planning choices. GRASP uses "
+                            "this for the isotope and Fermi nucleus, inactive "
+                            "core, reference configurations, active spinors, "
+                            "J/parity sector, correlation substitutions, "
+                            "orbital policy, Hamiltonian variants, and "
+                            "numerical controls."
                         ),
                     },
                 },

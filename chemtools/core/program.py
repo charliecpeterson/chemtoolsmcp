@@ -370,6 +370,7 @@ class ArtifactKindSpec:
     filenames: tuple[str, ...] = ()
     default_roles: frozenset[ArtifactRole] = frozenset()
     content_kind: Literal["text", "binary", "unknown"] = "unknown"
+    failure_markers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.content_kind not in {"text", "binary", "unknown"}:
@@ -381,6 +382,11 @@ class ArtifactKindSpec:
             "default_roles",
             frozenset(ArtifactRole(role) for role in self.default_roles),
         )
+        if self.failure_markers and self.content_kind != "text":
+            raise ValueError("failure_markers require content_kind='text'")
+        if any(not marker for marker in self.failure_markers):
+            raise ValueError("failure_markers must not contain empty strings")
+        object.__setattr__(self, "failure_markers", tuple(self.failure_markers))
 
 
 class UnsupportedCapabilityError(LookupError):

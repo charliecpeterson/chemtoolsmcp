@@ -71,61 +71,71 @@ def compare_run_inspections(
             _mapping_value(reference_task, "method"),
             _mapping_value(candidate_task, "method"),
         ),
-        _consistency_value_check(
-            reference,
-            candidate,
-            "charge",
-            reference_task,
-            candidate_task,
-        ),
-        _composition_check(
-            reference,
-            candidate,
-            reference_task,
-            candidate_task,
-        ),
-        _consistency_value_check(
-            reference,
-            candidate,
-            "xc_functional",
-            reference_task,
-            candidate_task,
-        ),
-        _basis_check(
-            reference,
-            candidate,
-            reference_task,
-            candidate_task,
-        ),
-        {
-            "field": "geometry",
-            "status": "not_checked",
-            "reason": (
-                "Each input geometry may be consistent with its own output, "
-                "but the normalized inspection does not yet compare the two "
-                "geometries with each other."
-            ),
-        },
     ]
-    multiplicity = _consistency_value_check(
-        reference,
-        candidate,
-        "multiplicity",
-        reference_task,
-        candidate_task,
-        comparison_axis=True,
-    )
-    checks.append(multiplicity)
+    signature_checks = _comparison_signature_checks(reference, candidate)
+    if signature_checks is None:
+        checks.extend(
+            [
+                _consistency_value_check(
+                    reference,
+                    candidate,
+                    "charge",
+                    reference_task,
+                    candidate_task,
+                ),
+                _composition_check(
+                    reference,
+                    candidate,
+                    reference_task,
+                    candidate_task,
+                ),
+                _consistency_value_check(
+                    reference,
+                    candidate,
+                    "xc_functional",
+                    reference_task,
+                    candidate_task,
+                ),
+                _basis_check(
+                    reference,
+                    candidate,
+                    reference_task,
+                    candidate_task,
+                ),
+                {
+                    "field": "geometry",
+                    "status": "not_checked",
+                    "reason": (
+                        "Each input geometry may be consistent with its own output, "
+                        "but the normalized inspection does not yet compare the two "
+                        "geometries with each other."
+                    ),
+                },
+            ]
+        )
+        multiplicity = _consistency_value_check(
+            reference,
+            candidate,
+            "multiplicity",
+            reference_task,
+            candidate_task,
+            comparison_axis=True,
+        )
+        checks.append(multiplicity)
+    else:
+        checks.extend(signature_checks)
+        checks.extend(_comparison_axis_checks(reference, candidate))
+        multiplicity = {"field": "multiplicity", "status": "not_checked"}
 
     blocking_fields = [
         check["field"]
         for check in checks
-        if check["field"] != "multiplicity" and check["status"] == "different"
+        if not check.get("comparison_axis") and check["status"] == "different"
     ]
     unchecked_fields = [
         check["field"]
         for check in checks
-        if check["field"] != "multiplicity" and check["status"] == "not_checked"
+        if not check.get("comparison_axis") and check["status"] == "not_checked"
     ]
     if blocking_fields:
         comparability_status = "not_comparable"
@@ -236,6 +246,69 @@ def _value_check(field: str, reference: Any, candidate: Any) -> dict[str, Any]:
         "reference": reference,
         "candidate": candidate,
     }
+
+
+def _comparison_signature_checks(
+    reference: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+) -> list[dict[str, Any]] | None:
+    reference_signature = _nested(
+        reference,
+        "evidence",
+        "derived",
+        "comparison_signature",
+    )
+    candidate_signature = _nested(
+        candidate,
+        "evidence",
+        "derived",
+        "comparison_signature",
+    )
+    if not isinstance(reference_signature, Mapping) or not isinstance(
+        candidate_signature,
+        Mapping,
+    ):
+        return None
+    return [
+        _value_check(
+            f"model.{field}",
+            reference_signature.get(field),
+            candidate_signature.get(field),
+        )
+        for field in sorted(reference_signature.keys() | candidate_signature.keys())
+    ]
+
+
+def _comparison_axis_checks(
+    reference: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    reference_axes = _nested(
+        reference,
+        "evidence",
+        "derived",
+        "comparison_axes",
+    )
+    candidate_axes = _nested(
+        candidate,
+        "evidence",
+        "derived",
+        "comparison_axes",
+    )
+    if not isinstance(reference_axes, Mapping):
+        reference_axes = {}
+    if not isinstance(candidate_axes, Mapping):
+        candidate_axes = {}
+    checks = []
+    for field in sorted(reference_axes.keys() | candidate_axes.keys()):
+        check = _value_check(
+            f"axis.{field}",
+            reference_axes.get(field),
+            candidate_axes.get(field),
+        )
+        check["comparison_axis"] = True
+        checks.append(check)
+    return checks
 
 
 def _consistency_value_check(
@@ -569,7 +642,7 @@ def _run_summary(
     inspection: Mapping[str, Any],
     task: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
-    return {
+    summary = {
         "output_file": _nested(inspection, "source", "path"),
         "verdict": _nested(inspection, "assessment", "verdict"),
         "task": dict(task) if task is not None else None,
@@ -580,6 +653,11 @@ def _run_summary(
         ),
         "charge": _consistent_input_value(inspection, "charge", task),
     }
+    for field in ("comparison_signature", "comparison_axes"):
+        value = _nested(inspection, "evidence", "derived", field)
+        if isinstance(value, Mapping):
+            summary[field] = dict(value)
+    return summary
 
 
 def _nested(mapping: Any, *keys: str) -> Any:

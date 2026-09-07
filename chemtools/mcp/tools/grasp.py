@@ -86,10 +86,15 @@ from chemtools.programs.grasp.docs import (
     list_topics as _list_grasp_topics,
     get_topic_guide as _get_grasp_topic_guide,
 )
+from chemtools.programs.grasp.strategy.case_inspection import (
+    inspect_grasp_case_directory as _inspect_grasp_case_directory,
+)
 from chemtools.programs.grasp.strategy.diagnose import (
     analyze_grasp_case as _analyze_grasp_case,
     suggest_grasp_recovery as _suggest_grasp_recovery,
 )
+
+
 def _run_grasp_exe(exe: str, **kwargs: Any) -> dict[str, Any]:
     return run_grasp_exe_with_service(
         get_execution_service(),
@@ -513,6 +518,17 @@ def _handle_merge_grasp_radial_wfns(
 @_tool("analyze_grasp_case", program="grasp")
 def _handle_analyze_grasp_case(arguments: dict[str, Any]) -> dict[str, Any]:
     return _analyze_grasp_case(arguments["working_dir"])
+
+
+@_tool("inspect_grasp_case_directory", program="grasp")
+def _handle_inspect_grasp_case_directory(
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    return _inspect_grasp_case_directory(
+        arguments["mcdhf_root"],
+        rci_root=arguments.get("rci_root"),
+        stages=arguments.get("stages"),
+    )
 
 
 @_tool("summarize_grasp_runs", program="grasp")
@@ -1444,6 +1460,49 @@ _DEFS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {"working_dir": {"type": "string"}},
             "required": ["working_dir"],
+        },
+    },
+    {
+        "name": "inspect_grasp_case_directory",
+        "description": (
+            "Inspect an ordered GRASP MCDHF model ladder and optional paired "
+            "RCI tree. Reads authoritative .sum/.csum energies, reports CSF "
+            "and active-spinor dimensions, derives stage increments, and "
+            "checks that Dirac-Coulomb and zero-frequency Breit variants use "
+            "identical CSF, radial-wavefunction, and nuclear artifacts. The "
+            "RCI tree must be rci_root/<stage>/<variant>/*.csum."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mcdhf_root": {
+                    "type": "string",
+                    "description": (
+                        "Parent whose direct child directories contain the "
+                        "MCDHF stage .sum files."
+                    ),
+                },
+                "rci_root": {
+                    "type": "string",
+                    "description": (
+                        "Optional parent containing <stage>/<variant> RCI "
+                        "directories with .csum files."
+                    ),
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {"type": "string", "minLength": 1},
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": True,
+                    "description": (
+                        "Ordered direct-child stage names. If omitted, direct "
+                        "children containing .sum files are sorted by name."
+                    ),
+                },
+            },
+            "required": ["mcdhf_root"],
+            "additionalProperties": False,
         },
     },
     {

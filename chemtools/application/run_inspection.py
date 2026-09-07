@@ -256,6 +256,28 @@ def inspect_run(
         parsed,
     )
     uncertainty.extend(diagnosis_uncertainty)
+    related_failures = _related_artifact_failures(backend, artifacts)
+    if related_failures:
+        diagnosis = {
+            "verdict": {
+                "label": "failed",
+                "confidence": 0.99,
+                "reasons": [
+                    failure["message"] for failure in related_failures
+                ],
+            },
+            "next_actions": [{
+                "action": "inspect_failed_related_artifact",
+                "artifact_path": related_failures[0]["file"],
+                "reason": related_failures[0]["message"],
+                "priority": 1,
+            }],
+            "anchors": [
+                *diagnosis.get("anchors", []),
+                *related_failures,
+            ],
+        }
+        diagnosis_source = "related_artifact_failure_marker"
     tasks = list(parsed.get("tasks") or [])
     if not tasks:
         uncertainty.append({
@@ -292,10 +314,13 @@ def inspect_run(
             "input_output_consistency": consistency,
             "tasks": tasks,
             "derived": dict(parsed.get("derived") or {}),
-            "diagnostics": _normalize_diagnostics(
-                parsed.get("diagnostics") or [],
-                path,
-            ),
+            "diagnostics": [
+                *_normalize_diagnostics(
+                    parsed.get("diagnostics") or [],
+                    path,
+                ),
+                *related_failures,
+            ],
             "diagnosis_anchors": diagnosis.get("anchors", []),
         },
         "uncertainty": uncertainty,
@@ -473,6 +498,54 @@ def _serialize_classification(
             for candidate in classification.candidates
         ],
     }
+
+
+def _related_artifact_failures(
+    backend: ProgramBackend,
+    artifacts: Iterable[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    failures = []
+    for artifact in artifacts:
+        if artifact.get("relationship") != "related":
+            continue
+        classification = artifact.get("classification")
+        if not isinstance(classification, Mapping):
+            continue
+        candidates = classification.get("candidates") or []
+        if classification.get("status") != "matched" or len(candidates) != 1:
+            continue
+        kind = candidates[0].get("kind")
+        spec = backend.artifact_kinds.get(kind)
+        if spec is None or not spec.failure_markers:
+            continue
+        excerpt = artifact.get("text_excerpt")
+        if not isinstance(excerpt, Mapping):
+            continue
+        text = _text_excerpt_content(excerpt)
+        for marker in spec.failure_markers:
+            if marker in text:
+                failures.append({
+                    "kind": "error",
+                    "message": (
+                        f"Related artifact reports a terminal failure: "
+                        f"{marker}"
+                    ),
+                    "line": None,
+                    "file": artifact["path"],
+                })
+    return failures
+
+
+def _text_excerpt_content(excerpt: Mapping[str, Any]) -> str:
+    text = excerpt.get("text")
+    if isinstance(text, str):
+        return text
+    return "\n".join(
+        segment["text"]
+        for segment in excerpt.get("segments") or []
+        if isinstance(segment, Mapping)
+        and isinstance(segment.get("text"), str)
+    )
 
 
 def _diagnose(

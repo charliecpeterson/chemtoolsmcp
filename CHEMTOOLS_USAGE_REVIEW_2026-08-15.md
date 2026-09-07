@@ -246,12 +246,45 @@ Acceptance tests:
 3. Honor `task_index` for MO, population, and state parsing.
 4. Connect input-declared wavefunction files to the existing artifact
    expectation model.
-5. Add the adapter for the existing PySCF result schema.
+5. Add bounded oversized-output inspection.
+6. Add the adapter for the existing PySCF result schema.
 
 The first item is small and immediately useful. Items 2 and 3 should probably
 land together because task provenance determines how much confidence a state
 claim deserves. The PySCF adapter is useful, but it did not cause the PuCl4
 misdiagnosis and can wait until the NWChem evidence path is sound.
+
+## 6. Inspect oversized outputs without loading them whole
+
+The Es h1b5 archive exposed a hard refusal that loses otherwise usable
+evidence. Its NWChem output is 142,176,883 bytes, just above the current
+134,217,728-byte primary-output limit. `inspect_run` returned
+`primary_output_too_large`, even though the output contains a completed
+three-task workflow and a converged 229-step optimization.
+
+Keep the existing per-file and total response limits. Change the read path so
+large text outputs can be indexed without retaining the whole file. A first
+implementation only needs two passes:
+
+1. stream the file to locate task boundaries, termination markers, and the
+   small global header;
+2. parse bounded task slices selected by those offsets, with head and tail
+   windows for any unindexed evidence.
+
+Temporary index files can live under the normal Chemtools state directory and
+be keyed by path, size, modification time, and a bounded content fingerprint.
+The result should record that inspection was partial or indexed, which byte
+ranges were read, and which checks could not be performed. Raising the fixed
+cap alone would postpone the same failure to the next long optimization.
+
+Acceptance tests:
+
+- A sparse fixture file larger than 128 MiB returns task and termination
+  evidence without a full-file allocation.
+- Reported byte ranges and partial-inspection uncertainty are deterministic.
+- A task spanning a chunk boundary is parsed exactly once.
+- Binary or detector-ambiguous oversized files remain rejected.
+- The small-file path and response-size limits are unchanged.
 
 ## Behavior worth keeping
 

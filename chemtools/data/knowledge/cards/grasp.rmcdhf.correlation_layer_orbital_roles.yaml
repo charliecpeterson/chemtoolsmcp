@@ -1,0 +1,27 @@
+schema_version: chemtools.knowledge-card/1
+id: grasp.rmcdhf.correlation_layer_orbital_roles
+programs: [grasp]
+workflows: [scf, correlation]
+kind: workflow
+status: accepted
+confidence: high
+applies_when:
+  executable: rmcdhf
+  calculation_stage: first_pass_after_adding_correlation_orbitals
+claim: >-
+  On the first RMCDHF pass for a new correlation layer, vary the new layer
+  while keeping previously converged orbitals fixed. Leave the new correlation
+  orbitals out of the spectroscopic selection so GRASP does not impose a
+  reference-orbital node count on them.
+check:
+  orbitals_to_optimize: new_correlation_layer
+  spectroscopic_orbitals: excludes_new_correlation_layer
+failure:
+  severity: error
+  action: >-
+    Rebuild the stage with separate optimized and spectroscopic masks, then
+    release the intended full orbital set in a warm-start continuation.
+sources:
+  - "notes/fblock/grasp-atomic-semantics-audit.md#2-correlation-orbitals-defaulted-to-spectroscopic"
+tests:
+  - "tests/test_grasp_atomic_semantics.py::test_correlation_workflow_records_explicit_layer_policy"

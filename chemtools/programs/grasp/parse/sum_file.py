@@ -31,17 +31,31 @@ _HEADER_RE = re.compile(
 )
 _Z_RE = re.compile(r"The atomic number is\s+(" + _FLOAT_RE + r")")
 _MASS_RE = re.compile(r"the mass of the nucleus is\s+(" + _FLOAT_RE + r")")
+_FERMI_RE = re.compile(
+    r"Fermi nucleus:\s*c\s*=\s*(" + _FLOAT_RE + r")\s+Bohr radii,\s*"
+    r"a\s*=\s*(" + _FLOAT_RE + r")\s+Bohr radii;\s*"
+    r"there are\s+(\d+)\s+tabulation points",
+    re.DOTALL,
+)
 _SPEED_OF_LIGHT_RE = re.compile(r"Speed of light\s*=\s*(" + _FLOAT_RE + r")")
 _RNT_RE = re.compile(r"RNT\s*=\s*(" + _FLOAT_RE + r")")
 _H_RE = re.compile(r"\bH\s*=\s*(" + _FLOAT_RE + r")")
 _N_GRID_RE = re.compile(r"^\s*N\s*=\s*(\d+)", re.M)
+_RMAX_RE = re.compile(r"R\(N\)\s*=\s*(" + _FLOAT_RE + r")")
 _EOL_RE = re.compile(r"EOL calculation\.?\s+(\d+)\s+levels will be optimised", re.M)
+_OL_RE = re.compile(r"\bOL calculation\.\s+Level\s+(\d+)\s+will be optimised", re.M)
 
 # Radial wfn summary line: e.g. "  1s   6.9000143068D+01  1.054D+02  1.00  ..."
-_SUBSHELL_RE = re.compile(
+_RMCDHF_SUBSHELL_RE = re.compile(
     r"^\s+([1-9][0-9]?[spdfghi][-+]?)\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+"
     r"(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+"
     r"(" + _FLOAT_RE + r")\s+(\d+)\s*$",
+    re.M,
+)
+_RCI_SUBSHELL_RE = re.compile(
+    r"^\s+([1-9][0-9]?[spdfghi][-+]?)\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+"
+    r"(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+(" + _FLOAT_RE + r")\s+"
+    r"(\d+)\s*$",
     re.M,
 )
 
@@ -70,6 +84,24 @@ def parse_sum(path_or_text: str) -> dict[str, Any]:
         out["atomic_number"] = float(m.group(1))
     if m := _MASS_RE.search(text):
         out["nuclear_mass_electron_units"] = _todouble(m.group(1))
+    nucleus: dict[str, Any] = {}
+    if "the nucleus is stationary" in text:
+        nucleus["stationary"] = True
+        nucleus["mass_electron_units"] = 0.0
+    elif out.get("nuclear_mass_electron_units") is not None:
+        nucleus["stationary"] = False
+        nucleus["mass_electron_units"] = out[
+            "nuclear_mass_electron_units"
+        ]
+    if m := _FERMI_RE.search(text):
+        nucleus.update({
+            "model": "fermi",
+            "fermi_c_bohr": _todouble(m.group(1)),
+            "fermi_a_bohr": _todouble(m.group(2)),
+            "tabulation_points": int(m.group(3)),
+        })
+    if nucleus:
+        out["nucleus"] = nucleus
     if m := _SPEED_OF_LIGHT_RE.search(text):
         out["speed_of_light_au"] = _todouble(m.group(1))
         out["is_nonrel_limit"] = out["speed_of_light_au"] > 500.0
@@ -81,15 +113,21 @@ def parse_sum(path_or_text: str) -> dict[str, Any]:
         grid["H"] = _todouble(m.group(1))
     if m := _N_GRID_RE.search(text):
         grid["N"] = int(m.group(1))
+    if m := _RMAX_RE.search(text):
+        grid["rmax_bohr"] = _todouble(m.group(1))
     if grid:
         out["radial_grid"] = grid
 
     if m := _EOL_RE.search(text):
+        out["optimization_mode"] = "EOL"
         out["eol_n_levels_optimized"] = int(m.group(1))
+    elif m := _OL_RE.search(text):
+        out["optimization_mode"] = "OL"
+        out["ol_level_optimized"] = int(m.group(1))
 
     # Per-subshell radial wfn summary
     subshells: list[dict[str, Any]] = []
-    for m in _SUBSHELL_RE.finditer(text):
+    for m in _RMCDHF_SUBSHELL_RE.finditer(text):
         subshells.append({
             "label": m.group(1),
             "eigenvalue_au": _todouble(m.group(2)),
@@ -100,8 +138,29 @@ def parse_sum(path_or_text: str) -> dict[str, Any]:
             "self_consistency": _todouble(m.group(7)),
             "mtp": int(m.group(8)),
         })
+    if not subshells:
+        for m in _RCI_SUBSHELL_RE.finditer(text):
+            subshells.append({
+                "label": m.group(1),
+                "eigenvalue_au": _todouble(m.group(2)),
+                "p0": _todouble(m.group(3)),
+                "gamma": _todouble(m.group(4)),
+                "p2": _todouble(m.group(5)),
+                "q2": _todouble(m.group(6)),
+                "self_consistency": None,
+                "mtp": int(m.group(7)),
+            })
     if subshells:
         out["subshells"] = subshells
+        self_consistency = [
+            subshell["self_consistency"]
+            for subshell in subshells
+            if subshell["self_consistency"] is not None
+        ]
+        if self_consistency:
+            out["max_orbital_self_consistency"] = max(
+                self_consistency
+            )
 
     # An RCI .csum writes one Eigenenergies/contributors pair per J/parity
     # block, followed by optional correction-only energy tables. Match only
@@ -152,8 +211,33 @@ def parse_sum(path_or_text: str) -> dict[str, Any]:
             "normal_mass_shift": "H (Normal Mass Shift)" in text,
             "specific_mass_shift": "H (Specific Mass Shift)" in text,
         }
+    elif "H (Dirac Coulomb) will be diagonalised by itself" in text:
+        out["rci_corrections"] = {
+            "is_rci": True,
+            "transverse_breit": False,
+            "photon_frequency_factor": None,
+            "vacuum_polarisation": False,
+            "self_energy": False,
+            "normal_mass_shift": False,
+            "specific_mass_shift": False,
+        }
+
+    if "Self Energy Corrections:" in text:
+        out["posthoc_self_energy_table_printed"] = True
+        out["posthoc_self_energy_applied_to_mixing"] = (
+            "these do not influence the data" not in text
+        )
 
     return out
+
+
+def rci_hamiltonian(corrections: dict[str, Any]) -> str:
+    """Normalize the RCI correction block to a comparison label."""
+    if not corrections.get("transverse_breit"):
+        return "dirac_coulomb"
+    if corrections.get("photon_frequency_factor") == 0.0:
+        return "dirac_coulomb_plus_zero_frequency_breit"
+    return "dirac_coulomb_plus_transverse_interaction"
 
 
 def _as_text(path_or_text: str) -> str:

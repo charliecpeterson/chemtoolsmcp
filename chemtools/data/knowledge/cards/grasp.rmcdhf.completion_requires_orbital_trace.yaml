@@ -1,0 +1,29 @@
+schema_version: chemtools.knowledge-card/1
+id: grasp.rmcdhf.completion_requires_orbital_trace
+programs: [grasp]
+workflows: [scf, scf_recovery]
+kind: interpretation
+status: accepted
+confidence: high
+applies_when:
+  executable: rmcdhf
+  completion_marker: RMCDHF_execution_complete
+  orbital_iteration_table: present
+claim: >-
+  The RMCDHF completion line does not identify which SCF stopping test passed.
+  Preserve the final per-orbital self-consistency, Norm-1, and node-count
+  values. A growing sign-alternating orbital trace requires review even when
+  the program reports completion.
+check:
+  evidence: final_rmcdhf_orbital_trace
+  expected: recorded_and_trend_classified
+failure:
+  severity: warning
+  action: >-
+    Do not promote the radial wavefunction until the unstable orbital and the
+    first triggering orbital or CSF layer have been identified.
+sources:
+  - "notes/fblock/grasp-fblock.md#5-convergence-the-trap-that-must-be-tooled"
+tests:
+  - "tests/test_session_parsers.py::test_rmcdhf_log_preserves_orbital_trace_after_energy_stopped_run"
+  - "tests/test_session_parsers.py::test_grasp_parser_marks_growing_orbital_alternation_for_review"

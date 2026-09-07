@@ -105,7 +105,13 @@ def analyze_grasp_case(working_dir: str) -> dict[str, Any]:
 
     # Look for an rmcdhf stdout capture (we typically name it rmcdhf.out
     # via capture_log_file). If absent, the .log file has the input echo.
-    for candidate in ("rmcdhf.out", "rmcdhf_stdout.log", "rmcdhf.log"):
+    for candidate in (
+        "rmcdhf_mem.stdout",
+        "rmcdhf.stdout",
+        "rmcdhf.out",
+        "rmcdhf_stdout.log",
+        "rmcdhf.log",
+    ):
         p = work / candidate
         if not p.exists():
             continue
@@ -113,10 +119,20 @@ def analyze_grasp_case(working_dir: str) -> dict[str, Any]:
             text = p.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
+        stderr_sources = []
+        for stderr_name in ("rmcdhf_mem.stderr", "rmcdhf.stderr"):
+            stderr_path = work / stderr_name
+            if stderr_path.is_file():
+                text += "\n" + stderr_path.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                stderr_sources.append(stderr_name)
         parsed = parse_rmcdhf_log(text)
         if parsed.get("n_iterations", 0) > 0:
             scf_iters = parsed
             scf_iters["_source"] = candidate
+            scf_iters["_stderr_sources"] = stderr_sources
             break
     out["scf_iterations"] = scf_iters
 
@@ -179,6 +195,26 @@ def analyze_grasp_case(working_dir: str) -> dict[str, Any]:
                     "Likely interrupted or output was truncated."
                 ),
             })
+        elif scf_iters and scf_iters.get("growing_alternating_orbitals"):
+            verdict = "partial"
+            issues.append({
+                "severity": "warning",
+                "code": "rmcdhf_unstable_orbital_trace",
+                "message": (
+                    "rmcdhf reports completion, but the residual and Norm-1 "
+                    "trace grows while alternating sign for: "
+                    + ", ".join(
+                        scf_iters["growing_alternating_orbitals"]
+                    )
+                    + "."
+                ),
+            })
+            next_actions.append(
+                "Restart from the last accepted radial wavefunction. Add "
+                "the new orbital or CSF family in bounded stages, optimize "
+                "the implicated orbital separately, then release the full "
+                "intended orbital set."
+            )
         else:
             verdict = "healthy"
 
@@ -243,8 +279,9 @@ _FAILURE_PATTERNS: list[tuple[str, dict[str, Any]]] = [
             "fix_recipe": (
                 "Give the SCF better starting orbitals via the hf-bootstrap: "
                 "non-rel hf, convert with rwfnmchfmcdf, then DHF reads those. "
-                "Also vary orbitals inner->outer and keep the deep core "
-                "spectroscopic rather than varying everything (*)."
+                "Build orbitals from the inner core outward, then release the "
+                "intended optimized set. Spectroscopic status controls node "
+                "checking; it does not mean that an orbital is fixed."
             ),
             "next_actions": [
                 "Call plan_grasp_hf_bootstrap_workflow with the same element/"
@@ -353,12 +390,13 @@ _FAILURE_PATTERNS: list[tuple[str, dict[str, Any]]] = [
                 "for hard cases (high-Z, near-degenerate states)."
             ),
             "fix_recipe": (
-                "Bump max_scf_cycles to 200 or 300 and rerun. If the "
-                "energy is still oscillating after that, try the non-rel "
-                "limit + restart pattern instead."
+                "Inspect the recent orbital and energy trace first. More "
+                "cycles fit a steadily improving, nearly converged run. For "
+                "a growing sign-alternating orbital, restart from the last "
+                "accepted wavefunction and stage the orbital or CSF addition."
             ),
             "next_actions": [
-                "Re-call run_grasp_rmcdhf with max_scf_cycles=300.",
+                "Classify the final orbital trace before changing the cycle cap.",
             ],
         },
     ),
@@ -383,8 +421,16 @@ def suggest_grasp_recovery(
     if working_dir is not None:
         work = Path(working_dir)
         # Look in the obvious places for failure markers.
-        for candidate in ("grasp_session.md", "rmcdhf.out",
-                          "rmcdhf_stdout.log", "rmcdhf.log"):
+        for candidate in (
+            "grasp_session.md",
+            "rmcdhf_mem.stdout",
+            "rmcdhf_mem.stderr",
+            "rmcdhf.stdout",
+            "rmcdhf.stderr",
+            "rmcdhf.out",
+            "rmcdhf_stdout.log",
+            "rmcdhf.log",
+        ):
             p = work / candidate
             if p.exists():
                 try:
@@ -392,6 +438,36 @@ def suggest_grasp_recovery(
                     sources.append(candidate)
                 except Exception:
                     pass
+
+    trace = parse_rmcdhf_log(text)
+    unstable_orbitals = trace.get("growing_alternating_orbitals") or []
+    if unstable_orbitals:
+        return {
+            "failure_class": "rmcdhf_orbital_oscillation",
+            "severity": "warning",
+            "matched_pattern": "growing_sign_alternating_orbital_trace",
+            "sources_inspected": sources,
+            "orbitals": unstable_orbitals,
+            "root_cause": (
+                "The named orbital has alternating Norm-1 updates while its "
+                "self-consistency residual grows. RMCDHF can still print an "
+                "execution-complete line when the weighted-energy stopping "
+                "path accepts the run."
+            ),
+            "fix_recipe": (
+                "Return to the last accepted rwfn file. Reproduce the model "
+                "change in a bounded CSF ladder, stop at the first failing "
+                "stage, optimize the new or implicated orbital with the "
+                "previous orbitals fixed, then release the intended orbital "
+                "set. If orbital staging does not change the pattern, bisect "
+                "the newly added CSF families."
+            ),
+            "next_actions": [
+                "Do not propagate rwfn.out from this stage.",
+                "Compare the last accepted and first rejected CSF lists.",
+                "Run new-orbital-only, then all-orbital RMCDHF continuations.",
+            ],
+        }
 
     # Classify by walking the failure-mode priority list (first match wins).
     for needle, info in _FAILURE_PATTERNS:

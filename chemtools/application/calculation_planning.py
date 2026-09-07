@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any, Mapping
 
 from chemtools.core.common import ELEMENT_TO_Z
@@ -11,6 +12,9 @@ from chemtools.core.program import ProgramBackend, ProgramCapability
 CALCULATION_PLAN_SCHEMA = "chemtools.plan-calculation/1"
 MAX_PLAN_ELEMENTS = 32
 MAX_PLAN_STAGES = 8
+MAX_PROGRAM_OPTIONS = 32
+MAX_PROGRAM_OPTION_DEPTH = 6
+MAX_PROGRAM_OPTION_ITEMS = 128
 _STAGE_KINDS = {
     "energy",
     "optimize",
@@ -110,7 +114,11 @@ def plan_calculation(
             "required_decisions": decisions,
         },
         "uncertainty": list(planned["assumptions"]),
-        "next_actions": _next_actions(normalized, decisions),
+        "next_actions": _next_actions(
+            normalized,
+            decisions,
+            planned.get("next_actions"),
+        ),
     }
 
 
@@ -124,6 +132,7 @@ def _normalize_request(
         "charge",
         "multiplicity",
         "stages",
+        "program_options",
         *_OPTIONAL_FIELDS,
     }
     unknown = sorted(set(request) - allowed)
@@ -191,6 +200,19 @@ def _normalize_request(
         normalized[field] = (
             dict(value) if isinstance(value, Mapping) else value.strip()
         )
+    if "program_options" in request:
+        program_options = request["program_options"]
+        if (
+            not isinstance(program_options, Mapping)
+            or len(program_options) > MAX_PROGRAM_OPTIONS
+        ):
+            _invalid(
+                program,
+                "program_options must be an object with at most "
+                f"{MAX_PROGRAM_OPTIONS} fields",
+            )
+        _validate_program_options(program, program_options)
+        normalized["program_options"] = deepcopy(dict(program_options))
     return normalized
 
 
@@ -214,6 +236,7 @@ def _validate_basis_like(program: str, field: str, value: Any) -> None:
 def _next_actions(
     request: Mapping[str, Any],
     decisions: list[dict[str, Any]],
+    provider_actions: Any = None,
 ) -> list[dict[str, Any]]:
     if decisions:
         return [{
@@ -224,6 +247,11 @@ def _next_actions(
             ),
             "priority": 1,
         }]
+    if (
+        isinstance(provider_actions, (list, tuple))
+        and all(isinstance(action, Mapping) for action in provider_actions)
+    ):
+        return [dict(action) for action in provider_actions]
     return [{
         "action": "draft_stage_inputs",
         "tool": "draft_input",
@@ -234,6 +262,53 @@ def _next_actions(
         "stage_kinds": list(request["stages"]),
         "priority": 1,
     }]
+
+
+def _validate_program_options(
+    program: str,
+    options: Mapping[str, Any],
+) -> None:
+    item_count = 0
+
+    def visit(value: Any, depth: int) -> None:
+        nonlocal item_count
+        if depth > MAX_PROGRAM_OPTION_DEPTH:
+            _invalid(
+                program,
+                "program_options exceeds the maximum nesting depth of "
+                f"{MAX_PROGRAM_OPTION_DEPTH}",
+            )
+        if value is None or isinstance(value, (bool, int, float, str)):
+            item_count += 1
+        elif isinstance(value, Mapping):
+            if any(
+                not isinstance(key, str) or not key.strip()
+                for key in value
+            ):
+                _invalid(
+                    program,
+                    "program_options object keys must be non-empty strings",
+                )
+            item_count += len(value)
+            for nested in value.values():
+                visit(nested, depth + 1)
+        elif isinstance(value, (list, tuple)):
+            item_count += len(value)
+            for nested in value:
+                visit(nested, depth + 1)
+        else:
+            _invalid(
+                program,
+                "program_options values must be JSON-compatible",
+            )
+        if item_count > MAX_PROGRAM_OPTION_ITEMS:
+            _invalid(
+                program,
+                "program_options contains more than "
+                f"{MAX_PROGRAM_OPTION_ITEMS} values",
+            )
+
+    visit(options, 0)
 
 
 def _invalid(program: str, message: str) -> None:
@@ -248,6 +323,7 @@ __all__ = [
     "CALCULATION_PLAN_SCHEMA",
     "MAX_PLAN_ELEMENTS",
     "MAX_PLAN_STAGES",
+    "MAX_PROGRAM_OPTIONS",
     "CalculationPlanError",
     "plan_calculation",
 ]

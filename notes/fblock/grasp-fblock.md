@@ -239,9 +239,31 @@ No error, no non-zero status, a normal-looking output file. Count iteration
 blocks in the stdout (the `Subshell / Energy / Method` header repeats once per
 iteration) and raise if the count reached the maximum.
 
-Do **not** guard on the per-orbital consistency column instead: a correct
-diffuse outer orbital pins consistency near 1 through the same numerical
-artifact as a pathological one, so that guard produces only false positives.
+Do not turn the per-orbital consistency column into a universal cutoff. A
+correct diffuse outer orbital can retain a large value, so the absolute number
+is not an independent convergence test. Keep the column anyway. It identifies
+which orbital is moving and whether the last few updates are shrinking,
+stalled, or alternating between branches.
+
+GRASP2018 has two SCF acceptance paths. It accepts either a largest selected
+orbital self-consistency value at or below `ACCY`, or a relative weighted-energy
+change below `0.001 * ACCY`. The final `RMCDHF: Execution complete` line does
+not say which test passed. A completed run can therefore have an orbital
+residual far above `ACCY` because the energy test fired first.
+
+The Yb CAS work exposed the useful failure signature. A new occupied `6p`
+family finished normally while the `6p` self-consistency values grew from
+`1.06e-2` to `3.44e-2` and `Norm-1` changed sign on every cycle. A tighter
+continuation diverged. Chemtools now retains the final orbital table, node
+counts, and the growing sign-alternating trace instead of reducing the run to
+one Boolean convergence value.
+
+For this pattern, return to the last accepted `rwfn` file. Add the new orbital
+or CSF families in bounded stages and stop at the first rejected stage. When a
+new orbital layer is involved, first hold the previous orbitals fixed and vary
+the new layer, then restart and release the intended full set. If the same CSF
+boundary fails after orbital staging, bisect the newly added CSF families. Do
+not pass `rwfn.out` from a rejected stage to the next calculation.
 
 ---
 
@@ -322,6 +344,10 @@ Rules distilled from ~120 element-batteries:
   anchor**, and then stage it: vary only that orbital in the frozen seeded
   potential first (`5f-,5f` — **both j components must be listed**), then
   release everything with a warm start from that pass.
+- **Spectroscopic and optimized are separate choices.** The varied-orbital
+  list controls optimization. The spectroscopic list controls node checking.
+  A core orbital can be optimized and spectroscopic, while a new correlation
+  orbital can be optimized without a spectroscopic node constraint.
 - **Never birth f and d beside each other.** At uranium the 5f/6d near
   degeneracy forbids it in both directions. The fix is a **multi-donor seed**:
   merge the d orbital from one converged state and the f from another.
